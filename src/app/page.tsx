@@ -637,9 +637,9 @@ export default function Dashboard() {
 
   if (liffState === 'loading') {
     return (
-      <div className="h-screen w-full bg-[#f4f6f9] flex flex-col items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#e2e5ef] border-t-[#00b900] rounded-full animate-spin mb-4"></div>
-        <div className="font-bold text-[#1a1d2e] tracking-widest uppercase text-sm">Verifying Access...</div>
+      <div className="h-screen w-full bg-[#1a1d2e] flex flex-col items-center justify-center">
+        <div className="w-16 h-16 border-4 border-[#00b900]/20 border-t-[#00b900] rounded-full animate-spin mb-6"></div>
+        <p className="text-[#8b92ad] text-xs font-bold tracking-widest uppercase animate-pulse">Initializing Secure Session...</p>
       </div>
     );
   }
@@ -687,10 +687,11 @@ export default function Dashboard() {
     );
   }
 
-  const isSetupRequired = !shopInfo?.liffId || !shopInfo?.adminLineId;
-
-  if (isSetupRequired) {
-    return <SetupView onComplete={() => window.location.reload()} />;
+  if (liffState === 'admin') {
+    const isSetupRequired = !shopInfo?.liffId || !shopInfo?.adminLineId;
+    if (isSetupRequired) {
+      return <SetupView onComplete={() => window.location.reload()} />;
+    }
   }
 
   return (
