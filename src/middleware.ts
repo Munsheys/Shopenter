@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const ADMIN_SECRET = process.env.ADMIN_API_SECRET;
+const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET;
 
 export function middleware(request: NextRequest) {
   // Protect all /api routes
