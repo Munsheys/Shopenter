@@ -27,7 +27,8 @@ export async function POST(req: Request) {
 
   try {
     await dbConnect();
-    const settings = await Settings.findOne();
+    // Always get the latest settings document
+    const settings = await Settings.findOne().sort({ _id: -1 });
     const channelSecret = (settings?.lineChannelSecret || process.env.LINE_CHANNEL_SECRET || '').trim();
     const channelAccessToken = (settings?.lineChannelAccessToken || process.env.LINE_CHANNEL_ACCESS_TOKEN || '').trim();
 
