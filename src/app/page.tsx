@@ -649,12 +649,12 @@ export default function Dashboard() {
           <div className="w-20 h-20 bg-[#00b90011] text-[#00b900] rounded-3xl mx-auto mb-8 flex items-center justify-center">
             <SettingsIcon size={40} />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Administrative Login</h2>
+          <h2 className="text-2xl font-bold mb-2 text-[#1a1d2e]">Administrative Login</h2>
           <p className="text-[#8b92ad] text-sm mb-8">Please enter your system secret to access the dashboard.</p>
           <input 
             type="password" 
             placeholder="Enter Admin Secret..." 
-            className="w-full border border-[#e2e5ef] rounded-2xl px-6 py-4 mb-4 outline-none focus:border-[#00b900] text-center font-bold tracking-widest"
+            className="w-full border border-[#e2e5ef] rounded-2xl px-6 py-4 mb-4 outline-none focus:border-[#00b900] text-center font-bold tracking-widest text-[#1a1d2e] placeholder:text-[#b0b7c3]"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 const val = (e.target as HTMLInputElement).value;
@@ -675,7 +675,7 @@ export default function Dashboard() {
                   if (res.ok) window.location.reload();
                 }
               }}
-              className="text-[10px] text-red-400 hover:text-red-600 font-bold tracking-widest uppercase"
+              className="text-[10px] text-red-500 hover:text-red-700 font-bold tracking-widest uppercase transition-colors"
             >
               Emergency Factory Reset
             </button>
