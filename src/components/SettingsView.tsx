@@ -164,6 +164,7 @@ export default function SettingsView() {
         <div className="pt-8 border-t border-[#f4f6f9] mb-10">
           <h3 className="text-sm font-bold text-[#1a1d2e] mb-6">Platform Integration (LINE)</h3>
           
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Admin Secret (Master Password)</label>
               <div className="relative">
