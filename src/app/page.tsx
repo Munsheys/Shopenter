@@ -571,15 +571,16 @@ export default function Dashboard() {
 
   const initLiffRouter = useCallback(async () => {
     try {
-      // 1. Check if the system is even configured (Guest fetch)
-      const checkRes = await fetch('/api/shop-info');
+      // 1. Check if the system is even configured by checking the RAW database settings
+      // We don't use shop-info here because shop-info returns environment variable fallbacks
+      const checkRes = await fetch('/api/settings');
       const checkData = await checkRes.json();
       
       const isConfigured = !!checkData.liffId;
 
       if (!isConfigured) {
-        setLiffState('admin'); // This will trigger SetupView because shopInfo is null or liffId is missing
-        setShopInfo(checkData);
+        setLiffState('admin'); // This will trigger SetupView because liffId is missing
+        setShopInfo(null); // Force SetupView to show
         return;
       }
 
