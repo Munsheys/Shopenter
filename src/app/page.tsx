@@ -503,8 +503,13 @@ export default function Dashboard() {
   const [chatSidebarWidth, setChatSidebarWidth] = useState(420);
   const isResizingChat = useRef(false);
   const rafId = useRef<number | null>(null);
-
+  const [adminSecret, setAdminSecret] = useState<string | null>(null);
   const chatSidebarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('admin_secret');
+    if (saved) setAdminSecret(saved);
+  }, []);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -549,7 +554,8 @@ export default function Dashboard() {
   }, [resize, stopResizing]);
 
   useEffect(() => {
-    const headers = { 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || '' };
+    const secret = localStorage.getItem('admin_secret') || '';
+    const headers = { 'x-admin-secret': secret };
     fetch('/api/shop-info', { headers }).then(r => r.json()).then(data => setShopInfo(data)).catch(console.error);
     fetch('/api/rate', { headers }).then(r => r.ok ? r.json() : { rate: 0.026 }).then(data => setKrwRate(data?.rate || 0.026)).catch(console.error);
     fetch('/api/customers', { headers }).then(r => r.ok ? r.json() : []).then(data => setCustomers(Array.isArray(data) ? data : [])).catch(console.error);
@@ -561,52 +567,82 @@ export default function Dashboard() {
     return () => clearInterval(rateInterval);
   }, []);
 
-  useEffect(() => {
-    const initLiffRouter = async () => {
-      try {
-        const headers = { 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || '' };
-        const res = await fetch('/api/shop-info', { headers });
-        const data = await res.json();
-        
-        const liffId = data.liffId || process.env.NEXT_PUBLIC_LIFF_ID;
-        
-        if (!liffId) {
-          console.warn("No LIFF ID found. Bypassing auth for local dev.");
-          setLiffState('admin');
-          return;
-        }
-
-        await liff.init({ liffId });
-
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
-
-        const profile = await liff.getProfile();
-        const adminId = data.adminLineId || process.env.NEXT_PUBLIC_ADMIN_LINE_ID;
-        
-        if (adminId && profile.userId === adminId) {
-          setLiffState('admin');
-        } else {
-          // Not the admin? Redirect to the storefront instantly!
-          window.location.href = '/shop';
-        }
-      } catch (err) {
-        console.error("LIFF Init failed:", err);
-        // Fallback for desktop development environments where LIFF fails to initialize
-        setLiffState('admin'); 
+  const initLiffRouter = useCallback(async () => {
+    try {
+      const secret = localStorage.getItem('admin_secret') || '';
+      const headers = { 'x-admin-secret': secret };
+      const res = await fetch('/api/shop-info', { headers });
+      
+      // If unauthorized, we need the secret
+      if (res.status === 401) {
+        setLiffState('unauthorized');
+        return;
       }
-    };
-    
-    initLiffRouter();
+
+      const data = await res.json();
+      setShopInfo(data);
+      
+      const liffId = data.liffId;
+      if (!liffId) {
+        setLiffState('admin');
+        return;
+      }
+
+      await liff.init({ liffId });
+
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      const profile = await liff.getProfile();
+      if (data.adminLineId && profile.userId === data.adminLineId) {
+        setLiffState('admin');
+      } else {
+        window.location.href = '/shop';
+      }
+    } catch (err) {
+      console.error("Auth flow failed:", err);
+      setLiffState('admin'); 
+    }
   }, []);
+
+  useEffect(() => {
+    initLiffRouter();
+  }, [initLiffRouter]);
 
   if (liffState === 'loading') {
     return (
       <div className="h-screen w-full bg-[#f4f6f9] flex flex-col items-center justify-center">
         <div className="w-16 h-16 border-4 border-[#e2e5ef] border-t-[#00b900] rounded-full animate-spin mb-4"></div>
-        <div className="font-bold text-[#1a1d2e] tracking-widest uppercase text-sm">Authenticating Identity...</div>
+        <div className="font-bold text-[#1a1d2e] tracking-widest uppercase text-sm">Verifying Access...</div>
+      </div>
+    );
+  }
+
+  if (liffState === 'unauthorized') {
+    return (
+      <div className="h-screen w-full bg-[#1a1d2e] flex items-center justify-center p-4">
+        <div className="bg-white rounded-[40px] p-10 w-full max-w-md shadow-2xl text-center">
+          <div className="w-20 h-20 bg-[#00b90011] text-[#00b900] rounded-3xl mx-auto mb-8 flex items-center justify-center">
+            <SettingsIcon size={40} />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Administrative Login</h2>
+          <p className="text-[#8b92ad] text-sm mb-8">Please enter your system secret to access the dashboard.</p>
+          <input 
+            type="password" 
+            placeholder="Enter Admin Secret..." 
+            className="w-full border border-[#e2e5ef] rounded-2xl px-6 py-4 mb-4 outline-none focus:border-[#00b900] text-center font-bold tracking-widest"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const val = (e.target as HTMLInputElement).value;
+                localStorage.setItem('admin_secret', val);
+                window.location.reload();
+              }
+            }}
+          />
+          <p className="text-[10px] text-[#8b92ad]">Press Enter to Unlock</p>
+        </div>
       </div>
     );
   }

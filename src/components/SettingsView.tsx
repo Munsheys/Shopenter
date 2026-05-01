@@ -13,7 +13,10 @@ export default function SettingsView() {
   const [showAdminId, setShowAdminId] = useState(false);
 
   useEffect(() => {
-    fetch('/api/settings')
+    const secret = localStorage.getItem('admin_secret') || '';
+    fetch('/api/settings', {
+      headers: { 'x-admin-secret': secret }
+    })
       .then(r => r.json())
       .then(data => {
         console.log('DEBUG SETTINGS DATA:', data);
@@ -25,9 +28,13 @@ export default function SettingsView() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const secret = localStorage.getItem('admin_secret') || '';
       const res = await fetch('/api/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-secret': secret
+        },
         body: JSON.stringify(settings)
       });
       if (res.ok) {
