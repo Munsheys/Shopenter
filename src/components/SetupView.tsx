@@ -9,14 +9,15 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
     liffId: '',
     adminLineId: '',
     lineChannelAccessToken: '',
-    lineChannelSecret: ''
+    lineChannelSecret: '',
+    adminSecret: ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
   const handleSave = async () => {
-    if (!formData.liffId || !formData.adminLineId) {
-      alert("LIFF ID and Admin LINE ID are required to secure the system.");
+    if (!formData.liffId || !formData.adminLineId || !formData.adminSecret) {
+      alert("LIFF ID, Admin LINE ID, and Admin Secret are required to secure the system.");
       return;
     }
 
@@ -26,12 +27,14 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
+          'x-admin-secret': formData.adminSecret
         },
         body: JSON.stringify(formData)
       });
 
       if (res.ok) {
+        // Save the secret so they are instantly logged in!
+        localStorage.setItem('admin_secret', formData.adminSecret);
         alert("System Activated Successfully! The security bouncer is now active.");
         onComplete();
       } else {
@@ -163,6 +166,25 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                 </div>
               </div>
 
+              {/* Admin Secret */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest ml-1">Admin Secret (from Vercel)</label>
+                <div className="relative">
+                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#00b900]">
+                    <ShieldCheck size={20} />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter your ADMIN_SECRET..."
+                    className="w-full bg-[#f8fafc] border border-[#e2e5ef] rounded-2xl py-4 pl-14 pr-6 outline-none focus:border-[#00b900] transition-all font-mono text-sm"
+                    value={formData.adminSecret || ""}
+                    onChange={(e) => setFormData({ ...formData, adminSecret: e.target.value })}
+                  />
+                </div>
+                <p className="text-[9px] text-[#8b92ad] ml-1 italic">This must match the secret you set in Vercel environment variables.</p>
+              </div>
+
               <div className="pt-4">
                 <button 
                   onClick={handleSave}
@@ -173,7 +195,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ) : (
                     <>
-                      <Rocket size={20} />
+                      <Zap size={20} />
                       Activate System Security
                     </>
                   )}
