@@ -17,10 +17,13 @@ const SettingsSchema = new mongoose.Schema({
 
 const ProductSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  brand: String,
   description: String,
   price: { type: Number, required: true },
   imageUrl: String,
   category: String,
+  color: String,
+  thickness: String,
   variants: [{
     label: String,
     price: Number,
