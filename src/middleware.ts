@@ -8,8 +8,7 @@ export function middleware(request: NextRequest) {
     // Skip public APIs and first-time setup
     const isPublicGet = request.method === 'GET' && 
       (request.nextUrl.pathname === '/api/shop-info' || 
-       request.nextUrl.pathname === '/api/products' ||
-       request.nextUrl.pathname === '/api/debug-db');
+       request.nextUrl.pathname === '/api/products');
     
     const isSetupPost = request.method === 'POST' && request.nextUrl.pathname === '/api/settings';
 
