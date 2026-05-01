@@ -20,9 +20,11 @@ export async function POST(req: Request) {
     const body = await req.json();
     await dbConnect();
     
-    // Security check: Only allow unauthenticated POST if no settings exist yet
+    // Security check: Only allow unauthenticated POST if no settings exist OR if they are unconfigured
     const existing = await Settings.findOne();
-    if (existing) {
+    const isUnconfigured = !existing || !existing.liffId;
+
+    if (!isUnconfigured) {
       const secret = req.headers.get('x-admin-secret');
       if (!process.env.NEXT_PUBLIC_ADMIN_SECRET || secret !== process.env.NEXT_PUBLIC_ADMIN_SECRET) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
