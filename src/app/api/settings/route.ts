@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
 import { getLocalSettings, saveLocalSettings } from '@/lib/storage';
@@ -18,7 +19,9 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    console.log('[POST /api/settings] readyState before connect:', mongoose.connection.readyState);
     await dbConnect();
+    console.log('[POST /api/settings] readyState after connect:', mongoose.connection.readyState);
     
     // Security check: Only allow unauthenticated POST if no settings exist OR if they are unconfigured
     const existing = await Settings.findOne();
