@@ -694,11 +694,13 @@ export default function Dashboard() {
     }
   }
 
-  return (
-    <div className="flex flex-col h-screen bg-[#f4f6f9] text-[#1a1d2e] overflow-hidden">
-      {/* Topbar */}
-      <div className="bg-white h-16 border-b border-[#e2e5ef] flex items-center justify-between px-4 shadow-sm z-50">
-        <div className="flex items-center gap-6">
+  // 4. Finally, show the dashboard ONLY if fully authenticated and setup is done
+  if (liffState === 'admin' && !isSetupRequired) {
+    return (
+      <div className="flex flex-col h-screen bg-[#f4f6f9] text-[#1a1d2e] overflow-hidden">
+        {/* Topbar */}
+        <div className="bg-white h-16 border-b border-[#e2e5ef] flex items-center justify-between px-4 shadow-sm z-50">
+          <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 font-bold text-lg">
              <span className="text-[#00b900]">✦</span> {shopInfo?.name || "Loading..."}
           </div>
@@ -1601,5 +1603,8 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
         onCancel={() => setIsQuickOrderOpen(false)}
       />
     </div>
-  );
+    );
+  }
+
+  return null;
 }
