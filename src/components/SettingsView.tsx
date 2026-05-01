@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Plus, X, Save } from 'lucide-react';
+import { Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff } from 'lucide-react';
 
 export default function SettingsView() {
   const [settings, setSettings] = useState<any>(null);
   const [newCompany, setNewCompany] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => setSettings(data));
