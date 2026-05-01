@@ -11,7 +11,8 @@ const SettingsSchema = new mongoose.Schema({
   lineChannelAccessToken: { type: String, default: "" },
   lineChannelSecret: { type: String, default: "" },
   liffId: { type: String, default: "" },
-  adminLineId: { type: String, default: "" }
+  adminLineId: { type: String, default: "" },
+  adminSecret: { type: String, default: "" }
 });
 
 const ProductSchema = new mongoose.Schema({

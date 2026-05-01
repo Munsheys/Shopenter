@@ -33,7 +33,12 @@ export async function POST(req: Request) {
 
     if (!isUnconfigured) {
       const secret = req.headers.get('x-admin-secret');
-      if (!process.env.NEXT_PUBLIC_ADMIN_SECRET || secret !== process.env.NEXT_PUBLIC_ADMIN_SECRET) {
+      const dbSecret = existing.adminSecret;
+      const envSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET;
+
+      const isValid = (dbSecret && secret === dbSecret) || (envSecret && secret === envSecret);
+      
+      if (!isValid) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
