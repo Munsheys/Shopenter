@@ -15,10 +15,20 @@ if (!cached) {
 async function dbConnect() {
   if (cached.conn) return cached.conn;
   if (!cached.promise) {
+    const uri = MONGODB_URI.trim();
     const opts = {
-      serverSelectionTimeoutMS: 10000, // 10s for production stability
+      serverSelectionTimeoutMS: 10000,
     };
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => mongoose);
+    console.log("Connecting to MongoDB...");
+    cached.promise = mongoose.connect(uri, opts)
+      .then((mongoose) => {
+        console.log("MongoDB Connected Successfully");
+        return mongoose;
+      })
+      .catch((err) => {
+        console.error("MongoDB Connection Failed:", err.message);
+        throw err;
+      });
   }
   cached.conn = await cached.promise;
   return cached.conn;
