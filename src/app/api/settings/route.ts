@@ -13,7 +13,17 @@ export async function GET() {
     if (!s) s = await Settings.findOne().sort({ _id: -1 });
     
     if (s) {
-      return NextResponse.json(s);
+      const settings = s.toObject ? s.toObject() : { ...s };
+      const secret = req.headers.get('x-admin-secret');
+      const isValid = secret === settings.adminSecret || secret === process.env.NEXT_PUBLIC_ADMIN_SECRET;
+      
+      if (!isValid) {
+        // Strip sensitive info for public checks
+        delete settings.adminSecret;
+        delete settings.lineChannelAccessToken;
+        delete settings.lineChannelSecret;
+      }
+      return NextResponse.json(settings);
     }
     return NextResponse.json(getLocalSettings());
   } catch (error) {

@@ -1,39 +1,36 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order } from '@/models';
+import { Order, Customer, Settings } from '@/models';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const secret = req.headers.get('x-admin-secret');
     await dbConnect();
+
+    // Verification Logic: Check DB first, then ENV
+    const settings = await Settings.findOne();
+    const dbSecret = settings?.adminSecret;
+    const envSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET;
+
+    const isValid = (dbSecret && secret === dbSecret) || (envSecret && secret === envSecret);
+
+    if (!isValid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const orders = await Order.find();
+    const customers = await Customer.countDocuments();
     
-    let totalRevTHB = 0;
-    let totalProfit = 0;
-    const monthly: any = {};
+    const totalSales = orders.reduce((sum, o) => sum + (o.soldTHB || 0), 0);
+    const totalProfit = orders.reduce((sum, o) => sum + (o.profit || 0), 0);
 
-    orders.forEach(o => {
-      // Personal orders have soldTHB, shop orders have totalTHB
-      const rev = o.soldTHB || o.totalTHB || 0;
-      const profit = o.profit || (rev * 0.2); // Simple mock profit for shop orders if not calculated
-      
-      totalRevTHB += rev;
-      totalProfit += profit;
-
-      const dateStr = new Date(o.createdAt).toISOString().substring(0, 7); // YYYY-MM
-      if (!monthly[dateStr]) monthly[dateStr] = { rev: 0, profit: 0 };
-      monthly[dateStr].rev += rev;
-      monthly[dateStr].profit += profit;
+    return NextResponse.json({
+      sales: totalSales,
+      profit: totalProfit,
+      customers: customers,
+      orders: orders.length
     });
-
-    return NextResponse.json({ totalRevTHB, totalProfit, monthly });
   } catch (error) {
-    const mockStats = {
-      totalRevTHB: 3000,
-      totalProfit: 2283.87,
-      monthly: {
-        '2026-04': { rev: 3000, profit: 2283.87 }
-      }
-    };
-    return NextResponse.json(mockStats);
+    return NextResponse.json({ error: 'Failed' }, { status: 500 });
   }
 }
