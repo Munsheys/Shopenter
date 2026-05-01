@@ -1,0 +1,14 @@
+{
+  "shopName": "test",
+  "primaryColor": "#d71cfd",
+  "krwRate": 0.023,
+  "shippingCompanies": [
+    "Flash Express",
+    "ThaiPost",
+    "Kerry Express",
+    "J&T Express",
+    "test"
+  ],
+  "senderAddress": "",
+  "trackingTemplate": "📦 Shipped!\n\nCourier: {courier}\nTracking: {tracking}\nItems: {product}\n\nThank you! 🙏"
+}
