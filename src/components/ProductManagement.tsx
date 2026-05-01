@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, Plus, Edit2, Trash2 } from 'lucide-react';
 
 export default function ProductManagement() {
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('/api/products', {

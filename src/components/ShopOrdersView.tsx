@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingCart, FileSpreadsheet, Check } from 'lucide-react';
 
 export default function ShopOrdersView() {
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('/api/shop-orders', {
