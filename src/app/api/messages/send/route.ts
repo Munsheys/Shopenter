@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 2. Push to LINE (if token is valid)
-    const token = settings?.lineChannelAccessToken || process.env.LINE_ACCESS_TOKEN;
+    const token = settings?.lineChannelAccessToken || process.env.LINE_CHANNEL_ACCESS_TOKEN;
     if (token && token !== 'your_token_here') {
       try {
         const lineResponse = await fetch('https://api.line.me/v2/bot/message/push', {

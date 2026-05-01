@@ -21,7 +21,8 @@ import {
   CheckCircle2,
   History,
   Copy,
-  Send
+  Send,
+  RefreshCw
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -99,17 +100,34 @@ function ChatHistory({ userId, customerName = "Customer" }: { userId: string, cu
   }, [userId]);
 
   useEffect(() => {
-    const controller = new AbortController();
+    if (!userId) return;
     setIsLoading(true);
-    setMessages([]); // Clear previous user's messages immediately
-    fetchMessages(controller.signal);
+    setMessages([]);
     
-    const interval = setInterval(() => fetchMessages(controller.signal), 5000);
-    return () => {
-      clearInterval(interval);
-      controller.abort();
+    const secret = localStorage.getItem('admin_secret') || '';
+    const es = new EventSource(`/api/messages/${userId}/stream?secret=${encodeURIComponent(secret)}`);
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (Array.isArray(data)) {
+          setMessages(data);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('[SSE Messages] Parse error:', err);
+      }
     };
-  }, [userId, fetchMessages]);
+
+    es.onerror = () => {
+      console.warn('[SSE Messages] Connection error.');
+      // Optional fallback logic could be placed here
+    };
+
+    return () => {
+      es.close();
+    };
+  }, [userId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -498,6 +516,15 @@ export default function AdminDashboard() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleGlobalRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    setRefreshKey(prev => prev + 1);
+    await new Promise(r => setTimeout(r, 600));
+    setIsRefreshing(false);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [shopInfo, setShopInfo] = useState<any>(null);
   const [liveRate, setLiveRate] = useState(0.0221); // Simulated live rate
@@ -702,7 +729,7 @@ export default function AdminDashboard() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="bg-[#fffbe6] border border-[#ffe58f] px-4 py-1.5 rounded-full flex items-center gap-3 text-sm font-bold">
             <span className="text-[#1a1d2e] opacity-80 whitespace-nowrap">1 KRW =</span>
             <input 
@@ -718,6 +745,15 @@ export default function AdminDashboard() {
               <button className="bg-[#f0f0f0] text-[#888] px-2.5 py-1 rounded-md text-[10px] font-black tracking-tight">EN</button>
             </div>
           </div>
+          {/* Global Refresh Button */}
+          <button
+            id="global-refresh-btn"
+            onClick={handleGlobalRefresh}
+            title="Refresh data"
+            className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#e2e5ef] bg-white text-[#8b92ad] hover:text-[#00b900] hover:border-[#00b900] hover:bg-[#00b90008] transition-all shadow-sm"
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-[#00b900]' : ''} />
+          </button>
         </div>
       </div>
 
@@ -768,11 +804,11 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-8 relative">
-           {activeTab === 'orders' && <OrdersView customer={selectedCustomer} krwRate={krwRate} />}
-           {activeTab === 'shop-orders' && <ShopOrdersView />}
-           {activeTab === 'products' && <ProductManagement />}
-           {activeTab === 'reports' && <ReportsView />}
-           {activeTab === 'settings' && <SettingsView />}
+           {activeTab === 'orders' && <OrdersView key={`orders-${refreshKey}`} customer={selectedCustomer} krwRate={krwRate} />}
+           {activeTab === 'shop-orders' && <ShopOrdersView key={`shop-orders-${refreshKey}`} />}
+           {activeTab === 'products' && <ProductManagement key={`products-${refreshKey}`} />}
+           {activeTab === 'reports' && <ReportsView key={`reports-${refreshKey}`} />}
+           {activeTab === 'settings' && <SettingsView key={`settings-${refreshKey}`} />}
         </main>
            
         {selectedCustomer && isChatOpen && (
@@ -883,6 +919,8 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   const [isQuickOrderOpen, setIsQuickOrderOpen] = useState(false);
   const [modal, setModal] = useState<any>({ isOpen: false, title: '', message: '', onConfirm: null, type: 'confirm' });
   const [parcels, setParcels] = useState<any[]>([]);
+  // Prevent refreshData from wiping manually-added parcels
+  const hasSeededParcels = useRef(false);
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -908,22 +946,25 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
       setCustomerData(data.customer);
       setOrders(data.orders || []);
 
-      const preparing = (data.orders || []).filter((o: any) => o.status === 'preparing');
-      if (preparing.length > 0) {
-        setParcels([{
-          id: Date.now(),
-          items: preparing.map((o: any) => ({
-            id: Date.now() + Math.random(),
-            orderId: o._id,
-            name: o.product,
-            sold: o.soldTHB,
-            cost: o.costKRW || 0
-          })),
-          courier: '',
-          tracking: ''
-        }]);
-      } else {
-        setParcels([]);
+      // Seed parcels from DB preparing orders only on first load.
+      // Never wipe user-added parcels on subsequent refreshes.
+      if (!hasSeededParcels.current) {
+        hasSeededParcels.current = true;
+        const preparing = (data.orders || []).filter((o: any) => o.status === 'preparing');
+        if (preparing.length > 0) {
+          setParcels([{
+            id: Date.now(),
+            items: preparing.map((o: any) => ({
+              id: Date.now() + Math.random(),
+              orderId: o._id,
+              name: o.product,
+              sold: o.soldTHB,
+              cost: o.costKRW || 0
+            })),
+            courier: '',
+            tracking: ''
+          }]);
+        }
       }
     } catch (err) {
       console.error("Refresh data error:", err);
