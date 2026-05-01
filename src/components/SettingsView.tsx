@@ -197,10 +197,30 @@ export default function SettingsView() {
         <button 
           onClick={handleSave}
           disabled={isSaving}
-          className="w-full bg-[#00b900] disabled:opacity-50 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90033] hover:opacity-90 active:scale-[0.99] transition-all"
+          className="w-full bg-[#00b900] disabled:opacity-50 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90033] hover:opacity-90 active:scale-[0.99] transition-all mb-12"
         >
            {isSaving ? "Saving..." : <><Save size={18} /> Save Settings</>}
         </button>
+
+        <div className="pt-8 border-t border-red-100">
+           <h3 className="text-sm font-bold text-red-500 mb-2">Danger Zone</h3>
+           <p className="text-[10px] text-[#8b92ad] mb-6 leading-relaxed">
+             Resetting the system will clear all LINE credentials, store names, and configurations. 
+             The system will return to the **Activation Wizard** on the next reload. 
+             This is useful for handing over the system to a new retailer.
+           </p>
+           <button 
+            onClick={async () => {
+              if (confirm("🚨 WARNING: Are you absolutely sure you want to RESET the entire system? This cannot be undone.")) {
+                const res = await fetch('/api/settings', { method: 'DELETE' });
+                if (res.ok) window.location.reload();
+              }
+            }}
+            className="text-red-500 border border-red-200 bg-red-50 px-6 py-3 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all"
+           >
+             Factory Reset System
+           </button>
+        </div>
       </div>
     </div>
   );

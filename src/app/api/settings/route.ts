@@ -32,3 +32,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
   }
 }
+export async function DELETE() {
+  try {
+    await dbConnect();
+    await Settings.deleteMany({});
+    return NextResponse.json({ message: "Settings reset successfully" });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to reset settings" }, { status: 500 });
+  }
+}
