@@ -571,11 +571,26 @@ export default function Dashboard() {
 
   const initLiffRouter = useCallback(async () => {
     try {
-      const secret = localStorage.getItem('admin_secret') || '';
-      const headers = { 'x-admin-secret': secret };
+      const secret = localStorage.getItem('admin_secret');
+      
+      // If we don't even have a secret in storage, we MUST be unauthorized 
+      // (unless we are in the middle of a first-time setup)
+      if (!secret) {
+        // We need to check if the shop is already configured. 
+        // We do a "guest" fetch to see if it's initialized.
+        const checkRes = await fetch('/api/shop-info');
+        if (checkRes.ok) {
+          const checkData = await checkRes.json();
+          if (checkData.liffId) {
+            setLiffState('unauthorized');
+            return;
+          }
+        }
+      }
+
+      const headers = { 'x-admin-secret': secret || '' };
       const res = await fetch('/api/shop-info', { headers });
       
-      // If unauthorized, we need the secret
       if (res.status === 401) {
         setLiffState('unauthorized');
         return;
@@ -605,7 +620,12 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error("Auth flow failed:", err);
-      setLiffState('admin'); 
+      // If we hit an error but have no secret, stay on unauthorized
+      if (!localStorage.getItem('admin_secret')) {
+        setLiffState('unauthorized');
+      } else {
+        setLiffState('admin'); 
+      }
     }
   }, []);
 
