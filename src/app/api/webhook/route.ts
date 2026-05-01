@@ -18,10 +18,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
   }
 
-  // Consume body once — stream can only be read once in App Router
-  const body = await req.text();
+  // Consume raw body for signature precision
+  const arrayBuffer = await req.arrayBuffer();
+  const rawBody = Buffer.from(arrayBuffer);
+  const body = rawBody.toString('utf8');
 
-  if (!body) {
+  if (rawBody.length === 0) {
     return NextResponse.json({ message: 'Empty body' }, { status: 200 });
   }
 
@@ -37,22 +39,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'OK' }, { status: 200 }); // Return 200 to prevent LINE from disabling webhook
     }
 
-    // Verify signature — using raw string body with UTF-8 HMAC-SHA256 → Base64
+    // Verify signature — using raw binary buffer for maximum precision
     const expected = crypto
       .createHmac('sha256', channelSecret)
-      .update(body)
+      .update(rawBody)
       .digest('base64');
 
     if (signature !== expected) {
       console.warn(`[Webhook] Signature Mismatch!`);
-      console.warn(`- Header Signature: ${signature?.substring(0, 8)}...`);
-      console.warn(`- Expected Signature: ${expected.substring(0, 8)}...`);
+      console.warn(`- Header Signature: ${signature}`);
+      console.warn(`- Expected Signature: ${expected}`);
       console.warn(`- Secret Source: ${settings?.lineChannelSecret ? 'Database' : 'Environment'}`);
       console.warn(`- Secret Length: ${channelSecret.length} chars`);
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    console.log(`[Webhook] Signature Verified Successfully (Secret: ${channelSecret.substring(0, 4)}...)`);
+    console.log(`[Webhook] Signature Verified Successfully!`);
 
     let parsedBody;
     try {
