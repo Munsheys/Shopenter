@@ -573,10 +573,9 @@ export default function AdminDashboard() {
 
       es.onmessage = (event) => {
         try {
-          const { type, customers: c, orders: o } = JSON.parse(event.data);
+          const { type, customers: c } = JSON.parse(event.data);
           if (type === 'init' || type === 'update') {
             if (Array.isArray(c)) setCustomers(c);
-            if (Array.isArray(o)) setOrders(o);
           }
         } catch (err) {
           console.error('[SSE] Parse error:', err);
@@ -591,7 +590,6 @@ export default function AdminDashboard() {
         if (!fallbackInterval) {
           fallbackInterval = setInterval(() => {
             fetch('/api/customers', { headers }).then(r => r.ok ? r.json() : []).then(data => setCustomers(Array.isArray(data) ? data : [])).catch(() => {});
-            fetch('/api/orders', { headers }).then(r => r.ok ? r.json() : []).then(setOrders).catch(() => {});
           }, 10000);
         }
       };
