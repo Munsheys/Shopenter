@@ -41,8 +41,9 @@ export async function POST(req: Request) {
       saveLocalSettings(body);
       return NextResponse.json(body);
     }
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Critical Settings Error:", error);
+    return NextResponse.json({ error: error.message || "Failed to update settings" }, { status: 500 });
   }
 }
 export async function DELETE() {

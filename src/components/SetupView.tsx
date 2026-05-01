@@ -5,7 +5,7 @@ import { ShieldCheck, Rocket, Settings, Key, User } from 'lucide-react';
 
 export default function SetupView({ onComplete }: { onComplete: () => void }) {
   const [formData, setFormData] = useState({
-    name: '',
+    shopName: '',
     liffId: '',
     adminLineId: '',
     lineChannelAccessToken: '',
@@ -126,8 +126,8 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b92ad]"><Rocket size={18}/></div>
                   <input 
                     type="text" 
-                    value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    value={formData.shopName}
+                    onChange={e => setFormData({...formData, shopName: e.target.value})}
                     placeholder="Enter Store Name (e.g. Munsheys)"
                     className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all placeholder:text-[#b0b7c3] text-[#1a1d2e] font-medium" 
                   />
