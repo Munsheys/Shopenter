@@ -13,6 +13,10 @@ export async function POST(req: Request) {
     const body = await req.text();
     const signature = req.headers.get('x-line-signature') || '';
 
+    if (!body) {
+      return NextResponse.json({ message: 'Empty body' }, { status: 200 });
+    }
+
     await dbConnect();
     const settings = await Settings.findOne();
     const channelSecret = settings?.lineChannelSecret || process.env.LINE_CHANNEL_SECRET;
@@ -30,15 +34,33 @@ export async function POST(req: Request) {
       .digest('base64');
 
     if (hash !== signature) {
+      console.warn("Webhook Warning: Invalid signature received.");
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    const events = JSON.parse(body).events;
+    let parsedBody;
+    try {
+      parsedBody = JSON.parse(body);
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    const events = parsedBody.events || [];
+    
+    // Support LINE verification (empty events)
+    if (events.length === 0) {
+      return NextResponse.json({ message: 'OK' });
+    }
+
     const client = new messagingApi.MessagingApiClient({ channelAccessToken });
 
     for (const event of events) {
-      const userId = event.source.userId;
-      if (!userId) continue;
+      const userId = event.source?.userId;
+      
+      // Skip verification events or events without a real user
+      if (!userId || userId === 'Udeadbeefdeadbeefdeadbeefdeadbeef') {
+        continue;
+      }
 
       // 2. Upsert Customer Profile
       try {
@@ -59,7 +81,7 @@ export async function POST(req: Request) {
       }
 
       // 3. Handle Message
-      if (event.type === 'message' && event.message.type === 'text') {
+      if (event.type === 'message' && event.message?.type === 'text') {
         await Message.create({
           lineUserId: userId,
           text: event.message.text,
@@ -70,7 +92,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: 'OK' });
   } catch (error) {
-    console.error("Webhook Error:", error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Webhook Critical Error:", error);
+    // Always return 200 to LINE to prevent them from disabling the webhook, 
+    // unless it's a verification failure we want to know about.
+    return NextResponse.json({ message: 'Error processed internally' }, { status: 200 });
   }
 }
