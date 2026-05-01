@@ -43,9 +43,15 @@ export async function POST(req: Request) {
       .digest('base64');
 
     if (signature !== expected) {
-      console.warn("Webhook Warning: Invalid signature.");
+      console.warn(`[Webhook] Signature Mismatch!`);
+      console.warn(`- Header Signature: ${signature?.substring(0, 8)}...`);
+      console.warn(`- Expected Signature: ${expected.substring(0, 8)}...`);
+      console.warn(`- Secret Source: ${settings?.lineChannelSecret ? 'Database' : 'Environment'}`);
+      console.warn(`- Secret Length: ${channelSecret.length} chars`);
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
+
+    console.log(`[Webhook] Signature Verified Successfully (Secret: ${channelSecret.substring(0, 4)}...)`);
 
     let parsedBody;
     try {
