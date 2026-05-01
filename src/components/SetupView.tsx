@@ -80,7 +80,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
                     placeholder="Enter Store Name (e.g. Munsheys)"
-                    className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all placeholder:text-[#b0b7c3]" 
+                    className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all placeholder:text-[#b0b7c3] text-[#1a1d2e] font-medium" 
                   />
                 </div>
               </div>
@@ -95,7 +95,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                       value={formData.liffId}
                       onChange={e => setFormData({...formData, liffId: e.target.value})}
                       placeholder="Paste your LIFF ID here"
-                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm placeholder:text-[#b0b7c3]" 
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm placeholder:text-[#b0b7c3] text-[#1a1d2e] font-medium" 
                     />
                   </div>
                 </div>
@@ -108,7 +108,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                       value={formData.adminLineId}
                       onChange={e => setFormData({...formData, adminLineId: e.target.value})}
                       placeholder="U123456789..."
-                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm placeholder:text-[#b0b7c3]" 
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm placeholder:text-[#b0b7c3] text-[#1a1d2e] font-medium" 
                     />
                   </div>
                 </div>
