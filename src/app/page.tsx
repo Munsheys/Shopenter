@@ -687,8 +687,9 @@ export default function Dashboard() {
     );
   }
 
+  const isSetupRequired = !shopInfo?.liffId || !shopInfo?.adminLineId;
+
   if (liffState === 'admin') {
-    const isSetupRequired = !shopInfo?.liffId || !shopInfo?.adminLineId;
     if (isSetupRequired) {
       return <SetupView onComplete={() => window.location.reload()} />;
     }
