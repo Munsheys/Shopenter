@@ -664,6 +664,22 @@ export default function Dashboard() {
             }}
           />
           <p className="text-[10px] text-[#8b92ad]">Press Enter to Unlock</p>
+          <div className="mt-8 pt-8 border-t border-gray-100">
+            <button 
+              onClick={async () => {
+                if (confirm("🚨 This will DELETE all database settings and start fresh. Continue?")) {
+                  const res = await fetch('/api/settings', { 
+                    method: 'DELETE', 
+                    headers: { 'x-admin-secret': 'FORCE_RESET_UNAUTHENTICATED' } 
+                  });
+                  if (res.ok) window.location.reload();
+                }
+              }}
+              className="text-[10px] text-red-400 hover:text-red-600 font-bold tracking-widest uppercase"
+            >
+              Emergency Factory Reset
+            </button>
+          </div>
         </div>
       </div>
     );

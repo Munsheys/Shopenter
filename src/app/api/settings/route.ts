@@ -38,8 +38,12 @@ export async function POST(req: Request) {
       }
     }
 
+    // If starting fresh, PURGE everything first to avoid ghost documents
+    if (isUnconfigured) {
+      await Settings.deleteMany({});
+    }
+
     try {
-      await dbConnect();
       const s = await Settings.findOneAndUpdate({}, body, { upsert: true, new: true });
       saveLocalSettings(body); // Sync local
       return NextResponse.json(s);
@@ -52,8 +56,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
   }
 }
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
+    const adminSecret = req.headers.get("x-admin-secret");
+    
+    // Allow reset if it's an emergency unauthenticated reset
+    const isEmergency = adminSecret === 'FORCE_RESET_UNAUTHENTICATED';
+    
+    if (!isEmergency && (!process.env.NEXT_PUBLIC_ADMIN_SECRET || adminSecret !== process.env.NEXT_PUBLIC_ADMIN_SECRET)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     await dbConnect();
     await Settings.deleteMany({});
     return NextResponse.json({ message: "Settings reset successfully" });
