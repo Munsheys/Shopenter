@@ -164,43 +164,36 @@ export default function SettingsView() {
         <div className="pt-8 border-t border-[#f4f6f9] mb-10">
           <h3 className="text-sm font-bold text-[#1a1d2e] mb-6">Platform Integration (LINE)</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Access Token</label>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Admin Secret (Master Password)</label>
               <div className="relative">
                 <input 
-                  type={showToken ? "text" : "password"} 
-                  value={settings.lineChannelAccessToken || ''} 
-                  onChange={(e) => updateSetting('lineChannelAccessToken', e.target.value)}
-                  placeholder="eyJhbGciOiJIUzI1..."
+                  type={showAdminId ? "text" : "password"} 
+                  value={settings.adminSecret || ''} 
+                  onChange={(e) => updateSetting('adminSecret', e.target.value)}
+                  placeholder="The secret key used to log into this dashboard"
                   className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
                 />
                 <button 
                   type="button"
-                  onClick={() => setShowToken(!showToken)}
+                  onClick={() => setShowAdminId(!showAdminId)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
                 >
-                  {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showAdminId ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              <p className="text-[9px] text-[#8b92ad] mt-1 ml-1 italic">This controls access to the entire dashboard. Keep it safe.</p>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Secret</label>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Admin LINE ID</label>
               <div className="relative">
                 <input 
-                  type={showSecret ? "text" : "password"} 
-                  value={settings.lineChannelSecret || ''} 
-                  onChange={(e) => updateSetting('lineChannelSecret', e.target.value)}
-                  placeholder="••••••••••••••••••••••••"
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+                  type="text"
+                  value={settings.adminLineId || ''} 
+                  onChange={(e) => updateSetting('adminLineId', e.target.value)}
+                  placeholder="U1234567890abcdef..."
+                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
                 />
-                <button 
-                  type="button"
-                  onClick={() => setShowSecret(!showSecret)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
-                >
-                  {showSecret ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
               </div>
             </div>
             <div>
@@ -222,23 +215,59 @@ export default function SettingsView() {
                 </button>
               </div>
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Admin LINE ID</label>
-              <div className="relative">
-                <input 
-                  type={showAdminId ? "text" : "password"} 
-                  value={settings.adminLineId || ''} 
-                  onChange={(e) => updateSetting('adminLineId', e.target.value)}
-                  placeholder="U1234567890abcdef..."
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowAdminId(!showAdminId)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
-                >
-                  {showAdminId ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+          </div>
+          
+          <div className="space-y-4 mb-6">
+            <div className="flex items-center gap-2 pt-2">
+              <div className="flex-1 h-px bg-[#e2e5ef]" />
+              <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest whitespace-nowrap">Messaging API (for Chat)</span>
+              <div className="flex-1 h-px bg-[#e2e5ef]" />
+            </div>
+            <p className="text-[10px] text-[#8b92ad] leading-relaxed">
+              Required to receive customer messages and sync profiles.{' '}
+              <a href="https://developers.line.biz/" target="_blank" rel="noopener noreferrer" className="text-[#00b900] font-bold underline">
+                Get them from LINE Developers Console →
+              </a>
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Access Token</label>
+                <div className="relative">
+                  <input 
+                    type={showToken ? "text" : "password"} 
+                    value={settings.lineChannelAccessToken || ''} 
+                    onChange={(e) => updateSetting('lineChannelAccessToken', e.target.value)}
+                    placeholder="eyJhbGciOiJIUzI1..."
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowToken(!showToken)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
+                  >
+                    {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Secret</label>
+                <div className="relative">
+                  <input 
+                    type={showSecret ? "text" : "password"} 
+                    value={settings.lineChannelSecret || ''} 
+                    onChange={(e) => updateSetting('lineChannelSecret', e.target.value)}
+                    placeholder="••••••••••••••••••••••••"
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowSecret(!showSecret)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
+                  >
+                    {showSecret ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
