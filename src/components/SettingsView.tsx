@@ -150,23 +150,41 @@ export default function SettingsView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Access Token</label>
-              <input 
-                type="text" 
-                value={settings.lineChannelAccessToken || ''} 
-                onChange={(e) => updateSetting('lineChannelAccessToken', e.target.value)}
-                placeholder="eyJhbGciOiJIUzI1..."
-                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-              />
+              <div className="relative">
+                <input 
+                  type={showToken ? "text" : "password"} 
+                  value={settings.lineChannelAccessToken || ''} 
+                  onChange={(e) => updateSetting('lineChannelAccessToken', e.target.value)}
+                  placeholder="eyJhbGciOiJIUzI1..."
+                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
+                >
+                  {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Secret</label>
-              <input 
-                type="password" 
-                value={settings.lineChannelSecret || ''} 
-                onChange={(e) => updateSetting('lineChannelSecret', e.target.value)}
-                placeholder="••••••••••••••••••••••••"
-                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-              />
+              <div className="relative">
+                <input 
+                  type={showSecret ? "text" : "password"} 
+                  value={settings.lineChannelSecret || ''} 
+                  onChange={(e) => updateSetting('lineChannelSecret', e.target.value)}
+                  placeholder="••••••••••••••••••••••••"
+                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowSecret(!showSecret)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
+                >
+                  {showSecret ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">LIFF ID (Storefront Router)</label>
