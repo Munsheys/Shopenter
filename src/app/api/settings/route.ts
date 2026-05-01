@@ -6,11 +6,11 @@ import { getLocalSettings, saveLocalSettings } from '@/lib/storage';
 export async function GET() {
   try {
     await dbConnect();
-    let s = await Settings.findOne();
-    if (!s) s = await Settings.create(getLocalSettings());
+    const s = await Settings.findOne().sort({ _id: -1 });
+    if (!s) return NextResponse.json(getLocalSettings());
     return NextResponse.json(s);
   } catch (error) {
-    console.error("DB Error, falling back to local storage:", error);
+    console.error("API GET ERROR:", error);
     return NextResponse.json(getLocalSettings());
   }
 }

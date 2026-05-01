@@ -13,7 +13,13 @@ export default function SettingsView() {
   const [showAdminId, setShowAdminId] = useState(false);
 
   useEffect(() => {
-    fetch('/api/settings').then(r => r.json()).then(data => setSettings(data));
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(data => {
+        console.log('DEBUG SETTINGS DATA:', data);
+        setSettings(data);
+      })
+      .catch(err => console.error('SETTINGS FETCH ERROR:', err));
   }, []);
 
   const handleSave = async () => {
