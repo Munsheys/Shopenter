@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import dbConnect from '@/lib/db';
 import { Customer, Message, Settings } from '@/models';
-import { Client } from '@line/bot-sdk';
+import { messagingApi } from '@line/bot-sdk';
 
 export async function GET() {
   return NextResponse.json({ message: "Webhook endpoint is active. Please use POST for LINE events." });
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     }
 
     const events = JSON.parse(body).events;
-    const client = new Client({ channelAccessToken });
+    const client = new messagingApi.MessagingApiClient({ channelAccessToken });
 
     for (const event of events) {
       const userId = event.source.userId;
