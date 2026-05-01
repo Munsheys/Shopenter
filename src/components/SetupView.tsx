@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ShieldCheck, Rocket, Settings, Key, User } from 'lucide-react';
+import { ShieldCheck, Rocket, Settings, Key, User, Zap } from 'lucide-react';
 
 export default function SetupView({ onComplete }: { onComplete: () => void }) {
   const [formData, setFormData] = useState({
