@@ -20,6 +20,7 @@ async function dbConnect() {
   }
 
   return mongoose.connect(uri, {
+    dbName: 'lineoa', // Explicitly set DB name to avoid "test" DB auth issues
     serverSelectionTimeoutMS: 10000,
     socketTimeoutMS: 45000,
     maxPoolSize: 10,
