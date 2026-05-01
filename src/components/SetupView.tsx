@@ -36,7 +36,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
         // Save the secret so they are instantly logged in!
         localStorage.setItem('admin_secret', formData.adminSecret);
         alert("System Activated Successfully! The security bouncer is now active.");
-        onComplete();
+        window.location.href = '/admin';
       } else {
         const errorData = await res.json();
         alert(`Activation Failed: ${errorData.error || res.statusText} (Status: ${res.status})`);

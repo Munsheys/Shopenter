@@ -12,7 +12,7 @@ export default function AdminGateway() {
 
   const initLiffRouter = useCallback(async () => {
     try {
-      const checkRes = await fetch('/api/settings');
+      const checkRes = await fetch('/api/settings', { cache: 'no-store' });
       const checkData = await checkRes.json();
       const isConfigured = !!checkData.liffId;
 
@@ -29,7 +29,7 @@ export default function AdminGateway() {
       }
 
       const headers = { 'x-admin-secret': secret };
-      const verifyRes = await fetch('/api/customers', { headers });
+      const verifyRes = await fetch('/api/customers', { headers, cache: 'no-store' });
       if (verifyRes.status === 401) {
         localStorage.removeItem('admin_secret');
         setLiffState('unauthorized');

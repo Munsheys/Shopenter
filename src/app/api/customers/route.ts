@@ -2,8 +2,13 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Customer } from '@/models';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const secret = req.headers.get('x-admin-secret');
+    if (!process.env.NEXT_PUBLIC_ADMIN_SECRET || secret !== process.env.NEXT_PUBLIC_ADMIN_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     await dbConnect();
     const customers = await Customer.find().sort({ lastSeen: -1 });
     return NextResponse.json(customers);

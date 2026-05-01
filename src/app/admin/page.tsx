@@ -580,14 +580,14 @@ export default function AdminDashboard() {
       const headers = { 'x-admin-secret': secret };
       
       // Verify the secret by testing a protected endpoint
-      const verifyRes = await fetch('/api/customers', { headers });
+      const verifyRes = await fetch('/api/customers', { headers, cache: 'no-store' });
       if (verifyRes.status === 401) {
         localStorage.removeItem('admin_secret');
         window.location.href = '/';
         return;
       }
 
-      const res = await fetch('/api/shop-info');
+      const res = await fetch('/api/shop-info', { cache: 'no-store' });
       const data = await res.json();
       
       // If system not configured, go to setup (which is on root /)
