@@ -554,18 +554,20 @@ export default function Dashboard() {
   }, [resize, stopResizing]);
 
   useEffect(() => {
+    if (liffState !== 'admin') return;
+
     const secret = localStorage.getItem('admin_secret') || '';
     const headers = { 'x-admin-secret': secret };
+    
     fetch('/api/shop-info', { headers }).then(r => r.json()).then(data => setShopInfo(data)).catch(console.error);
     fetch('/api/rate', { headers }).then(r => r.ok ? r.json() : { rate: 0.026 }).then(data => setKrwRate(data?.rate || 0.026)).catch(console.error);
     fetch('/api/customers', { headers }).then(r => r.ok ? r.json() : []).then(data => setCustomers(Array.isArray(data) ? data : [])).catch(console.error);
     
-    // Simulate live rate fluctuations client-side only to prevent hydration mismatch
     const rateInterval = setInterval(() => {
       setLiveRate(prev => 0.0221 + (Math.random() * 0.0005 - 0.00025));
     }, 3000);
     return () => clearInterval(rateInterval);
-  }, []);
+  }, [liffState]);
 
   const initLiffRouter = useCallback(async () => {
     try {
