@@ -597,23 +597,37 @@ export default function AdminDashboard() {
       }
 
       setShopInfo(data);
-      setLiffState('admin');
-
+      
       // 3. Init LIFF if we have an ID
       if (data.liffId) {
-        await liff.init({ liffId: data.liffId });
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
-        const profile = await liff.getProfile();
-        if (data.adminLineId && profile.userId !== data.adminLineId) {
-          window.location.href = '/shop';
+        try {
+          await liff.init({ liffId: data.liffId });
+          if (liff.isLoggedIn()) {
+            const profile = await liff.getProfile();
+            if (data.adminLineId && profile.userId !== data.adminLineId) {
+              console.warn("LIFF User ID mismatch. Redirecting to shop.");
+              window.location.href = '/shop';
+              return;
+            }
+          } else {
+            console.log("LIFF not logged in. Continuing with secret auth only.");
+          }
+        } catch (liffErr) {
+          console.error("LIFF initialization failed. Continuing with secret auth only:", liffErr);
         }
       }
+
+      setLiffState('admin');
     } catch (err) {
-      console.error("Dashboard init failed:", err);
-      window.location.href = '/';
+      console.error("Dashboard primary init failed:", err);
+      // Only redirect to root if we don't have a valid session at all
+      if (err instanceof Error && err.message.includes("401")) {
+         window.location.href = '/';
+      } else {
+         // If it's just a network error or something else, stay on the page but show an error maybe?
+         // For now, let's just let it be and see if it renders
+         setLiffState('admin');
+      }
     }
   }, []);
 

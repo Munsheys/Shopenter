@@ -18,7 +18,7 @@ export async function GET() {
     return NextResponse.json(getLocalSettings());
   } catch (error) {
     console.error("API Settings GET Error:", error);
-    return NextResponse.json(getLocalSettings());
+    return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
   }
 }
 

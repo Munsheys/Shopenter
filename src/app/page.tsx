@@ -13,6 +13,10 @@ export default function AdminGateway() {
   const initLiffRouter = useCallback(async () => {
     try {
       const checkRes = await fetch('/api/settings', { cache: 'no-store' });
+      if (!checkRes.ok) {
+        console.error("Failed to fetch settings:", await checkRes.text());
+        return; 
+      }
       const checkData = await checkRes.json();
       const isConfigured = !!checkData.liffId;
 
