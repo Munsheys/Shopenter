@@ -29,20 +29,22 @@ const ProductSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 });
 
+// Profile cache: only re-fetch from LINE if profileCachedAt is older than 24h
 const CustomerSchema = new mongoose.Schema({
-  userId: { type: String, required: true, unique: true },
+  userId: { type: String, required: true, unique: true, index: true },
   displayName: String,
   pictureUrl: String,
   addresses: [String],
-  lastSeen: { type: Date, default: Date.now }
+  lastSeen: { type: Date, default: Date.now },
+  profileCachedAt: { type: Date, default: null }
 });
 
 const OrderSchema = new mongoose.Schema({
   lineUserId: String,
   displayName: String,
   address: String,
-  product: String, // For personal orders
-  items: [{ // For shop orders
+  product: String,
+  items: [{
     productId: String,
     name: String,
     variantLabel: String,
@@ -64,10 +66,17 @@ const OrderSchema = new mongoose.Schema({
 });
 
 const MessageSchema = new mongoose.Schema({
-  lineUserId: { type: String, required: true },
+  lineUserId: { type: String, required: true, index: true },
   text: { type: String, required: true },
   sender: { type: String, enum: ['user', 'admin'], default: 'user' },
   createdAt: { type: Date, default: Date.now }
+});
+
+// Idempotency: prevents duplicate processing of the same LINE webhook event
+// TTL index auto-deletes after 24 hours — storage stays flat
+const ProcessedEventSchema = new mongoose.Schema({
+  webhookEventId: { type: String, required: true, unique: true },
+  createdAt: { type: Date, default: Date.now, expires: 86400 } // TTL: 24h
 });
 
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
@@ -75,3 +84,4 @@ export const Product = mongoose.models.Product || mongoose.model('Product', Prod
 export const Customer = mongoose.models.Customer || mongoose.model('Customer', CustomerSchema);
 export const Order = mongoose.models.Order || mongoose.model('Order', OrderSchema);
 export const Message = mongoose.models.Message || mongoose.model('Message', MessageSchema);
+export const ProcessedEvent = mongoose.models.ProcessedEvent || mongoose.model('ProcessedEvent', ProcessedEventSchema);

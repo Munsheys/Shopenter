@@ -81,9 +81,10 @@ function ChatHistory({ userId, customerName = "Customer" }: { userId: string, cu
   const fetchMessages = useCallback(async (signal?: AbortSignal) => {
     if (!userId) return;
     try {
+      const secret = localStorage.getItem('admin_secret') || '';
       const res = await fetch(`/api/messages/${userId}`, { 
         signal,
-        headers: { 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || '' }
+        headers: { 'x-admin-secret': secret }
       });
       if (res.ok) {
         const data = await res.json();
@@ -561,12 +562,52 @@ export default function AdminDashboard() {
     
     fetch('/api/shop-info', { headers }).then(r => r.json()).then(data => setShopInfo(data)).catch(console.error);
     fetch('/api/rate', { headers }).then(r => r.ok ? r.json() : { rate: 0.026 }).then(data => setKrwRate(data?.rate || 0.026)).catch(console.error);
-    fetch('/api/customers', { headers }).then(r => r.ok ? r.json() : []).then(data => setCustomers(Array.isArray(data) ? data : [])).catch(console.error);
-    
+
+    // --- SSE Stream for real-time customer & order updates ---
+    // One persistent connection per tab instead of N requests/5s
+    let es: EventSource | null = null;
+    let fallbackInterval: NodeJS.Timeout | null = null;
+
+    const connectSSE = () => {
+      es = new EventSource(`/api/stream?secret=${encodeURIComponent(secret)}`);
+
+      es.onmessage = (event) => {
+        try {
+          const { type, customers: c, orders: o } = JSON.parse(event.data);
+          if (type === 'init' || type === 'update') {
+            if (Array.isArray(c)) setCustomers(c);
+            if (Array.isArray(o)) setOrders(o);
+          }
+        } catch (err) {
+          console.error('[SSE] Parse error:', err);
+        }
+      };
+
+      es.onerror = () => {
+        console.warn('[SSE] Connection error, falling back to polling.');
+        es?.close();
+        es = null;
+        // Fallback: poll every 10s if SSE is unavailable
+        if (!fallbackInterval) {
+          fallbackInterval = setInterval(() => {
+            fetch('/api/customers', { headers }).then(r => r.ok ? r.json() : []).then(data => setCustomers(Array.isArray(data) ? data : [])).catch(() => {});
+            fetch('/api/orders', { headers }).then(r => r.ok ? r.json() : []).then(setOrders).catch(() => {});
+          }, 10000);
+        }
+      };
+    };
+
+    connectSSE();
+
     const rateInterval = setInterval(() => {
       setLiveRate(prev => 0.0221 + (Math.random() * 0.0005 - 0.00025));
     }, 3000);
-    return () => clearInterval(rateInterval);
+
+    return () => {
+      es?.close();
+      if (fallbackInterval) clearInterval(fallbackInterval);
+      clearInterval(rateInterval);
+    };
   }, [liffState]);
 
   const initLiffRouter = useCallback(async () => {
