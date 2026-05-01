@@ -3,7 +3,7 @@ import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
 import { getLocalSettings, saveLocalSettings } from '@/lib/storage';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await dbConnect();
     // Try to find the most "configured" document first
