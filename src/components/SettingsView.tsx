@@ -9,6 +9,8 @@ export default function SettingsView() {
   const [isSaving, setIsSaving] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const [showLiff, setShowLiff] = useState(false);
+  const [showAdminId, setShowAdminId] = useState(false);
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => setSettings(data));
@@ -190,23 +192,41 @@ export default function SettingsView() {
             </div>
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">LIFF ID (Storefront Router)</label>
-              <input 
-                type="text" 
-                value={settings.liffId || ''} 
-                onChange={(e) => updateSetting('liffId', e.target.value)}
-                placeholder="1234567890-AbCdEfGh"
-                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-              />
+              <div className="relative">
+                <input 
+                  type={showLiff ? "text" : "password"} 
+                  value={settings.liffId || ''} 
+                  onChange={(e) => updateSetting('liffId', e.target.value)}
+                  placeholder="1234567890-AbCdEfGh"
+                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowLiff(!showLiff)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
+                >
+                  {showLiff ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Admin LINE ID</label>
-              <input 
-                type="text" 
-                value={settings.adminLineId || ''} 
-                onChange={(e) => updateSetting('adminLineId', e.target.value)}
-                placeholder="U1234567890abcdef..."
-                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-              />
+              <div className="relative">
+                <input 
+                  type={showAdminId ? "text" : "password"} 
+                  value={settings.adminLineId || ''} 
+                  onChange={(e) => updateSetting('adminLineId', e.target.value)}
+                  placeholder="U1234567890abcdef..."
+                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowAdminId(!showAdminId)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
+                >
+                  {showAdminId ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
           </div>
           <div className="bg-[#fffbe6] border border-[#ffe58f] rounded-xl p-4 text-xs text-[#856404] leading-relaxed">
