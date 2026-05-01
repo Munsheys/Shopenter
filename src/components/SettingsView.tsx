@@ -198,7 +198,7 @@ export default function SettingsView() {
               </div>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">LIFF ID (Storefront Router)</label>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">LIFF ID (from LINE Login Channel)</label>
               <div className="relative">
                 <input 
                   type={showLiff ? "text" : "password"} 
@@ -221,44 +221,25 @@ export default function SettingsView() {
           <div className="space-y-4 mb-6">
             <div className="flex items-center gap-2 pt-2">
               <div className="flex-1 h-px bg-[#e2e5ef]" />
-              <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest whitespace-nowrap">Messaging API (for Chat)</span>
+              <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest whitespace-nowrap">Messaging API Provider</span>
               <div className="flex-1 h-px bg-[#e2e5ef]" />
             </div>
             <p className="text-[10px] text-[#8b92ad] leading-relaxed">
-              Required to receive customer messages and sync profiles.{' '}
+              <span className="text-red-500 font-bold">CRITICAL:</span> Use keys from your <strong>Messaging API</strong> channel only.{' '}
               <a href="https://developers.line.biz/" target="_blank" rel="noopener noreferrer" className="text-[#00b900] font-bold underline">
-                Get them from LINE Developers Console →
+                Open Console →
               </a>
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Access Token</label>
-                <div className="relative">
-                  <input 
-                    type={showToken ? "text" : "password"} 
-                    value={settings.lineChannelAccessToken || ''} 
-                    onChange={(e) => updateSetting('lineChannelAccessToken', e.target.value)}
-                    placeholder="eyJhbGciOiJIUzI1..."
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowToken(!showToken)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
-                  >
-                    {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Secret</label>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Secret (Basic Settings Tab)</label>
                 <div className="relative">
                   <input 
                     type={showSecret ? "text" : "password"} 
                     value={settings.lineChannelSecret || ''} 
                     onChange={(e) => updateSetting('lineChannelSecret', e.target.value)}
-                    placeholder="••••••••••••••••••••••••"
+                    placeholder="32 character hex string"
                     className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
                   />
                   <button 
@@ -270,9 +251,28 @@ export default function SettingsView() {
                   </button>
                 </div>
               </div>
+              <div>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Access Token (Messaging API Tab)</label>
+                <div className="relative">
+                  <input 
+                    type={showToken ? "text" : "password"} 
+                    value={settings.lineChannelAccessToken || ''} 
+                    onChange={(e) => updateSetting('lineChannelAccessToken', e.target.value)}
+                    placeholder="Very long token string"
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowToken(!showToken)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
+                  >
+                    {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="bg-[#fffbe6] border border-[#ffe58f] rounded-xl p-4 text-xs text-[#856404] leading-relaxed">
+          <div className="bg-[#fffbe6] border border-[#ffe58f] rounded-xl p-4 text-xs text-[#856404] leading-relaxed mt-4">
             <strong>Security Notice:</strong> Changing these keys will instantly reroute all webhooks and storefront identities. Ensure you have properly configured the Webhook URL and LIFF Endpoint in the LINE Developer Console before saving.
           </div>
         </div>
