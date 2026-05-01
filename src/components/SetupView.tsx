@@ -5,7 +5,7 @@ import { ShieldCheck, Rocket, Settings, Key, User } from 'lucide-react';
 
 export default function SetupView({ onComplete }: { onComplete: () => void }) {
   const [formData, setFormData] = useState({
-    name: 'My Store',
+    name: '',
     liffId: '',
     adminLineId: '',
     lineChannelAccessToken: '',
@@ -79,8 +79,8 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                     type="text" 
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
-                    placeholder="e.g. My Premium Store"
-                    className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all" 
+                    placeholder="Enter Store Name (e.g. Munsheys)"
+                    className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all placeholder:text-[#b0b7c3]" 
                   />
                 </div>
               </div>
@@ -94,8 +94,8 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                       type="text" 
                       value={formData.liffId}
                       onChange={e => setFormData({...formData, liffId: e.target.value})}
-                      placeholder="200...-abc..."
-                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm" 
+                      placeholder="Paste your LIFF ID here"
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm placeholder:text-[#b0b7c3]" 
                     />
                   </div>
                 </div>
@@ -107,8 +107,8 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                       type="text" 
                       value={formData.adminLineId}
                       onChange={e => setFormData({...formData, adminLineId: e.target.value})}
-                      placeholder="U1234567..."
-                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm" 
+                      placeholder="U123456789..."
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm placeholder:text-[#b0b7c3]" 
                     />
                   </div>
                 </div>
