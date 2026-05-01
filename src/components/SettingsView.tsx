@@ -260,12 +260,15 @@ export default function SettingsView() {
            <p className="text-[10px] text-[#8b92ad] mb-6 leading-relaxed">
              Resetting the system will clear all LINE credentials, store names, and configurations. 
              The system will return to the **Activation Wizard** on the next reload. 
-             This is useful for handing over the system to a new retailer.
            </p>
            <button 
             onClick={async () => {
               if (confirm("🚨 WARNING: Are you absolutely sure you want to RESET the entire system? This cannot be undone.")) {
-                const res = await fetch('/api/settings', { method: 'DELETE' });
+                const secret = localStorage.getItem('admin_secret') || '';
+                const res = await fetch('/api/settings', { 
+                  method: 'DELETE',
+                  headers: { 'x-admin-secret': secret }
+                });
                 if (res.ok) window.location.reload();
               }
             }}
@@ -273,6 +276,15 @@ export default function SettingsView() {
            >
              Factory Reset System
            </button>
+        </div>
+        
+        <div className="mt-8 pt-4 border-t border-gray-100 flex justify-between items-center opacity-30 grayscale hover:opacity-100 transition-all">
+          <div className="text-[8px] font-mono text-[#8b92ad]">
+            SOURCE: {settings?._id ? `DB (${settings._id})` : 'LOCAL CACHE'}
+          </div>
+          <div className="text-[8px] font-mono text-[#8b92ad]">
+            AUTH: {localStorage.getItem('admin_secret') ? 'ACTIVE' : 'MISSING'}
+          </div>
         </div>
       </div>
     </div>

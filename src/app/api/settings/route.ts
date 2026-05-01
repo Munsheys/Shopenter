@@ -6,11 +6,18 @@ import { getLocalSettings, saveLocalSettings } from '@/lib/storage';
 export async function GET() {
   try {
     await dbConnect();
-    const s = await Settings.findOne().sort({ _id: -1 });
-    if (!s) return NextResponse.json(getLocalSettings());
-    return NextResponse.json(s);
+    // Try to find the most "configured" document first
+    let s = await Settings.findOne({ liffId: { $exists: true, $ne: "" } }).sort({ _id: -1 });
+    
+    // If no configured one, just get the newest one
+    if (!s) s = await Settings.findOne().sort({ _id: -1 });
+    
+    if (s) {
+      return NextResponse.json(s);
+    }
+    return NextResponse.json(getLocalSettings());
   } catch (error) {
-    console.error("API GET ERROR:", error);
+    console.error("API Settings GET Error:", error);
     return NextResponse.json(getLocalSettings());
   }
 }
