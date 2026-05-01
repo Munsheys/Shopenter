@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Message } from '@/models';
+import { Message, Settings } from '@/models';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
   try {
+    const secret = request.headers.get('x-admin-secret');
     await dbConnect();
+
+    // Verification Logic: Check DB first, then ENV
+    const settings = await Settings.findOne();
+    const dbSecret = settings?.adminSecret;
+    const envSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET;
+
+    const isValid = (dbSecret && secret === dbSecret) || (envSecret && secret === envSecret);
+
+    if (!isValid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const messages = await Message.find({ lineUserId: userId }).sort({ createdAt: 1 }).lean();
     return NextResponse.json(messages);
   } catch (error) {

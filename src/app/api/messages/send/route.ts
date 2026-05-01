@@ -4,6 +4,7 @@ import { Message, Settings } from '@/models';
 
 export async function POST(request: NextRequest) {
   try {
+    const secret = request.headers.get('x-admin-secret');
     const { userId, text } = await request.json();
 
     if (!userId || !text) {
@@ -11,6 +12,17 @@ export async function POST(request: NextRequest) {
     }
 
     await dbConnect();
+
+    // Verification Logic: Check DB first, then ENV
+    const settings = await Settings.findOne();
+    const dbSecret = settings?.adminSecret;
+    const envSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET;
+
+    const isValid = (dbSecret && secret === dbSecret) || (envSecret && secret === envSecret);
+
+    if (!isValid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     // 1. Save to MongoDB
     const newMessage = await Message.create({
@@ -21,7 +33,6 @@ export async function POST(request: NextRequest) {
     });
 
     // 2. Push to LINE (if token is valid)
-    const settings = await Settings.findOne();
     const token = settings?.lineChannelAccessToken || process.env.LINE_ACCESS_TOKEN;
     if (token && token !== 'your_token_here') {
       try {
@@ -51,16 +62,21 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(newMessage, { status: 201 });
   } catch (error) {
-    const { userId, text } = await request.clone().json().catch(() => ({ userId: '', text: '' }));
-    if (userId && userId.startsWith('mock-')) {
-      return NextResponse.json({
-        _id: 'mock-' + Date.now(),
-        lineUserId: userId,
-        text: text,
-        sender: 'admin',
-        createdAt: new Date().toISOString()
-      }, { status: 201 });
-    }
+    // Check if it's a mock user for testing without crashing
+    try {
+      const clonedReq = request.clone();
+      const { userId, text } = await clonedReq.json();
+      if (userId && userId.startsWith('mock-')) {
+        return NextResponse.json({
+          _id: 'mock-' + Date.now(),
+          lineUserId: userId,
+          text: text,
+          sender: 'admin',
+          createdAt: new Date().toISOString()
+        }, { status: 201 });
+      }
+    } catch (e) {}
+
     console.error('Failed to send message:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
