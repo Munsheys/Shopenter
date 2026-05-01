@@ -571,24 +571,26 @@ export default function Dashboard() {
 
   const initLiffRouter = useCallback(async () => {
     try {
-      const secret = localStorage.getItem('admin_secret');
+      // 1. Check if the system is even configured (Guest fetch)
+      const checkRes = await fetch('/api/shop-info');
+      const checkData = await checkRes.json();
       
-      // If we don't even have a secret in storage, we MUST be unauthorized 
-      // (unless we are in the middle of a first-time setup)
-      if (!secret) {
-        // We need to check if the shop is already configured. 
-        // We do a "guest" fetch to see if it's initialized.
-        const checkRes = await fetch('/api/shop-info');
-        if (checkRes.ok) {
-          const checkData = await checkRes.json();
-          if (checkData.liffId) {
-            setLiffState('unauthorized');
-            return;
-          }
-        }
+      const isConfigured = !!checkData.liffId;
+
+      if (!isConfigured) {
+        setLiffState('admin'); // This will trigger SetupView because shopInfo is null or liffId is missing
+        setShopInfo(checkData);
+        return;
       }
 
-      const headers = { 'x-admin-secret': secret || '' };
+      // 2. It IS configured, so we need a secret to see the data
+      const secret = localStorage.getItem('admin_secret');
+      if (!secret) {
+        setLiffState('unauthorized');
+        return;
+      }
+
+      const headers = { 'x-admin-secret': secret };
       const res = await fetch('/api/shop-info', { headers });
       
       if (res.status === 401) {
@@ -598,33 +600,27 @@ export default function Dashboard() {
 
       const data = await res.json();
       setShopInfo(data);
-      
-      const liffId = data.liffId;
-      if (!liffId) {
-        setLiffState('admin');
-        return;
-      }
+      setLiffState('admin');
 
-      await liff.init({ liffId });
-
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
-      }
-
-      const profile = await liff.getProfile();
-      if (data.adminLineId && profile.userId === data.adminLineId) {
-        setLiffState('admin');
-      } else {
-        window.location.href = '/shop';
+      // 3. Init LIFF if we have an ID
+      if (data.liffId) {
+        await liff.init({ liffId: data.liffId });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+        const profile = await liff.getProfile();
+        if (data.adminLineId && profile.userId !== data.adminLineId) {
+          window.location.href = '/shop';
+        }
       }
     } catch (err) {
       console.error("Auth flow failed:", err);
-      // If we hit an error but have no secret, stay on unauthorized
-      if (!localStorage.getItem('admin_secret')) {
-        setLiffState('unauthorized');
+      // Fallback: if we have a secret, try to show the admin dashboard
+      if (localStorage.getItem('admin_secret')) {
+        setLiffState('admin');
       } else {
-        setLiffState('admin'); 
+        setLiffState('unauthorized');
       }
     }
   }, []);
@@ -649,12 +645,12 @@ export default function Dashboard() {
           <div className="w-20 h-20 bg-[#00b90011] text-[#00b900] rounded-3xl mx-auto mb-8 flex items-center justify-center">
             <SettingsIcon size={40} />
           </div>
-          <h2 className="text-2xl font-bold mb-2 text-[#1a1d2e]">Administrative Login</h2>
+          <h2 className="text-2xl font-bold mb-2">Administrative Login</h2>
           <p className="text-[#8b92ad] text-sm mb-8">Please enter your system secret to access the dashboard.</p>
           <input 
             type="password" 
             placeholder="Enter Admin Secret..." 
-            className="w-full border border-[#e2e5ef] rounded-2xl px-6 py-4 mb-4 outline-none focus:border-[#00b900] text-center font-bold tracking-widest text-[#1a1d2e] placeholder:text-[#b0b7c3]"
+            className="w-full border border-[#e2e5ef] rounded-2xl px-6 py-4 mb-4 outline-none focus:border-[#00b900] text-center font-bold tracking-widest"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 const val = (e.target as HTMLInputElement).value;
@@ -675,7 +671,7 @@ export default function Dashboard() {
                   if (res.ok) window.location.reload();
                 }
               }}
-              className="text-[10px] text-red-500 hover:text-red-700 font-bold tracking-widest uppercase transition-colors"
+              className="text-[10px] text-red-400 hover:text-red-600 font-bold tracking-widest uppercase"
             >
               Emergency Factory Reset
             </button>
