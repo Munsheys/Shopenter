@@ -31,6 +31,7 @@ import ProductManagement from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
 import ReportsView from '@/components/ReportsView';
 import ShopOrdersView from '@/components/ShopOrdersView';
+import SetupView from '@/components/SetupView';
 import liff from '@line/liff';
 
 function cn(...inputs: ClassValue[]) {
@@ -608,6 +609,12 @@ export default function Dashboard() {
         <div className="font-bold text-[#1a1d2e] tracking-widest uppercase text-sm">Authenticating Identity...</div>
       </div>
     );
+  }
+
+  const isSetupRequired = !shopInfo?.liffId || !shopInfo?.adminLineId;
+
+  if (isSetupRequired) {
+    return <SetupView onComplete={() => window.location.reload()} />;
   }
 
   return (
