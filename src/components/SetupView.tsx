@@ -185,8 +185,54 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                 <p className="text-[9px] text-[#8b92ad] ml-1 italic">This must match the secret you set in Vercel environment variables.</p>
               </div>
 
+              {/* LINE Messaging API Credentials — needed for webhook message interception */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pt-2">
+                  <div className="flex-1 h-px bg-[#e2e5ef]" />
+                  <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest whitespace-nowrap">Messaging API (for Chat)</span>
+                  <div className="flex-1 h-px bg-[#e2e5ef]" />
+                </div>
+                <p className="text-[10px] text-[#8b92ad] leading-relaxed">
+                  Required to receive customer messages and sync profiles.{' '}
+                  <a href="https://developers.line.biz/" target="_blank" rel="noopener noreferrer" className="text-[#00b900] font-bold underline">
+                    Get them from LINE Developers Console →
+                  </a>
+                </p>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest mb-2 block">Channel Secret</label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b92ad]"><Key size={18}/></div>
+                    <input
+                      type="password"
+                      value={formData.lineChannelSecret}
+                      onChange={e => setFormData({...formData, lineChannelSecret: e.target.value})}
+                      placeholder="Paste Channel Secret from Basic Settings tab"
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm font-mono placeholder:text-[#b0b7c3] text-[#1a1d2e]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest mb-2 block">Channel Access Token (Long-lived)</label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b92ad]"><Key size={18}/></div>
+                    <input
+                      type="password"
+                      value={formData.lineChannelAccessToken}
+                      onChange={e => setFormData({...formData, lineChannelAccessToken: e.target.value})}
+                      placeholder="Paste Channel Access Token from Messaging API tab"
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm font-mono placeholder:text-[#b0b7c3] text-[#1a1d2e]"
+                    />
+                  </div>
+                  <p className="text-[9px] text-[#8b92ad] mt-1 ml-1 italic">
+                    LINE Developers Console → Messaging API tab → "Channel access token" → Issue / Copy
+                  </p>
+                </div>
+              </div>
+
               <div className="pt-4">
-                <button 
+                <button
                   onClick={handleSave}
                   disabled={isSaving}
                   className="w-full bg-[#00b900] text-white py-5 rounded-3xl font-bold shadow-xl shadow-[#00b90033] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
@@ -201,7 +247,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                   )}
                 </button>
               </div>
-           </div>
+            </div>
 
            <p className="text-center text-[10px] text-[#8b92ad] leading-relaxed px-10">
              By activating, you agree that only the LINE account matching the Admin ID above will be able to access this dashboard. All other users will be redirected to the storefront.
