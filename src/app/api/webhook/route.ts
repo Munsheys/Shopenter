@@ -4,6 +4,10 @@ import dbConnect from '@/lib/db';
 import { Customer, Message, Settings } from '@/models';
 import { Client } from '@line/bot-sdk';
 
+export async function GET() {
+  return NextResponse.json({ message: "Webhook endpoint is active. Please use POST for LINE events." });
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.text();
