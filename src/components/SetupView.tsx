@@ -35,7 +35,8 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
         alert("System Activated Successfully! The security bouncer is now active.");
         onComplete();
       } else {
-        alert("Failed to save settings. Please check your ADMIN_SECRET.");
+        const errorData = await res.json();
+        alert(`Activation Failed: ${errorData.error || res.statusText} (Status: ${res.status})`);
       }
     } catch (err) {
       alert("Error connecting to database.");
