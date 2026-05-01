@@ -30,3 +30,4 @@ export default function RootLayout({
   );
 }
 // Triggering new deployment with correct email
+// Fix author name
