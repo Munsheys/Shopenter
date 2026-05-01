@@ -144,6 +144,56 @@ export default function SettingsView() {
           </div>
         </div>
 
+        <div className="pt-8 border-t border-[#f4f6f9] mb-10">
+          <h3 className="text-sm font-bold text-[#1a1d2e] mb-6">Platform Integration (LINE)</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Access Token</label>
+              <input 
+                type="text" 
+                value={settings.lineChannelAccessToken || ''} 
+                onChange={(e) => updateSetting('lineChannelAccessToken', e.target.value)}
+                placeholder="eyJhbGciOiJIUzI1..."
+                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Secret</label>
+              <input 
+                type="password" 
+                value={settings.lineChannelSecret || ''} 
+                onChange={(e) => updateSetting('lineChannelSecret', e.target.value)}
+                placeholder="••••••••••••••••••••••••"
+                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">LIFF ID (Storefront Router)</label>
+              <input 
+                type="text" 
+                value={settings.liffId || ''} 
+                onChange={(e) => updateSetting('liffId', e.target.value)}
+                placeholder="1234567890-AbCdEfGh"
+                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Admin LINE ID</label>
+              <input 
+                type="text" 
+                value={settings.adminLineId || ''} 
+                onChange={(e) => updateSetting('adminLineId', e.target.value)}
+                placeholder="U1234567890abcdef..."
+                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+              />
+            </div>
+          </div>
+          <div className="bg-[#fffbe6] border border-[#ffe58f] rounded-xl p-4 text-xs text-[#856404] leading-relaxed">
+            <strong>Security Notice:</strong> Changing these keys will instantly reroute all webhooks and storefront identities. Ensure you have properly configured the Webhook URL and LIFF Endpoint in the LINE Developer Console before saving.
+          </div>
+        </div>
+
         <button 
           onClick={handleSave}
           disabled={isSaving}

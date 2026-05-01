@@ -583,7 +583,7 @@ export default function Dashboard() {
         }
 
         const profile = await liff.getProfile();
-        const adminId = process.env.NEXT_PUBLIC_ADMIN_LINE_ID;
+        const adminId = data.adminLineId || process.env.NEXT_PUBLIC_ADMIN_LINE_ID;
         
         if (adminId && profile.userId === adminId) {
           setLiffState('admin');

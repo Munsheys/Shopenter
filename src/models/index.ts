@@ -6,7 +6,12 @@ const SettingsSchema = new mongoose.Schema({
   krwRate: { type: Number, default: 0.026 },
   trackingTemplate: { type: String, default: "📦 ส่งสินค้าแล้วครับ!\n\nขนส่ง: {courier}\nเลขพัสดุ: {tracking}\nรายการ: {product}\n\nขอบคุณครับ 🙏" },
   senderAddress: String,
-  shippingCompanies: { type: [String], default: ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express'] }
+  shippingCompanies: { type: [String], default: ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express'] },
+  // LINE Platform Configurations
+  lineChannelAccessToken: { type: String, default: "" },
+  lineChannelSecret: { type: String, default: "" },
+  liffId: { type: String, default: "" },
+  adminLineId: { type: String, default: "" }
 });
 
 const ProductSchema = new mongoose.Schema({
