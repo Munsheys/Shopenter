@@ -12,6 +12,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
     lineChannelSecret: ''
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const handleSave = async () => {
     if (!formData.liffId || !formData.adminLineId) {
@@ -59,8 +60,55 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
              <p className="text-white/80 text-sm max-w-[300px] mx-auto">
                Welcome! Your CRM is ready, but the security bouncer needs to be configured.
              </p>
+             
+             {/* Quick Guide Trigger */}
+             <div className="mt-8">
+                <button 
+                  onClick={() => setShowGuide(!showGuide)}
+                  className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-xs font-bold transition-all border border-white/20"
+                >
+                  {showGuide ? "Hide Setup Guide" : "Help: Where do I find these IDs?"}
+                </button>
+             </div>
            </div>
         </div>
+
+        {showGuide && (
+          <div className="bg-[#f8f9fc] p-8 border-b border-[#e2e5ef] animate-in slide-in-from-top duration-300">
+             <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[#00b900]">
+               <Settings size={16} /> 3-Minute Setup Guide
+             </h3>
+             <div className="space-y-6">
+                <div className="flex gap-4">
+                   <div className="w-6 h-6 bg-[#00b900] text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">1</div>
+                   <div>
+                      <div className="text-[11px] font-bold text-[#1a1d2e] mb-1">LIFF ID</div>
+                      <p className="text-[10px] text-[#8b92ad] leading-relaxed">
+                        Go to the <strong>LINE Developers Console</strong>, select your Provider, and create a <strong>LIFF App</strong>. Set the Endpoint URL to your Vercel URL. Copy the LIFF ID.
+                      </p>
+                   </div>
+                </div>
+                <div className="flex gap-4">
+                   <div className="w-6 h-6 bg-[#00b900] text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">2</div>
+                   <div>
+                      <div className="text-[11px] font-bold text-[#1a1d2e] mb-1">Admin LINE ID</div>
+                      <p className="text-[10px] text-[#8b92ad] leading-relaxed">
+                        Inside your LIFF settings, scroll down to the bottom. Your <strong>User ID</strong> (starts with <code>U...</code>) is your Admin ID. This locks the dashboard to YOUR account.
+                      </p>
+                   </div>
+                </div>
+                <div className="flex gap-4">
+                   <div className="w-6 h-6 bg-[#00b900] text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">3</div>
+                   <div>
+                      <div className="text-[11px] font-bold text-[#1a1d2e] mb-1">Messaging API (Optional)</div>
+                      <p className="text-[10px] text-[#8b92ad] leading-relaxed">
+                        Create a <strong>Messaging API</strong> channel to enable the chatbot features. Copy the Channel Access Token and Secret from there.
+                      </p>
+                   </div>
+                </div>
+             </div>
+          </div>
+        )}
 
         <div className="p-12 space-y-8">
            <div className="bg-[#fff1f0] border border-[#ffa39e] p-4 rounded-2xl flex items-start gap-3">
