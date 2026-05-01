@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Message } from '@/models';
+import { Message, Settings } from '@/models';
 
 export async function POST(request: NextRequest) {
   try {
