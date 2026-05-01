@@ -59,8 +59,14 @@ export async function POST(req: Request) {
     }
 
     try {
-      const s = await Settings.findOneAndUpdate({}, body, { upsert: true, new: true });
-      saveLocalSettings(body); // Sync local
+      // Clean sensitive strings
+      const cleanedBody = { ...body };
+      if (typeof cleanedBody.lineChannelSecret === 'string') cleanedBody.lineChannelSecret = cleanedBody.lineChannelSecret.trim();
+      if (typeof cleanedBody.lineChannelAccessToken === 'string') cleanedBody.lineChannelAccessToken = cleanedBody.lineChannelAccessToken.trim();
+      if (typeof cleanedBody.liffId === 'string') cleanedBody.liffId = cleanedBody.liffId.trim();
+
+      const s = await Settings.findOneAndUpdate({}, cleanedBody, { upsert: true, new: true });
+      saveLocalSettings(cleanedBody); // Sync local
       return NextResponse.json(s);
     } catch (dbError) {
       console.error("DB Error on POST, saving to local only:", dbError);

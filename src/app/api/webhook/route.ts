@@ -28,8 +28,8 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
     const settings = await Settings.findOne();
-    const channelSecret = settings?.lineChannelSecret || process.env.LINE_CHANNEL_SECRET;
-    const channelAccessToken = settings?.lineChannelAccessToken || process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    const channelSecret = (settings?.lineChannelSecret || process.env.LINE_CHANNEL_SECRET || '').trim();
+    const channelAccessToken = (settings?.lineChannelAccessToken || process.env.LINE_CHANNEL_ACCESS_TOKEN || '').trim();
 
     if (!channelSecret || !channelAccessToken) {
       console.error("Webhook Error: Missing LINE Channel Secret or Access Token in DB and ENV.");
