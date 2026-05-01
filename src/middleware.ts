@@ -5,8 +5,14 @@ const ADMIN_SECRET = process.env.NEXT_PUBLIC_ADMIN_SECRET;
 export function middleware(request: NextRequest) {
   // Protect all /api routes
   if (request.nextUrl.pathname.startsWith('/api')) {
-    // Skip webhook receiver — LINE needs to POST here without auth
-    if (request.nextUrl.pathname === '/api/webhook') {
+    // Skip public APIs and first-time setup
+    const isPublicGet = request.method === 'GET' && 
+      (request.nextUrl.pathname === '/api/shop-info' || 
+       request.nextUrl.pathname === '/api/products');
+    
+    const isSetupPost = request.method === 'POST' && request.nextUrl.pathname === '/api/settings';
+
+    if (request.nextUrl.pathname === '/api/webhook' || isPublicGet || isSetupPost) {
       return NextResponse.next();
     }
 

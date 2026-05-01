@@ -18,6 +18,17 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    await dbConnect();
+    
+    // Security check: Only allow unauthenticated POST if no settings exist yet
+    const existing = await Settings.findOne();
+    if (existing) {
+      const secret = req.headers.get('x-admin-secret');
+      if (!process.env.NEXT_PUBLIC_ADMIN_SECRET || secret !== process.env.NEXT_PUBLIC_ADMIN_SECRET) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+
     try {
       await dbConnect();
       const s = await Settings.findOneAndUpdate({}, body, { upsert: true, new: true });
