@@ -32,7 +32,15 @@ export default function ReportsView() {
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
-    fetch('/api/stats').then(r => r.json()).then(data => setStats(data));
+    const secret = localStorage.getItem('admin_secret') || '';
+    fetch('/api/stats', {
+      headers: { 'x-admin-secret': secret }
+    })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data) setStats(data);
+    })
+    .catch(console.error);
   }, []);
 
   if (!stats) return null;
