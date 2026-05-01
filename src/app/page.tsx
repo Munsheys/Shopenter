@@ -592,13 +592,18 @@ export default function Dashboard() {
       }
 
       const headers = { 'x-admin-secret': secret };
-      const res = await fetch('/api/shop-info', { headers });
       
-      if (res.status === 401) {
+      // Verify the secret by testing a protected endpoint
+      const verifyRes = await fetch('/api/customers', { headers });
+      if (verifyRes.status === 401) {
+        // If the secret is wrong, clear it and show the login screen
+        localStorage.removeItem('admin_secret');
         setLiffState('unauthorized');
         return;
       }
 
+      // If we pass the verification, fetch the public shop info for LIFF init
+      const res = await fetch('/api/shop-info');
       const data = await res.json();
       setShopInfo(data);
       setLiffState('admin');
