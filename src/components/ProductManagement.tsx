@@ -55,6 +55,18 @@ function CreatableDropdown({
   const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
   const showCreate = search.trim() !== '' && !options.some(o => o.toLowerCase() === search.toLowerCase().trim());
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (search.trim() !== '') {
+        // If they typed an exact match or want to create a new one, select it
+        onChange(search.trim());
+        setIsOpen(false);
+        setSearch('');
+      }
+    }
+  };
+
   return (
     <div className="relative" ref={wrapperRef}>
       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">
@@ -78,6 +90,7 @@ function CreatableDropdown({
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="Search or add..."
                 className="w-full bg-[#f4f6f9] rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[#00b900]"
               />
@@ -241,7 +254,8 @@ function ProductModal({
   const set = (field: keyof ProductForm, value: string) =>
     setForm(prev => ({ ...prev, [field]: value }));
 
-  const isValid = form.name.trim() && form.price.trim() && parseFloat(form.price) > 0;
+  const parsedPrice = parseFloat(form.price);
+  const isValid = Boolean(form.name.trim() && form.price.trim() && !isNaN(parsedPrice) && parsedPrice >= 0);
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -289,7 +303,7 @@ function ProductModal({
                 value={form.price}
                 onChange={e => set('price', e.target.value)}
                 placeholder="1250"
-                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900] transition-all"
+                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm font-bold text-[#00b900] placeholder:text-[#8b92ad] placeholder:font-normal outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900] transition-all"
               />
             </div>
           </div>
