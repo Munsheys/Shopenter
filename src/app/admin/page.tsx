@@ -1001,11 +1001,27 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
     }
   };
 
+  const prevUserId = useRef<string | null>(null);
+
   useEffect(() => {
+    if (!customer) return;
+    
     const headers = { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' };
     fetch('/api/settings', { headers }).then(r => r.json()).then(data => setSettings(data));
     fetch('/api/products', { headers }).then(r => r.json()).then(data => setProducts(data));
-    refreshData();
+    
+    // ONLY reset state and full-refresh if we switched to a DIFFERENT person
+    if (prevUserId.current !== customer.userId) {
+      setCustomerData(null);
+      setOrders([]);
+      setParcels([]);
+      hasSeededParcels.current = false;
+      prevUserId.current = customer.userId;
+      refreshData();
+    } else {
+      // If it's the same person, just a background heartbeat, refresh without blanking the screen
+      refreshData();
+    }
   }, [customer]);
 
   const handleAddAddress = async () => {
