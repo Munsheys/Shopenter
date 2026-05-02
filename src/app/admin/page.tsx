@@ -300,24 +300,52 @@ function ChatHistory({ userId, customerName = "Customer" }: { userId: string, cu
 
 
 function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [isManual, setIsManual] = useState(false);
+  
+  // SELECT Selection State
+  const [selBrand, setSelBrand] = useState('');
+  const [selProduct, setSelProduct] = useState<any>(null);
+  const [selThickness, setSelThickness] = useState('');
+  const [selColor, setSelColor] = useState('');
+  
+  // NEW Manual State
   const [manualName, setManualName] = useState('');
   const [manualBrand, setManualBrand] = useState('');
+  const [manualThickness, setManualThickness] = useState('');
+  const [manualColor, setManualColor] = useState('');
   const [manualCategory, setManualCategory] = useState('');
+  
   const [price, setPrice] = useState<string>('');
-  const [isManual, setIsManual] = useState(false);
   const [autoCatalog, setAutoCatalog] = useState(true);
+
+  // Pre-calculations
+  const brands = Array.from(new Set(products.map((p: any) => p.brand))).filter(Boolean).sort() as string[];
+  const filteredProducts = products.filter((p: any) => p.brand === selBrand);
+  const currentVariant = selProduct?.variants?.find((v: any) => v.thickness === selThickness);
+  const thicknessOptions = selProduct?.variants?.map((v: any) => v.thickness) || [];
+  const colorOptions = currentVariant?.colors || [];
 
   useEffect(() => {
     if (!isOpen) {
-      setSelectedProduct(null);
+      setSelBrand('');
+      setSelProduct(null);
+      setSelThickness('');
+      setSelColor('');
       setManualName('');
       setManualBrand('');
+      setManualThickness('');
+      setManualColor('');
       setManualCategory('');
       setPrice('');
       setIsManual(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (currentVariant) {
+      setPrice(currentVariant.price?.toString() || '');
+    }
+  }, [currentVariant]);
 
   if (!isOpen) return null;
 
@@ -327,22 +355,30 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
       onConfirm({ 
         name: manualName, 
         brand: manualBrand, 
+        thickness: manualThickness,
+        color: manualColor,
         category: manualCategory, 
         cost: 0,
         autoCatalog 
       }, finalPrice);
     } else {
-      onConfirm(selectedProduct, finalPrice);
+      onConfirm({
+        ...selProduct,
+        selectedThickness: selThickness,
+        selectedColor: selColor
+      }, finalPrice);
     }
   };
 
-  const canConfirm = isManual ? (manualName && manualBrand && price) : (selectedProduct && price);
+  const canConfirm = isManual 
+    ? (manualName && manualBrand && price) 
+    : (selProduct && selThickness && selColor && price);
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-6">
+      <div className="bg-white rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+        <div className="p-8 pb-4 flex-shrink-0 border-b border-[#f4f6f9]">
+          <div className="flex justify-between items-center mb-2">
             <h3 className="text-xl font-bold text-[#1a1d2e]">Manual Quick Order</h3>
             <div className="flex bg-[#f8f9fc] p-1 rounded-xl">
               <button 
@@ -359,101 +395,184 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
               </button>
             </div>
           </div>
-          
-          <div className="space-y-4 mb-8">
-            {!isManual ? (
+          <p className="text-[10px] text-[#8b92ad] font-bold uppercase tracking-widest">
+            {!isManual 
+              ? `PATH: ${selBrand || '?'} > ${selProduct?.name || '?'} > ${selThickness || '?'} > ${selColor || '?'}`
+              : 'Creating New Product Catalog Entry'
+            }
+          </p>
+        </div>
+
+        <div className="p-8 pt-6 overflow-y-auto space-y-6">
+          {!isManual ? (
+            <div className="space-y-5">
+              {/* STEP 1: BRAND */}
               <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SELECT PRODUCT FROM DB</label>
-                <select 
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white transition-all"
-                  onChange={(e) => {
-                    const p = products.find((prod: any) => prod._id === e.target.value);
-                    setSelectedProduct(p);
-                    setPrice(p?.price?.toString() || '');
-                  }}
-                >
-                  <option value="">-- Choose Product --</option>
-                  {products.map((p: any) => (
-                    <option key={p._id} value={p._id}>{p.brand} {p.name} (฿{p.price})</option>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">1. Select Brand</label>
+                <div className="flex flex-wrap gap-2">
+                  {brands.map(b => (
+                    <button 
+                      key={b} 
+                      onClick={() => { setSelBrand(b); setSelProduct(null); setSelThickness(''); setSelColor(''); }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${selBrand === b ? 'bg-[#1a1d2e] text-white border-[#1a1d2e] shadow-lg' : 'bg-white border-[#e2e5ef] text-[#8b92ad] hover:border-[#00b900]'}`}
+                    >
+                      {b}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-4 animate-in slide-in-from-left-4 duration-300">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">BRAND</label>
-                    <input 
-                      type="text"
-                      placeholder="e.g. Samogra"
-                      value={manualBrand}
-                      onChange={(e) => setManualBrand(e.target.value)}
-                      className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">NAME / MODEL</label>
-                    <input 
-                      type="text"
-                      placeholder="e.g. Model 3"
-                      value={manualName}
-                      onChange={(e) => setManualName(e.target.value)}
-                      className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
-                    />
+
+              {/* STEP 2: MODEL */}
+              {selBrand && (
+                <div className="animate-in slide-in-from-top-2">
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">2. Choose Model</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {filteredProducts.map((p: any) => (
+                      <button 
+                        key={p._id} 
+                        onClick={() => { setSelProduct(p); setSelThickness(''); setSelColor(''); }}
+                        className={`px-4 py-3 rounded-xl text-xs font-bold text-left transition-all border ${selProduct?._id === p._id ? 'bg-[#00b900] text-white border-[#00b900] shadow-md' : 'bg-white border-[#e2e5ef] text-[#1a1d2e] hover:border-[#00b900]'}`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              )}
+
+              {/* STEP 3: THICKNESS */}
+              {selProduct && (
+                <div className="animate-in slide-in-from-top-2">
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">3. Thickness</label>
+                  <div className="flex gap-2">
+                    {thicknessOptions.map((t: string) => (
+                      <button 
+                        key={t} 
+                        onClick={() => { setSelThickness(t); setSelColor(''); }}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${selThickness === t ? 'bg-[#1a1d2e] text-white border-[#1a1d2e]' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#8b92ad]'}`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: COLOR */}
+              {selThickness && (
+                <div className="animate-in slide-in-from-top-2">
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">4. Color Swatch</label>
+                  <div className="flex flex-wrap gap-2">
+                    {colorOptions.map((c: string) => {
+                      const isHex = c.startsWith('#');
+                      return (
+                        <button 
+                          key={c} 
+                          onClick={() => setSelColor(c)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all border ${selColor === c ? 'bg-[#00b900] text-white border-[#00b900] shadow-md' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]'}`}
+                        >
+                          {isHex && <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: c }} />}
+                          {c}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4 animate-in slide-in-from-left-4 duration-300">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">CATEGORY (OPTIONAL)</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">BRAND</label>
                   <input 
                     type="text"
-                    placeholder="e.g. Handbag, Leather"
-                    value={manualCategory}
-                    onChange={(e) => setManualCategory(e.target.value)}
+                    placeholder="e.g. Samogra"
+                    value={manualBrand}
+                    onChange={(e) => setManualBrand(e.target.value)}
                     className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
                   />
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer group">
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">MODEL NAME</label>
                   <input 
-                    type="checkbox" 
-                    checked={autoCatalog}
-                    onChange={(e) => setAutoCatalog(e.target.checked)}
-                    className="w-4 h-4 accent-[#00b900]"
+                    type="text"
+                    placeholder="e.g. Model 3"
+                    value={manualName}
+                    onChange={(e) => setManualName(e.target.value)}
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
                   />
-                  <span className="text-[10px] font-bold text-[#8b92ad] group-hover:text-[#1a1d2e] transition-colors uppercase tracking-wider">Auto-save product to Catalog</span>
-                </label>
+                </div>
               </div>
-            )}
-
-            <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">FINAL PRICE (THB)</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b92ad] font-bold text-sm">฿</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">THICKNESS</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. 1.2 mm"
+                    value={manualThickness}
+                    onChange={(e) => setManualThickness(e.target.value)}
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">COLOR</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. Peach"
+                    value={manualColor}
+                    onChange={(e) => setManualColor(e.target.value)}
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer group pt-2">
                 <input 
-                  type="number"
-                  placeholder="0.00"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="w-full border border-[#e2e5ef] rounded-xl pl-8 pr-4 py-4 text-lg font-bold text-[#1a1d2e] outline-none focus:border-[#00b900] transition-all"
+                  type="checkbox" 
+                  checked={autoCatalog}
+                  onChange={(e) => setAutoCatalog(e.target.checked)}
+                  className="w-4 h-4 accent-[#00b900]"
                 />
-              </div>
+                <span className="text-[10px] font-bold text-[#8b92ad] group-hover:text-[#1a1d2e] transition-colors uppercase tracking-wider">Save to Catalog</span>
+              </label>
+            </div>
+          )}
+
+          {/* FINAL PRICE SECTION */}
+          <div className="pt-4 border-t border-[#f4f6f9]">
+            <div className="flex justify-between items-end mb-3">
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Final Price (Editable for Discount)</label>
+              {currentVariant && price !== currentVariant.price.toString() && (
+                <span className="text-[9px] font-black text-[#00b900] bg-[#00b90008] px-2 py-0.5 rounded-full">Discount Applied</span>
+              )}
+            </div>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b92ad] font-bold text-sm">฿</span>
+              <input 
+                type="number"
+                placeholder="0.00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="w-full border border-[#e2e5ef] rounded-2xl pl-8 pr-4 py-4 text-2xl font-black text-[#1a1d2e] outline-none focus:border-[#00b900] transition-all bg-[#fcfdfe]"
+              />
             </div>
           </div>
+        </div>
 
-          <div className="flex gap-3">
-            <button 
-              onClick={onCancel}
-              className="flex-1 py-4 text-sm font-bold text-[#8b92ad] bg-[#f8f9fc] rounded-2xl hover:bg-[#f0f2f5] transition-all active:scale-95"
-            >
-              Cancel
-            </button>
-            <button 
-              disabled={!canConfirm}
-              onClick={handleConfirm}
-              className="flex-1 py-4 text-sm font-bold text-white bg-[#00b900] rounded-2xl shadow-lg shadow-[#00b90033] hover:opacity-90 disabled:opacity-30 disabled:grayscale transition-all active:scale-95"
-            >
-              Log Order
-            </button>
-          </div>
+        <div className="p-8 pt-4 border-t border-[#f4f6f9] flex gap-3 flex-shrink-0">
+          <button 
+            onClick={onCancel}
+            className="flex-1 py-4 text-sm font-bold text-[#8b92ad] bg-[#f8f9fc] rounded-2xl hover:bg-[#f0f2f5] transition-all"
+          >
+            Cancel
+          </button>
+          <button 
+            disabled={!canConfirm}
+            onClick={handleConfirm}
+            className="flex-1 py-4 text-sm font-bold text-white bg-[#00b900] rounded-2xl shadow-lg shadow-[#00b90033] hover:opacity-90 disabled:opacity-30 transition-all active:scale-95"
+          >
+            Log Order
+          </button>
         </div>
       </div>
     </div>
