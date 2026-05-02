@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Product, Settings } from '@/models';
+import { Product } from '@/models';
+import { verifyAuth as globalVerifyAuth } from '@/lib/auth';
 
 async function verifyAuth(req: NextRequest) {
   const secret = req.headers.get('x-admin-secret');
-  await dbConnect();
-  const settings = await Settings.findOne();
-  const dbSecret = settings?.adminSecret;
-  const envSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET;
-  return (dbSecret && secret === dbSecret) || (envSecret && secret === envSecret);
+  return await globalVerifyAuth(secret);
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

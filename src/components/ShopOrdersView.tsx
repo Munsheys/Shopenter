@@ -7,8 +7,9 @@ export default function ShopOrdersView() {
   const [orders, setOrders] = useState<any[]>([]);
 
   useEffect(() => {
+    const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') || '' : '';
     fetch('/api/shop-orders', {
-      headers: { 'x-admin-secret': process.env.NEXT_PUBLIC_ADMIN_SECRET || '' }
+      headers: { 'x-admin-secret': secret }
     })
     .then(r => r.json())
     .then(data => setOrders(Array.isArray(data) ? data : []));

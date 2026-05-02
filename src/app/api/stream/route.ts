@@ -1,5 +1,6 @@
 import dbConnect from '@/lib/db';
-import { Customer, Message, Order, Settings } from '@/models';
+import { Customer, Order } from '@/models';
+import { verifyAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -7,14 +8,7 @@ export const runtime = 'nodejs';
 export async function GET(req: Request) {
   const secret = new URL(req.url).searchParams.get('secret') || '';
 
-  // Verify secret
-  await dbConnect();
-  const settings = await Settings.findOne().lean() as any;
-  const dbSecret = settings?.adminSecret;
-  const envSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET;
-  const isValid = (dbSecret && secret === dbSecret) || (envSecret && secret === envSecret);
-
-  if (!isValid) {
+  if (!(await verifyAuth(secret))) {
     return new Response('Unauthorized', { status: 401 });
   }
 

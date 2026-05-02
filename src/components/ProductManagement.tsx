@@ -385,9 +385,7 @@ export default function ProductManagement() {
   const [isSaving, setIsSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const secret = typeof window !== 'undefined'
-    ? localStorage.getItem('admin_secret') || process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
-    : process.env.NEXT_PUBLIC_ADMIN_SECRET || '';
+  const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') || '' : '';
 
   const loadProducts = async () => {
     setIsLoading(true);

@@ -38,6 +38,10 @@ export default function SettingsView() {
         body: JSON.stringify(settings)
       });
       if (res.ok) {
+        // If the secret was changed, update our local session too!
+        if (settings.adminSecret) {
+          localStorage.setItem('admin_secret', settings.adminSecret);
+        }
         alert('Settings saved successfully!');
       }
     } catch (error) {

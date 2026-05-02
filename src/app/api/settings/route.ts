@@ -6,16 +6,15 @@ import { getLocalSettings, saveLocalSettings } from '@/lib/storage';
 export async function GET(req: Request) {
   try {
     await dbConnect();
-    // Try to find the most "configured" document first
     let s = await Settings.findOne({ liffId: { $exists: true, $ne: "" } }).sort({ _id: -1 });
-    
-    // If no configured one, just get the newest one
     if (!s) s = await Settings.findOne().sort({ _id: -1 });
     
     if (s) {
       const settings = s.toObject ? s.toObject() : { ...s };
       const secret = req.headers.get('x-admin-secret');
-      const isValid = secret === settings.adminSecret || secret === process.env.NEXT_PUBLIC_ADMIN_SECRET;
+      
+      // Dynamic verify: check if the secret matches the DB
+      const isValid = secret === settings.adminSecret;
       
       if (!isValid) {
         // Strip sensitive info for public checks
@@ -37,58 +36,50 @@ export async function POST(req: Request) {
     const body = await req.json();
     await dbConnect();
     
-    // Security check: Only allow unauthenticated POST if no settings exist OR if they are unconfigured
     const existing = await Settings.findOne();
-    const isUnconfigured = !existing || !existing.liffId;
+    const isUnconfigured = !existing || !existing.adminSecret;
 
+    // Security check: Only allow unauthenticated POST if no adminSecret exists yet
     if (!isUnconfigured) {
       const secret = req.headers.get('x-admin-secret');
-      const dbSecret = existing.adminSecret;
-      const envSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET;
-
-      const isValid = (dbSecret && secret === dbSecret) || (envSecret && secret === envSecret);
-      
-      if (!isValid) {
+      if (!secret || secret !== existing.adminSecret) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
 
-    // If starting fresh, PURGE everything first to avoid ghost documents
+    // If starting fresh, purge and create
     if (isUnconfigured) {
       await Settings.deleteMany({});
     }
 
-    try {
-      // Clean sensitive strings
-      const cleanedBody = { ...body };
-      if (typeof cleanedBody.lineChannelSecret === 'string') cleanedBody.lineChannelSecret = cleanedBody.lineChannelSecret.trim();
-      if (typeof cleanedBody.lineChannelAccessToken === 'string') cleanedBody.lineChannelAccessToken = cleanedBody.lineChannelAccessToken.trim();
-      if (typeof cleanedBody.liffId === 'string') cleanedBody.liffId = cleanedBody.liffId.trim();
+    // Clean sensitive strings
+    const cleanedBody = { ...body };
+    if (typeof cleanedBody.lineChannelSecret === 'string') cleanedBody.lineChannelSecret = cleanedBody.lineChannelSecret.trim();
+    if (typeof cleanedBody.lineChannelAccessToken === 'string') cleanedBody.lineChannelAccessToken = cleanedBody.lineChannelAccessToken.trim();
+    if (typeof cleanedBody.liffId === 'string') cleanedBody.liffId = cleanedBody.liffId.trim();
 
-      const s = await Settings.findOneAndUpdate({}, cleanedBody, { upsert: true, new: true });
-      saveLocalSettings(cleanedBody); // Sync local
-      return NextResponse.json(s);
-    } catch (dbError) {
-      console.error("DB Error on POST, saving to local only:", dbError);
-      saveLocalSettings(body);
-      return NextResponse.json(body);
-    }
+    const s = await Settings.findOneAndUpdate({}, cleanedBody, { upsert: true, new: true });
+    saveLocalSettings(cleanedBody);
+    return NextResponse.json(s);
   } catch (error: any) {
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
   }
 }
+
 export async function DELETE(req: Request) {
   try {
-    const adminSecret = req.headers.get("x-admin-secret");
+    const secret = req.headers.get("x-admin-secret");
+    await dbConnect();
+    const settings = await Settings.findOne();
     
-    // Allow reset if it's an emergency unauthenticated reset
-    const isEmergency = adminSecret === 'FORCE_RESET_UNAUTHENTICATED';
-    
-    if (!isEmergency && (!process.env.NEXT_PUBLIC_ADMIN_SECRET || adminSecret !== process.env.NEXT_PUBLIC_ADMIN_SECRET)) {
+    // No settings yet? Allow deletion (which does nothing)
+    if (!settings) return NextResponse.json({ message: "No settings to delete" });
+
+    // Must match the current DB secret to perform a reset
+    if (!secret || secret !== settings.adminSecret) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await dbConnect();
     await Settings.deleteMany({});
     return NextResponse.json({ message: "Settings reset successfully" });
   } catch (error) {

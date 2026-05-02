@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Message, Settings } from '@/models';
+import { Message } from '@/models';
+import { verifyAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -9,14 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
   const secret = req.nextUrl.searchParams.get('secret') || '';
   const { userId } = await params;
 
-  // Verify secret
-  await dbConnect();
-  const settings = await Settings.findOne().lean() as any;
-  const dbSecret = settings?.adminSecret;
-  const envSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET;
-  const isValid = (dbSecret && secret === dbSecret) || (envSecret && secret === envSecret);
-
-  if (!isValid) {
+  if (!(await verifyAuth(secret))) {
     return new Response('Unauthorized', { status: 401 });
   }
 
