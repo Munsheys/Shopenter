@@ -199,18 +199,17 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
           <div className="font-bold text-sm text-[#1a1d2e] truncate">{customerName}</div>
           <div className="text-[10px] text-[#00b900] font-semibold">LINE Chat</div>
         </div>
-        {unreadCount > 0 && (
-          <button 
-            onClick={onMarkAsRead}
-            className="text-[10px] bg-[#00b900] text-white font-bold px-2.5 py-1 rounded-md hover:bg-[#009900] transition-colors shadow-sm flex items-center gap-1"
-          >
-            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-            Mark as Read
-          </button>
-        )}
-        {unreadCount === 0 && (
-          <div className="w-2 h-2 rounded-full bg-[#00b900] flex-shrink-0 opacity-50" title="Live polling active" />
-        )}
+        <button 
+          onClick={onMarkAsRead}
+          className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-colors shadow-sm flex items-center gap-1 ${
+            unreadCount > 0 
+              ? "bg-[#00b900] text-white hover:bg-[#009900]" 
+              : "bg-[#e2e5ef] text-[#8b92ad] hover:bg-[#d1d5e0]"
+          }`}
+        >
+          <div className={`w-1.5 h-1.5 rounded-full ${unreadCount > 0 ? "bg-white animate-pulse" : "bg-[#8b92ad]"}`} />
+          Mark as Read
+        </button>
       </div>
 
       {/* Messages Area */}
@@ -1182,11 +1181,6 @@ export default function AdminDashboard() {
                       onClick={() => { 
                         if (selectedCustomer?.userId !== customer.userId) {
                           setSelectedCustomer(customer); 
-                          // Optimistic update to clear the unread badge locally
-                          setCustomers(prev => prev.map(c => c.userId === customer.userId ? { ...c, unreadCount: 0 } : c));
-                          // Fire the markAsRead API
-                          const headers = { 'x-admin-secret': localStorage.getItem('admin_secret') || '' };
-                          fetch(`/api/customers/${customer.userId}/read`, { method: 'POST', headers }).catch(console.error);
                         }
                         setIsChatOpen(true); 
                       }}
