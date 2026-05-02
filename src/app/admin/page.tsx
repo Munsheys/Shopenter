@@ -431,6 +431,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
             {!isManual 
               ? `PATH: ${selBrand || '?'} > ${selModelLine || '?'} > ${selProduct?.name || '?'} > ${selThickness || '?'} > ${selColor || '?'}`
               : 'Creating New Product Catalog Entry'
+            }
           </p>
         </div>
 
@@ -460,7 +461,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                         className="w-full px-4 py-3 text-left hover:bg-[#00b90005] border-b border-[#f4f6f9] last:border-0 flex justify-between items-center group"
                       >
                         <div>
-                          <div className="text-[9px] font-bold text-[#8b92ad] uppercase">{p.brand} > {p.modelLine}</div>
+                          <div className="text-[9px] font-bold text-[#8b92ad] uppercase">{p.brand} &gt; {p.modelLine}</div>
                           <div className="text-sm font-bold text-[#1a1d2e] group-hover:text-[#00b900]">{p.name}</div>
                         </div>
                         <span className="text-[10px] font-bold text-[#8b92ad]">Select →</span>
