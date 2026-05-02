@@ -945,8 +945,8 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   const [isQuickOrderOpen, setIsQuickOrderOpen] = useState(false);
   const [modal, setModal] = useState<any>({ isOpen: false, title: '', message: '', onConfirm: null, type: 'confirm' });
   const [parcels, setParcels] = useState<any[]>([]);
-  // Prevent refreshData from wiping manually-added parcels
   const hasSeededParcels = useRef(false);
+  const isLocked = useRef(false);
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
