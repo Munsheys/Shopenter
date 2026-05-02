@@ -635,6 +635,27 @@ export default function AdminDashboard() {
     };
   }, [liffState]);
 
+  // Debounced KRW Rate Sync to DB
+  useEffect(() => {
+    if (liffState !== 'admin') return;
+    const timer = setTimeout(async () => {
+      try {
+        const secret = localStorage.getItem('admin_secret') || '';
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-secret': secret
+          },
+          body: JSON.stringify({ krwRate })
+        });
+      } catch (err) {
+        console.error('Failed to sync KRW rate:', err);
+      }
+    }, 1000); // 1s debounce
+    return () => clearTimeout(timer);
+  }, [krwRate, liffState]);
+
   const initLiffRouter = useCallback(async () => {
     try {
       const secret = localStorage.getItem('admin_secret');
@@ -804,11 +825,11 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-8 relative">
-           {activeTab === 'orders' && <OrdersView key={`orders-${refreshKey}`} customer={selectedCustomer} krwRate={krwRate} />}
-           {activeTab === 'shop-orders' && <ShopOrdersView key={`shop-orders-${refreshKey}`} />}
-           {activeTab === 'products' && <ProductManagement key={`products-${refreshKey}`} />}
-           {activeTab === 'reports' && <ReportsView key={`reports-${refreshKey}`} />}
-           {activeTab === 'settings' && <SettingsView key={`settings-${refreshKey}`} />}
+           {activeTab === 'orders' && <OrdersView customer={selectedCustomer} krwRate={krwRate} />}
+           {activeTab === 'shop-orders' && <ShopOrdersView />}
+           {activeTab === 'products' && <ProductManagement />}
+           {activeTab === 'reports' && <ReportsView />}
+           {activeTab === 'settings' && <SettingsView />}
         </main>
            
         {selectedCustomer && isChatOpen && (
@@ -984,9 +1005,13 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
     const updatedAddresses = [...currentAddresses, newAddress];
     
     try {
+      const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '';
       const res = await fetch(`/api/customers/${customer.userId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-secret': secret || ''
+        },
         body: JSON.stringify({ addresses: updatedAddresses })
       });
       if (res.ok) {

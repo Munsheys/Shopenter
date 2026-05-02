@@ -91,16 +91,6 @@ export default function SettingsView() {
 
         <div className="grid grid-cols-2 gap-8 mb-8">
           <div>
-            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">KRW/THB Rate</label>
-            <input 
-              type="number" 
-              step="0.0001"
-              value={settings.krwRate || 0} 
-              onChange={(e) => updateSetting('krwRate', parseFloat(e.target.value))}
-              className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-all" 
-            />
-          </div>
-          <div>
             <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Primary Color</label>
             <div className="flex gap-2">
               <input 

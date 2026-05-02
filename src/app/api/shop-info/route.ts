@@ -7,12 +7,12 @@ export async function GET() {
   try {
     await dbConnect();
     const settings = await Settings.findOne();
-    if (!settings) {
+    if (!settings || !settings.adminSecret) {
       const local = getLocalSettings();
       return NextResponse.json({
         name: local.shopName,
-        liffId: process.env.NEXT_PUBLIC_LIFF_ID || process.env.LIFF_ID,
-        adminLineId: process.env.NEXT_PUBLIC_ADMIN_LINE_ID,
+        liffId: null, // Forces Setup Wizard
+        adminLineId: null,
         branding: { primaryColor: local.primaryColor }
       });
     }
@@ -26,8 +26,8 @@ export async function GET() {
     const local = getLocalSettings();
     return NextResponse.json({
       name: local.shopName,
-      liffId: process.env.NEXT_PUBLIC_LIFF_ID || process.env.LIFF_ID,
-      adminLineId: process.env.NEXT_PUBLIC_ADMIN_LINE_ID,
+      liffId: null,
+      adminLineId: null,
       branding: { primaryColor: local.primaryColor }
     });
   }
