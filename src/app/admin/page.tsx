@@ -1214,6 +1214,7 @@ function CustomerItem({ customer, active, collapsed, onClick }: { customer: any,
 
 const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customerId: string, customerName: string, krwRate: number }) => {
   const [orders, setOrders] = useState<any[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [customerData, setCustomerData] = useState<any>(null);
   const [newAddress, setNewAddress] = useState('');
   const [selectedAddress, setSelectedAddress] = useState<string>('');
@@ -1240,8 +1241,8 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
     };
   }, []);
 
-  const refreshData = async () => {
-    if (!customerId || isLocked.current) return;
+  const refreshData = async (isManual = false) => {
+    if (!customerId || (isLocked.current && !isManual)) return;
     try {
       const r = await fetch('/api/customers/' + customerId, {
         headers: { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' }
@@ -1274,8 +1275,11 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
           }]);
         }
       }
+      if (!isManual) setIsInitialLoading(false);
     } catch (err) {
       console.error("Refresh data error:", err);
+    } finally {
+      setIsInitialLoading(false);
     }
   };
 
@@ -1283,6 +1287,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
 
   useEffect(() => {
     if (!customerId) return;
+    setIsInitialLoading(true);
     const headers = { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' };
     fetch('/api/settings', { headers }).then(r => r.json()).then(data => setSettings(data));
     fetch('/api/products', { headers }).then(r => r.json()).then(data => setProducts(data));
@@ -1547,9 +1552,9 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
         costKRW: product.cost || 0,
         profit: finalPrice - ((product.cost || 0) * krwRate),
         rateUsed: krwRate,
-        status: 'shipped',
-        tracking: 'manual-chat',
-        courier: 'Chat Order'
+        status: 'pending',
+        tracking: '',
+        courier: ''
       };
 
       const res = await fetch('/api/orders', {
@@ -1564,7 +1569,8 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
       if (res.ok) {
         setIsQuickOrderOpen(false);
         showToast('Chat Order Logged', '💬');
-        refreshData();
+        isLocked.current = false;
+        refreshData(true);
       }
     } catch (err) {
       console.error(err);
@@ -1707,7 +1713,8 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
 
     setParcels(prev => prev.filter(p => p.id !== parcel.id));
     showToast('Parcel Shipped', '📦');
-    refreshData();
+    isLocked.current = false;
+    refreshData(true);
   };
 
   if (!customerId) {
@@ -1718,6 +1725,20 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
         </div>
         <h2 className="text-xl font-bold">Select a customer to manage</h2>
         <p className="text-sm">Click on a customer name on the left to view orders</p>
+      </div>
+    );
+  }
+
+  if (isInitialLoading) {
+    return (
+      <div className="max-w-4xl mx-auto h-[60vh] flex flex-col items-center justify-center animate-in fade-in duration-500">
+        <div className="relative">
+          <div className="w-20 h-20 border-4 border-[#00b900]/10 border-t-[#00b900] rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center text-[#00b900] animate-pulse">
+            <Package size={24} />
+          </div>
+        </div>
+        <p className="mt-6 text-xs font-bold text-[#8b92ad] uppercase tracking-[0.2em] animate-pulse">Loading Customer Data...</p>
       </div>
     );
   }
