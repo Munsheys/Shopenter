@@ -1217,27 +1217,28 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   const handleQuickOrder = async (product: any, finalPrice: number) => {
     if (!customer) return;
     isLocked.current = true;
-    const orderData = {
-      lineUserId: customer.userId,
-      displayName: customer.displayName,
-      product: product.name,
-      soldTHB: finalPrice,
-      costKRW: product.cost || 0,
-      profit: finalPrice - ((product.cost || 0) * krwRate),
-      rateUsed: krwRate,
-      status: 'shipped',
-      tracking: 'manual-chat',
-      courier: 'Chat Order'
-    };
+    try {
+      const orderData = {
+        lineUserId: customer.userId,
+        displayName: customer.displayName,
+        product: product.name,
+        soldTHB: finalPrice,
+        costKRW: product.cost || 0,
+        profit: finalPrice - ((product.cost || 0) * krwRate),
+        rateUsed: krwRate,
+        status: 'shipped',
+        tracking: 'manual-chat',
+        courier: 'Chat Order'
+      };
 
-    const res = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
-      },
-      body: JSON.stringify(orderData)
-    });
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
+        },
+        body: JSON.stringify(orderData)
+      });
 
       if (res.ok) {
         setIsQuickOrderOpen(false);
