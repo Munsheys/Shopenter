@@ -830,7 +830,7 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-8 relative">
-           {activeTab === 'orders' && <OrdersView customer={selectedCustomer} krwRate={krwRate} />}
+           {activeTab === 'orders' && <OrdersView customerId={selectedCustomer?.userId || ''} customerName={selectedCustomer?.displayName || ''} krwRate={krwRate} />}
            {activeTab === 'shop-orders' && <ShopOrdersView />}
            {activeTab === 'products' && <ProductManagement />}
            {activeTab === 'reports' && <ReportsView />}
@@ -934,7 +934,7 @@ function CustomerItem({ customer, active, collapsed, onClick }: { customer: any,
   );
 }
 
-function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
+function OrdersView({ customerId, customerName, krwRate }: { customerId: string, customerName: string, krwRate: number }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [customerData, setCustomerData] = useState<any>(null);
   const [newAddress, setNewAddress] = useState('');
@@ -963,9 +963,9 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   }, []);
 
   const refreshData = async () => {
-    if (!customer || isLocked.current) return;
+    if (!customerId || isLocked.current) return;
     try {
-      const r = await fetch('/api/customers/' + customer.userId, {
+      const r = await fetch('/api/customers/' + customerId, {
         headers: { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' }
       });
       const data = await r.json();
@@ -1004,28 +1004,25 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   const prevUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!customer) return;
-    
+    if (!customerId) return;
     const headers = { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' };
     fetch('/api/settings', { headers }).then(r => r.json()).then(data => setSettings(data));
     fetch('/api/products', { headers }).then(r => r.json()).then(data => setProducts(data));
-    
-    // ONLY reset state and full-refresh if we switched to a DIFFERENT person
-    if (prevUserId.current !== customer.userId) {
+
+    if (prevUserId.current !== customerId) {
       setCustomerData(null);
       setOrders([]);
       setParcels([]);
       hasSeededParcels.current = false;
-      prevUserId.current = customer.userId;
+      prevUserId.current = customerId;
       refreshData();
     } else {
-      // If it's the same person, just a background heartbeat, refresh without blanking the screen
       refreshData();
     }
-  }, [customer]);
+  }, [customerId]);
 
   const handleAddAddress = async () => {
-    if (!newAddress || !customer) return;
+    if (!newAddress || !customerId) return;
     
     // Lock background refreshes
     isLocked.current = true;
@@ -1039,7 +1036,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
 
     try {
       const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '';
-      const res = await fetch(`/api/customers/${customer.userId}`, {
+      const res = await fetch(`/api/customers/${customerId}`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -1064,7 +1061,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   };
 
   const handleRemoveAddress = async (addrToRemove: string) => {
-    if (!customer) return;
+    if (!customerId) return;
     
     setModal({
       isOpen: true,
@@ -1074,7 +1071,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
       onConfirm: async () => {
         const updatedAddresses = (customerData?.addresses || []).filter((a: string) => a !== addrToRemove);
         try {
-          const res = await fetch(`/api/customers/${customer.userId}`, {
+          const res = await fetch(`/api/customers/${customerId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ addresses: updatedAddresses })
@@ -1231,12 +1228,12 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   };
 
   const handleQuickOrder = async (product: any, finalPrice: number) => {
-    if (!customer) return;
+    if (!customerId) return;
     isLocked.current = true;
     try {
       const orderData = {
-        lineUserId: customer.userId,
-        displayName: customer.displayName,
+        lineUserId: customerId,
+        displayName: customerName,
         product: product.name,
         soldTHB: finalPrice,
         costKRW: product.cost || 0,
@@ -1280,7 +1277,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   };
 
   const handleShipParcel = async (parcel: any) => {
-    if (!customer || !settings || !selectedAddress) {
+    if (!customerId || !settings || !selectedAddress) {
       showToast('Please select an address', '⚠️');
       return;
     }
@@ -1295,8 +1292,8 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
     for (const item of parcel.items) {
       const profit = item.sold - (item.cost * krwRate);
       const orderPayload = {
-        lineUserId: customer.userId,
-        displayName: customer.displayName,
+        lineUserId: customerId,
+        displayName: customerName,
         product: item.name,
         soldTHB: item.sold,
         costKRW: item.cost,
@@ -1357,7 +1354,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
         return p;
       };
 
-      info.appendChild(createLine('To', customer.displayName));
+      info.appendChild(createLine('To', customerName));
       info.appendChild(createLine('Address', selectedAddress));
       info.appendChild(createLine('Tracking', parcel.tracking));
       info.appendChild(createLine('Courier', parcel.courier));
@@ -1381,7 +1378,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
     refreshData();
   };
 
-  if (!customer) {
+  if (!customerId) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-[#8b92ad] opacity-60 font-sans">
         <div className="bg-white p-8 rounded-full mb-4 shadow-sm">
@@ -1403,7 +1400,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
 
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">{customer.displayName}</h1>
+          <h1 className="text-2xl font-bold">{customerName}</h1>
         </div>
         <div className="flex gap-3">
           <button 
