@@ -134,37 +134,51 @@ function CreatableDropdown({
   );
 }
 
-function CategorySelector({ 
+function TagSelector({ 
+  label,
   selected, 
   onAdd, 
   onRemove, 
-  options 
+  options,
+  placeholder = "Type to search or add..."
 }: { 
+  label?: string,
   selected: string[], 
   onAdd: (c: string) => void, 
   onRemove: (c: string) => void,
-  options: string[]
+  options: string[],
+  placeholder?: string
 }) {
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const filtered = options.filter(o => !selected.includes(o) && o.toLowerCase().includes(search.toLowerCase()));
 
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <div>
-      <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Categories</label>
-      <div className="flex flex-wrap gap-2 mb-3">
+    <div ref={wrapperRef}>
+      {label && <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">{label}</label>}
+      <div className="flex flex-wrap gap-1.5 mb-2">
         {selected.map(c => (
-          <span key={c} className="bg-[#1a1d2e] text-white px-3 py-1.5 rounded-xl text-[10px] font-bold flex items-center gap-2 animate-in zoom-in-90">
+          <span key={c} className="bg-[#1a1d2e] text-white px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 animate-in zoom-in-90">
             {c}
-            <button onClick={() => onRemove(c)} className="hover:text-red-400"><X size={12} /></button>
+            <button onClick={() => onRemove(c)} className="hover:text-red-400 opacity-70 hover:opacity-100"><X size={10} /></button>
           </span>
         ))}
-        {selected.length === 0 && <span className="text-[10px] text-[#8b92ad] italic">No categories selected</span>}
       </div>
       <div className="relative">
         <input 
           type="text"
-          placeholder="Type to search or add category..."
+          placeholder={placeholder}
           value={search}
           onFocus={() => setIsOpen(true)}
           onChange={e => setSearch(e.target.value)}
@@ -175,16 +189,16 @@ function CategorySelector({
               setSearch('');
             }
           }}
-          className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900]"
+          className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2 text-sm outline-none focus:border-[#00b900] bg-white transition-all"
         />
         {isOpen && (search || filtered.length > 0) && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e5ef] rounded-xl shadow-xl z-50 p-1 max-h-40 overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e5ef] rounded-xl shadow-xl z-[60] p-1 max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-100">
             {filtered.map(o => (
-              <button key={o} onClick={() => { onAdd(o); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#f4f6f9] rounded-lg">
+              <button key={o} onClick={() => { onAdd(o); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#f4f6f9] rounded-lg transition-colors">
                 {o}
               </button>
             ))}
-            {search && !options.includes(search) && (
+            {search && !options.some(o => o.toLowerCase() === search.toLowerCase().trim()) && (
               <button onClick={() => { onAdd(search.trim()); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-[#00b900] font-bold hover:bg-[#00b90008] rounded-lg flex items-center gap-2">
                 <Plus size={14} /> Create "{search}"
               </button>
@@ -318,11 +332,13 @@ function ProductModal({
               </div>
             </div>
 
-            <CategorySelector 
+            <TagSelector 
+              label="Categories"
               selected={form.categories} 
               onAdd={c => !form.categories.includes(c) && updateForm({ categories: [...form.categories, c] })}
               onRemove={c => updateForm({ categories: form.categories.filter(x => x !== c) })}
               options={existingOptions.categories}
+              placeholder="Search or add category..."
             />
 
             <div>
@@ -349,7 +365,7 @@ function ProductModal({
               {form.variants.map((v, idx) => (
                 <div key={idx} className="bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl p-4 relative group animate-in slide-in-from-right-4">
                   {form.variants.length > 1 && (
-                    <button onClick={() => removeVariant(idx)} className="absolute -top-2 -right-2 bg-white border border-[#e2e5ef] text-red-400 p-1 rounded-full shadow-sm hover:text-red-600">
+                    <button onClick={() => removeVariant(idx)} className="absolute -top-2 -right-2 bg-white border border-[#e2e5ef] text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-10">
                       <Trash2 size={12} />
                     </button>
                   )}
@@ -367,36 +383,19 @@ function ProductModal({
                         type="number" 
                         value={v.price} 
                         onChange={e => updateVariant(idx, { price: e.target.value })}
-                        className="w-full border border-[#e2e5ef] rounded-xl px-3 py-2 text-sm font-bold text-[#00b900]"
+                        className="w-full border border-[#e2e5ef] rounded-xl px-3 py-2 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900]"
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block flex items-center gap-1">
-                      <Palette size={10} /> Available Colors for {v.thickness || '?'}
-                    </label>
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {v.colors.map(c => (
-                        <span key={c} className="bg-white border border-[#e2e5ef] px-2 py-1 rounded-lg text-[10px] font-medium flex items-center gap-1.5">
-                          {c}
-                          <button onClick={() => updateVariant(idx, { colors: v.colors.filter(x => x !== c) })} className="hover:text-red-400"><X size={10} /></button>
-                        </span>
-                      ))}
-                    </div>
-                    <input 
-                      type="text" 
-                      placeholder="Add color..."
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                          e.preventDefault();
-                          const val = e.currentTarget.value.trim();
-                          if (!v.colors.includes(val)) updateVariant(idx, { colors: [...v.colors, val] });
-                          e.currentTarget.value = '';
-                        }
-                      }}
-                      className="w-full bg-white border border-[#e2e5ef] rounded-lg px-3 py-1.5 text-[10px] outline-none focus:border-[#00b900]"
-                    />
-                  </div>
+                  
+                  <TagSelector 
+                    label={`Available Colors for ${v.thickness || '?'}`}
+                    selected={v.colors}
+                    onAdd={c => !v.colors.includes(c) && updateVariant(idx, { colors: [...v.colors, c] })}
+                    onRemove={c => updateVariant(idx, { colors: v.colors.filter(x => x !== c) })}
+                    options={existingOptions.colors}
+                    placeholder="Search or add color..."
+                  />
                 </div>
               ))}
             </div>
