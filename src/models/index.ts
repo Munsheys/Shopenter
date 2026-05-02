@@ -18,6 +18,7 @@ const SettingsSchema = new mongoose.Schema({
 const ProductSchema = new mongoose.Schema({
   name: { type: String, required: true },
   brand: String,
+  modelLine: String, // Family or Model Line (e.g. Croc Handle)
   description: String,
   price: { type: Number, required: true }, // Used as minPrice for sorting
   maxPrice: Number,

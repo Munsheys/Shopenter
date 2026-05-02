@@ -304,6 +304,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   
   // SELECT Selection State
   const [selBrand, setSelBrand] = useState('');
+  const [selModelLine, setSelModelLine] = useState('');
   const [selProduct, setSelProduct] = useState<any>(null);
   const [selThickness, setSelThickness] = useState('');
   const [selColor, setSelColor] = useState('');
@@ -311,6 +312,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   // NEW Manual State
   const [manualName, setManualName] = useState('');
   const [manualBrand, setManualBrand] = useState('');
+  const [manualModelLine, setManualModelLine] = useState('');
   const [manualThickness, setManualThickness] = useState('');
   const [manualColor, setManualColor] = useState('');
   const [manualCategory, setManualCategory] = useState('');
@@ -320,7 +322,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
 
   // Pre-calculations
   const brands = Array.from(new Set(products.map((p: any) => p.brand))).filter(Boolean).sort() as string[];
-  const filteredProducts = products.filter((p: any) => p.brand === selBrand);
+  const modelLines = Array.from(new Set(products.filter((p: any) => p.brand === selBrand).map((p: any) => p.modelLine))).filter(Boolean).sort() as string[];
+  const filteredProducts = products.filter((p: any) => p.brand === selBrand && p.modelLine === selModelLine);
+  
   const currentVariant = selProduct?.variants?.find((v: any) => v.thickness === selThickness);
   const thicknessOptions = selProduct?.variants?.map((v: any) => v.thickness) || [];
   const colorOptions = currentVariant?.colors || [];
@@ -328,11 +332,13 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   useEffect(() => {
     if (!isOpen) {
       setSelBrand('');
+      setSelModelLine('');
       setSelProduct(null);
       setSelThickness('');
       setSelColor('');
       setManualName('');
       setManualBrand('');
+      setManualModelLine('');
       setManualThickness('');
       setManualColor('');
       setManualCategory('');
@@ -340,6 +346,19 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
       setIsManual(false);
     }
   }, [isOpen]);
+
+  // Auto-advance logic
+  useEffect(() => {
+    if (selBrand && modelLines.length === 1 && !selModelLine) {
+      setSelModelLine(modelLines[0]);
+    }
+  }, [selBrand, modelLines]);
+
+  useEffect(() => {
+    if (selModelLine && filteredProducts.length === 1 && !selProduct) {
+      setSelProduct(filteredProducts[0]);
+    }
+  }, [selModelLine, filteredProducts]);
 
   useEffect(() => {
     if (currentVariant) {
@@ -355,6 +374,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
       onConfirm({ 
         name: manualName, 
         brand: manualBrand, 
+        modelLine: manualModelLine,
         thickness: manualThickness,
         color: manualColor,
         category: manualCategory, 
@@ -395,9 +415,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
               </button>
             </div>
           </div>
-          <p className="text-[10px] text-[#8b92ad] font-bold uppercase tracking-widest">
+          <p className="text-[10px] text-[#8b92ad] font-bold uppercase tracking-widest truncate">
             {!isManual 
-              ? `PATH: ${selBrand || '?'} > ${selProduct?.name || '?'} > ${selThickness || '?'} > ${selColor || '?'}`
+              ? `PATH: ${selBrand || '?'} > ${selModelLine || '?'} > ${selProduct?.name || '?'} > ${selThickness || '?'} > ${selColor || '?'}`
               : 'Creating New Product Catalog Entry'
             }
           </p>
@@ -413,7 +433,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                   {brands.map(b => (
                     <button 
                       key={b} 
-                      onClick={() => { setSelBrand(b); setSelProduct(null); setSelThickness(''); setSelColor(''); }}
+                      onClick={() => { setSelBrand(b); setSelModelLine(''); setSelProduct(null); setSelThickness(''); setSelColor(''); }}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${selBrand === b ? 'bg-[#1a1d2e] text-white border-[#1a1d2e] shadow-lg' : 'bg-white border-[#e2e5ef] text-[#8b92ad] hover:border-[#00b900]'}`}
                     >
                       {b}
@@ -422,10 +442,28 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                 </div>
               </div>
 
-              {/* STEP 2: MODEL */}
+              {/* STEP 2: MODEL LINE */}
               {selBrand && (
                 <div className="animate-in slide-in-from-top-2">
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">2. Choose Model</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">2. Model Line (Family)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {modelLines.map(ml => (
+                      <button 
+                        key={ml} 
+                        onClick={() => { setSelModelLine(ml); setSelProduct(null); setSelThickness(''); setSelColor(''); }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${selModelLine === ml ? 'bg-[#1a1d2e] text-white border-[#1a1d2e] shadow-md' : 'bg-white border-[#e2e5ef] text-[#8b92ad] hover:border-[#00b900]'}`}
+                      >
+                        {ml}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: PRODUCT NAME */}
+              {selModelLine && (
+                <div className="animate-in slide-in-from-top-2">
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">3. Product Listing</label>
                   <div className="grid grid-cols-2 gap-2">
                     {filteredProducts.map((p: any) => (
                       <button 
@@ -440,10 +478,10 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                 </div>
               )}
 
-              {/* STEP 3: THICKNESS */}
+              {/* STEP 4: THICKNESS */}
               {selProduct && (
                 <div className="animate-in slide-in-from-top-2">
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">3. Thickness</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">4. Thickness</label>
                   <div className="flex gap-2">
                     {thicknessOptions.map((t: string) => (
                       <button 
@@ -458,10 +496,10 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                 </div>
               )}
 
-              {/* STEP 4: COLOR */}
+              {/* STEP 5: COLOR */}
               {selThickness && (
                 <div className="animate-in slide-in-from-top-2">
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">4. Color Swatch</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">5. Color Swatch</label>
                   <div className="flex flex-wrap gap-2">
                     {colorOptions.map((c: string) => {
                       const isHex = c.startsWith('#');
@@ -494,12 +532,34 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">MODEL NAME</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">MODEL LINE</label>
                   <input 
                     type="text"
-                    placeholder="e.g. Model 3"
+                    placeholder="e.g. Boston Bag"
+                    value={manualModelLine}
+                    onChange={(e) => setManualModelLine(e.target.value)}
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">PRODUCT NAME</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. Kunka"
                     value={manualName}
                     onChange={(e) => setManualName(e.target.value)}
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">CATEGORY (OPTIONAL)</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. Handbag, Leather"
+                    value={manualCategory}
+                    onChange={(e) => setManualCategory(e.target.value)}
                     className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
                   />
                 </div>
@@ -539,7 +599,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
           )}
 
           {/* FINAL PRICE SECTION */}
-          <div className="pt-4 border-t border-[#f4f6f9]">
+          <div className="pt-4 border-t border-[#f4f6f9] flex-shrink-0">
             <div className="flex justify-between items-end mb-3">
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Final Price (Editable for Discount)</label>
               {currentVariant && price !== currentVariant.price.toString() && (

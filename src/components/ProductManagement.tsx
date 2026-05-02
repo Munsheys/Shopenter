@@ -12,8 +12,9 @@ interface ProductVariant {
 }
 
 interface ProductForm {
-  name: string;
+  name: string; // Display Name (e.g. Kunka)
   brand: string;
+  modelLine: string; // Family (e.g. Croc Handle)
   description: string;
   price: string; // minPrice
   categories: string[];
@@ -32,6 +33,7 @@ const EMPTY_VARIANT: ProductVariant = {
 const EMPTY_FORM: ProductForm = {
   name: '',
   brand: '',
+  modelLine: '',
   description: '',
   price: '',
   categories: [],
@@ -310,7 +312,7 @@ function ProductModal({
   onSave: (data: ProductForm) => void;
   onClose: () => void;
   isSaving: boolean;
-  existingOptions: { brands: string[], categories: string[], colors: string[], thicknesses: string[] }
+  existingOptions: { brands: string[], modelLines: string[], categories: string[], colors: string[], thicknesses: string[] }
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
 
@@ -338,7 +340,7 @@ function ProductModal({
         <div className="flex items-center justify-between px-8 pt-8 pb-4 border-b border-[#f4f6f9]">
           <div>
             <h3 className="text-xl font-bold text-[#1a1d2e]">{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
-            <p className="text-xs text-[#8b92ad]">Luxury Hierarchy Management (Brand &gt; Model &gt; Variants)</p>
+            <p className="text-xs text-[#8b92ad]">Luxury Hierarchy Management (Brand &gt; Model Line &gt; Product Name)</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-[#f4f6f9] hover:bg-[#e2e5ef] transition-colors"><X size={16} /></button>
         </div>
@@ -356,16 +358,24 @@ function ProductModal({
                 options={existingOptions.brands} 
                 placeholder="e.g. Celine" 
               />
-              <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Model Name *</label>
-                <input 
-                  type="text" 
-                  value={form.name} 
-                  onChange={e => updateForm({ name: e.target.value })}
-                  placeholder="e.g. Model 3"
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900]"
-                />
-              </div>
+              <CreatableDropdown 
+                label="Model Line / Family" 
+                value={form.modelLine} 
+                onChange={v => updateForm({ modelLine: v })} 
+                options={existingOptions.modelLines} 
+                placeholder="e.g. Boston Bag" 
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Display Product Name *</label>
+              <input 
+                type="text" 
+                value={form.name} 
+                onChange={e => updateForm({ name: e.target.value })}
+                placeholder="e.g. Kunka"
+                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900]"
+              />
             </div>
 
             <TagSelector 
@@ -488,6 +498,7 @@ export default function ProductManagement() {
 
   const existingOptions = {
     brands: unique('brand'),
+    modelLines: unique('modelLine'),
     categories: unique('category'),
     colors: unique('color'),
     thicknesses: unique('thickness'),
@@ -547,8 +558,9 @@ export default function ProductManagement() {
             <div key={p._id} className="bg-white rounded-2xl border border-[#e2e5ef] overflow-hidden shadow-sm hover:shadow-md transition-all group flex flex-col">
               <div className="aspect-[4/3] bg-[#f4f6f9] relative">
                 {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />}
-                <div className="absolute top-2 left-2 flex gap-1">
-                  <span className="bg-black/60 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">{p.brand}</span>
+                <div className="absolute top-2 left-2 flex flex-col gap-1">
+                  <span className="bg-black/60 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest self-start">{p.brand}</span>
+                  {p.modelLine && <span className="bg-[#00b900] text-white text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest self-start">{p.modelLine}</span>}
                 </div>
               </div>
               <div className="p-4 flex flex-col flex-1">
