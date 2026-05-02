@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Package, Plus, Edit2, Trash2, X, ImageIcon, Search, ChevronDown, Layers, Palette, Ruler } from 'lucide-react';
 
 interface ProductVariant {
@@ -315,9 +315,18 @@ function ProductModal({
   existingOptions: { brands: string[], modelLines: string[], categories: string[], colors: string[], thicknesses: string[] }
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
+  const prevId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isOpen) setForm(initialData ?? EMPTY_FORM);
+    if (isOpen) {
+      const currentId = (initialData as any)?._id || 'new';
+      if (currentId !== prevId.current) {
+        setForm(initialData ?? EMPTY_FORM);
+        prevId.current = currentId;
+      }
+    } else {
+      prevId.current = null;
+    }
   }, [isOpen, initialData]);
 
   if (!isOpen) return null;
@@ -464,7 +473,7 @@ function ProductModal({
   );
 }
 
-export default function ProductManagement() {
+export default React.memo(function ProductManagement() {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -496,13 +505,13 @@ export default function ProductManagement() {
     return Array.from(vals).sort();
   };
 
-  const existingOptions = {
+  const existingOptions = useMemo(() => ({
     brands: unique('brand'),
     modelLines: unique('modelLine'),
     categories: unique('category'),
     colors: unique('color'),
     thicknesses: unique('thickness'),
-  };
+  }), [products]);
 
   const handleSave = async (form: ProductForm) => {
     setIsSaving(true);
@@ -583,11 +592,11 @@ export default function ProductManagement() {
 
       <ProductModal 
         isOpen={isModalOpen} 
-        initialData={editingProduct ? {
+        initialData={useMemo(() => editingProduct ? {
           ...editingProduct,
           price: String(editingProduct.price),
           variants: editingProduct.variants?.map((v: any) => ({ ...v, price: String(v.price), cost: String(v.cost), stock: String(v.stock) })) || [{ ...EMPTY_VARIANT }]
-        } : null}
+        } : null, [editingProduct])}
         onSave={handleSave}
         onClose={() => setIsModalOpen(false)}
         isSaving={isSaving}
@@ -610,4 +619,4 @@ export default function ProductManagement() {
       )}
     </div>
   );
-}
+});
