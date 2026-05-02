@@ -302,13 +302,18 @@ function ChatHistory({ userId, customerName = "Customer" }: { userId: string, cu
 function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [manualName, setManualName] = useState('');
+  const [manualBrand, setManualBrand] = useState('');
+  const [manualCategory, setManualCategory] = useState('');
   const [price, setPrice] = useState<string>('');
   const [isManual, setIsManual] = useState(false);
+  const [autoCatalog, setAutoCatalog] = useState(true);
 
   useEffect(() => {
     if (!isOpen) {
       setSelectedProduct(null);
       setManualName('');
+      setManualBrand('');
+      setManualCategory('');
       setPrice('');
       setIsManual(false);
     }
@@ -319,13 +324,19 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   const handleConfirm = () => {
     const finalPrice = parseFloat(price) || 0;
     if (isManual) {
-      onConfirm({ name: manualName, cost: 0 }, finalPrice);
+      onConfirm({ 
+        name: manualName, 
+        brand: manualBrand, 
+        category: manualCategory, 
+        cost: 0,
+        autoCatalog 
+      }, finalPrice);
     } else {
       onConfirm(selectedProduct, finalPrice);
     }
   };
 
-  const canConfirm = isManual ? (manualName && price) : (selectedProduct && price);
+  const canConfirm = isManual ? (manualName && manualBrand && price) : (selectedProduct && price);
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -349,7 +360,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
             </div>
           </div>
           
-          <div className="space-y-5 mb-8">
+          <div className="space-y-4 mb-8">
             {!isManual ? (
               <div>
                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SELECT PRODUCT FROM DB</label>
@@ -363,20 +374,53 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                 >
                   <option value="">-- Choose Product --</option>
                   {products.map((p: any) => (
-                    <option key={p._id} value={p._id}>{p.name} (฿{p.price})</option>
+                    <option key={p._id} value={p._id}>{p.brand} {p.name} (฿{p.price})</option>
                   ))}
                 </select>
               </div>
             ) : (
-              <div className="animate-in slide-in-from-left-4 duration-300">
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">NEW PRODUCT NAME</label>
-                <input 
-                  type="text"
-                  placeholder="e.g. Special Glow Serum"
-                  value={manualName}
-                  onChange={(e) => setManualName(e.target.value)}
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
-                />
+              <div className="space-y-4 animate-in slide-in-from-left-4 duration-300">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">BRAND</label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. Samogra"
+                      value={manualBrand}
+                      onChange={(e) => setManualBrand(e.target.value)}
+                      className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">NAME / MODEL</label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. Model 3"
+                      value={manualName}
+                      onChange={(e) => setManualName(e.target.value)}
+                      className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">CATEGORY (OPTIONAL)</label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. Handbag, Leather"
+                    value={manualCategory}
+                    onChange={(e) => setManualCategory(e.target.value)}
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                  />
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input 
+                    type="checkbox" 
+                    checked={autoCatalog}
+                    onChange={(e) => setAutoCatalog(e.target.checked)}
+                    className="w-4 h-4 accent-[#00b900]"
+                  />
+                  <span className="text-[10px] font-bold text-[#8b92ad] group-hover:text-[#1a1d2e] transition-colors uppercase tracking-wider">Auto-save product to Catalog</span>
+                </label>
               </div>
             )}
 
@@ -392,7 +436,6 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                   className="w-full border border-[#e2e5ef] rounded-xl pl-8 pr-4 py-4 text-lg font-bold text-[#1a1d2e] outline-none focus:border-[#00b900] transition-all"
                 />
               </div>
-              <p className="text-[10px] text-[#8b92ad] mt-2 italic">* This order will be logged as 'Shipped' immediately.</p>
             </div>
           </div>
 
@@ -1288,10 +1331,36 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
     if (!customerId) return;
     isLocked.current = true;
     try {
+      const adminSecret = (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '';
+      
+      // Auto-catalog product if requested
+      if (product.autoCatalog) {
+        try {
+          await fetch('/api/products', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-admin-secret': adminSecret
+            },
+            body: JSON.stringify({
+              name: product.name,
+              brand: product.brand,
+              category: product.category,
+              price: finalPrice,
+              cost: 0,
+              variants: [{ thickness: 'Standard', colors: ['Default'], price: finalPrice, cost: 0 }]
+            })
+          });
+        } catch (catErr) {
+          console.error("Auto-catalog failed, continuing with order only", catErr);
+        }
+      }
+
       const orderData = {
         lineUserId: customerId,
         displayName: customerName,
         product: product.name,
+        brand: product.brand,
         soldTHB: finalPrice,
         costKRW: product.cost || 0,
         profit: finalPrice - ((product.cost || 0) * krwRate),
@@ -1305,7 +1374,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
+          'x-admin-secret': adminSecret
         },
         body: JSON.stringify(orderData)
       });

@@ -19,15 +19,16 @@ const ProductSchema = new mongoose.Schema({
   name: { type: String, required: true },
   brand: String,
   description: String,
-  price: { type: Number, required: true },
+  price: { type: Number, required: true }, // Used as minPrice for sorting
+  maxPrice: Number,
   imageUrl: String,
-  category: String,
-  color: String,
-  thickness: String,
+  categories: { type: [String], default: [] },
   variants: [{
-    label: String,
+    thickness: String,
+    colors: { type: [String], default: [] },
     price: Number,
-    stock: Number
+    cost: Number,
+    stock: { type: Number, default: 0 }
   }],
   isActive: { type: Boolean, default: true }
 });
