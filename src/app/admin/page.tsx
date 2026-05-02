@@ -809,7 +809,12 @@ export default function AdminDashboard() {
                     customer={customer} 
                     active={selectedCustomer?.userId === customer.userId}
                     collapsed={isSidebarCollapsed}
-                    onClick={() => { setSelectedCustomer(customer); setIsChatOpen(true); }}
+                    onClick={() => { 
+                      if (selectedCustomer?.userId !== customer.userId) {
+                        setSelectedCustomer(customer); 
+                      }
+                      setIsChatOpen(true); 
+                    }}
                  />
                ))}
             </div>
@@ -958,18 +963,22 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   }, []);
 
   const refreshData = async () => {
-    if (!customer) return;
+    if (!customer || isLocked.current) return;
     try {
       const r = await fetch('/api/customers/' + customer.userId, {
         headers: { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' }
       });
       const data = await r.json();
+      
+      // Double check lock before updating state
+      if (isLocked.current) return;
+
       setCustomerData(data.customer);
       setOrders(data.orders || []);
 
       // Seed parcels from DB preparing orders only on first load.
       // Never wipe user-added parcels on subsequent refreshes.
-      if (!hasSeededParcels.current) {
+      if (!hasSeededParcels.current && parcels.length === 0) {
         hasSeededParcels.current = true;
         const preparing = (data.orders || []).filter((o: any) => o.status === 'preparing');
         if (preparing.length > 0) {
@@ -1001,9 +1010,17 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
 
   const handleAddAddress = async () => {
     if (!newAddress || !customer) return;
+    
+    // Lock background refreshes
+    isLocked.current = true;
+    
     const currentAddresses = customerData?.addresses || [];
     const updatedAddresses = [...currentAddresses, newAddress];
     
+    // Optimistic UI
+    setCustomerData((prev: any) => ({ ...prev, addresses: updatedAddresses }));
+    setNewAddress('');
+
     try {
       const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '';
       const res = await fetch(`/api/customers/${customer.userId}`, {
@@ -1014,16 +1031,19 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
         },
         body: JSON.stringify({ addresses: updatedAddresses })
       });
+      
       if (res.ok) {
-        const updated = await res.json();
-        setCustomerData(updated);
-        setNewAddress('');
         showToast('Address Added', '🏠');
       } else {
         setModal({ isOpen: true, title: 'Error', message: 'Failed to add address. Database might be disconnected.', type: 'alert', onConfirm: () => setModal({ ...modal, isOpen: false }) });
       }
     } catch (err) {
       setModal({ isOpen: true, title: 'Error', message: 'Network error. Please try again.', type: 'alert', onConfirm: () => setModal({ ...modal, isOpen: false }) });
+    } finally {
+      // Keep lock for a few more seconds to allow DB propagation
+      setTimeout(() => {
+        isLocked.current = false;
+      }, 5000);
     }
   };
 
@@ -1058,6 +1078,8 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   };
 
   const addParcel = () => {
+    isLocked.current = true;
+    setTimeout(() => { isLocked.current = false; }, 3000); // 3s lock for local addition
     setParcels([...parcels, { 
       id: Date.now(), 
       items: [{ id: Date.now()+1, name: 'New Product', sold: 0, cost: 0 }], 
@@ -1194,6 +1216,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
 
   const handleQuickOrder = async (product: any, finalPrice: number) => {
     if (!customer) return;
+    isLocked.current = true;
     const orderData = {
       lineUserId: customer.userId,
       displayName: customer.displayName,
@@ -1216,10 +1239,15 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
       body: JSON.stringify(orderData)
     });
 
-    if (res.ok) {
-      setIsQuickOrderOpen(false);
-      showToast('Chat Order Logged', '💬');
-      refreshData();
+      if (res.ok) {
+        setIsQuickOrderOpen(false);
+        showToast('Chat Order Logged', '💬');
+        refreshData();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setTimeout(() => { isLocked.current = false; }, 5000);
     }
   };
 
