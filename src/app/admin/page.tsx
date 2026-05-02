@@ -301,58 +301,112 @@ function ChatHistory({ userId, customerName = "Customer" }: { userId: string, cu
 
 function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [price, setPrice] = useState(0);
+  const [manualName, setManualName] = useState('');
+  const [price, setPrice] = useState<string>('');
+  const [isManual, setIsManual] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedProduct(null);
+      setManualName('');
+      setPrice('');
+      setIsManual(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
+  const handleConfirm = () => {
+    const finalPrice = parseFloat(price) || 0;
+    if (isManual) {
+      onConfirm({ name: manualName, cost: 0 }, finalPrice);
+    } else {
+      onConfirm(selectedProduct, finalPrice);
+    }
+  };
+
+  const canConfirm = isManual ? (manualName && price) : (selectedProduct && price);
+
   return (
-    <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
         <div className="p-8">
-          <h3 className="text-xl font-bold text-[#1a1d2e] mb-6">Manual Quick Order</h3>
-          
-          <div className="space-y-4 mb-8">
-            <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SELECT PRODUCT</label>
-              <select 
-                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
-                onChange={(e) => {
-                  const p = products.find((prod: any) => prod._id === e.target.value);
-                  setSelectedProduct(p);
-                  setPrice(p?.price || 0);
-                }}
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-[#1a1d2e]">Manual Quick Order</h3>
+            <div className="flex bg-[#f8f9fc] p-1 rounded-xl">
+              <button 
+                onClick={() => setIsManual(false)}
+                className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${!isManual ? 'bg-white shadow-sm text-[#00b900]' : 'text-[#8b92ad]'}`}
               >
-                <option value="">-- Choose Product --</option>
-                {products.map((p: any) => (
-                  <option key={p._id} value={p._id}>{p.name} (฿{p.price})</option>
-                ))}
-              </select>
+                SELECT
+              </button>
+              <button 
+                onClick={() => setIsManual(true)}
+                className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${isManual ? 'bg-white shadow-sm text-[#00b900]' : 'text-[#8b92ad]'}`}
+              >
+                NEW
+              </button>
             </div>
-
-            {selectedProduct && (
+          </div>
+          
+          <div className="space-y-5 mb-8">
+            {!isManual ? (
               <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">FINAL PRICE (THB)</label>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SELECT PRODUCT FROM DB</label>
+                <select 
+                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white transition-all"
+                  onChange={(e) => {
+                    const p = products.find((prod: any) => prod._id === e.target.value);
+                    setSelectedProduct(p);
+                    setPrice(p?.price?.toString() || '');
+                  }}
+                >
+                  <option value="">-- Choose Product --</option>
+                  {products.map((p: any) => (
+                    <option key={p._id} value={p._id}>{p.name} (฿{p.price})</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="animate-in slide-in-from-left-4 duration-300">
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">NEW PRODUCT NAME</label>
                 <input 
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(parseFloat(e.target.value))}
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900]"
+                  type="text"
+                  placeholder="e.g. Special Glow Serum"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
                 />
               </div>
             )}
+
+            <div>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">FINAL PRICE (THB)</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b92ad] font-bold text-sm">฿</span>
+                <input 
+                  type="number"
+                  placeholder="0.00"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full border border-[#e2e5ef] rounded-xl pl-8 pr-4 py-4 text-lg font-bold text-[#1a1d2e] outline-none focus:border-[#00b900] transition-all"
+                />
+              </div>
+              <p className="text-[10px] text-[#8b92ad] mt-2 italic">* This order will be logged as 'Shipped' immediately.</p>
+            </div>
           </div>
 
           <div className="flex gap-3">
             <button 
               onClick={onCancel}
-              className="flex-1 py-4 text-sm font-bold text-[#8b92ad] bg-[#f8f9fc] rounded-2xl hover:bg-[#f0f2f5] transition-all"
+              className="flex-1 py-4 text-sm font-bold text-[#8b92ad] bg-[#f8f9fc] rounded-2xl hover:bg-[#f0f2f5] transition-all active:scale-95"
             >
               Cancel
             </button>
             <button 
-              disabled={!selectedProduct}
-              onClick={() => onConfirm(selectedProduct, price)}
-              className="flex-1 py-4 text-sm font-bold text-white bg-[#00b900] rounded-2xl shadow-lg shadow-[#00b90033] hover:opacity-90 disabled:opacity-50 transition-all"
+              disabled={!canConfirm}
+              onClick={handleConfirm}
+              className="flex-1 py-4 text-sm font-bold text-white bg-[#00b900] rounded-2xl shadow-lg shadow-[#00b90033] hover:opacity-90 disabled:opacity-30 disabled:grayscale transition-all active:scale-95"
             >
               Log Order
             </button>
