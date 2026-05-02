@@ -319,10 +319,21 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   
   const [price, setPrice] = useState<string>('');
   const [autoCatalog, setAutoCatalog] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Pre-calculations
   const brands = Array.from(new Set(products.map((p: any) => p.brand))).filter(Boolean).sort() as string[];
   const modelLines = Array.from(new Set(products.filter((p: any) => p.brand === selBrand).map((p: any) => p.modelLine))).filter(Boolean).sort() as string[];
+  
+  // Global search filtering
+  const searchResults = searchTerm.length >= 2 
+    ? products.filter((p: any) => 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.modelLine.toLowerCase().includes(searchTerm.toLowerCase())
+      ).slice(0, 10)
+    : [];
+
   const filteredProducts = products.filter((p: any) => p.brand === selBrand && p.modelLine === selModelLine);
   
   const currentVariant = selProduct?.variants?.find((v: any) => v.thickness === selThickness);
@@ -343,6 +354,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
       setManualColor('');
       setManualCategory('');
       setPrice('');
+      setSearchTerm('');
       setIsManual(false);
     }
   }, [isOpen]);
@@ -419,13 +431,46 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
             {!isManual 
               ? `PATH: ${selBrand || '?'} > ${selModelLine || '?'} > ${selProduct?.name || '?'} > ${selThickness || '?'} > ${selColor || '?'}`
               : 'Creating New Product Catalog Entry'
-            }
           </p>
         </div>
 
         <div className="p-8 pt-6 overflow-y-auto space-y-6">
           {!isManual ? (
             <div className="space-y-5">
+              {/* GLOBAL SEARCH */}
+              <div className="relative">
+                <input 
+                  type="text"
+                  placeholder="Search catalog (e.g. 'Boston' or 'Pink')..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#00b900] outline-none"
+                />
+                {searchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 bg-white border border-[#e2e5ef] rounded-2xl mt-2 shadow-2xl z-[10] overflow-hidden">
+                    {searchResults.map((p: any) => (
+                      <button 
+                        key={p._id}
+                        onClick={() => {
+                          setSelBrand(p.brand);
+                          setSelModelLine(p.modelLine);
+                          setSelProduct(p);
+                          setSearchTerm('');
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-[#00b90005] border-b border-[#f4f6f9] last:border-0 flex justify-between items-center group"
+                      >
+                        <div>
+                          <div className="text-[9px] font-bold text-[#8b92ad] uppercase">{p.brand} > {p.modelLine}</div>
+                          <div className="text-sm font-bold text-[#1a1d2e] group-hover:text-[#00b900]">{p.name}</div>
+                        </div>
+                        <span className="text-[10px] font-bold text-[#8b92ad]">Select →</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="h-[1px] bg-[#f4f6f9] my-2"></div>
               {/* STEP 1: BRAND */}
               <div>
                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">1. Select Brand</label>
@@ -525,21 +570,31 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                   <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">BRAND</label>
                   <input 
                     type="text"
+                    list="manual-brands"
                     placeholder="e.g. Samogra"
                     value={manualBrand}
                     onChange={(e) => setManualBrand(e.target.value)}
                     className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
                   />
+                  <datalist id="manual-brands">
+                    {brands.map((b: any) => <option key={String(b)} value={String(b)} />)}
+                  </datalist>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">MODEL LINE</label>
                   <input 
                     type="text"
+                    list="manual-models"
                     placeholder="e.g. Boston Bag"
                     value={manualModelLine}
                     onChange={(e) => setManualModelLine(e.target.value)}
                     className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
                   />
+                  <datalist id="manual-models">
+                    {Array.from(new Set(products.filter((p: any) => p.brand === manualBrand).map((p: any) => p.modelLine))).map((ml: any) => (
+                      <option key={String(ml)} value={String(ml)} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1530,9 +1585,15 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
               name: product.name,
               brand: product.brand,
               category: product.category,
+              modelLine: product.modelLine,
               price: finalPrice,
               cost: 0,
-              variants: [{ thickness: 'Standard', colors: ['Default'], price: finalPrice, cost: 0 }]
+              variants: [{ 
+                thickness: product.thickness || 'Standard', 
+                colors: [product.color || 'Default'], 
+                price: finalPrice, 
+                cost: 0 
+              }]
             })
           });
         } catch (catErr) {
