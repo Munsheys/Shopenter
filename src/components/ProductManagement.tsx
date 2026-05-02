@@ -191,7 +191,7 @@ function TagSelector({
           }}
           className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2 text-sm outline-none focus:border-[#00b900] bg-white transition-all"
         />
-        {isOpen && (search || filtered.length > 0) && (
+        {isOpen && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e5ef] rounded-xl shadow-xl z-[60] p-1 max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-100">
             {filtered.map(o => (
               <button key={o} onClick={() => { onAdd(o); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#f4f6f9] rounded-lg transition-colors">
@@ -202,6 +202,11 @@ function TagSelector({
               <button onClick={() => { onAdd(search.trim()); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-[#00b900] font-bold hover:bg-[#00b90008] rounded-lg flex items-center gap-2">
                 <Plus size={14} /> Create "{search}"
               </button>
+            )}
+            {!search && filtered.length === 0 && (
+              <div className="px-3 py-4 text-xs text-center text-[#8b92ad] italic">
+                {options.length === 0 ? "No existing items found. Type to create new." : "All items already selected."}
+              </div>
             )}
           </div>
         )}
