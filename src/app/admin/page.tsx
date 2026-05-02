@@ -934,7 +934,7 @@ function CustomerItem({ customer, active, collapsed, onClick }: { customer: any,
   );
 }
 
-function OrdersView({ customerId, customerName, krwRate }: { customerId: string, customerName: string, krwRate: number }) {
+const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customerId: string, customerName: string, krwRate: number }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [customerData, setCustomerData] = useState<any>(null);
   const [newAddress, setNewAddress] = useState('');
@@ -1009,16 +1009,17 @@ function OrdersView({ customerId, customerName, krwRate }: { customerId: string,
     fetch('/api/settings', { headers }).then(r => r.json()).then(data => setSettings(data));
     fetch('/api/products', { headers }).then(r => r.json()).then(data => setProducts(data));
 
+    // ONLY reset state and full-refresh if we switched to a DIFFERENT person
     if (prevUserId.current !== customerId) {
       setCustomerData(null);
       setOrders([]);
       setParcels([]);
       hasSeededParcels.current = false;
       prevUserId.current = customerId;
-      refreshData();
-    } else {
-      refreshData();
     }
+    
+    // Always fetch latest data in background
+    refreshData();
   }, [customerId]);
 
   const handleAddAddress = async () => {
@@ -1704,3 +1705,4 @@ function OrdersView({ customerId, customerName, krwRate }: { customerId: string,
 
   return null;
 }
+});
