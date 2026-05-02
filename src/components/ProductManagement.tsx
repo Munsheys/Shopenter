@@ -288,7 +288,7 @@ function ProductModal({
         <div className="flex items-center justify-between px-8 pt-8 pb-4 border-b border-[#f4f6f9]">
           <div>
             <h3 className="text-xl font-bold text-[#1a1d2e]">{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
-            <p className="text-xs text-[#8b92ad]">Luxury Hierarchy Management (Brand > Model > Variants)</p>
+            <p className="text-xs text-[#8b92ad]">Luxury Hierarchy Management (Brand &gt; Model &gt; Variants)</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-[#f4f6f9] hover:bg-[#e2e5ef] transition-colors"><X size={16} /></button>
         </div>
