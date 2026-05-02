@@ -1701,8 +1701,4 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
       />
     </div>
     );
-  }
-
-  return null;
-}
-});
+  });
