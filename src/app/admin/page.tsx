@@ -199,13 +199,16 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
           <div className="font-bold text-sm text-[#1a1d2e] truncate">{customerName}</div>
           <div className="text-[10px] text-[#00b900] font-semibold">LINE Chat</div>
         </div>
-        {unreadCount > 0 ? (
+        {unreadCount > 0 && (
           <button 
             onClick={onMarkAsRead}
-            className="w-3 h-3 rounded-full bg-[#00b900] flex-shrink-0 hover:scale-110 transition-transform cursor-pointer shadow-[0_0_8px_rgba(0,185,0,0.6)]" 
-            title="Mark as Read" 
-          />
-        ) : (
+            className="text-[10px] bg-[#00b900] text-white font-bold px-2.5 py-1 rounded-md hover:bg-[#009900] transition-colors shadow-sm flex items-center gap-1"
+          >
+            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+            Mark as Read
+          </button>
+        )}
+        {unreadCount === 0 && (
           <div className="w-2 h-2 rounded-full bg-[#00b900] flex-shrink-0 opacity-50" title="Live polling active" />
         )}
       </div>
