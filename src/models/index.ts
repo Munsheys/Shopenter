@@ -41,7 +41,8 @@ const CustomerSchema = new mongoose.Schema({
   pictureUrl: String,
   addresses: [String],
   lastSeen: { type: Date, default: Date.now },
-  profileCachedAt: { type: Date, default: null }
+  profileCachedAt: { type: Date, default: null },
+  unreadCount: { type: Number, default: 0 }
 });
 
 const OrderSchema = new mongoose.Schema({

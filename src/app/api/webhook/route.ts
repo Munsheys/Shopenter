@@ -131,6 +131,11 @@ export async function POST(req: Request) {
           text: event.message.text,
           sender: 'user'
         });
+        
+        await Customer.updateOne(
+          { userId },
+          { $inc: { unreadCount: 1 } }
+        );
       }
     }
 

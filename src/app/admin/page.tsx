@@ -833,6 +833,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('orders');
   const [krwRate, setKrwRate] = useState(0.026);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [globalPendingOrders, setGlobalPendingOrders] = useState<any[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -920,9 +921,10 @@ export default function AdminDashboard() {
 
       es.onmessage = (event) => {
         try {
-          const { type, customers: c } = JSON.parse(event.data);
+          const { type, customers: c, orders: o } = JSON.parse(event.data);
           if (type === 'init' || type === 'update') {
             if (Array.isArray(c)) setCustomers(c);
+            if (Array.isArray(o)) setGlobalPendingOrders(o);
           }
         } catch (err) {
           console.error('[SSE] Parse error:', err);
@@ -1123,20 +1125,30 @@ export default function AdminDashboard() {
             )}
 
             <div className="flex-1 overflow-y-auto">
-               {customers.filter((c: any) => c.displayName.toLowerCase().includes(searchQuery.toLowerCase())).map((customer: any) => (
-                 <CustomerItem 
-                    key={customer.userId} 
-                    customer={customer} 
-                    active={selectedCustomer?.userId === customer.userId}
-                    collapsed={isSidebarCollapsed}
-                    onClick={() => { 
-                      if (selectedCustomer?.userId !== customer.userId) {
-                        setSelectedCustomer(customer); 
-                      }
-                      setIsChatOpen(true); 
-                    }}
-                 />
-               ))}
+               {customers.filter((c: any) => c.displayName.toLowerCase().includes(searchQuery.toLowerCase())).map((customer: any) => {
+                 const hasPendingOrder = globalPendingOrders.some((o: any) => o.lineUserId === customer.userId);
+                 return (
+                   <CustomerItem 
+                      key={customer.userId} 
+                      customer={customer} 
+                      active={selectedCustomer?.userId === customer.userId}
+                      collapsed={isSidebarCollapsed}
+                      unreadCount={customer.unreadCount || 0}
+                      hasPendingOrder={hasPendingOrder}
+                      onClick={() => { 
+                        if (selectedCustomer?.userId !== customer.userId) {
+                          setSelectedCustomer(customer); 
+                          // Optimistic update to clear the unread badge locally
+                          setCustomers(prev => prev.map(c => c.userId === customer.userId ? { ...c, unreadCount: 0 } : c));
+                          // Fire the markAsRead API
+                          const headers = { 'x-admin-secret': localStorage.getItem('admin_secret') || '' };
+                          fetch(`/api/customers/${customer.userId}/read`, { method: 'POST', headers }).catch(console.error);
+                        }
+                        setIsChatOpen(true); 
+                      }}
+                   />
+                 );
+               })}
             </div>
 
             <button 
@@ -1212,17 +1224,21 @@ function TabButton({ icon, label, active, onClick }: { icon: any, label: string,
   );
 }
 
-function CustomerItem({ customer, active, collapsed, onClick }: { customer: any, active: boolean, collapsed: boolean, onClick: any }) {
+function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrder, onClick }: { customer: any, active: boolean, collapsed: boolean, unreadCount: number, hasPendingOrder: boolean, onClick: any }) {
   if (collapsed) {
     return (
       <div 
         onClick={onClick}
         className={cn(
-          "p-3 flex justify-center cursor-pointer hover:bg-[#f9f9f9] transition-colors",
+          "p-3 flex justify-center cursor-pointer hover:bg-[#f9f9f9] transition-colors relative",
           active && "bg-[#e8f8e8] border-l-4 border-[#00b900]"
         )}
       >
-        <img src={customer.pictureUrl} alt="" className="w-8 h-8 rounded-full bg-[#eee]" />
+        <div className="relative">
+          <img src={customer.pictureUrl} alt="" className="w-8 h-8 rounded-full bg-[#eee]" />
+          {unreadCount > 0 && <div className="absolute top-0 right-0 w-3 h-3 bg-[#00b900] border-2 border-white rounded-full animate-pulse z-10" />}
+          {hasPendingOrder && unreadCount === 0 && <div className="absolute top-0 right-0 w-3 h-3 bg-[#ffb700] border-2 border-white rounded-full animate-pulse z-10" />}
+        </div>
       </div>
     );
   }
@@ -1235,21 +1251,28 @@ function CustomerItem({ customer, active, collapsed, onClick }: { customer: any,
         active && "bg-[#e8f8e8] border-l-4 border-[#00b900]"
       )}
     >
-      <img 
-        src={customer.pictureUrl} 
-        alt={customer.displayName} 
-        className="w-10 h-10 rounded-full bg-[#eee] object-cover" 
-        onError={(e) => {
-          const target = e.currentTarget;
-          target.style.display = 'none';
-          const fallback = document.createElement('div');
-          fallback.className = 'w-10 h-10 rounded-full bg-[#1a1d2e] text-white flex items-center justify-center text-sm font-bold';
-          fallback.textContent = customer.displayName.charAt(0).toUpperCase();
-          target.parentElement?.insertBefore(fallback, target);
-        }}
-      />
+      <div className="relative">
+        <img 
+          src={customer.pictureUrl} 
+          alt={customer.displayName} 
+          className="w-10 h-10 rounded-full bg-[#eee] object-cover" 
+          onError={(e) => {
+            const target = e.currentTarget;
+            target.style.display = 'none';
+            const fallback = document.createElement('div');
+            fallback.className = 'w-10 h-10 rounded-full bg-[#1a1d2e] text-white flex items-center justify-center text-sm font-bold';
+            fallback.textContent = customer.displayName.charAt(0).toUpperCase();
+            target.parentElement?.insertBefore(fallback, target);
+          }}
+        />
+        {unreadCount > 0 && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#00b900] border-2 border-white rounded-full animate-pulse shadow-sm z-10" title="New Message" />}
+        {hasPendingOrder && unreadCount === 0 && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#ffb700] border-2 border-white rounded-full animate-pulse shadow-sm z-10" title="Pending Order" />}
+      </div>
       <div className="flex-1 overflow-hidden">
-        <div className="font-bold text-sm truncate">{customer.displayName}</div>
+        <div className="font-bold text-sm truncate flex justify-between items-center">
+          {customer.displayName}
+          {unreadCount > 0 && <span className="bg-[#00b900] text-white text-[9px] px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
+        </div>
         <div className="text-[10px] text-[#8b92ad]">Last seen: {new Date(customer.lastSeen).toLocaleDateString()}</div>
       </div>
     </div>
