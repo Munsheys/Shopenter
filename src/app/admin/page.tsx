@@ -170,7 +170,7 @@ function ChatHistory({ userId, customerName = "Customer" }: { userId: string, cu
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : ''
+          'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
         },
         body: JSON.stringify({ userId, text: textToSend })
       });
@@ -380,7 +380,7 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
       method: 'PATCH',
       headers: { 
         'Content-Type': 'application/json',
-        'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : ''
+        'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
       },
       body: JSON.stringify({ ...editData, profit })
     });
@@ -643,7 +643,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      const headers = { 'x-admin-secret': secret };
+      const headers = { 'x-admin-secret': secret || '' };
       
       // Verify the secret by testing a protected endpoint
       const verifyRes = await fetch('/api/customers', { headers, cache: 'no-store' });
@@ -940,7 +940,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
     if (!customer) return;
     try {
       const r = await fetch('/api/customers/' + customer.userId, {
-        headers: { 'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '' }
+        headers: { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' }
       });
       const data = await r.json();
       setCustomerData(data.customer);
@@ -972,7 +972,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
   };
 
   useEffect(() => {
-    const headers = { 'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '' };
+    const headers = { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' };
     fetch('/api/settings', { headers }).then(r => r.json()).then(data => setSettings(data));
     fetch('/api/products', { headers }).then(r => r.json()).then(data => setProducts(data));
     refreshData();
@@ -1051,7 +1051,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
       method: 'PATCH',
       headers: { 
         'Content-Type': 'application/json',
-        'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : ''
+        'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
       },
       body: JSON.stringify({ status: 'preparing' })
     });
@@ -1095,7 +1095,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
                 method: 'PATCH',
                 headers: { 
                   'Content-Type': 'application/json',
-                  'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : ''
+                  'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
                 },
                 body: JSON.stringify({ status: 'pending' })
               });
@@ -1123,7 +1123,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
             method: 'PATCH',
             headers: { 
               'Content-Type': 'application/json',
-              'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : ''
+              'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
             },
             body: JSON.stringify({ status: 'pending' })
           });
@@ -1158,7 +1158,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
 
         await fetch(`/api/orders/${order._id}`, { 
           method: 'DELETE', 
-          headers: { 'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '' } 
+          headers: { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' } 
         });
         showToast('Order Deleted', '🗑️');
         setModal({ ...modal, isOpen: false });
@@ -1186,7 +1186,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : ''
+        'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
       },
       body: JSON.stringify(orderData)
     });
@@ -1243,7 +1243,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
           method: 'PATCH',
           headers: { 
             'Content-Type': 'application/json',
-            'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : ''
+            'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
           },
           body: JSON.stringify(orderPayload)
         });
@@ -1252,7 +1252,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : ''
+            'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
           },
           body: JSON.stringify(orderPayload)
         });
@@ -1392,7 +1392,7 @@ function OrdersView({ customer, krwRate }: { customer: any, krwRate: number }) {
                                  setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: 'pending' } : o));
                                  fetch(`/api/orders/${order._id}`, {
                                    method: 'PATCH',
-                                   headers: { 'Content-Type': 'application/json', 'x-admin-secret': typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '' },
+                                   headers: { 'Content-Type': 'application/json', 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' },
                                    body: JSON.stringify({ status: 'pending' })
                                  });
                                  showToast('Orphaned item reverted', '↩️');

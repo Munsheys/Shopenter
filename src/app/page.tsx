@@ -32,7 +32,7 @@ export default function AdminGateway() {
         return;
       }
 
-      const headers = { 'x-admin-secret': secret };
+      const headers = { 'x-admin-secret': secret || '' };
       const verifyRes = await fetch('/api/customers', { headers, cache: 'no-store' });
       if (verifyRes.status === 401) {
         localStorage.removeItem('admin_secret');
