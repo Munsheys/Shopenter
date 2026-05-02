@@ -873,6 +873,8 @@ export default function AdminDashboard() {
       </div>
     </div>
   );
+  }
+  return null;
 }
 
 function TabButton({ icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: any }) {
