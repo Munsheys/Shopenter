@@ -1535,11 +1535,14 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
         }
       }
 
+      const thickness = product.selectedThickness || product.thickness;
+      const color = product.selectedColor || product.color;
+      const fullProductName = `${product.brand ? `[${product.brand}] ` : ''}${product.modelLine ? `${product.modelLine} - ` : ''}${product.name}${thickness ? ` (${thickness})` : ''}${color ? ` - ${color}` : ''}`;
+
       const orderData = {
         lineUserId: customerId,
         displayName: customerName,
-        product: product.name,
-        brand: product.brand,
+        product: fullProductName,
         soldTHB: finalPrice,
         costKRW: product.cost || 0,
         profit: finalPrice - ((product.cost || 0) * krwRate),
@@ -1676,6 +1679,30 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
       const script = doc.createElement('script');
       script.textContent = 'window.print(); setTimeout(() => window.close(), 500);';
       doc.body.appendChild(script);
+    }
+
+    // Send automated tracking message if template exists
+    if (settings.trackingTemplate) {
+      const productList = parcel.items.map((i: any) => i.name).join(', ');
+      let message = settings.trackingTemplate
+        .replace(/{tracking}/g, parcel.tracking || '')
+        .replace(/{courier}/g, parcel.courier || '')
+        .replace(/{product}/g, productList)
+        .replace(/{name}/g, customerName);
+
+      try {
+        const secret = (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '';
+        await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-secret': secret
+          },
+          body: JSON.stringify({ userId: customerId, text: message })
+        });
+      } catch (err) {
+        console.error("Failed to send tracking message:", err);
+      }
     }
 
     setParcels(prev => prev.filter(p => p.id !== parcel.id));

@@ -151,7 +151,7 @@ export default function SettingsView() {
                onChange={(e) => updateSetting('trackingTemplate', e.target.value)}
                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-4 text-sm font-medium outline-none focus:border-[#00b900] resize-none leading-relaxed transition-all" 
              />
-             <div className="mt-2 text-[10px] text-[#8b92ad]">Placeholders: &#123;tracking&#125;, &#123;courier&#125;, &#123;product&#125;</div>
+             <div className="mt-2 text-[10px] text-[#8b92ad]">Placeholders: &#123;tracking&#125;, &#123;courier&#125;, &#123;product&#125;, &#123;name&#125;</div>
           </div>
         </div>
 
