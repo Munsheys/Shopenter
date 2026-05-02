@@ -336,9 +336,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   // Global search filtering
   const searchResults = searchTerm.length >= 2 
     ? products.filter((p: any) => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.modelLine.toLowerCase().includes(searchTerm.toLowerCase())
+        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.modelLine?.toLowerCase().includes(searchTerm.toLowerCase())
       ).slice(0, 10)
     : [];
 

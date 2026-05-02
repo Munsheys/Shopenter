@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
-import { getLocalSettings, saveLocalSettings } from '@/lib/storage';
+import { getLocalSettings, saveLocalSettings } from '@/lib/storage'; // kept import but we won't use it or we can just remove it
 
 export async function GET(req: Request) {
   try {
@@ -24,7 +24,13 @@ export async function GET(req: Request) {
       }
       return NextResponse.json(settings);
     }
-    return NextResponse.json(getLocalSettings());
+    return NextResponse.json({
+      shopName: "Auto-Market",
+      primaryColor: "#00b900",
+      krwRate: 0.026,
+      shippingCompanies: ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express'],
+      trackingTemplate: "📦 Shipped!\n\nCourier: {courier}\nTracking: {tracking}\nItems: {product}\n\nThank you! 🙏"
+    });
   } catch (error) {
     console.error("API Settings GET Error:", error);
     return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
@@ -58,8 +64,7 @@ export async function POST(req: Request) {
     if (typeof cleanedBody.lineChannelAccessToken === 'string') cleanedBody.lineChannelAccessToken = cleanedBody.lineChannelAccessToken.trim();
     if (typeof cleanedBody.liffId === 'string') cleanedBody.liffId = cleanedBody.liffId.trim();
 
-    const s = await Settings.findOneAndUpdate({}, cleanedBody, { upsert: true, new: true });
-    saveLocalSettings(cleanedBody);
+    const s = await Settings.findOneAndUpdate({}, cleanedBody, { upsert: true, returnDocument: 'after' });
     return NextResponse.json(s);
   } catch (error: any) {
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
