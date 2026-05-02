@@ -135,7 +135,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                     type="text" 
                     value={formData.shopName}
                     onChange={e => setFormData({...formData, shopName: e.target.value})}
-                    placeholder="Enter Store Name (e.g. Munsheys)"
+                    placeholder="Enter Store Name"
                     className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all placeholder:text-[#b0b7c3] text-[#1a1d2e] font-medium" 
                   />
                 </div>
@@ -188,7 +188,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                     type={showAdminId ? "text" : "password"}
                     required
                     placeholder="Create your Admin Secret..."
-                    className="w-full bg-[#f8fafc] border border-[#e2e5ef] rounded-2xl py-4 pl-14 pr-12 outline-none focus:border-[#00b900] transition-all font-mono text-sm"
+                    className="w-full bg-[#f8fafc] border border-[#e2e5ef] rounded-2xl py-4 pl-14 pr-12 outline-none focus:border-[#00b900] transition-all font-mono text-sm text-[#1a1d2e]"
                     value={formData.adminSecret || ""}
                     onChange={(e) => setFormData({ ...formData, adminSecret: e.target.value })}
                   />

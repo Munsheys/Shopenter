@@ -77,7 +77,7 @@ export default function AdminGateway() {
             type="password"
             autoFocus
             placeholder="••••••••"
-            className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-5 px-6 text-center text-2xl tracking-[0.5em] outline-none focus:border-[#00b900] transition-all mb-4 font-mono"
+            className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-5 px-6 text-center text-2xl tracking-[0.5em] outline-none focus:border-[#00b900] transition-all mb-4 font-mono text-[#1a1d2e]"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 localStorage.setItem('admin_secret', (e.target as HTMLInputElement).value);
