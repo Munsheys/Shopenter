@@ -71,7 +71,7 @@ function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, type = 'con
 }
 
 
-function ChatHistory({ userId, customerName = "Customer" }: { userId: string, customerName?: string }) {
+function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMarkAsRead }: { userId: string, customerName?: string, unreadCount?: number, onMarkAsRead?: () => void }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newMessage, setNewMessage] = useState("");
@@ -199,7 +199,15 @@ function ChatHistory({ userId, customerName = "Customer" }: { userId: string, cu
           <div className="font-bold text-sm text-[#1a1d2e] truncate">{customerName}</div>
           <div className="text-[10px] text-[#00b900] font-semibold">LINE Chat</div>
         </div>
-        <div className="w-2 h-2 rounded-full bg-[#00b900] flex-shrink-0" title="Live polling active" />
+        {unreadCount > 0 ? (
+          <button 
+            onClick={onMarkAsRead}
+            className="w-3 h-3 rounded-full bg-[#00b900] flex-shrink-0 hover:scale-110 transition-transform cursor-pointer shadow-[0_0_8px_rgba(0,185,0,0.6)]" 
+            title="Mark as Read" 
+          />
+        ) : (
+          <div className="w-2 h-2 rounded-full bg-[#00b900] flex-shrink-0 opacity-50" title="Live polling active" />
+        )}
       </div>
 
       {/* Messages Area */}
@@ -686,12 +694,14 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
 function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number, onUpdate: () => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editData, setEditData] = useState({ 
     soldTHB: order.soldTHB, 
     costKRW: order.costKRW,
     rateUsed: order.rateUsed || krwRate
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -708,6 +718,21 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
     setShowConfirm(false);
     if (res.ok) {
       setIsExpanded(false);
+      onUpdate();
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    const res = await fetch(`/api/orders/${order._id}`, {
+      method: 'DELETE',
+      headers: { 
+        'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
+      }
+    });
+    setIsDeleting(false);
+    setShowDeleteConfirm(false);
+    if (res.ok) {
       onUpdate();
     }
   };
@@ -766,6 +791,13 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
           >
             <Printer size={16} />
           </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); }}
+            className="p-2 text-[#8b92ad] hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+            title="Delete Order History"
+          >
+            <Trash2 size={16} />
+          </button>
           <div className="text-right">
             <div className="text-sm font-bold text-[#00b900]">฿{order.profit.toLocaleString()}</div>
             <div className="text-[10px] text-[#8b92ad]">Sales: ฿{order.soldTHB.toLocaleString()}</div>
@@ -823,6 +855,15 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
         message="Are you sure you want to update this order? Profit will be recalculated using the current values."
         onConfirm={handleSave}
         onCancel={() => setShowConfirm(false)}
+      />
+
+      <ConfirmModal 
+        isOpen={showDeleteConfirm}
+        title="Delete Order History?"
+        message="Are you sure you want to delete this fulfilled order? This action cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+        type="danger"
       />
     </div>
   );
@@ -1187,7 +1228,16 @@ export default function AdminDashboard() {
             </div>
             {/* Chat Content */}
             <div ref={chatSidebarRef} className="flex flex-col flex-1 overflow-hidden bg-white shadow-xl border-l border-[#e2e5ef]">
-              <ChatHistory userId={selectedCustomer.userId} customerName={selectedCustomer.displayName} />
+              <ChatHistory 
+                userId={selectedCustomer.userId} 
+                customerName={selectedCustomer.displayName} 
+                unreadCount={selectedCustomer.unreadCount || 0}
+                onMarkAsRead={() => {
+                  setCustomers(prev => prev.map(c => c.userId === selectedCustomer.userId ? { ...c, unreadCount: 0 } : c));
+                  const headers = { 'x-admin-secret': localStorage.getItem('admin_secret') || '' };
+                  fetch(`/api/customers/${selectedCustomer.userId}/read`, { method: 'POST', headers }).catch(console.error);
+                }}
+              />
             </div>
           </div>
         )}
