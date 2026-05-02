@@ -41,7 +41,7 @@ const EMPTY_FORM: ProductForm = {
   imageUrl: '',
 };
 
-function CreatableDropdown({
+export function CreatableDropdown({
   label,
   value,
   onChange,

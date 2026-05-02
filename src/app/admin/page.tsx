@@ -28,7 +28,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 // View Components
-import ProductManagement from '@/components/ProductManagement';
+import ProductManagement, { CreatableDropdown } from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
 import ReportsView from '@/components/ReportsView';
 import ShopOrdersView from '@/components/ShopOrdersView';
@@ -567,35 +567,23 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
           ) : (
             <div className="space-y-4 animate-in slide-in-from-left-4 duration-300">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">BRAND</label>
-                  <input 
-                    type="text"
-                    list="manual-brands"
-                    placeholder="e.g. Samogra"
+                <div className="relative z-[60]">
+                  <CreatableDropdown
+                    label="BRAND"
                     value={manualBrand}
-                    onChange={(e) => setManualBrand(e.target.value)}
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                    onChange={setManualBrand}
+                    options={brands}
+                    placeholder="e.g. Samogra"
                   />
-                  <datalist id="manual-brands">
-                    {brands.map((b: any) => <option key={String(b)} value={String(b)} />)}
-                  </datalist>
                 </div>
-                <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">MODEL LINE</label>
-                  <input 
-                    type="text"
-                    list="manual-models"
-                    placeholder="e.g. Boston Bag"
+                <div className="relative z-[50]">
+                  <CreatableDropdown
+                    label="MODEL LINE"
                     value={manualModelLine}
-                    onChange={(e) => setManualModelLine(e.target.value)}
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                    onChange={setManualModelLine}
+                    options={Array.from(new Set(products.filter((p: any) => p.brand === manualBrand).map((p: any) => p.modelLine))) as string[]}
+                    placeholder="e.g. Boston Bag"
                   />
-                  <datalist id="manual-models">
-                    {Array.from(new Set(products.filter((p: any) => p.brand === manualBrand).map((p: any) => p.modelLine))).map((ml: any) => (
-                      <option key={String(ml)} value={String(ml)} />
-                    ))}
-                  </datalist>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
