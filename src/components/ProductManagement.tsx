@@ -59,6 +59,7 @@ interface ProductForm {
   categories: string[];
   variants: ProductVariant[];
   imageUrl: string;
+  isActive: boolean;
 }
 
 // --- Components ---
@@ -83,6 +84,7 @@ const EMPTY_FORM: ProductForm = {
     { ...EMPTY_VARIANT, thickness: '2mm' }
   ],
   imageUrl: '',
+  isActive: true,
 };
 
 export function CreatableDropdown({
@@ -396,7 +398,7 @@ function ProductModal({
     updateForm({ variants: next });
   };
 
-  const isValid = form.name.trim() && form.brand.trim() && form.variants.length > 0 && form.variants.every(v => v.thickness && v.price);
+  const isValid = form.name.trim() !== '' && form.brand.trim() !== '' && form.variants.length > 0 && form.variants.every(v => v.thickness.trim() !== '' && v.price.trim() !== '');
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -418,23 +420,27 @@ function ProductModal({
             <ImageUploader value={form.imageUrl} onChange={v => updateForm({ imageUrl: v })} theme={theme} />
             
             <div className="grid grid-cols-2 gap-4">
-              <CreatableDropdown 
-                label="Brand" 
-                value={form.brand} 
-                onChange={v => updateForm({ brand: v })} 
-                options={existingOptions.brands} 
-                placeholder="e.g. Celine" 
-                theme={theme}
-                required={true}
-              />
-              <CreatableDropdown 
-                label="Model Line / Family" 
-                value={form.modelLine} 
-                onChange={v => updateForm({ modelLine: v })} 
-                options={existingOptions.modelLines} 
-                placeholder="e.g. Boston Bag" 
-                theme={theme}
-              />
+              <div className="relative z-[100]">
+                <CreatableDropdown 
+                  label="Brand" 
+                  value={form.brand} 
+                  onChange={v => updateForm({ brand: v })} 
+                  options={existingOptions.brands} 
+                  placeholder="e.g. Celine" 
+                  theme={theme}
+                  required={true}
+                />
+              </div>
+              <div className="relative z-[90]">
+                <CreatableDropdown 
+                  label="Model Line / Family" 
+                  value={form.modelLine} 
+                  onChange={v => updateForm({ modelLine: v })} 
+                  options={existingOptions.modelLines} 
+                  placeholder="e.g. Boston Bag" 
+                  theme={theme}
+                />
+              </div>
             </div>
 
             <div>
@@ -491,22 +497,24 @@ function ProductModal({
                 <div key={idx} className={cn(
                   "border rounded-2xl p-4 relative group animate-in slide-in-from-right-4 transition-colors",
                   theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]"
-                )}>
+                )} style={{ zIndex: (form.variants.length - idx) * 10 }}>
                   {form.variants.length > 1 && (
-                    <button onClick={() => removeVariant(idx)} className={cn("absolute -top-2 -right-2 border text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-10 transition-colors", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+                    <button onClick={() => removeVariant(idx)} className={cn("absolute -top-2 -right-2 border text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-50 transition-colors", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
                       <Trash2 size={12} />
                     </button>
                   )}
                   <div className="grid grid-cols-2 gap-3 mb-3">
-                    <CreatableDropdown 
-                      label="Thickness" 
-                      value={v.thickness} 
-                      onChange={val => updateVariant(idx, { thickness: val })} 
-                      options={existingOptions.thicknesses} 
-                      placeholder="1.2 mm" 
-                      theme={theme}
-                      required={true}
-                    />
+                    <div className="relative z-[20]">
+                      <CreatableDropdown 
+                        label="Thickness" 
+                        value={v.thickness} 
+                        onChange={val => updateVariant(idx, { thickness: val })} 
+                        options={existingOptions.thicknesses} 
+                        placeholder="1.2 mm" 
+                        theme={theme}
+                        required={true}
+                      />
+                    </div>
                     <div>
                       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">
                         Price (THB) <span className="text-red-500">*</span>

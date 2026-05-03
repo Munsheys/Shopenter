@@ -595,8 +595,8 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
   };
 
   const canConfirm = isManual 
-    ? (manualName && manualBrand && price) 
-    : (selProduct && selThickness && selColor && price);
+    ? (manualName.trim() !== '' && manualBrand.trim() !== '' && price.trim() !== '' && manualThickness.trim() !== '' && manualColor.trim() !== '') 
+    : (selProduct && selThickness && selColor && price.trim() !== '');
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -818,7 +818,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                 <ImageUploader value={manualImageUrl} onChange={setManualImageUrl} />
                 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="relative z-[60]">
+                  <div className="relative z-[100]">
                     <CreatableDropdown
                       label="BRAND"
                       value={manualBrand}
@@ -828,7 +828,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                       required={true}
                     />
                   </div>
-                  <div className="relative z-[50]">
+                  <div className="relative z-[90]">
                     <CreatableDropdown
                       label="MODEL LINE / FAMILY"
                       value={manualModelLine}
@@ -884,7 +884,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                   <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SPECIFIC THICKNESS & COLOR</label>
                   <div className={cn("border rounded-2xl p-4 transition-colors", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]")}>
                     <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="relative z-[40]">
+                      <div className="relative z-[80]">
                         <CreatableDropdown 
                           label="THICKNESS" 
                           value={manualThickness} 
@@ -895,7 +895,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                           required={true}
                         />
                       </div>
-                      <div className="relative z-[30]">
+                      <div className="relative z-[70]">
                         <CreatableDropdown 
                           label="COLOR" 
                           value={manualColor} 
