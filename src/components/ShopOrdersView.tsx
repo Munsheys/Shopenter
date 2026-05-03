@@ -90,7 +90,7 @@ export default function ShopOrdersView({
     const rows = orders.map(o => [
       new Date(o.createdAt).toLocaleString('th-TH'),
       o.displayName,
-      o.items?.map(i => `${i.qty}x ${i.name}`).join(' + ') || o.product,
+      o.items?.map(i => `${i.qty}x ${i.name}`).join(' + ') || `${o.quantity || 1}x ${o.product}`,
       o.soldTHB,
       o.status,
       o.tracking || '-',
@@ -296,7 +296,10 @@ export default function ShopOrdersView({
                           <span className="truncate max-w-[150px]">{item.name}</span>
                         </div>
                       )) : (
-                        <div className="text-[11px] text-[#8b92ad] italic">{o.product}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-[#00b900] bg-[#00b90011] px-1.5 py-0.5 rounded text-[9px]">{o.quantity || 1}x</span>
+                          <div className="text-[11px] text-[#8b92ad] italic">{o.product}</div>
+                        </div>
                       )}
                     </div>
                   </td>
