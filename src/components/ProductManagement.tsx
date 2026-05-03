@@ -614,6 +614,7 @@ export default React.memo(function ProductManagement({ theme }: { theme?: 'light
         existingOptions={existingOptions}
       />
 
+      {deleteConfirm && (
         <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
           <div className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95 transition-colors", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
             <h3 className={cn("text-xl font-bold mb-2 transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete Product?</h3>
@@ -626,6 +627,7 @@ export default React.memo(function ProductManagement({ theme }: { theme?: 'light
             </div>
           </div>
         </div>
+      )}
     </div>
   );
 });
