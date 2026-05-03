@@ -316,7 +316,8 @@ function ProductModal({
   onSave,
   onClose,
   isSaving,
-  existingOptions
+  existingOptions,
+  theme = 'light'
 }: {
   isOpen: boolean;
   initialData: ProductForm | null;
