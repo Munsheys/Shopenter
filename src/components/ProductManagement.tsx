@@ -1,15 +1,34 @@
-"use client";
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Package, Plus, Edit2, Trash2, X, ImageIcon, Search, ChevronDown, Layers, Palette, Ruler } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { 
+  Package, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  X, 
+  ImageIcon, 
+  Search, 
+  ChevronDown, 
+  Layers, 
+  Palette, 
+  Ruler,
+  Filter,
+  ArrowUpDown,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  BarChart2,
+  Check,
+  RefreshCw
+} from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import LoadingView from './LoadingView';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-import LoadingView from './LoadingView';
 
+// --- Interfaces ---
 interface ProductVariant {
   thickness: string;
   colors: string[];
@@ -18,16 +37,31 @@ interface ProductVariant {
   stock: string;
 }
 
-interface ProductForm {
-  name: string; // Display Name (e.g. Kunka)
+interface Product {
+  _id: string;
+  name: string;
   brand: string;
-  modelLine: string; // Family (e.g. Croc Handle)
+  modelLine?: string;
+  description?: string;
+  price: number;
+  categories: string[];
+  imageUrl?: string;
+  variants: ProductVariant[];
+  isActive: boolean;
+}
+
+interface ProductForm {
+  name: string;
+  brand: string;
+  modelLine: string;
   description: string;
-  price: string; // minPrice
+  price: string;
   categories: string[];
   variants: ProductVariant[];
   imageUrl: string;
 }
+
+// --- Components ---
 
 const EMPTY_VARIANT: ProductVariant = {
   thickness: '',
@@ -520,26 +554,34 @@ function ProductModal({
   );
 }
 
-export default React.memo(function ProductManagement({ theme }: { theme?: 'light' | 'dark' }) {
-  const [products, setProducts] = useState<any[]>([]);
+// --- Main ProductManagement Hub ---
+
+const ProductManagement = React.memo(function ProductManagement({ theme }: { theme?: 'light' | 'dark' }) {
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // Filters & Sorting
+  const [searchTerm, setSearchTerm] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState('newest');
+
   const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') || '' : '';
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/products', { headers: { 'x-admin-secret': secret } });
       const data = await res.json();
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) { console.error(err); } finally { setIsLoading(false); }
-  };
+  }, [secret]);
 
-  useEffect(() => { loadProducts(); }, []);
+  useEffect(() => { loadProducts(); }, [loadProducts]);
 
   const unique = (path: string) => {
     const vals = new Set<string>();
@@ -547,7 +589,7 @@ export default React.memo(function ProductManagement({ theme }: { theme?: 'light
       if (path === 'category') p.categories?.forEach((c: string) => vals.add(c));
       else if (path === 'thickness') p.variants?.forEach((v: any) => vals.add(v.thickness));
       else if (path === 'color') p.variants?.forEach((v: any) => v.colors?.forEach((c: string) => vals.add(c)));
-      else if (p[path]) vals.add(p[path]);
+      else if ((p as any)[path]) vals.add((p as any)[path]);
     });
     return Array.from(vals).sort();
   };
@@ -559,6 +601,49 @@ export default React.memo(function ProductManagement({ theme }: { theme?: 'light
     colors: unique('color'),
     thicknesses: unique('thickness'),
   }), [products]);
+
+  const filteredProducts = useMemo(() => {
+    let result = products.filter(p => {
+      const matchesSearch = !searchTerm || 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.modelLine?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.categories.some(c => c.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesBrand = !brandFilter || p.brand === brandFilter;
+      const matchesCategory = !categoryFilter || p.categories.includes(categoryFilter);
+
+      return matchesSearch && matchesBrand && matchesCategory;
+    });
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortOrder === 'newest') return -1; // Assuming array is returned newest first
+      if (sortOrder === 'price-asc') return a.price - b.price;
+      if (sortOrder === 'price-desc') return b.price - a.price;
+      if (sortOrder === 'name-az') return a.name.localeCompare(b.name);
+      if (sortOrder === 'stock-low') {
+        const stockA = a.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+        const stockB = b.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+        return stockA - stockB;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [products, searchTerm, brandFilter, categoryFilter, sortOrder]);
+
+  const stats = useMemo(() => {
+    const total = products.length;
+    const active = products.filter(p => p.isActive).length;
+    const lowStock = products.filter(p => p.variants.some(v => (parseInt(v.stock) || 0) < 5)).length;
+    const totalInventoryValue = products.reduce((sum, p) => {
+      const pStock = p.variants.reduce((s, v) => s + (parseInt(v.stock) || 0), 0);
+      return sum + (p.price * pStock);
+    }, 0);
+
+    return { total, active, lowStock, totalInventoryValue };
+  }, [products]);
 
   const handleSave = async (form: ProductForm) => {
     setIsSaving(true);
@@ -575,45 +660,180 @@ export default React.memo(function ProductManagement({ theme }: { theme?: 'light
     } catch (err) { console.error(err); } finally { setIsSaving(false); }
   };
 
+  const toggleVisibility = async (p: Product) => {
+    try {
+      await fetch(`/api/products/${p._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify({ isActive: !p.isActive })
+      });
+      loadProducts();
+    } catch (err) { console.error(err); }
+  };
+
   return (
-    <div className="max-w-6xl mx-auto pb-20">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className={`text-2xl font-bold flex items-center gap-3 ${theme === 'dark' ? 'text-white' : 'text-[#1a1d2e]'}`}>
-          <Package size={28} className="text-[#8b92ad]" /> {products.length} Products
-        </h2>
+    <div className="max-w-7xl mx-auto px-4 pb-20">
+      {/* Header & Stats */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div>
+          <h2 className={cn("text-2xl font-black flex items-center gap-3", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
+            <div className="p-2 bg-[#00b90011] rounded-xl text-[#00b900]">
+              <Package size={24} />
+            </div>
+            Catalog Hub
+          </h2>
+          <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">Inventory & Product Lifecycle</p>
+        </div>
+        
         <button 
           onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-          className="bg-[#00b900] text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-[#00b90033] hover:opacity-90 active:scale-95 transition-all flex items-center gap-2"
+          className="w-full md:w-auto bg-[#00b900] text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all"
         >
-          <Plus size={18} /> New Product
+          <Plus size={18} /> Add New Catalog
         </button>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatsCard 
+          icon={<BarChart2 size={20} />} 
+          label="Total Catalog" 
+          value={stats.total.toString()} 
+          color="indigo" 
+          theme={theme} 
+        />
+        <StatsCard 
+          icon={<Eye size={20} />} 
+          label="Active Storefront" 
+          value={stats.active.toString()} 
+          color="emerald" 
+          theme={theme} 
+        />
+        <StatsCard 
+          icon={<AlertCircle size={20} />} 
+          label="Low Stock Alerts" 
+          value={stats.lowStock.toString()} 
+          color="amber" 
+          theme={theme} 
+        />
+        <StatsCard 
+          icon={<Palette size={20} />} 
+          label="Inventory Value" 
+          value={`฿${Math.round(stats.totalInventoryValue).toLocaleString()}`} 
+          color="blue" 
+          theme={theme} 
+        />
+      </div>
+
+      {/* Discovery Ribbon */}
+      <div className={cn(
+        "p-4 rounded-3xl border mb-6 flex flex-col lg:flex-row gap-4 transition-colors",
+        theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+      )}>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
+          <input 
+            type="text"
+            placeholder="Search name, brand, or family..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className={cn(
+              "w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2 focus:ring-[#00b900]/20",
+              theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-[#00b900]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-[#00b900]"
+            )}
+          />
+        </div>
+
+        <div className="flex flex-wrap md:flex-nowrap gap-3">
+          <div className="relative min-w-[140px]">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
+            <select 
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+              className={cn(
+                "w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border transition-all cursor-pointer",
+                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
+              )}
+            >
+              <option value="">All Brands</option>
+              {existingOptions.brands.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
+          </div>
+
+          <div className="relative min-w-[140px]">
+            <Layers className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
+            <select 
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className={cn(
+                "w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border transition-all cursor-pointer",
+                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
+              )}
+            >
+              <option value="">All Categories</option>
+              {existingOptions.categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
+          </div>
+
+          <div className="relative min-w-[140px]">
+            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
+            <select 
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className={cn(
+                "w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border transition-all cursor-pointer",
+                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
+              )}
+            >
+              <option value="newest">Sort: Newest</option>
+              <option value="name-az">Sort: A-Z</option>
+              <option value="price-asc">Sort: Price Low</option>
+              <option value="price-desc">Sort: Price High</option>
+              <option value="stock-low">Sort: Critical Stock</option>
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid Content */}
       {isLoading ? (
         <LoadingView theme={theme} message="Loading Product Catalog..." />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map(p => (
-            <div key={p._id} className={`${theme === 'dark' ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'} rounded-3xl border p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden`}>
-              <div className="flex gap-4">
-                <div className="w-20 h-20 rounded-2xl bg-[#f4f6f9] flex items-center justify-center overflow-hidden flex-shrink-0 border border-[#e2e5ef]">
-                  {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-[#8b92ad]" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[10px] font-bold text-[#00b900] uppercase tracking-wider mb-1">{p.brand} {p.modelLine ? `• ${p.modelLine}` : ''}</div>
-                  <h3 className={`font-bold text-sm mb-1 truncate ${theme === 'dark' ? 'text-white' : 'text-[#1a1d2e]'}`}>{p.name}</h3>
-                  <div className="text-xs text-[#8b92ad]">฿{p.price?.toLocaleString()}</div>
-                </div>
-              </div>
-              <div className={cn("flex gap-2 mt-6 pt-6 border-t transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
-                <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className={cn("flex-1 py-2 rounded-xl text-[10px] font-bold transition-colors", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>Edit</button>
-                <button onClick={() => setDeleteConfirm(p._id)} className={cn("p-2 rounded-xl transition-colors", theme === 'dark' ? "text-red-500 hover:bg-red-500/10" : "text-red-500 hover:bg-red-50")}><Trash2 size={16} /></button>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredProducts.map(p => (
+            <ProductCard 
+              key={p._id} 
+              product={p} 
+              theme={theme} 
+              onEdit={() => { setEditingProduct(p); setIsModalOpen(true); }}
+              onDelete={() => setDeleteConfirm(p._id)}
+              onToggleVisibility={() => toggleVisibility(p)}
+            />
           ))}
+          
+          {filteredProducts.length === 0 && (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
+              <div className="w-16 h-16 bg-[#f8f9fc] dark:bg-[#1a1d2e] rounded-3xl flex items-center justify-center">
+                <Search size={32} className="opacity-20" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No products found</p>
+                <p className="text-xs mt-1">Try adjusting your filters or search terms</p>
+              </div>
+              <button 
+                onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setSortOrder('newest'); }}
+                className="text-[#00b900] text-xs font-bold hover:underline"
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
         </div>
       )}
 
+      {/* Modals */}
       <ProductModal 
         theme={theme}
         isOpen={isModalOpen} 
@@ -631,6 +851,9 @@ export default React.memo(function ProductManagement({ theme }: { theme?: 'light
       {deleteConfirm && (
         <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
           <div className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95 transition-colors", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <Trash2 size={32} />
+            </div>
             <h3 className={cn("text-xl font-bold mb-2 transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete Product?</h3>
             <p className="text-sm text-[#8b92ad] mb-6">This will remove it from the catalog permanently.</p>
             <div className="flex gap-3">
@@ -645,3 +868,136 @@ export default React.memo(function ProductManagement({ theme }: { theme?: 'light
     </div>
   );
 });
+
+function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility }: any) {
+  const totalStock = product.variants.reduce((sum: number, v: any) => sum + (parseInt(v.stock) || 0), 0);
+  const isLowStock = product.variants.some((v: any) => (parseInt(v.stock) || 0) < 5);
+
+  return (
+    <div className={cn(
+      "rounded-[32px] border p-5 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden flex flex-col h-full",
+      theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]",
+      !product.isActive && "opacity-60"
+    )}>
+      {/* Visual Header */}
+      <div className="relative aspect-[4/3] rounded-3xl overflow-hidden mb-5 bg-[#f4f6f9] dark:bg-[#1a1d2e] border border-[#e2e5ef] dark:border-[#1f2335]">
+        {product.imageUrl ? (
+          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[#8b92ad]">
+            <ImageIcon size={32} strokeWidth={1.5} />
+          </div>
+        )}
+        
+        {/* Quick Badges */}
+        <div className="absolute top-3 left-3 flex flex-col gap-2">
+          {totalStock === 0 ? (
+            <span className="bg-red-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg">OUT OF STOCK</span>
+          ) : isLowStock ? (
+            <span className="bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg">LOW STOCK</span>
+          ) : null}
+          {!product.isActive && (
+            <span className="bg-[#1a1d2e] text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
+              <EyeOff size={8} /> HIDDEN
+            </span>
+          )}
+        </div>
+
+        <button 
+          onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
+          className={cn(
+            "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-90",
+            product.isActive ? "bg-white text-[#00b900]" : "bg-[#1a1d2e] text-[#8b92ad]"
+          )}
+        >
+          {product.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="text-[10px] font-black text-[#00b900] uppercase tracking-wider truncate">
+            {product.brand} {product.modelLine && `• ${product.modelLine}`}
+          </div>
+        </div>
+        
+        <h3 className={cn("font-bold text-base mb-1 transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
+          {product.name}
+        </h3>
+
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {product.categories?.slice(0, 2).map((c: string) => (
+            <span key={c} className={cn(
+              "px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-wider",
+              theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]"
+            )}>
+              {c}
+            </span>
+          ))}
+          {product.categories?.length > 2 && <span className="text-[8px] font-bold text-[#8b92ad]">+{product.categories.length - 2}</span>}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className={cn("text-lg font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
+            ฿{product.price?.toLocaleString()}
+          </div>
+          <div className="text-[10px] text-[#8b92ad] font-medium">
+            <span className={cn("font-bold", totalStock === 0 ? "text-red-500" : "text-[#00b900]")}>{totalStock}</span> in stock
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className={cn(
+        "flex gap-2 mt-6 pt-5 border-t opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0",
+        theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]"
+      )}>
+        <button 
+          onClick={onEdit} 
+          className={cn(
+            "flex-1 py-3 rounded-2xl text-[10px] font-black transition-all active:scale-95 flex items-center justify-center gap-2",
+            theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]"
+          )}
+        >
+          <Edit2 size={12} /> EDIT CATALOG
+        </button>
+        <button 
+          onClick={onDelete} 
+          className={cn(
+            "p-3 rounded-2xl transition-all active:scale-95 flex items-center justify-center",
+            theme === 'dark' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100"
+          )}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StatsCard({ icon, label, value, color, theme }: any) {
+  const colorMap: any = {
+    emerald: "text-emerald-500 bg-emerald-500/10",
+    amber: "text-amber-500 bg-amber-500/10",
+    blue: "text-blue-500 bg-blue-500/10",
+    indigo: "text-indigo-500 bg-indigo-500/10",
+  };
+
+  return (
+    <div className={cn(
+      "p-5 rounded-3xl border transition-all shadow-sm flex flex-col gap-3",
+      theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+    )}>
+      <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", colorMap[color])}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
+        <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
+export default ProductManagement;
