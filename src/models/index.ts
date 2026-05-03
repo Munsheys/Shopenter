@@ -15,7 +15,9 @@ const SettingsSchema = new mongoose.Schema({
   adminSecret: { type: String, default: "" },
   // Payment
   promptPayId: { type: String, default: "" },
-  paymentTemplate: { type: String, default: "✅ ยืนยันการชำระเงินแล้วครับ!\n\nรายการ: {product}\nจำนวน: ฿{amount}\n\nขอบคุณที่ใช้บริการครับ 🙏" }
+  paymentTemplate: { type: String, default: "✅ ยืนยันการชำระเงินแล้วครับ!\n\nรายการ: {product}\nจำนวน: ฿{amount}\n\nขอบคุณที่ใช้บริการครับ 🙏" },
+  slipokBranchId: { type: String, default: "" },
+  slipokApiKey: { type: String, default: "" }
 });
 
 const ProductSchema = new mongoose.Schema({

@@ -172,6 +172,34 @@ export default function SettingsView() {
                <div className="mt-2 text-[10px] text-[#8b92ad]">Placeholders: &#123;product&#125;, &#123;amount&#125;, &#123;name&#125;</div>
             </div>
           </div>
+          
+          <div className="pt-4 border-t border-[#f4f6f9]">
+            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-4 block flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span> SlipOK Automatic Verification
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SlipOK Branch ID</label>
+                <input 
+                  type="text" 
+                  value={settings.slipokBranchId || ''} 
+                  onChange={(e) => updateSetting('slipokBranchId', e.target.value)}
+                  placeholder="e.g. 12345"
+                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-all" 
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SlipOK API Key</label>
+                <input 
+                  type="password" 
+                  value={settings.slipokApiKey || ''} 
+                  onChange={(e) => updateSetting('slipokApiKey', e.target.value)}
+                  placeholder="e.g. sk_test_..."
+                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-all" 
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="pt-8 border-t border-[#f4f6f9] mb-10">

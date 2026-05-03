@@ -95,6 +95,11 @@ export async function POST(req: NextRequest) {
       }
     };
 
+    const instructionMessage = {
+      type: "text",
+      text: "📸 หลังจากชำระเงินแล้ว กรุณาส่งรูปสลิปโอนเงินเข้ามาในแชทนี้ เพื่อให้ระบบยืนยันการชำระเงินอัตโนมัติค่ะ/ครับ 🙏"
+    };
+
     const lineResponse = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
       headers: {
@@ -103,7 +108,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         to: lineUserId,
-        messages: [flexMessage]
+        messages: [flexMessage, instructionMessage]
       })
     });
 

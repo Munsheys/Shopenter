@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import dbConnect from '@/lib/db';
-import { Customer, Message, Settings, ProcessedEvent } from '@/models';
+import { Customer, Message, Settings, ProcessedEvent, Order } from '@/models';
 import { messagingApi } from '@line/bot-sdk';
 import { enqueueCustomerUpdate } from '@/lib/customerQueue';
 
@@ -124,18 +124,97 @@ export async function POST(req: Request) {
         enqueueCustomerUpdate({ userId, data: { lastSeen: new Date() } });
       }
 
-      // --- Save Incoming Message ---
-      if (event.type === 'message' && event.message?.type === 'text') {
-        await Message.create({
-          lineUserId: userId,
-          text: event.message.text,
-          sender: 'user'
-        });
-        
-        await Customer.updateOne(
-          { userId },
-          { $inc: { unreadCount: 1 } }
-        );
+      // --- Save Incoming Message & Handle Images ---
+      if (event.type === 'message') {
+        if (event.message?.type === 'text') {
+          await Message.create({
+            lineUserId: userId,
+            text: event.message.text,
+            sender: 'user'
+          });
+          
+          await Customer.updateOne(
+            { userId },
+            { $inc: { unreadCount: 1 } }
+          );
+        } else if (event.message?.type === 'image') {
+          await Message.create({
+            lineUserId: userId,
+            text: "[📸 Image Uploaded]",
+            sender: 'user'
+          });
+          
+          await Customer.updateOne(
+            { userId },
+            { $inc: { unreadCount: 1 } }
+          );
+
+          // Slip Verification Logic
+          if (settings.slipokApiKey) {
+            try {
+              // 1. Download image from LINE
+              const imgRes = await fetch(`https://api-data.line.me/v2/bot/message/${event.message.id}/content`, {
+                headers: { Authorization: `Bearer ${channelAccessToken}` }
+              });
+              
+              if (imgRes.ok) {
+                const arrayBuffer = await imgRes.arrayBuffer();
+                const formData = new FormData();
+                formData.append('files', new Blob([arrayBuffer], { type: 'image/jpeg' }), 'slip.jpg');
+                formData.append('log', 'true');
+
+                // 2. Send to SlipOK for verification
+                const slipRes = await fetch('https://api.slipok.com/api/line/webhook', {
+                  method: 'POST',
+                  headers: { 'x-authorization': settings.slipokApiKey },
+                  body: formData
+                });
+
+                if (slipRes.ok) {
+                  const slipData = await slipRes.json();
+                  if (slipData.success && slipData.data?.amount) {
+                    const amountPaid = slipData.data.amount;
+                    
+                    // 3. Match with pending orders
+                    const pendingOrders = await Order.find({ lineUserId: userId, status: 'pending' }).sort({ createdAt: 1 });
+                    let remainingAmount = amountPaid;
+                    const ordersToMarkPaid = [];
+
+                    for (const order of pendingOrders) {
+                      if (remainingAmount >= order.soldTHB && order.soldTHB > 0) {
+                        remainingAmount -= order.soldTHB;
+                        ordersToMarkPaid.push(order);
+                      }
+                    }
+
+                    // 4. Mark Paid and Send Thank You
+                    if (ordersToMarkPaid.length > 0) {
+                      const orderIds = ordersToMarkPaid.map(o => o._id);
+                      await Order.updateMany({ _id: { $in: orderIds } }, { $set: { status: 'paid' } });
+                      
+                      const combinedProducts = ordersToMarkPaid.map(o => o.product).join(', ');
+                      const customer = await Customer.findOne({ userId }).lean() as any;
+                      let messageText = settings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
+                      messageText = messageText
+                        .replace(/{product}/g, combinedProducts)
+                        .replace(/{amount}/g, amountPaid.toLocaleString())
+                        .replace(/{name}/g, customer?.displayName || 'Customer');
+
+                      await client.pushMessage({
+                        to: userId,
+                        messages: [{ type: 'text', text: messageText }]
+                      });
+                      
+                      await Message.create({ lineUserId: userId, text: messageText, sender: 'admin' });
+                    }
+                  }
+                }
+              }
+            } catch (err) {
+              console.error("SlipOK Verification Error:", err);
+            }
+          }
+        }
       }
     }
 
