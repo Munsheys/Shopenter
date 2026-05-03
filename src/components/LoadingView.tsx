@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Package } from 'lucide-react';
-import { cn } from '@/lib/utils'; // wait, does utils exist? I'll use a local cn if not.
+// import { cn } from '@/lib/utils'; // src/lib/utils.ts does not exist
 
 export default function LoadingView({ 
   message = "Loading Data...", 
