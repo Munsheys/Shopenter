@@ -1405,24 +1405,25 @@ export default function AdminDashboard() {
                 className="bg-white border border-[#d9d9d9] rounded-lg w-14 md:w-20 px-1 md:px-2 py-0.5 text-center outline-none focus:ring-2 focus:ring-[#00b900] transition-all"
               />
               <span className="text-[#856404] opacity-50 font-medium hidden md:inline">({liveRate.toFixed(4)})</span>
-              
-              <div className="flex gap-1 ml-1 border-l border-[#ffe58f] pl-2 hidden xs:flex">
-                <button 
-                  onClick={() => setLang('th')}
-                  className={cn(
-                    "px-1.5 py-0.5 rounded text-[9px] font-black transition-all",
-                    lang === 'th' ? "bg-[#00b900] text-white" : "text-[#888] hover:bg-[#00000005]"
-                  )}
-                >TH</button>
-                <button 
-                  onClick={() => setLang('en')}
-                  className={cn(
-                    "px-1.5 py-0.5 rounded text-[9px] font-black transition-all",
-                    lang === 'en' ? "bg-[#00b900] text-white" : "text-[#888] hover:bg-[#00000005]"
-                  )}
-                >EN</button>
-              </div>
             </div>
+
+            <div className="flex bg-white border border-[#e2e5ef] rounded-xl p-0.5 shadow-sm">
+              <button 
+                onClick={() => setLang('th')}
+                className={cn(
+                  "px-2 py-1 rounded-lg text-[10px] font-black transition-all",
+                  lang === 'th' ? "bg-[#00b900] text-white shadow-sm" : "text-[#8b92ad] hover:text-[#1a1d2e]"
+                )}
+              >TH</button>
+              <button 
+                onClick={() => setLang('en')}
+                className={cn(
+                  "px-2 py-1 rounded-lg text-[10px] font-black transition-all",
+                  lang === 'en' ? "bg-[#00b900] text-white shadow-sm" : "text-[#8b92ad] hover:text-[#1a1d2e]"
+                )}
+              >EN</button>
+            </div>
+
             <button
               onClick={handleGlobalRefresh}
               className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl border border-[#e2e5ef] bg-white text-[#8b92ad] hover:text-[#00b900] transition-all shadow-sm"
