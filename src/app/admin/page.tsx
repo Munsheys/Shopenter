@@ -979,7 +979,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
   );
 }
 
-function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number, onUpdate: () => void }) {
+function HistoryItem({ order, krwRate, onUpdate, theme = 'light' }: { order: any, krwRate: number, onUpdate: () => void, theme?: 'light' | 'dark' }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1164,6 +1164,7 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
         message="Are you sure you want to update this order? Profit will be recalculated using the current values."
         onConfirm={handleSave}
         onCancel={() => setShowConfirm(false)}
+        theme={theme}
       />
 
       <ConfirmModal 
@@ -1173,6 +1174,7 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
         type="danger"
+        theme={theme}
       />
     </div>
   );
@@ -2852,7 +2854,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t, theme }: 
 
                <div className="space-y-3">
                  {orders.filter(o => o.status === 'shipped').map((order) => (
-                   <HistoryItem key={order._id} order={order} krwRate={krwRate} onUpdate={refreshData} />
+                   <HistoryItem key={order._id} order={order} krwRate={krwRate} onUpdate={refreshData} theme={theme} />
                  ))}
                </div>
              </div>
