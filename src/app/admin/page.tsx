@@ -452,7 +452,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
       ).slice(0, 10)
     : [];
 
-  const filteredProducts = products.filter((p: any) => p.brand === selBrand && p.modelLine === selModelLine);
+  const filteredProducts = products.filter((p: any) => p.brand === selBrand && (!selModelLine || p.modelLine === selModelLine));
   
   const currentVariant = selProduct?.variants?.find((v: any) => v.thickness === selThickness);
   const thicknessOptions = selProduct?.variants?.map((v: any) => v.thickness) || [];
@@ -552,7 +552,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
           </div>
           <p className="text-[10px] text-[#8b92ad] font-bold uppercase tracking-widest truncate">
             {!isManual 
-              ? `PATH: ${selBrand || '?'} > ${selModelLine || '?'} > ${selProduct?.name || '?'} > ${selThickness || '?'} > ${selColor || '?'}`
+              ? `PATH: ${selBrand || '?'} ${selModelLine ? `> ${selModelLine}` : ''} > ${selProduct?.name || '?'} > ${selThickness || '?'} > ${selColor || '?'}`
               : 'Creating New Product Catalog Entry'
             }
           </p>
@@ -614,12 +614,18 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
               {/* STEP 2: MODEL LINE */}
               {selBrand && (
                 <div className="animate-in slide-in-from-top-2">
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">2. Model Line (Family)</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">2. Model Line (Optional Filter)</label>
                   <div className="flex flex-wrap gap-2">
                     {modelLines.map(ml => (
                       <button 
                         key={ml} 
-                        onClick={() => { setSelModelLine(ml); setSelProduct(null); setSelThickness(''); setSelColor(''); }}
+                        onClick={() => { 
+                          if (selModelLine === ml) setSelModelLine(''); // Toggle off
+                          else setSelModelLine(ml);
+                          setSelProduct(null); 
+                          setSelThickness(''); 
+                          setSelColor(''); 
+                        }}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${selModelLine === ml ? 'bg-[#1a1d2e] text-white border-[#1a1d2e] shadow-md' : 'bg-white border-[#e2e5ef] text-[#8b92ad] hover:border-[#00b900]'}`}
                       >
                         {ml}
@@ -630,7 +636,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
               )}
 
               {/* STEP 3: PRODUCT NAME */}
-              {selModelLine && (
+              {selBrand && (
                 <div className="animate-in slide-in-from-top-2">
                   <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">3. Product Listing</label>
                   <div className="grid grid-cols-2 gap-2">
