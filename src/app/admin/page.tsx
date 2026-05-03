@@ -1580,6 +1580,21 @@ export default function AdminDashboard() {
                   theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#d9d9d9] text-[#1a1d2e]"
                 )}
               />
+              <button
+                onClick={async () => {
+                  try {
+                    const secret = localStorage.getItem('admin_secret') || '';
+                    await fetch('/api/settings', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+                      body: JSON.stringify({ krwRate })
+                    });
+                  } catch (err) { console.error(err); }
+                }}
+                className="text-[9px] font-black bg-[#00b900] text-white px-2 py-1 rounded-lg hover:opacity-80 active:scale-95 transition-all whitespace-nowrap"
+              >
+                SAVE
+              </button>
               <span className={cn("opacity-50 font-medium hidden md:inline", theme === 'dark' ? "text-[#8b92ad]" : "text-[#856404]")}>({liveRate.toFixed(4)})</span>
             </div>
 

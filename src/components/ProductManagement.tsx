@@ -652,14 +652,28 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
   const handleSave = async (form: ProductForm) => {
     setIsSaving(true);
     try {
+      // Coerce all numeric fields before sending to MongoDB
+      const payload = {
+        ...form,
+        price: parseFloat(form.price as any) || 0,
+        variants: form.variants.map(v => ({
+          ...v,
+          price: parseFloat(v.price as any) || 0,
+          cost: parseFloat(v.cost as any) || 0,
+          stock: parseInt(v.stock as any) || 0,
+        }))
+      };
       const res = await fetch(editingProduct ? `/api/products/${editingProduct._id}` : '/api/products', {
         method: editingProduct ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify(form)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setIsModalOpen(false);
         loadProducts();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Save failed: ${err?.error || res.status}`);
       }
     } catch (err) { console.error(err); } finally { setIsSaving(false); }
   };
