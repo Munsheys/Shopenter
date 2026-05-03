@@ -24,7 +24,8 @@ import {
   Send,
   RefreshCw,
   Check,
-  QrCode
+  QrCode,
+  Menu
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -1015,6 +1016,7 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
 export default function AdminDashboard() {
   const [liffState, setLiffState] = useState<'loading' | 'admin' | 'customer' | 'unauthorized'>('loading');
   const [activeTab, setActiveTab] = useState('orders');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [krwRate, setKrwRate] = useState(0.026);
   const [customers, setCustomers] = useState<any[]>([]);
   const [globalPendingOrders, setGlobalPendingOrders] = useState<any[]>([]);
@@ -1241,59 +1243,70 @@ export default function AdminDashboard() {
     return (
       <div className="flex flex-col h-screen bg-[#f4f6f9] text-[#1a1d2e] overflow-hidden">
         {/* Topbar */}
-        <div className="bg-white h-16 border-b border-[#e2e5ef] flex items-center justify-between px-4 shadow-sm z-50">
-          <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 font-bold text-lg">
-             <span className="text-[#00b900]">✦</span> {shopInfo?.name || "Loading..."}
-          </div>
-          
-          <nav className="flex gap-4">
-            <TabButton icon={<Package size={18}/>} label="Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
-            <TabButton icon={<ShoppingCart size={18}/>} label="Shop Orders" active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
-            <TabButton icon={<Package size={18}/>} label="Products" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
-            <TabButton icon={<BarChart3 size={18}/>} label="Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
-            <TabButton icon={<SettingsIcon size={18}/>} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
-          </nav>
-        </div>
+        <div className="bg-white h-16 border-b border-[#e2e5ef] flex items-center justify-between px-4 shadow-sm z-50 flex-shrink-0">
+          <div className="flex items-center gap-2 md:gap-6">
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden p-2 text-[#8b92ad] hover:bg-[#f4f6f9] rounded-lg transition-colors"
+            >
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
 
-        <div className="flex items-center gap-3">
-          <div className="bg-[#fffbe6] border border-[#ffe58f] px-4 py-1.5 rounded-full flex items-center gap-3 text-sm font-bold">
-            <span className="text-[#1a1d2e] opacity-80 whitespace-nowrap">1 KRW =</span>
-            <input 
-              type="number" 
-              step="0.0001" 
-              value={krwRate} 
-              onChange={(e) => setKrwRate(parseFloat(e.target.value))}
-              className="bg-white border border-[#d9d9d9] rounded-lg w-20 px-2 py-0.5 text-center outline-none focus:ring-2 focus:ring-[#00b900] transition-all"
-            />
-            <span className="text-[#856404] opacity-50 font-medium">({liveRate.toFixed(4)})</span>
-            <div className="flex gap-1 ml-2">
-              <button className="bg-[#00b900] text-white px-2.5 py-1 rounded-md text-[10px] font-black tracking-tight">TH</button>
-              <button className="bg-[#f0f0f0] text-[#888] px-2.5 py-1 rounded-md text-[10px] font-black tracking-tight">EN</button>
+            <div className="flex items-center gap-2 font-bold text-base md:text-lg">
+               <span className="text-[#00b900]">✦</span> <span className="hidden sm:inline">{shopInfo?.name || "Loading..."}</span>
+               <span className="sm:hidden">{shopInfo?.name?.split(' ')[0] || "POS"}</span>
             </div>
+            
+            <nav className="hidden md:flex gap-4">
+              <TabButton icon={<Package size={18}/>} label="Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
+              <TabButton icon={<ShoppingCart size={18}/>} label="Shop Orders" active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
+              <TabButton icon={<Package size={18}/>} label="Products" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
+              <TabButton icon={<BarChart3 size={18}/>} label="Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
+              <TabButton icon={<SettingsIcon size={18}/>} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+            </nav>
           </div>
-          {/* Global Refresh Button */}
-          <button
-            id="global-refresh-btn"
-            onClick={handleGlobalRefresh}
-            title="Refresh data"
-            className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#e2e5ef] bg-white text-[#8b92ad] hover:text-[#00b900] hover:border-[#00b900] hover:bg-[#00b90008] transition-all shadow-sm"
-          >
-            <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-[#00b900]' : ''} />
-          </button>
-        </div>
-      </div>
 
-      <div className="flex flex-1 items-stretch overflow-hidden relative">
-        {/* Sidebar (Only shown in Orders tab) */}
-        {activeTab === 'orders' && (
-          <div 
-            className={cn(
-              "bg-white border-r border-[#e2e5ef] flex flex-col transition-all duration-300 relative",
-              isSidebarCollapsed ? "w-16" : "w-[300px]"
-            )}
-          >
-            {!isSidebarCollapsed && (
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="bg-[#fffbe6] border border-[#ffe58f] px-2 md:px-4 py-1 md:py-1.5 rounded-full flex items-center gap-1 md:gap-3 text-[10px] md:text-sm font-bold">
+              <span className="text-[#1a1d2e] opacity-80 whitespace-nowrap hidden xs:inline">1 KRW =</span>
+              <input 
+                type="number" 
+                step="0.0001" 
+                value={krwRate} 
+                onChange={(e) => setKrwRate(parseFloat(e.target.value))}
+                className="bg-white border border-[#d9d9d9] rounded-lg w-14 md:w-20 px-1 md:px-2 py-0.5 text-center outline-none focus:ring-2 focus:ring-[#00b900] transition-all"
+              />
+              <span className="text-[#856404] opacity-50 font-medium hidden md:inline">({liveRate.toFixed(4)})</span>
+            </div>
+            <button
+              onClick={handleGlobalRefresh}
+              className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl border border-[#e2e5ef] bg-white text-[#8b92ad] hover:text-[#00b900] transition-all shadow-sm"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin text-[#00b900]' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Tab Navigation */}
+        <div className="md:hidden bg-white border-b border-[#e2e5ef] flex gap-2 px-2 overflow-x-auto no-scrollbar py-2 flex-shrink-0">
+           <TabButton icon={<Package size={14}/>} label="Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
+           <TabButton icon={<ShoppingCart size={14}/>} label="Shop" active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
+           <TabButton icon={<Package size={14}/>} label="Items" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
+           <TabButton icon={<BarChart3 size={14}/>} label="Stats" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
+           <TabButton icon={<SettingsIcon size={14}/>} label="Config" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+        </div>
+
+        <div className="flex flex-1 items-stretch overflow-hidden relative">
+          {/* Sidebar (Responsive) */}
+          {activeTab === 'orders' && (
+            <div 
+              className={cn(
+                "bg-white border-r border-[#e2e5ef] flex flex-col transition-all duration-300 z-40",
+                "fixed inset-y-0 left-0 md:relative md:translate-x-0 shadow-2xl md:shadow-none",
+                isMobileMenuOpen ? "translate-x-0 w-[280px]" : "-translate-x-full md:translate-x-0",
+                isSidebarCollapsed ? "md:w-16" : "md:w-[300px]"
+              )}
+            >
               <div className="p-3 border-b border-[#e2e5ef]">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
@@ -1306,41 +1319,49 @@ export default function AdminDashboard() {
                   />
                 </div>
               </div>
-            )}
 
-            <div className="flex-1 overflow-y-auto">
-               {customers.filter((c: any) => c.displayName.toLowerCase().includes(searchQuery.toLowerCase())).map((customer: any) => {
-                 const hasPendingOrder = globalPendingOrders.some((o: any) => o.lineUserId === customer.userId);
-                 return (
-                   <CustomerItem 
-                      key={customer.userId} 
-                      customer={customer} 
-                      active={selectedCustomer?.userId === customer.userId}
-                      collapsed={isSidebarCollapsed}
-                      unreadCount={customer.unreadCount || 0}
-                      hasPendingOrder={hasPendingOrder}
-                      onClick={() => { 
-                        if (selectedCustomer?.userId !== customer.userId) {
-                          setSelectedCustomer(customer); 
-                        }
-                        setIsChatOpen(true); 
-                      }}
-                   />
-                 );
-               })}
+              <div className="flex-1 overflow-y-auto">
+                 {customers.filter((c: any) => c.displayName.toLowerCase().includes(searchQuery.toLowerCase())).map((customer: any) => {
+                   const hasPendingOrder = globalPendingOrders.some((o: any) => o.lineUserId === customer.userId);
+                   return (
+                     <CustomerItem 
+                        key={customer.userId} 
+                        customer={customer} 
+                        active={selectedCustomer?.userId === customer.userId}
+                        collapsed={false} // Always show full on mobile/sidebar
+                        unreadCount={customer.unreadCount || 0}
+                        hasPendingOrder={hasPendingOrder}
+                        onClick={() => { 
+                          if (selectedCustomer?.userId !== customer.userId) {
+                            setSelectedCustomer(customer); 
+                          }
+                          setIsChatOpen(true); 
+                          setIsMobileMenuOpen(false); // Close menu on select
+                        }}
+                     />
+                   );
+                 })}
+              </div>
+
+              <button 
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="hidden md:block absolute bottom-6 right-[-15px] bg-white border border-[#e2e5ef] rounded-full p-1.5 shadow-md hover:bg-[#f9f9f9] transition-colors z-10"
+              >
+                {isSidebarCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
+              </button>
             </div>
+          )}
 
-            <button 
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="absolute bottom-6 right-[-15px] bg-white border border-[#e2e5ef] rounded-full p-1.5 shadow-md hover:bg-[#f9f9f9] transition-colors z-10"
-            >
-              {isSidebarCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
-            </button>
-          </div>
-        )}
+          {/* Overlay for mobile sidebar */}
+          {isMobileMenuOpen && (
+            <div 
+              className="md:hidden fixed inset-0 bg-black/50 z-30 animate-in fade-in duration-200" 
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+          )}
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-8 relative">
+          {/* Main Content */}
+          <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
            {activeTab === 'orders' && <OrdersView customerId={selectedCustomer?.userId || ''} customerName={selectedCustomer?.displayName || ''} krwRate={krwRate} />}
            {activeTab === 'shop-orders' && <ShopOrdersView />}
            {activeTab === 'products' && <ProductManagement />}
@@ -1349,13 +1370,19 @@ export default function AdminDashboard() {
         </main>
            
         {selectedCustomer && isChatOpen && (
-          <div className="flex flex-row flex-shrink-0 z-20 relative" style={{ width: chatSidebarWidth }}>
-            {/* Drag Handle */}
+          <div 
+            className={cn(
+              "flex flex-row flex-shrink-0 z-[60] md:z-20",
+              "fixed inset-0 md:relative md:inset-auto w-full"
+            )} 
+            style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? chatSidebarWidth : '100%' }}
+          >
+            {/* Drag Handle (Desktop Only) */}
             <div
-              className="w-1 flex-shrink-0 cursor-col-resize bg-[#e2e5ef] hover:bg-[#00b900] active:bg-[#00b900] transition-colors relative"
+              className="hidden md:flex w-1 flex-shrink-0 cursor-col-resize bg-[#e2e5ef] hover:bg-[#00b900] active:bg-[#00b900] transition-colors relative"
               onMouseDown={startResizing}
             >
-              {/* Collapse Toggle Button */}
+              {/* Collapse Toggle Button (Desktop) */}
               <button
                 onClick={() => setIsChatOpen(false)}
                 className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-1/2 bg-white border border-[#e2e5ef] rounded-full w-6 h-6 flex items-center justify-center shadow-md hover:bg-[#f0f0f0] z-50"
@@ -1364,8 +1391,17 @@ export default function AdminDashboard() {
                 <ChevronRight size={14} />
               </button>
             </div>
+
+            {/* Mobile Close Button */}
+            <button 
+              onClick={() => setIsChatOpen(false)}
+              className="md:hidden absolute top-4 right-4 z-[70] bg-white/80 backdrop-blur-sm border border-[#e2e5ef] rounded-full p-2 shadow-lg"
+            >
+              <X size={20} />
+            </button>
+
             {/* Chat Content */}
-            <div ref={chatSidebarRef} className="flex flex-col flex-1 overflow-hidden bg-white shadow-xl border-l border-[#e2e5ef]">
+            <div ref={chatSidebarRef} className="flex flex-col flex-1 overflow-hidden bg-white shadow-xl md:border-l border-[#e2e5ef]">
               <ChatHistory 
                 userId={selectedCustomer.userId} 
                 customerName={selectedCustomer.displayName} 
@@ -2103,22 +2139,22 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">{customerName}</h1>
+          <h1 className="text-xl md:text-2xl font-bold">{customerName}</h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 w-full sm:w-auto">
           <button 
             onClick={() => setIsQuickOrderOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1a1d2e] text-white rounded-lg text-xs font-bold hover:opacity-90 shadow-lg active:scale-95 transition-all"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[#1a1d2e] text-white rounded-lg text-[10px] md:text-xs font-bold hover:opacity-90 shadow-lg active:scale-95 transition-all"
           >
-            <Bell size={18} /> Quick Chat Order
+            <Bell size={16} className="hidden xs:block" /> Chat Order
           </button>
           <button 
             onClick={addParcel}
-            className="flex items-center gap-2 px-4 py-2 bg-[#00b900] text-white rounded-lg text-xs font-bold hover:opacity-90 shadow-lg shadow-[#00b90033] active:scale-95 transition-all"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[#00b900] text-white rounded-lg text-[10px] md:text-xs font-bold hover:opacity-90 shadow-lg shadow-[#00b90033] active:scale-95 transition-all"
           >
-            <Plus size={18} /> Add Parcel
+            <Plus size={16} className="hidden xs:block" /> Add Parcel
           </button>
         </div>
       </div>
@@ -2135,119 +2171,127 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                    const isPreparing = order.status === 'preparing';
                    const isPaid = order.status === 'paid';
                    return (
-                     <div 
-                       key={order._id} 
-                       className={cn(
-                         "border rounded-3xl p-5 flex justify-between items-center group transition-all",
-                         isPreparing ? "bg-yellow-50 border-yellow-100" : isPaid ? "bg-emerald-50 border-emerald-100" : selectedOrderIds.has(order._id) ? "bg-[#00b90008] border-[#00b900]" : "bg-orange-50/50 border-orange-100 hover:bg-orange-50"
-                       )}
-                     >
-                       <div className="flex items-start gap-4">
-                         {!isPreparing && !isPaid && (
-                           <button 
-                             onClick={() => {
-                               setSelectedOrderIds(prev => {
-                                 const next = new Set(prev);
-                                 if (next.has(order._id)) next.delete(order._id);
-                                 else next.add(order._id);
-                                 return next;
-                               });
-                             }}
-                             className={cn(
-                               "mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
-                               selectedOrderIds.has(order._id) ? "bg-[#00b900] border-[#00b900] text-white" : "border-[#b3b9c4] hover:border-[#00b900]"
-                             )}
-                           >
-                             {selectedOrderIds.has(order._id) && <Check size={14} strokeWidth={3} />}
-                           </button>
-                         )}
-                         <div>
-                           <div className={cn(
-                             "text-[10px] font-bold uppercase mb-1",
-                             isPreparing ? "text-yellow-600" : isPaid ? "text-emerald-500" : "text-orange-400"
-                           )}>
-                             {isPreparing ? "✓ In Parcel (Not Shipped)" : isPaid ? "✓ PAID" : "New Order Request"}
-                           </div>
-                           <div className="font-bold text-[#1a1d2e] flex items-center gap-2">
-                             {order.product}
-                             {(order.quantity > 1 || order.product.match(/^\d+x\s/)) && (
-                               <span className="bg-[#1a1d2e] text-white text-[10px] px-1.5 py-0.5 rounded-md font-black">
-                                 {order.product.match(/^\d+x\s/) ? order.product.match(/^(\d+)x\s/)?.[1] : order.quantity}x
-                               </span>
-                             )}
-                           </div>
-                           <div className="text-xs text-[#8b92ad]">฿{order.soldTHB.toLocaleString()} • Korean Import</div>
-                         </div>
-                       </div>
-                       <div className="flex items-center gap-2">
-                         <button 
-                           onClick={() => {
-                             if (isPreparing) {
-                               const parcelWithItem = parcels.find(p => p.items.some((i: any) => i.orderId === order._id));
-                               if (parcelWithItem) {
-                                 const item = parcelWithItem.items.find((i: any) => i.orderId === order._id);
-                                 if (item) removeItemFromParcel(parcelWithItem.id, item.id, order._id);
-                               } else {
-                                 // Fallback if item is orphaned: manually revert to pending
-                                 setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: 'pending' } : o));
-                                 fetch(`/api/orders/${order._id}`, {
-                                   method: 'PATCH',
-                                   headers: { 'Content-Type': 'application/json', 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' },
-                                   body: JSON.stringify({ status: 'pending' })
-                                 });
-                                 showToast('Orphaned item reverted', '↩️');
-                               }
-                             } else {
-                               handleImportToParcel(order);
-                             }
-                           }}
-                           className={cn(
-                             "px-4 py-2 rounded-2xl text-[10px] font-bold transition-all shadow-sm flex justify-center items-center gap-1 group/btn",
-                             isPreparing 
-                               ? "bg-yellow-400 text-white border border-yellow-400 hover:bg-red-500 hover:border-red-500 active:scale-95" 
-                               : isPaid ? "bg-white text-emerald-500 border border-emerald-200 hover:bg-emerald-500 hover:text-white active:scale-95"
-                               : "bg-white text-orange-500 border border-orange-200 hover:bg-orange-500 hover:text-white active:scale-95"
-                           )}
-                         >
-                           {isPreparing ? (
-                             <>
-                               <span className="flex items-center gap-1 group-hover/btn:hidden"><CheckCircle2 size={14} /> ✓ In Parcel</span>
-                               <span className="hidden items-center gap-1 group-hover/btn:flex"><Trash2 size={14} /> Remove from Parcel</span>
-                             </>
-                           ) : "Move to Parcel →"}
-                         </button>
+                      <div 
+                        key={order._id} 
+                        className={cn(
+                          "border rounded-3xl p-4 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group transition-all",
+                          isPreparing ? "bg-yellow-50 border-yellow-100" : isPaid ? "bg-emerald-50 border-emerald-100" : selectedOrderIds.has(order._id) ? "bg-[#00b90008] border-[#00b900]" : "bg-orange-50/50 border-orange-100 hover:bg-orange-50"
+                        )}
+                      >
+                        <div className="flex items-start gap-3 md:gap-4 w-full">
+                          {!isPreparing && !isPaid && (
+                            <button 
+                              onClick={() => {
+                                setSelectedOrderIds(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(order._id)) next.delete(order._id);
+                                  else next.add(order._id);
+                                  return next;
+                                });
+                              }}
+                              className={cn(
+                                "mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                                selectedOrderIds.has(order._id) ? "bg-[#00b900] border-[#00b900] text-white" : "border-[#b3b9c4] hover:border-[#00b900]"
+                              )}
+                            >
+                              {selectedOrderIds.has(order._id) && <Check size={14} strokeWidth={3} />}
+                            </button>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className={cn(
+                              "text-[10px] font-bold uppercase mb-1",
+                              isPreparing ? "text-yellow-600" : isPaid ? "text-emerald-500" : "text-orange-400"
+                            )}>
+                              {isPreparing ? "✓ In Parcel (Not Shipped)" : isPaid ? "✓ PAID" : "New Order Request"}
+                            </div>
+                            <div className="font-bold text-[#1a1d2e] flex items-center flex-wrap gap-2 leading-tight">
+                              {order.product}
+                              {(order.quantity > 1 || order.product.match(/^\d+x\s/)) && (
+                                <span className="bg-[#1a1d2e] text-white text-[10px] px-1.5 py-0.5 rounded-md font-black shrink-0">
+                                  {order.product.match(/^\d+x\s/) ? order.product.match(/^(\d+)x\s/)?.[1] : order.quantity}x
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-[#8b92ad] mt-1">฿{order.soldTHB.toLocaleString()} • Korean Import</div>
+                          </div>
+                          
+                          <button 
+                            onClick={() => handleDeleteOrder(order)}
+                            className="md:hidden p-2 text-[#8b92ad] hover:text-red-500 rounded-xl transition-all"
+                            title="Delete Order"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
 
-                         {order.status === 'pending' && (
-                           <>
-                             <button
-                               onClick={() => handleSendQr(order)}
-                               className={cn(
-                                 "px-3 py-2 rounded-2xl text-[10px] font-bold transition-all shadow-sm border flex items-center gap-1 active:scale-95",
-                                 order.paymentQrSent 
-                                   ? "bg-[#00b900] text-white border-[#00b900]" 
-                                   : "bg-white text-[#1a1d2e] border-[#e2e5ef] hover:bg-[#f8f9fc]"
-                               )}
-                             >
-                               <QrCode size={14} /> {order.paymentQrSent ? 'QR Sent ✓' : 'Send QR'}
-                             </button>
-                             <button
-                               onClick={() => handleMarkPaid(order)}
-                               className="px-3 py-2 rounded-2xl text-[10px] font-bold bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm flex items-center gap-1 active:scale-95"
-                             >
-                               <CheckCircle2 size={14} /> Mark Paid
-                             </button>
-                           </>
-                         )}
+                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                          <button 
+                            onClick={() => {
+                              if (isPreparing) {
+                                const parcelWithItem = parcels.find(p => p.items.some((i: any) => i.orderId === order._id));
+                                if (parcelWithItem) {
+                                  const item = parcelWithItem.items.find((i: any) => i.orderId === order._id);
+                                  if (item) removeItemFromParcel(parcelWithItem.id, item.id, order._id);
+                                } else {
+                                  setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: 'pending' } : o));
+                                  fetch(`/api/orders/${order._id}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json', 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' },
+                                    body: JSON.stringify({ status: 'pending' })
+                                  });
+                                  showToast('Orphaned item reverted', '↩️');
+                                }
+                              } else {
+                                handleImportToParcel(order);
+                              }
+                            }}
+                            className={cn(
+                              "flex-1 md:flex-none px-4 py-2 rounded-2xl text-[10px] font-bold transition-all shadow-sm flex justify-center items-center gap-1 group/btn",
+                              isPreparing 
+                                ? "bg-yellow-400 text-white border border-yellow-400 hover:bg-red-500 hover:border-red-500 active:scale-95" 
+                                : isPaid ? "bg-white text-emerald-500 border border-emerald-200 hover:bg-emerald-500 hover:text-white active:scale-95"
+                                : "bg-white text-orange-500 border border-orange-200 hover:bg-orange-500 hover:text-white active:scale-95"
+                            )}
+                          >
+                            {isPreparing ? (
+                              <>
+                                <span className="flex items-center gap-1 group-hover/btn:hidden"><CheckCircle2 size={14} /> ✓ In Parcel</span>
+                                <span className="hidden items-center gap-1 group-hover/btn:flex"><Trash2 size={14} /> Remove</span>
+                              </>
+                            ) : "Move to Parcel →"}
+                          </button>
 
-                         <button 
-                           onClick={() => handleDeleteOrder(order)}
-                           className="p-2 text-[#8b92ad] hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                           title="Delete Order"
-                         >
-                           <Trash2 size={16} />
-                         </button>
-                       </div>
-                     </div>
+                          {order.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleSendQr(order)}
+                                className={cn(
+                                  "flex-1 md:flex-none px-3 py-2 rounded-2xl text-[10px] font-bold transition-all shadow-sm border flex items-center justify-center gap-1 active:scale-95",
+                                  order.paymentQrSent 
+                                    ? "bg-[#00b900] text-white border-[#00b900]" 
+                                    : "bg-white text-[#1a1d2e] border-[#e2e5ef] hover:bg-[#f8f9fc]"
+                                )}
+                              >
+                                <QrCode size={14} /> {order.paymentQrSent ? 'Sent ✓' : 'Send QR'}
+                              </button>
+                              <button
+                                onClick={() => handleMarkPaid(order)}
+                                className="flex-1 md:flex-none px-3 py-2 rounded-2xl text-[10px] font-bold bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm flex items-center justify-center gap-1 active:scale-95"
+                              >
+                                <CheckCircle2 size={14} /> Paid
+                              </button>
+                            </>
+                          )}
+
+                          <button 
+                            onClick={() => handleDeleteOrder(order)}
+                            className="hidden md:block p-2 text-[#8b92ad] hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                            title="Delete Order"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
                    );
                  })}
                </div>
