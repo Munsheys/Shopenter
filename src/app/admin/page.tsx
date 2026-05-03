@@ -1130,6 +1130,7 @@ export default function AdminDashboard() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Load preferences
   useEffect(() => {
@@ -1316,6 +1317,9 @@ export default function AdminDashboard() {
       }
 
       setShopInfo(data);
+      if (data.branding?.theme) {
+        setTheme(data.branding.theme);
+      }
       
       // 3. Init LIFF if we have an ID
       if (data.liffId) {
@@ -1367,9 +1371,15 @@ export default function AdminDashboard() {
 
   if (liffState === 'admin') {
     return (
-      <div className="flex flex-col h-screen bg-[#f4f6f9] text-[#1a1d2e] overflow-hidden">
+      <div className={cn(
+        "flex flex-col h-screen overflow-hidden transition-colors duration-300",
+        theme === 'dark' ? "bg-[#0f111a] text-white" : "bg-[#f4f6f9] text-[#1a1d2e]"
+      )}>
         {/* Topbar */}
-        <div className="bg-white h-16 border-b border-[#e2e5ef] flex items-center justify-between px-4 shadow-sm z-50 flex-shrink-0">
+        <div className={cn(
+          "h-16 border-b flex items-center justify-between px-4 shadow-sm z-50 flex-shrink-0 transition-colors",
+          theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+        )}>
           <div className="flex items-center gap-2 md:gap-6">
             {activeTab === 'orders' && (
               <button 
@@ -1434,7 +1444,10 @@ export default function AdminDashboard() {
         </div>
 
         {/* Mobile Tab Navigation */}
-        <div className="md:hidden bg-white border-b border-[#e2e5ef] flex gap-2 px-2 overflow-x-auto no-scrollbar py-2 flex-shrink-0">
+        <div className={cn(
+          "md:hidden border-b flex gap-2 px-2 overflow-x-auto no-scrollbar py-2 flex-shrink-0 transition-colors",
+          theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+        )}>
            <TabButton icon={<Package size={14}/>} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
            <TabButton icon={<ShoppingCart size={14}/>} label={t.shop_orders} active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
            <TabButton icon={<Package size={14}/>} label={t.products} active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
@@ -1447,10 +1460,11 @@ export default function AdminDashboard() {
           {activeTab === 'orders' && (
             <div 
               className={cn(
-                "bg-white border-r border-[#e2e5ef] flex flex-col transition-all duration-300 z-40",
+                "flex flex-col transition-all duration-300 z-40 transition-colors border-r",
                 "fixed inset-y-0 left-0 md:relative md:translate-x-0 shadow-2xl md:shadow-none",
                 isMobileMenuOpen ? "translate-x-0 w-[280px]" : "-translate-x-full md:translate-x-0",
-                isSidebarCollapsed ? "md:w-16" : "md:w-[300px]"
+                isSidebarCollapsed ? "md:w-16" : "md:w-[300px]",
+                theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
               )}
             >
               <div className="p-3 border-b border-[#e2e5ef]">

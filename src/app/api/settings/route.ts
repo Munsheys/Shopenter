@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     }
     return NextResponse.json({
       shopName: "Auto-Market",
-      primaryColor: "#00b900",
+      theme: "light",
       krwRate: 0.026,
       shippingCompanies: ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express'],
       trackingTemplate: "📦 Shipped!\n\nCourier: {courier}\nTracking: {tracking}\nItems: {product}\n\nThank you! 🙏"

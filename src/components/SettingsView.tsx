@@ -82,20 +82,20 @@ export default function SettingsView() {
 
         <div className="grid grid-cols-2 gap-8 mb-8">
           <div>
-            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Primary Color</label>
-            <div className="flex gap-2">
-              <input 
-                type="color" 
-                value={settings.primaryColor || '#00b900'} 
-                onChange={(e) => updateSetting('primaryColor', e.target.value)}
-                className="w-12 h-11 border border-[#e2e5ef] rounded-xl p-1 outline-none focus:border-[#00b900]" 
-              />
-              <input 
-                type="text" 
-                value={settings.primaryColor || '#00b900'} 
-                onChange={(e) => updateSetting('primaryColor', e.target.value)}
-                className="flex-1 border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900]" 
-              />
+            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Theme Preference</label>
+            <div className="flex bg-[#f4f6f9] p-1 rounded-xl w-fit">
+              <button 
+                onClick={() => updateSetting('theme', 'light')}
+                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${settings.theme !== 'dark' ? 'bg-white shadow-sm text-[#00b900]' : 'text-[#8b92ad]'}`}
+              >
+                Light
+              </button>
+              <button 
+                onClick={() => updateSetting('theme', 'dark')}
+                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${settings.theme === 'dark' ? 'bg-[#1a1d2e] text-white shadow-sm' : 'text-[#8b92ad]'}`}
+              >
+                Dark
+              </button>
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const SettingsSchema = new mongoose.Schema({
   shopName: { type: String, default: "Auto-Market" },
-  primaryColor: { type: String, default: "#00b900" },
+  theme: { type: String, enum: ['light', 'dark'], default: "light" },
   krwRate: { type: Number, default: 0.026 },
   trackingTemplate: { type: String, default: "📦 ส่งสินค้าแล้วครับ!\n\nขนส่ง: {courier}\nเลขพัสดุ: {tracking}\nรายการ: {product}\n\nขอบคุณครับ 🙏" },
   senderAddress: String,

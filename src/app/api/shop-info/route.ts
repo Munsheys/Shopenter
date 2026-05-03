@@ -13,14 +13,14 @@ export async function GET() {
         name: local.shopName,
         liffId: null, // Forces Setup Wizard
         adminLineId: null,
-        branding: { primaryColor: local.primaryColor }
+        branding: { theme: local.theme || 'light' }
       });
     }
     return NextResponse.json({
       name: settings.shopName || "Auto-Market",
       liffId: settings.liffId || process.env.NEXT_PUBLIC_LIFF_ID || process.env.LIFF_ID,
       adminLineId: settings.adminLineId || process.env.NEXT_PUBLIC_ADMIN_LINE_ID,
-      branding: { primaryColor: settings.primaryColor || '#00b900' }
+      branding: { theme: settings.theme || 'light' }
     });
   } catch (error) {
     const local = getLocalSettings();
@@ -28,7 +28,7 @@ export async function GET() {
       name: local.shopName,
       liffId: null,
       adminLineId: null,
-      branding: { primaryColor: local.primaryColor }
+      branding: { theme: local.theme || 'light' }
     });
   }
 }

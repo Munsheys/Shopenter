@@ -13,7 +13,7 @@ export function getLocalSettings() {
   }
   return {
     shopName: "Auto-Market",
-    primaryColor: "#00b900",
+    theme: "light",
     krwRate: 0.026,
     shippingCompanies: ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express'],
     senderAddress: "",
