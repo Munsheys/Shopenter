@@ -1857,7 +1857,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
   const handleImportToParcel = async (order: any) => {
     if (order.status === 'preparing') return;
     
-    setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: 'preparing' } : o));
+    setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: 'preparing', statusBeforeParcel: o.status } : o));
 
     await fetch(`/api/orders/${order._id}`, {
       method: 'PATCH',
@@ -1865,7 +1865,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
         'Content-Type': 'application/json',
         'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
       },
-      body: JSON.stringify({ status: 'preparing' })
+      body: JSON.stringify({ status: 'preparing', statusBeforeParcel: order.status })
     });
 
     const newItem = { id: Date.now(), name: order.product, quantity: order.quantity || 1, sold: order.soldTHB, cost: order.costKRW, orderId: order._id };
@@ -1926,25 +1926,28 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
     setModal({
       isOpen: true,
       title: 'Remove Item?',
-      message: 'Remove this item from the parcel and revert to Pending?',
+      message: 'Remove this item from the parcel and revert its status?',
       type: 'confirm',
       onConfirm: async () => {
         if (orderId) {
-          setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: 'pending' } : o));
+          const orderToRevert = orders.find(o => o._id === orderId);
+          const targetStatus = orderToRevert?.statusBeforeParcel || 'pending';
+          
+          setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: targetStatus } : o));
           await fetch(`/api/orders/${orderId}`, {
             method: 'PATCH',
             headers: { 
               'Content-Type': 'application/json',
               'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
             },
-            body: JSON.stringify({ status: 'pending' })
+            body: JSON.stringify({ status: targetStatus })
           });
         }
         setParcels(parcels.map(p => p.id === parcelId ? {
           ...p,
           items: p.items.filter((i: any) => i.id !== itemId)
         } : p));
-        showToast('Item Reverted to Pending', '↩️');
+        showToast('Item status reverted', '↩️');
         setModal({ ...modal, isOpen: false });
       },
       onCancel: () => setModal({ ...modal, isOpen: false })
@@ -2409,11 +2412,12 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                                   const item = parcelWithItem.items.find((i: any) => i.orderId === order._id);
                                   if (item) removeItemFromParcel(parcelWithItem.id, item.id, order._id);
                                 } else {
-                                  setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: 'pending' } : o));
+                                  const targetStatus = order.statusBeforeParcel || 'pending';
+                                  setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: targetStatus } : o));
                                   fetch(`/api/orders/${order._id}`, {
                                     method: 'PATCH',
                                     headers: { 'Content-Type': 'application/json', 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' },
-                                    body: JSON.stringify({ status: 'pending' })
+                                    body: JSON.stringify({ status: targetStatus })
                                   });
                                   showToast('Orphaned item reverted', '↩️');
                                 }

@@ -72,7 +72,8 @@ const OrderSchema = new mongoose.Schema({
   shipCostTHB: { type: Number, default: 0 },
   tracking: String,
   courier: String,
-  status: { type: String, enum: ['pending', 'paid', 'shipped'], default: 'pending' },
+  status: { type: String, enum: ['pending', 'paid', 'preparing', 'shipped'], default: 'pending' },
+  statusBeforeParcel: { type: String, enum: ['pending', 'paid'], default: 'pending' },
   paymentQrSent: { type: Boolean, default: false },
   trackingSent: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
