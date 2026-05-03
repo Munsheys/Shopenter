@@ -89,10 +89,12 @@ function ChatHistory({
   fontSize = 14,
   onFontSizeChange,
   lang = 'en',
-  theme = 'light'
+  theme = 'light',
+  pictureUrl = ''
 }: { 
   userId: string, 
   customerName?: string, 
+  pictureUrl?: string,
   unreadCount?: number, 
   onMarkAsRead?: () => void,
   fontSize?: number,
@@ -114,8 +116,8 @@ function ChatHistory({
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      // If user is within 150px of bottom, they probably want to keep auto-scrolling
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 150;
+      // If user is within 20px of bottom, they probably want to keep auto-scrolling
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 20;
       shouldScrollRef.current = isAtBottom;
     }
   };
@@ -249,9 +251,25 @@ function ChatHistory({
         "px-4 py-3 border-b flex items-center gap-3 shadow-sm z-10 flex-shrink-0 transition-colors",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
       )}>
-        <div className="w-8 h-8 rounded-full bg-[#eab308] text-[#1a1d2e] flex items-center justify-center font-bold text-sm flex-shrink-0">
-          {initials}
-        </div>
+        {pictureUrl ? (
+          <img 
+            src={pictureUrl} 
+            alt={customerName} 
+            className="w-8 h-8 rounded-full object-cover bg-[#eee] flex-shrink-0" 
+            onError={(e) => {
+              const target = e.currentTarget;
+              target.style.display = 'none';
+              const fallback = document.createElement('div');
+              fallback.className = cn('w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0', theme === 'dark' ? "bg-[#eab308] text-[#1a1d2e]" : "bg-[#eab308] text-[#1a1d2e]");
+              fallback.textContent = initials;
+              target.parentElement?.insertBefore(fallback, target);
+            }}
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-[#eab308] text-[#1a1d2e] flex items-center justify-center font-bold text-sm flex-shrink-0">
+            {initials}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className={cn("font-bold text-sm truncate", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{customerName}</div>
           <div className="text-[10px] text-[#00b900] font-semibold">LINE Chat</div>
@@ -332,9 +350,14 @@ function ChatHistory({
 
           if (m.type === 'system' || m.sender === 'system') {
             return (
-              <div key={m._id || i} className="flex justify-center my-4">
-                <div className="bg-[#e2e5ef] text-[#1a1d2e] px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50">
-                  {m.text} {m.metadata?.amount && `• ฿${m.metadata.amount.toLocaleString()}`}
+              <div key={m._id || i} className="flex justify-center my-4 px-4 text-center">
+                <div className="bg-[#e2e5ef] text-[#1a1d2e] px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50 max-w-full">
+                  <div>{m.text} {m.metadata?.amount && `• ฿${m.metadata.amount.toLocaleString()}`}</div>
+                  {m.metadata?.product && (
+                    <div className="text-[9px] opacity-60 mt-1 font-medium lowercase first-letter:uppercase leading-tight">
+                      {m.metadata.product}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -810,7 +833,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                       label="MODEL LINE / FAMILY"
                       value={manualModelLine}
                       onChange={setManualModelLine}
-                      options={Array.from(new Set(products.filter((p: any) => p.brand === manualBrand).map((p: any) => p.modelLine))) as string[]}
+                      options={Array.from(new Set(products.filter((p: any) => p.brand === manualBrand).map((p: any) => p.modelLine))).filter(Boolean) as string[]}
                       placeholder="e.g. Boston Bag"
                     />
                   </div>
@@ -837,7 +860,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                   selected={manualCategories} 
                   onAdd={c => !manualCategories.includes(c) && setManualCategories([...manualCategories, c])}
                   onRemove={c => setManualCategories(manualCategories.filter(x => x !== c))}
-                  options={Array.from(new Set(products.flatMap((p: any) => p.categories || []))) as string[]}
+                  options={Array.from(new Set(products.flatMap((p: any) => p.categories || []))).filter(Boolean) as string[]}
                   placeholder="Search or add category..."
                 />
 
@@ -867,7 +890,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                           value={manualThickness} 
                           onChange={setManualThickness}
                           theme={theme}
-                          options={Array.from(new Set(products.flatMap((p: any) => p.variants?.map((v: any) => v.thickness) || [])))} 
+                          options={Array.from(new Set(products.flatMap((p: any) => p.variants?.map((v: any) => v.thickness) || []))).filter(Boolean) as string[]} 
                           placeholder="e.g. 1.2 mm" 
                           required={true}
                         />
@@ -878,7 +901,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                           value={manualColor} 
                           onChange={setManualColor}
                           theme={theme}
-                          options={Array.from(new Set(products.flatMap((p: any) => p.variants?.flatMap((v: any) => v.colors) || [])))} 
+                          options={Array.from(new Set(products.flatMap((p: any) => p.variants?.flatMap((v: any) => v.colors) || []))).filter(Boolean) as string[]} 
                           placeholder="e.g. Peach" 
                           required={true}
                         />
@@ -1746,6 +1769,7 @@ export default function AdminDashboard() {
               <ChatHistory 
                 userId={selectedCustomer.userId} 
                 customerName={selectedCustomer.displayName} 
+                pictureUrl={selectedCustomer.pictureUrl}
                 unreadCount={selectedCustomer.unreadCount || 0}
                 fontSize={chatFontSize}
                 onFontSizeChange={setChatFontSize}

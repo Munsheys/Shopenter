@@ -82,7 +82,7 @@ export function CreatableDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+  const filtered = options.filter(o => o && typeof o === 'string' && o.toLowerCase().includes(search.toLowerCase()));
   const showCreate = search.trim() !== '' && !options.some(o => o.toLowerCase() === search.toLowerCase().trim());
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -191,7 +191,7 @@ export function TagSelector({
   const [isOpen, setIsOpen] = useState(false);
   const colorInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const filtered = options.filter(o => !selected.includes(o) && o.toLowerCase().includes(search.toLowerCase()));
+  const filtered = options.filter(o => o && typeof o === 'string' && !selected.includes(o) && o.toLowerCase().includes(search.toLowerCase()));
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
