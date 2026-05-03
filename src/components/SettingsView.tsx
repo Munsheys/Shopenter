@@ -147,6 +147,34 @@ export default function SettingsView() {
         </div>
 
         <div className="pt-8 border-t border-[#f4f6f9] mb-10">
+          <h3 className="text-sm font-bold text-[#1a1d2e] mb-6">Payment Configuration</h3>
+          
+          <div className="mb-6">
+            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">PROMPTPAY ID (PHONE OR NID)</label>
+            <input 
+              type="text" 
+              value={settings.promptPayId || ''} 
+              onChange={(e) => updateSetting('promptPayId', e.target.value)}
+              placeholder="e.g. 0812345678"
+              className="w-full md:w-1/2 border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-all" 
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">PAYMENT CONFIRMATION MESSAGE</label>
+            <div className="relative">
+               <textarea 
+                 rows={5} 
+                 value={settings.paymentTemplate || ''} 
+                 onChange={(e) => updateSetting('paymentTemplate', e.target.value)}
+                 className="w-full border border-[#e2e5ef] rounded-xl px-4 py-4 text-sm font-medium outline-none focus:border-[#00b900] resize-none leading-relaxed transition-all" 
+               />
+               <div className="mt-2 text-[10px] text-[#8b92ad]">Placeholders: &#123;product&#125;, &#123;amount&#125;, &#123;name&#125;</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-8 border-t border-[#f4f6f9] mb-10">
           <h3 className="text-sm font-bold text-[#1a1d2e] mb-6">Platform Integration (LINE)</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

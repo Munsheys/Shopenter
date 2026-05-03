@@ -16,3 +16,28 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Failed' }, { status: 500 });
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    await dbConnect();
+    const body = await req.json();
+    
+    // Convert shop payload to Order schema
+    const orderData = {
+      lineUserId: body.lineUserId,
+      displayName: body.displayName,
+      // Map totalTHB to soldTHB
+      soldTHB: body.totalTHB,
+      items: body.items,
+      product: body.items.map((i: any) => `${i.qty}x ${i.name}`).join(', '),
+      status: 'pending',
+      paymentQrSent: false
+    };
+
+    const order = await Order.create(orderData);
+    return NextResponse.json(order);
+  } catch (error) {
+    console.error("Shop Order Creation Error:", error);
+    return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+  }
+}

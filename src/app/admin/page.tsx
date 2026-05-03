@@ -23,7 +23,8 @@ import {
   Copy,
   Send,
   RefreshCw,
-  Check
+  Check,
+  QrCode
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -1695,6 +1696,43 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
     });
   };
 
+  const handleSendQr = async (order: any) => {
+    try {
+      const res = await fetch(`/api/orders/${order._id}/send-qr`, {
+        method: 'POST',
+        headers: { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' }
+      });
+      if (res.ok) {
+        setOrders(prev => prev.map(o => o._id === order._id ? { ...o, paymentQrSent: true } : o));
+        showToast('QR Sent via LINE', '📱');
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Failed to send QR', '❌');
+      }
+    } catch (e) {
+      showToast('Error sending QR', '❌');
+    }
+  };
+
+  const handleMarkPaid = async (order: any) => {
+    if (!confirm('Mark order as PAID and send Thank You message via LINE?')) return;
+    try {
+      const res = await fetch(`/api/orders/${order._id}/mark-paid`, {
+        method: 'POST',
+        headers: { 'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' }
+      });
+      if (res.ok) {
+        setOrders(prev => prev.map(o => o._id === order._id ? { ...o, status: 'paid' } : o));
+        showToast('Marked as Paid', '✅');
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Failed to mark paid', '❌');
+      }
+    } catch (e) {
+      showToast('Error marking paid', '❌');
+    }
+  };
+
   const handleQuickOrder = async (product: any, finalPrice: number) => {
     if (!customerId) return;
     isLocked.current = true;
@@ -1965,28 +2003,29 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
 
       <div className="min-h-[calc(100vh-200px)]">
            {/* Pending & Preparing Orders (Active Orders from Store) */}
-           {orders.filter(o => ['pending', 'preparing'].includes(o.status)).length > 0 && (
+           {orders.filter(o => ['pending', 'paid', 'preparing'].includes(o.status)).length > 0 && (
              <div className="mb-8 animate-in fade-in slide-in-from-top-4">
                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-4 block flex items-center gap-2">
                  <Clock size={12} className="text-orange-400" /> Active Orders (AWAITING FULFILLMENT)
                </label>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {orders.filter(o => ['pending', 'preparing'].includes(o.status)).map((order) => {
+                 {orders.filter(o => ['pending', 'paid', 'preparing'].includes(o.status)).map((order) => {
                    const isPreparing = order.status === 'preparing';
+                   const isPaid = order.status === 'paid';
                    return (
                      <div 
                        key={order._id} 
                        className={cn(
                          "border rounded-3xl p-5 flex justify-between items-center group transition-all",
-                         isPreparing ? "bg-yellow-50 border-yellow-100" : "bg-orange-50/50 border-orange-100 hover:bg-orange-50"
+                         isPreparing ? "bg-yellow-50 border-yellow-100" : isPaid ? "bg-emerald-50 border-emerald-100" : "bg-orange-50/50 border-orange-100 hover:bg-orange-50"
                        )}
                      >
                        <div>
                          <div className={cn(
                            "text-[10px] font-bold uppercase mb-1",
-                           isPreparing ? "text-yellow-600" : "text-orange-400"
+                           isPreparing ? "text-yellow-600" : isPaid ? "text-emerald-500" : "text-orange-400"
                          )}>
-                           {isPreparing ? "✓ In Parcel (Not Shipped)" : "New Order Request"}
+                           {isPreparing ? "✓ In Parcel (Not Shipped)" : isPaid ? "✓ PAID" : "New Order Request"}
                          </div>
                          <div className="font-bold text-[#1a1d2e]">{order.product}</div>
                          <div className="text-xs text-[#8b92ad]">฿{order.soldTHB.toLocaleString()} • Korean Import</div>
@@ -2017,6 +2056,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                              "px-4 py-2 rounded-2xl text-[10px] font-bold transition-all shadow-sm flex justify-center items-center gap-1 group/btn",
                              isPreparing 
                                ? "bg-yellow-400 text-white border border-yellow-400 hover:bg-red-500 hover:border-red-500 active:scale-95" 
+                               : isPaid ? "bg-white text-emerald-500 border border-emerald-200 hover:bg-emerald-500 hover:text-white active:scale-95"
                                : "bg-white text-orange-500 border border-orange-200 hover:bg-orange-500 hover:text-white active:scale-95"
                            )}
                          >
@@ -2027,6 +2067,29 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                              </>
                            ) : "Move to Parcel →"}
                          </button>
+
+                         {order.status === 'pending' && (
+                           <>
+                             <button
+                               onClick={() => handleSendQr(order)}
+                               className={cn(
+                                 "px-3 py-2 rounded-2xl text-[10px] font-bold transition-all shadow-sm border flex items-center gap-1 active:scale-95",
+                                 order.paymentQrSent 
+                                   ? "bg-[#00b900] text-white border-[#00b900]" 
+                                   : "bg-white text-[#1a1d2e] border-[#e2e5ef] hover:bg-[#f8f9fc]"
+                               )}
+                             >
+                               <QrCode size={14} /> {order.paymentQrSent ? 'QR Sent ✓' : 'Send QR'}
+                             </button>
+                             <button
+                               onClick={() => handleMarkPaid(order)}
+                               className="px-3 py-2 rounded-2xl text-[10px] font-bold bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm flex items-center gap-1 active:scale-95"
+                             >
+                               <CheckCircle2 size={14} /> Mark Paid
+                             </button>
+                           </>
+                         )}
+
                          <button 
                            onClick={() => handleDeleteOrder(order)}
                            className="p-2 text-[#8b92ad] hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"

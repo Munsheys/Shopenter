@@ -12,7 +12,10 @@ const SettingsSchema = new mongoose.Schema({
   lineChannelSecret: { type: String, default: "" },
   liffId: { type: String, default: "" },
   adminLineId: { type: String, default: "" },
-  adminSecret: { type: String, default: "" }
+  adminSecret: { type: String, default: "" },
+  // Payment
+  promptPayId: { type: String, default: "" },
+  paymentTemplate: { type: String, default: "✅ ยืนยันการชำระเงินแล้วครับ!\n\nรายการ: {product}\nจำนวน: ฿{amount}\n\nขอบคุณที่ใช้บริการครับ 🙏" }
 });
 
 const ProductSchema = new mongoose.Schema({
@@ -66,7 +69,8 @@ const OrderSchema = new mongoose.Schema({
   shipCostTHB: { type: Number, default: 0 },
   tracking: String,
   courier: String,
-  status: { type: String, default: 'pending' },
+  status: { type: String, enum: ['pending', 'paid', 'shipped'], default: 'pending' },
+  paymentQrSent: { type: Boolean, default: false },
   trackingSent: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });

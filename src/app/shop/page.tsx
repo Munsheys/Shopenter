@@ -19,6 +19,7 @@ export default function Shop() {
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
   const [isOrdering, setIsOrdering] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState<any>(null);
 
   useEffect(() => {
     fetch('/api/shop-info')
@@ -83,9 +84,10 @@ export default function Shop() {
       });
 
       if (res.ok) {
-        alert("Order placed successfully! We will contact you soon.");
+        const orderData = await res.json();
+        setCurrentOrder(orderData);
         setCart([]);
-        setView('home');
+        setView('payment');
       } else {
         alert("Failed to place order. Please try again.");
       }
@@ -252,6 +254,31 @@ export default function Shop() {
            )}
         </div>
       )}
+
+      {view === 'payment' && currentOrder && (
+         <div className="p-6 text-center animate-in zoom-in-95 duration-300 pt-12">
+            <h2 className="text-2xl font-bold mb-2">Order Confirmed!</h2>
+            <p className="text-[#888] text-sm mb-8">Scan to pay with K PLUS or any banking app.</p>
+            
+            <div className="bg-white p-6 rounded-[32px] inline-block mb-8 shadow-2xl shadow-[#00b90033]">
+              <img 
+                src={`/api/qr?amount=${currentOrder.soldTHB}&ref=${currentOrder._id}`} 
+                alt="PromptPay QR" 
+                className="w-56 h-56 mx-auto object-contain"
+              />
+              <div className="mt-6 text-[#1a1d2e] font-black text-2xl">
+                ฿{currentOrder.soldTHB.toLocaleString()}
+              </div>
+            </div>
+
+            <button 
+             onClick={() => setView('home')}
+             className="w-full bg-[#1a1a24] border border-[#2a2a3a] text-white py-4 rounded-2xl font-bold hover:bg-[#2a2a3a] transition-all"
+            >
+              Return to Shop
+            </button>
+         </div>
+       )}
     </div>
   );
 }

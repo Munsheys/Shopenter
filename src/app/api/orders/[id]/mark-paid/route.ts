@@ -1,0 +1,58 @@
+import { NextRequest, NextResponse } from 'next/server';
+import dbConnect from '@/lib/db';
+import { Order, Settings } from '@/models';
+import { verifyAuth } from '@/lib/auth';
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const secret = req.headers.get('x-admin-secret');
+    if (!(await verifyAuth(secret))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    await dbConnect();
+    const order = await Order.findById(params.id);
+    if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+
+    const settings = await Settings.findOne();
+    if (!settings || !settings.lineChannelAccessToken) {
+      return NextResponse.json({ error: 'LINE access token not configured' }, { status: 400 });
+    }
+
+    // Update status
+    order.status = 'paid';
+    await order.save();
+
+    // Prepare text
+    let messageText = settings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
+    messageText = messageText
+      .replace(/{product}/g, order.product || 'Order')
+      .replace(/{amount}/g, (order.soldTHB || 0).toLocaleString())
+      .replace(/{name}/g, order.displayName || 'Customer');
+
+    const lineResponse = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.lineChannelAccessToken}`
+      },
+      body: JSON.stringify({
+        to: order.lineUserId,
+        messages: [{
+          type: 'text',
+          text: messageText
+        }]
+      })
+    });
+
+    if (!lineResponse.ok) {
+      const errData = await lineResponse.text();
+      console.error("LINE Push Error:", errData);
+    }
+
+    return NextResponse.json({ success: true, order });
+  } catch (error) {
+    console.error("Mark Paid Error:", error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
