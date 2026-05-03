@@ -1245,12 +1245,14 @@ export default function AdminDashboard() {
         {/* Topbar */}
         <div className="bg-white h-16 border-b border-[#e2e5ef] flex items-center justify-between px-4 shadow-sm z-50 flex-shrink-0">
           <div className="flex items-center gap-2 md:gap-6">
-            <button 
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 text-[#8b92ad] hover:bg-[#f4f6f9] rounded-lg transition-colors"
-            >
-              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+            {activeTab === 'orders' && (
+              <button 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden p-2 text-[#8b92ad] hover:bg-[#f4f6f9] rounded-lg transition-colors"
+              >
+                {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            )}
 
             <div className="flex items-center gap-2 font-bold text-base md:text-lg">
                <span className="text-[#00b900]">✦</span> <span className="hidden sm:inline">{shopInfo?.name || "Loading..."}</span>
@@ -1290,10 +1292,10 @@ export default function AdminDashboard() {
         {/* Mobile Tab Navigation */}
         <div className="md:hidden bg-white border-b border-[#e2e5ef] flex gap-2 px-2 overflow-x-auto no-scrollbar py-2 flex-shrink-0">
            <TabButton icon={<Package size={14}/>} label="Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
-           <TabButton icon={<ShoppingCart size={14}/>} label="Shop" active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
-           <TabButton icon={<Package size={14}/>} label="Items" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
-           <TabButton icon={<BarChart3 size={14}/>} label="Stats" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
-           <TabButton icon={<SettingsIcon size={14}/>} label="Config" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+           <TabButton icon={<ShoppingCart size={14}/>} label="Shop Orders" active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
+           <TabButton icon={<Package size={14}/>} label="Products" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
+           <TabButton icon={<BarChart3 size={14}/>} label="Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
+           <TabButton icon={<SettingsIcon size={14}/>} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </div>
 
         <div className="flex flex-1 items-stretch overflow-hidden relative">
@@ -2148,7 +2150,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
             onClick={() => setIsQuickOrderOpen(true)}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[#1a1d2e] text-white rounded-lg text-[10px] md:text-xs font-bold hover:opacity-90 shadow-lg active:scale-95 transition-all"
           >
-            <Bell size={16} className="hidden xs:block" /> Chat Order
+            <Bell size={16} className="hidden xs:block" /> Quick Chat Order
           </button>
           <button 
             onClick={addParcel}
@@ -2272,13 +2274,13 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                                     : "bg-white text-[#1a1d2e] border-[#e2e5ef] hover:bg-[#f8f9fc]"
                                 )}
                               >
-                                <QrCode size={14} /> {order.paymentQrSent ? 'Sent ✓' : 'Send QR'}
+                                <QrCode size={14} /> {order.paymentQrSent ? 'QR Sent ✓' : 'Send QR'}
                               </button>
                               <button
                                 onClick={() => handleMarkPaid(order)}
                                 className="flex-1 md:flex-none px-3 py-2 rounded-2xl text-[10px] font-bold bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm flex items-center justify-center gap-1 active:scale-95"
                               >
-                                <CheckCircle2 size={14} /> Paid
+                                <CheckCircle2 size={14} /> Mark Paid
                               </button>
                             </>
                           )}
