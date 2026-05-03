@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'public, max-age=60',

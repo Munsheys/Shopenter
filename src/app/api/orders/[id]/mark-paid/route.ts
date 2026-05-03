@@ -3,15 +3,16 @@ import dbConnect from '@/lib/db';
 import { Order, Settings } from '@/models';
 import { verifyAuth } from '@/lib/auth';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const secret = req.headers.get('x-admin-secret');
     if (!(await verifyAuth(secret))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     await dbConnect();
-    const order = await Order.findById(params.id);
+    const order = await Order.findById(id);
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
     const settings = await Settings.findOne();
