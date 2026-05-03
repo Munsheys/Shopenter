@@ -140,7 +140,9 @@ export async function POST(req: Request) {
         } else if (event.message?.type === 'image') {
           await Message.create({
             lineUserId: userId,
-            text: "[📸 Image Uploaded]",
+            type: 'image',
+            messageId: event.message.id,
+            text: "📸 Image Uploaded",
             sender: 'user'
           });
           
@@ -205,7 +207,13 @@ export async function POST(req: Request) {
                         messages: [{ type: 'text', text: messageText }]
                       });
                       
-                      await Message.create({ lineUserId: userId, text: messageText, sender: 'admin' });
+                      await Message.create({ 
+                        lineUserId: userId, 
+                        type: 'system',
+                        text: '✅ ระบบยืนยันการชำระเงินอัตโนมัติ', 
+                        metadata: { amount: amountPaid, products: combinedProducts },
+                        sender: 'system' 
+                      });
                     }
                   }
                 }

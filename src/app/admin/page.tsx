@@ -80,6 +80,7 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [isReadAnimating, setIsReadAnimating] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleMarkAsReadClick = () => {
@@ -88,13 +89,14 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
     setTimeout(() => setIsReadAnimating(false), 1000);
   };
 
+  const adminSecret = (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '';
+
   const fetchMessages = useCallback(async (signal?: AbortSignal) => {
     if (!userId) return;
     try {
-      const secret = localStorage.getItem('admin_secret') || '';
       const res = await fetch(`/api/messages/${userId}`, { 
         signal,
-        headers: { 'x-admin-secret': secret }
+        headers: { 'x-admin-secret': adminSecret }
       });
       if (res.ok) {
         const data = await res.json();
@@ -106,15 +108,14 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, [userId, adminSecret]);
 
   useEffect(() => {
     if (!userId) return;
     setIsLoading(true);
     setMessages([]);
     
-    const secret = localStorage.getItem('admin_secret') || '';
-    const es = new EventSource(`/api/messages/${userId}/stream?secret=${encodeURIComponent(secret)}`);
+    const es = new EventSource(`/api/messages/${userId}/stream?secret=${encodeURIComponent(adminSecret)}`);
 
     es.onmessage = (event) => {
       try {
@@ -130,13 +131,12 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
 
     es.onerror = () => {
       console.warn('[SSE Messages] Connection error.');
-      // Optional fallback logic could be placed here
     };
 
     return () => {
       es.close();
     };
-  }, [userId]);
+  }, [userId, adminSecret]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -169,6 +169,7 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
       _id: 'temp-' + Date.now(),
       lineUserId: userId,
       sender: 'admin',
+      type: 'text',
       text: textToSend,
       createdAt: new Date().toISOString()
     };
@@ -179,7 +180,7 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || ''
+          'x-admin-secret': adminSecret
         },
         body: JSON.stringify({ userId, text: textToSend })
       });
@@ -261,6 +262,16 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
 
           const timeStr = new Date(m.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 
+          if (m.type === 'system' || m.sender === 'system') {
+            return (
+              <div key={m._id || i} className="flex justify-center my-4">
+                <div className="bg-[#e2e5ef] text-[#1a1d2e] px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider shadow-sm border border-white/50">
+                  {m.text} {m.metadata?.amount && `• ฿${m.metadata.amount.toLocaleString()}`}
+                </div>
+              </div>
+            );
+          }
+
           if (m.sender === 'admin') {
             return (
               <div key={m._id || i} className="flex justify-end items-end gap-2 mb-2">
@@ -278,9 +289,25 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
                 <div className="w-7 h-7 rounded-full bg-[#1a1d2e] flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-white">
                   {initials}
                 </div>
-                <div className="bg-white border border-[#e2e5ef] text-[#1a1d2e] max-w-[75%] px-4 py-2 rounded-2xl rounded-tl-sm text-sm shadow-sm">
-                  {m.text}
-                </div>
+                {m.type === 'image' ? (
+                  <div 
+                    onClick={() => setLightboxImage(`/api/messages/image/${m.messageId}?secret=${encodeURIComponent(adminSecret)}`)}
+                    className="relative group cursor-zoom-in max-w-[65%] rounded-2xl overflow-hidden shadow-md border-4 border-white transition-transform hover:scale-[1.02]"
+                  >
+                    <img 
+                      src={`/api/messages/image/${m.messageId}?secret=${encodeURIComponent(adminSecret)}`} 
+                      alt="User uploaded slip"
+                      className="w-full h-auto object-cover max-h-[300px]"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <Search className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md" size={24} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-[#e2e5ef] text-[#1a1d2e] max-w-[75%] px-4 py-2 rounded-2xl rounded-tl-sm text-sm shadow-sm">
+                    {m.text}
+                  </div>
+                )}
                 <span className="text-[10px] text-[#8b92ad] mb-1">{timeStr}</span>
               </div>
             );
@@ -288,6 +315,27 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
         })}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-[1000] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors"
+            onClick={() => setLightboxImage(null)}
+          >
+            <X size={32} />
+          </button>
+          <img 
+            src={lightboxImage} 
+            alt="Expanded view" 
+            className="max-w-full max-h-full object-contain shadow-2xl rounded-lg animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* Chat Input Area */}
       <div className="bg-white border-t border-[#e2e5ef] p-3 flex-shrink-0 z-10">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Settings } from '@/models';
+import { Order, Settings, Message } from '@/models';
 import { verifyAuth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
@@ -59,6 +59,14 @@ export async function POST(req: NextRequest) {
       const errData = await lineResponse.text();
       console.error("LINE Push Error:", errData);
     }
+
+    await Message.create({
+      lineUserId: lineUserId,
+      type: 'system',
+      text: '✅ Batch Payment Confirmed',
+      metadata: { amount: totalTHB, product: combinedProducts },
+      sender: 'system'
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

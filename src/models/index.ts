@@ -79,8 +79,11 @@ const OrderSchema = new mongoose.Schema({
 
 const MessageSchema = new mongoose.Schema({
   lineUserId: { type: String, required: true, index: true },
+  type: { type: String, enum: ['text', 'image', 'system'], default: 'text' },
+  messageId: String,
   text: { type: String, required: true },
-  sender: { type: String, enum: ['user', 'admin'], default: 'user' },
+  metadata: mongoose.Schema.Types.Mixed,
+  sender: { type: String, enum: ['user', 'admin', 'system'], default: 'user' },
   createdAt: { type: Date, default: Date.now }
 });
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Settings } from '@/models';
+import { Order, Settings, Message } from '@/models';
 import { verifyAuth } from '@/lib/auth';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -114,6 +114,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     order.paymentQrSent = true;
     await order.save();
+
+    await Message.create({
+      lineUserId: order.lineUserId,
+      type: 'system',
+      text: '🏦 QR Code Generated',
+      metadata: { amount: order.soldTHB, product: order.product },
+      sender: 'system'
+    });
 
     return NextResponse.json({ success: true, order });
   } catch (error) {
