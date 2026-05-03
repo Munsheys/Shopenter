@@ -45,6 +45,11 @@ ChartJS.register(
   ArcElement
 );
 
+interface ReportsViewProps {
+  theme?: 'light' | 'dark';
+  t: any;
+}
+
 function StatsCard({ icon, label, value, trend, color, theme }: any) {
   const colorMap: any = {
     emerald: "text-emerald-500 bg-emerald-500/10",
