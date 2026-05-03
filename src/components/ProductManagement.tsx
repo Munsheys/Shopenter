@@ -570,7 +570,7 @@ function ProductModal({
 
 // --- Main ProductManagement Hub ---
 
-const ProductManagement = React.memo(function ProductManagement({ theme }: { theme?: 'light' | 'dark' }) {
+const ProductManagement = React.memo(function ProductManagement({ theme, t }: { theme?: 'light' | 'dark', t: any }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -698,30 +698,30 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
             <div className="p-2 bg-[#00b90011] rounded-xl text-[#00b900]">
               <Package size={24} />
             </div>
-            Catalog Hub
+            {t.catalog_hub || 'Catalog Hub'}
           </h2>
-          <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">Inventory & Product Lifecycle</p>
+          <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">{t.inventory_desc || 'Inventory & Product Lifecycle'}</p>
         </div>
         
         <button 
           onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
           className="w-full md:w-auto bg-[#00b900] text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all"
         >
-          <Plus size={18} /> Add New Catalog
+          <Plus size={18} /> {t.add_catalog || 'Add New Catalog'}
         </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
         <StatsCard 
           icon={<BarChart2 size={20} />} 
-          label="Total Catalog" 
+          label={t.total_catalog || "Total Catalog"} 
           value={stats.total.toString()} 
           color="indigo" 
           theme={theme} 
         />
         <StatsCard 
           icon={<Eye size={20} />} 
-          label="Active Storefront" 
+          label={t.active_storefront || "Active Storefront"} 
           value={stats.active.toString()} 
           color="emerald" 
           theme={theme} 
@@ -737,7 +737,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
           <input 
             type="text"
-            placeholder="Search name, brand, or family..."
+            placeholder={t.search_catalog || "Search name, brand, or family..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
@@ -758,7 +758,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
                 theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
               )}
             >
-              <option value="">All Brands</option>
+              <option value="">{t.all_brands || 'All Brands'}</option>
               {existingOptions.brands.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
@@ -774,7 +774,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
                 theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
               )}
             >
-              <option value="">All Categories</option>
+              <option value="">{t.all_categories || 'All Categories'}</option>
               {existingOptions.categories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
@@ -790,10 +790,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
                 theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
               )}
             >
-              <option value="newest">Sort: Newest</option>
-              <option value="name-az">Sort: A-Z</option>
-              <option value="price-asc">Sort: Price Low</option>
-              <option value="price-desc">Sort: Price High</option>
+              <option value="newest">{t.sort_newest || 'Sort: Newest'}</option>
+              <option value="name-az">{t.sort_az || 'Sort: A-Z'}</option>
+              <option value="price-asc">{t.sort_price_asc || 'Sort: Price Low'}</option>
+              <option value="price-desc">{t.sort_price_desc || 'Sort: Price High'}</option>
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
           </div>

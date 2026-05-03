@@ -37,10 +37,12 @@ interface Order {
 
 export default function ShopOrdersView({ 
   theme, 
-  onViewCustomer 
+  onViewCustomer,
+  t
 }: { 
   theme?: 'light' | 'dark',
-  onViewCustomer?: (userId: string) => void
+  onViewCustomer?: (userId: string) => void,
+  t: any
 }) {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,16 +134,16 @@ export default function ShopOrdersView({
             <div className="p-2 bg-[#00b90011] rounded-xl text-[#00b900]">
               <ShoppingCart size={24} />
             </div>
-            Shop Orders Hub
+            {t.shop_orders_hub || 'Shop Orders Hub'}
           </h2>
-          <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">Global Fulfillment Management</p>
+          <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">{t.fulfillment_management || 'Global Fulfillment Management'}</p>
         </div>
         
         <button 
           onClick={handleExportCSV}
           className="w-full md:w-auto bg-[#00b900] text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all"
         >
-          <FileSpreadsheet size={18} /> Export Current View
+          <FileSpreadsheet size={18} /> {t.export_view || 'Export Current View'}
         </button>
       </div>
 
@@ -149,21 +151,21 @@ export default function ShopOrdersView({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatsCard 
           icon={<TrendingUp size={20} />} 
-          label="Total Revenue" 
+          label={t.total_revenue || "Total Revenue"} 
           value={`฿${stats.revenue.toLocaleString()}`} 
           color="emerald" 
           theme={theme} 
         />
         <StatsCard 
           icon={<Clock size={20} />} 
-          label="Pending Payments" 
+          label={t.pending_payments || "Pending Payments"} 
           value={stats.pending.toString()} 
           color="amber" 
           theme={theme} 
         />
         <StatsCard 
           icon={<Package size={20} />} 
-          label="In Preparation" 
+          label={t.awaiting_delivery || "Awaiting Delivery"} 
           value={stats.preparing.toString()} 
           color="blue" 
           theme={theme} 

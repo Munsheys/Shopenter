@@ -276,26 +276,26 @@ function ChatHistory({
         </div>
         
         <div className={cn(
-          "flex items-center gap-1 p-0.5 rounded-lg border mr-1 hidden xs:flex transition-colors",
+          "flex items-center gap-1 p-0.5 rounded-lg border mr-1 transition-colors",
           theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f4f6f9] border-[#e2e5ef]"
         )}>
           <button 
             onClick={() => onFontSizeChange?.(Math.max(10, fontSize - 1))}
             className={cn(
-              "w-7 h-7 flex items-center justify-center rounded transition-all font-bold text-[10px]",
+              "w-7 h-7 flex items-center justify-center rounded transition-all font-bold text-xs",
               theme === 'dark' ? "text-[#8b92ad] hover:text-white hover:bg-[#161925]" : "text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-white"
             )}
             title="Decrease text size"
-          >A-</button>
+          >-</button>
           <div className={cn("w-[1px] h-3", theme === 'dark' ? "bg-[#1f2335]" : "bg-[#e2e5ef]")} />
           <button 
             onClick={() => onFontSizeChange?.(Math.min(24, fontSize + 1))}
             className={cn(
-              "w-7 h-7 flex items-center justify-center rounded transition-all font-bold text-[10px]",
+              "w-7 h-7 flex items-center justify-center rounded transition-all font-bold text-xs",
               theme === 'dark' ? "text-[#8b92ad] hover:text-white hover:bg-[#161925]" : "text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-white"
             )}
             title="Increase text size"
-          >A+</button>
+          >+</button>
         </div>
         <button 
           onClick={handleMarkAsReadClick}
@@ -1242,7 +1242,25 @@ const TRANSLATIONS = {
     no_messages_desc: "ข้อความจะปรากฏขึ้นที่นี่เมื่อได้รับจาก LINE",
     type_message: "พิมพ์ข้อความ...",
     initializing: "กำลังเข้าสู่ระบบที่ปลอดภัย...",
-    read: "อ่านแล้ว"
+    read: "อ่านแล้ว",
+    catalog_hub: "ศูนย์จัดการสินค้า",
+    inventory_desc: "คลังสินค้าและวงจรชีวิตผลิตภัณฑ์",
+    add_catalog: "เพิ่มสินค้าใหม่",
+    total_catalog: "สินค้าทั้งหมด",
+    active_storefront: "เปิดขายหน้าร้าน",
+    search_catalog: "ค้นหาชื่อ, แบรนด์, หรือรุ่น...",
+    sort_newest: "จัดเรียง: ใหม่สุด",
+    sort_az: "จัดเรียง: A-Z",
+    sort_price_asc: "จัดเรียง: ราคาต่ำ",
+    sort_price_desc: "จัดเรียง: ราคาสูง",
+    all_brands: "ทุกแบรนด์",
+    all_categories: "ทุกหมวดหมู่",
+    shop_orders_hub: "ศูนย์จัดการออเดอร์",
+    fulfillment_management: "การจัดการการจัดส่งทั่วโลก",
+    export_view: "ส่งออกข้อมูลปัจจุบัน",
+    total_revenue: "รายได้ทั้งหมด",
+    pending_payments: "รอการชำระเงิน",
+    awaiting_delivery: "รอการจัดส่ง"
   },
   en: {
     orders: "Orders",
@@ -1268,10 +1286,28 @@ const TRANSLATIONS = {
     last_seen: "Last seen",
     loading_messages: "Loading messages...",
     no_messages: "No messages yet",
-    no_messages_desc: "Messages will appear here once received from LINE.",
+    no_messages_desc: "Messages will appear here once received from LINE",
     type_message: "Type a message...",
-    initializing: "Initializing Secure Session...",
-    read: "Read"
+    initializing: "Initializing Secure Channel...",
+    read: "Read",
+    catalog_hub: "Catalog Hub",
+    inventory_desc: "Inventory & Product Lifecycle",
+    add_catalog: "Add New Catalog",
+    total_catalog: "Total Catalog",
+    active_storefront: "Active Storefront",
+    search_catalog: "Search name, brand, or family...",
+    sort_newest: "Sort: Newest",
+    sort_az: "Sort: A-Z",
+    sort_price_asc: "Sort: Price Low",
+    sort_price_desc: "Sort: Price High",
+    all_brands: "All Brands",
+    all_categories: "All Categories",
+    shop_orders_hub: "Shop Orders Hub",
+    fulfillment_management: "Global Fulfillment Management",
+    export_view: "Export Current View",
+    total_revenue: "Total Revenue",
+    pending_payments: "Pending Payments",
+    awaiting_delivery: "Awaiting Delivery"
   }
 } as const;
 
@@ -1290,6 +1326,7 @@ export default function AdminDashboard() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSavingKRW, setIsSavingKRW] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Load preferences
@@ -1583,17 +1620,25 @@ export default function AdminDashboard() {
               <button
                 onClick={async () => {
                   try {
+                    setIsSavingKRW(true);
                     const secret = localStorage.getItem('admin_secret') || '';
                     await fetch('/api/settings', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
                       body: JSON.stringify({ krwRate })
                     });
-                  } catch (err) { console.error(err); }
+                    setTimeout(() => setIsSavingKRW(false), 2000);
+                  } catch (err) { 
+                    console.error(err); 
+                    setIsSavingKRW(false);
+                  }
                 }}
-                className="text-[9px] font-black bg-[#00b900] text-white px-2 py-1 rounded-lg hover:opacity-80 active:scale-95 transition-all whitespace-nowrap"
+                className={cn(
+                  "text-[9px] font-black px-2 py-1 rounded-lg hover:opacity-80 active:scale-95 transition-all whitespace-nowrap",
+                  isSavingKRW ? "bg-emerald-500 text-white animate-pulse" : "bg-[#00b900] text-white"
+                )}
               >
-                SAVE
+                {isSavingKRW ? "SAVED!" : "SAVE"}
               </button>
               <span className={cn("opacity-50 font-medium hidden md:inline", theme === 'dark' ? "text-[#8b92ad]" : "text-[#856404]")}>({liveRate.toFixed(4)})</span>
             </div>
@@ -1697,6 +1742,7 @@ export default function AdminDashboard() {
                             setSelectedCustomer(customer); 
                           }
                           setIsChatOpen(true); 
+                          setIsSidebarCollapsed(true); // Auto-collapse sidebar when chat opens
                           setIsMobileMenuOpen(false); // Close menu on select
                         }}
                      />
@@ -1705,7 +1751,11 @@ export default function AdminDashboard() {
               </div>
 
               <button 
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                onClick={() => {
+                  const nextState = !isSidebarCollapsed;
+                  setIsSidebarCollapsed(nextState);
+                  if (!nextState) setIsChatOpen(false); // If expanding sidebar, close chat
+                }}
                 className={cn(
                   "hidden md:block absolute bottom-6 right-[-15px] border rounded-full p-1.5 shadow-md transition-colors z-10",
                   theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white hover:bg-[#1a1d2e]" : "bg-white border-[#e2e5ef] hover:bg-[#f9f9f9]"
@@ -1745,6 +1795,7 @@ export default function AdminDashboard() {
            {activeTab === 'shop-orders' && (
              <ShopOrdersView 
                theme={theme} 
+               t={t}
                onViewCustomer={(uid) => {
                  const cust = (customers as any[]).find(c => c.userId === uid);
                  if (cust) setSelectedCustomer(cust);
@@ -1753,10 +1804,11 @@ export default function AdminDashboard() {
                  }
                  setActiveTab('orders');
                  setIsChatOpen(true);
+                 setIsSidebarCollapsed(true); // Exclusive OR
                }} 
              />
            )}
-           {activeTab === 'products' && <ProductManagement theme={theme} />}
+           {activeTab === 'products' && <ProductManagement theme={theme} t={t} />}
            {activeTab === 'reports' && <ReportsView theme={theme} />}
            {activeTab === 'settings' && <SettingsView theme={theme} onSave={() => setRefreshKey(prev => prev + 1)} />}
         </main>
