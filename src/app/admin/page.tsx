@@ -28,7 +28,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 // View Components
-import ProductManagement, { CreatableDropdown } from '@/components/ProductManagement';
+import ProductManagement, { CreatableDropdown, TagSelector, ImageUploader } from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
 import ReportsView from '@/components/ReportsView';
 import ShopOrdersView from '@/components/ShopOrdersView';
@@ -77,7 +77,14 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState("");
+  const [isReadAnimating, setIsReadAnimating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleMarkAsReadClick = () => {
+    if (onMarkAsRead) onMarkAsRead();
+    setIsReadAnimating(true);
+    setTimeout(() => setIsReadAnimating(false), 1000);
+  };
 
   const fetchMessages = useCallback(async (signal?: AbortSignal) => {
     if (!userId) return;
@@ -200,15 +207,26 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
           <div className="text-[10px] text-[#00b900] font-semibold">LINE Chat</div>
         </div>
         <button 
-          onClick={onMarkAsRead}
-          className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-colors shadow-sm flex items-center gap-1 ${
-            unreadCount > 0 
-              ? "bg-[#00b900] text-white hover:bg-[#009900]" 
-              : "bg-[#e2e5ef] text-[#8b92ad] hover:bg-[#d1d5e0]"
+          onClick={handleMarkAsReadClick}
+          className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all shadow-sm flex items-center gap-1 ${
+            isReadAnimating 
+              ? "bg-[#00b900] text-white scale-95" 
+              : unreadCount > 0 
+                ? "bg-[#00b900] text-white hover:bg-[#009900]" 
+                : "bg-[#e2e5ef] text-[#8b92ad] hover:bg-[#d1d5e0]"
           }`}
         >
-          <div className={`w-1.5 h-1.5 rounded-full ${unreadCount > 0 ? "bg-white animate-pulse" : "bg-[#8b92ad]"}`} />
-          Mark as Read
+          {isReadAnimating ? (
+            <>
+              <Check size={12} className="text-white animate-in zoom-in" />
+              <span>Read</span>
+            </>
+          ) : (
+            <>
+              <div className={`w-1.5 h-1.5 rounded-full ${unreadCount > 0 ? "bg-white animate-pulse" : "bg-[#8b92ad]"}`} />
+              <span>Mark as Read</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -325,7 +343,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   const [manualModelLine, setManualModelLine] = useState('');
   const [manualThickness, setManualThickness] = useState('');
   const [manualColor, setManualColor] = useState('');
-  const [manualCategory, setManualCategory] = useState('');
+  const [manualCategories, setManualCategories] = useState<string[]>([]);
+  const [manualImageUrl, setManualImageUrl] = useState('');
+  const [manualDescription, setManualDescription] = useState('');
   
   const [price, setPrice] = useState<string>('');
   const [autoCatalog, setAutoCatalog] = useState(true);
@@ -362,7 +382,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
       setManualModelLine('');
       setManualThickness('');
       setManualColor('');
-      setManualCategory('');
+      setManualCategories([]);
+      setManualImageUrl('');
+      setManualDescription('');
       setPrice('');
       setSearchTerm('');
       setIsManual(false);
@@ -399,7 +421,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
         modelLine: manualModelLine,
         thickness: manualThickness,
         color: manualColor,
-        category: manualCategory, 
+        categories: manualCategories, 
+        imageUrl: manualImageUrl,
+        description: manualDescription,
         cost: 0,
         autoCatalog 
       }, finalPrice);
@@ -418,7 +442,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+      <div className={`bg-white rounded-[32px] w-full ${isManual ? 'max-w-4xl' : 'max-w-lg'} overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col transition-all`}>
         <div className="p-8 pb-4 flex-shrink-0 border-b border-[#f4f6f9]">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-xl font-bold text-[#1a1d2e]">Manual Quick Order</h3>
@@ -575,102 +599,147 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
               )}
             </div>
           ) : (
-            <div className="space-y-4 animate-in slide-in-from-left-4 duration-300">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="relative z-[60]">
-                  <CreatableDropdown
-                    label="BRAND"
-                    value={manualBrand}
-                    onChange={setManualBrand}
-                    options={brands}
-                    placeholder="e.g. Samogra"
-                  />
+            <div className="animate-in slide-in-from-left-4 duration-300 grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Left Column: Core Info */}
+              <div className="space-y-6">
+                <ImageUploader value={manualImageUrl} onChange={setManualImageUrl} />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="relative z-[60]">
+                    <CreatableDropdown
+                      label="BRAND"
+                      value={manualBrand}
+                      onChange={setManualBrand}
+                      options={brands}
+                      placeholder="e.g. Celine"
+                    />
+                  </div>
+                  <div className="relative z-[50]">
+                    <CreatableDropdown
+                      label="MODEL LINE / FAMILY"
+                      value={manualModelLine}
+                      onChange={setManualModelLine}
+                      options={Array.from(new Set(products.filter((p: any) => p.brand === manualBrand).map((p: any) => p.modelLine))) as string[]}
+                      placeholder="e.g. Boston Bag"
+                    />
+                  </div>
                 </div>
-                <div className="relative z-[50]">
-                  <CreatableDropdown
-                    label="MODEL LINE"
-                    value={manualModelLine}
-                    onChange={setManualModelLine}
-                    options={Array.from(new Set(products.filter((p: any) => p.brand === manualBrand).map((p: any) => p.modelLine))) as string[]}
-                    placeholder="e.g. Boston Bag"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+
                 <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">PRODUCT NAME</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">DISPLAY PRODUCT NAME *</label>
                   <input 
                     type="text"
                     placeholder="e.g. Kunka"
                     value={manualName}
                     onChange={(e) => setManualName(e.target.value)}
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900]"
                   />
                 </div>
-                <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">CATEGORY (OPTIONAL)</label>
-                  <input 
-                    type="text"
-                    placeholder="e.g. Handbag, Leather"
-                    value={manualCategory}
-                    onChange={(e) => setManualCategory(e.target.value)}
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">THICKNESS</label>
-                  <input 
-                    type="text"
-                    placeholder="e.g. 1.2 mm"
-                    value={manualThickness}
-                    onChange={(e) => setManualThickness(e.target.value)}
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">COLOR</label>
-                  <input 
-                    type="text"
-                    placeholder="e.g. Peach"
-                    value={manualColor}
-                    onChange={(e) => setManualColor(e.target.value)}
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] bg-white"
-                  />
-                </div>
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer group pt-2">
-                <input 
-                  type="checkbox" 
-                  checked={autoCatalog}
-                  onChange={(e) => setAutoCatalog(e.target.checked)}
-                  className="w-4 h-4 accent-[#00b900]"
+
+                <TagSelector 
+                  label="CATEGORIES"
+                  selected={manualCategories} 
+                  onAdd={c => !manualCategories.includes(c) && setManualCategories([...manualCategories, c])}
+                  onRemove={c => setManualCategories(manualCategories.filter(x => x !== c))}
+                  options={Array.from(new Set(products.flatMap((p: any) => p.categories || []))) as string[]}
+                  placeholder="Search or add category..."
                 />
-                <span className="text-[10px] font-bold text-[#8b92ad] group-hover:text-[#1a1d2e] transition-colors uppercase tracking-wider">Save to Catalog</span>
-              </label>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">DESCRIPTION</label>
+                  <textarea 
+                    value={manualDescription}
+                    onChange={e => setManualDescription(e.target.value)}
+                    rows={3}
+                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900] resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Right Column: Specific Variant */}
+              <div className="space-y-6">
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SPECIFIC THICKNESS & COLOR</label>
+                  <div className="bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl p-4">
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="relative z-[40]">
+                        <CreatableDropdown 
+                          label="THICKNESS" 
+                          value={manualThickness} 
+                          onChange={setManualThickness}
+                          options={Array.from(new Set(products.flatMap((p: any) => p.variants?.map((v: any) => v.thickness) || [])))} 
+                          placeholder="e.g. 1.2 mm" 
+                        />
+                      </div>
+                      <div className="relative z-[30]">
+                        <CreatableDropdown 
+                          label="COLOR" 
+                          value={manualColor} 
+                          onChange={setManualColor}
+                          options={Array.from(new Set(products.flatMap((p: any) => p.variants?.flatMap((v: any) => v.colors) || [])))} 
+                          placeholder="e.g. Peach" 
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-[#e2e5ef]">
+                      <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block flex items-center justify-between">
+                        FINAL PRICE (THB)
+                        <span className="text-[9px] font-bold text-[#00b900] bg-[#00b90011] px-2 py-0.5 rounded-full">Editable</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] font-bold text-sm">฿</span>
+                        <input 
+                          type="number"
+                          placeholder="0.00"
+                          value={price}
+                          onChange={(e) => setPrice(e.target.value)}
+                          className="w-full border border-[#e2e5ef] rounded-xl pl-8 pr-4 py-3 text-lg font-black text-[#1a1d2e] outline-none focus:border-[#00b900] transition-all bg-white shadow-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 bg-white border border-[#e2e5ef] rounded-2xl p-4 shadow-sm">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input 
+                      type="checkbox"
+                      checked={autoCatalog}
+                      onChange={(e) => setAutoCatalog(e.target.checked)}
+                      className="w-5 h-5 accent-[#00b900] cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-[11px] font-bold text-[#1a1d2e] group-hover:text-[#00b900] transition-colors uppercase tracking-wider block">Save to Catalog</span>
+                      <span className="text-[10px] text-[#8b92ad]">Will create a catalog entry with these exact details</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* FINAL PRICE SECTION */}
-          <div className="pt-4 border-t border-[#f4f6f9] flex-shrink-0">
-            <div className="flex justify-between items-end mb-3">
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Final Price (Editable for Discount)</label>
-              {currentVariant && price !== currentVariant.price.toString() && (
-                <span className="text-[9px] font-black text-[#00b900] bg-[#00b90008] px-2 py-0.5 rounded-full">Discount Applied</span>
-              )}
+          {/* FINAL PRICE SECTION (Only for Non-Manual to keep original layout flow) */}
+          {!isManual && (
+            <div className="pt-4 border-t border-[#f4f6f9] flex-shrink-0">
+              <div className="flex justify-between items-end mb-3">
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Final Price (Editable for Discount)</label>
+                {currentVariant && price !== currentVariant.price.toString() && (
+                  <span className="text-[9px] font-black text-[#00b900] bg-[#00b90008] px-2 py-0.5 rounded-full">Discount Applied</span>
+                )}
+              </div>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b92ad] font-bold text-sm">฿</span>
+                <input 
+                  type="number"
+                  placeholder="0.00"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full border border-[#e2e5ef] rounded-2xl pl-8 pr-4 py-4 text-2xl font-black text-[#1a1d2e] outline-none focus:border-[#00b900] transition-all bg-[#fcfdfe]"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b92ad] font-bold text-sm">฿</span>
-              <input 
-                type="number"
-                placeholder="0.00"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full border border-[#e2e5ef] rounded-2xl pl-8 pr-4 py-4 text-2xl font-black text-[#1a1d2e] outline-none focus:border-[#00b900] transition-all bg-[#fcfdfe]"
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="p-8 pt-4 border-t border-[#f4f6f9] flex gap-3 flex-shrink-0">
@@ -1643,8 +1712,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
             body: JSON.stringify({
               name: product.name,
               brand: product.brand,
-              category: product.category,
+              categories: product.categories || [],
               modelLine: product.modelLine,
+              imageUrl: product.imageUrl || '',
+              description: product.description || '',
               price: finalPrice,
               cost: 0,
               variants: [{ 

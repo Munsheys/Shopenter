@@ -22,6 +22,21 @@ export async function GET(req: Request) {
         delete settings.lineChannelAccessToken;
         delete settings.lineChannelSecret;
       }
+      if (settings.lineChannelAccessToken) {
+        try {
+          const botInfoRes = await fetch('https://api.line.me/v2/bot/info', {
+            headers: { Authorization: `Bearer ${settings.lineChannelAccessToken}` }
+          });
+          if (botInfoRes.ok) {
+            const botInfo = await botInfoRes.json();
+            if (botInfo.displayName) {
+              settings.shopName = botInfo.displayName;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch bot info:", e);
+        }
+      }
       return NextResponse.json(settings);
     }
     return NextResponse.json({

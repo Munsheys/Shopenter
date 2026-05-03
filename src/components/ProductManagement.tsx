@@ -136,7 +136,7 @@ export function CreatableDropdown({
   );
 }
 
-function TagSelector({ 
+export function TagSelector({ 
   label,
   selected, 
   onAdd, 
@@ -248,7 +248,7 @@ function TagSelector({
   );
 }
 
-function ImageUploader({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function ImageUploader({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [isDragging, setIsDragging] = useState(false);
 
   const processFile = (file: File) => {

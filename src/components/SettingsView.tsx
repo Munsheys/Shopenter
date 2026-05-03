@@ -78,16 +78,7 @@ export default function SettingsView() {
       </h2>
 
       <div className="bg-white rounded-3xl border border-[#e2e5ef] p-8 shadow-sm">
-        <div className="mb-8">
-          <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Shop Name</label>
-          <input 
-            type="text" 
-            value={settings.shopName || ''} 
-            onChange={(e) => updateSetting('shopName', e.target.value)}
-            placeholder="e.g. Auto-Market"
-            className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-all" 
-          />
-        </div>
+        {/* Shop Name field removed. It is now dynamically fetched from LINE OA */}
 
         <div className="grid grid-cols-2 gap-8 mb-8">
           <div>
