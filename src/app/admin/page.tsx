@@ -1260,7 +1260,27 @@ const TRANSLATIONS = {
     export_view: "ส่งออกข้อมูลปัจจุบัน",
     total_revenue: "รายได้ทั้งหมด",
     pending_payments: "รอการชำระเงิน",
-    awaiting_delivery: "รอการจัดส่ง"
+    awaiting_delivery: "รอการจัดส่ง",
+    report_hub: "ศูนย์วิเคราะห์ข้อมูล",
+    analytics_desc: "ภาพรวมทางการเงินและแนวโน้มการเติบโต",
+    revenue_growth: "การเติบโตของรายได้",
+    profit_trend: "แนวโน้มกำไร",
+    brand_perf: "ประสิทธิภาพแบรนด์",
+    sales_velocity: "ความเร็วในการขาย",
+    top_brands: "แบรนด์ยอดนิยม",
+    export_report: "ดาวน์โหลดรายงาน",
+    all_time: "ทั้งหมด",
+    last_7_days: "7 วันล่าสุด",
+    last_30_days: "30 วันล่าสุด",
+    this_month: "เดือนนี้",
+    custom_range: "กำหนดเอง",
+    revenue: "รายได้",
+    profit: "กำไร",
+    orders_count: "จำนวนออเดอร์",
+    avg_order_value: "ยอดเฉลี่ยต่อออเดอร์",
+    cost: "ต้นทุน",
+    date_range: "ช่วงวันที่",
+    avg_margin: "มาร์จิ้นเฉลี่ย"
   },
   en: {
     orders: "Orders",
@@ -1307,7 +1327,27 @@ const TRANSLATIONS = {
     export_view: "Export Current View",
     total_revenue: "Total Revenue",
     pending_payments: "Pending Payments",
-    awaiting_delivery: "Awaiting Delivery"
+    awaiting_delivery: "Awaiting Delivery",
+    report_hub: "Report Hub",
+    analytics_desc: "Financial Analytics & Growth Trends",
+    revenue_growth: "Revenue Growth",
+    profit_trend: "Profit Trend",
+    brand_perf: "Brand Performance",
+    sales_velocity: "Sales Velocity",
+    top_brands: "Top Brands",
+    export_report: "Export Report",
+    all_time: "All Time",
+    last_7_days: "Last 7 Days",
+    last_30_days: "Last 30 Days",
+    this_month: "This Month",
+    custom_range: "Custom Range",
+    revenue: "Revenue",
+    profit: "Profit",
+    orders_count: "Orders Count",
+    avg_order_value: "Avg. Order Value",
+    cost: "Cost",
+    date_range: "Date Range",
+    avg_margin: "Avg Margin"
   }
 } as const;
 
@@ -1809,7 +1849,7 @@ export default function AdminDashboard() {
              />
            )}
            {activeTab === 'products' && <ProductManagement theme={theme} t={t} />}
-           {activeTab === 'reports' && <ReportsView theme={theme} />}
+           {activeTab === 'reports' && <ReportsView theme={theme} t={t} />}
            {activeTab === 'settings' && <SettingsView theme={theme} onSave={() => setRefreshKey(prev => prev + 1)} />}
         </main>
            
