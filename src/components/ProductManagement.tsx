@@ -2,6 +2,12 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Package, Plus, Edit2, Trash2, X, ImageIcon, Search, ChevronDown, Layers, Palette, Ruler } from 'lucide-react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 import LoadingView from './LoadingView';
 
 interface ProductVariant {

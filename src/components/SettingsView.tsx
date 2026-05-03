@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff } from 'lucide-react';
 import LoadingView from './LoadingView';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 export default function SettingsView({ theme, onSave }: { theme?: 'light' | 'dark', onSave?: () => void }) {
   const [settings, setSettings] = useState<any>(null);
