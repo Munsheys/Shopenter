@@ -618,15 +618,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
 
     // Sorting
     result.sort((a, b) => {
-      if (sortOrder === 'newest') return -1; // Assuming array is returned newest first
+      if (sortOrder === 'newest') return -1;
       if (sortOrder === 'price-asc') return a.price - b.price;
       if (sortOrder === 'price-desc') return b.price - a.price;
       if (sortOrder === 'name-az') return a.name.localeCompare(b.name);
-      if (sortOrder === 'stock-low') {
-        const stockA = a.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
-        const stockB = b.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
-        return stockA - stockB;
-      }
       return 0;
     });
 
@@ -636,13 +631,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
   const stats = useMemo(() => {
     const total = products.length;
     const active = products.filter(p => p.isActive).length;
-    const lowStock = products.filter(p => p.variants.some(v => (parseInt(v.stock) || 0) < 5)).length;
-    const totalInventoryValue = products.reduce((sum, p) => {
-      const pStock = p.variants.reduce((s, v) => s + (parseInt(v.stock) || 0), 0);
-      return sum + (p.price * pStock);
-    }, 0);
 
-    return { total, active, lowStock, totalInventoryValue };
+    return { total, active };
   }, [products]);
 
   const handleSave = async (form: ProductForm) => {
@@ -693,7 +683,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
         <StatsCard 
           icon={<BarChart2 size={20} />} 
           label="Total Catalog" 
@@ -706,20 +696,6 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
           label="Active Storefront" 
           value={stats.active.toString()} 
           color="emerald" 
-          theme={theme} 
-        />
-        <StatsCard 
-          icon={<AlertCircle size={20} />} 
-          label="Low Stock Alerts" 
-          value={stats.lowStock.toString()} 
-          color="amber" 
-          theme={theme} 
-        />
-        <StatsCard 
-          icon={<Palette size={20} />} 
-          label="Inventory Value" 
-          value={`฿${Math.round(stats.totalInventoryValue).toLocaleString()}`} 
-          color="blue" 
           theme={theme} 
         />
       </div>
@@ -790,7 +766,6 @@ const ProductManagement = React.memo(function ProductManagement({ theme }: { the
               <option value="name-az">Sort: A-Z</option>
               <option value="price-asc">Sort: Price Low</option>
               <option value="price-desc">Sort: Price High</option>
-              <option value="stock-low">Sort: Critical Stock</option>
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
           </div>
@@ -891,11 +866,6 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility }: a
         
         {/* Quick Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-2">
-          {totalStock === 0 ? (
-            <span className="bg-red-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg">OUT OF STOCK</span>
-          ) : isLowStock ? (
-            <span className="bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg">LOW STOCK</span>
-          ) : null}
           {!product.isActive && (
             <span className="bg-[#1a1d2e] text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
               <EyeOff size={8} /> HIDDEN
@@ -941,9 +911,6 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility }: a
         <div className="flex items-center justify-between">
           <div className={cn("text-lg font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
             ฿{product.price?.toLocaleString()}
-          </div>
-          <div className="text-[10px] text-[#8b92ad] font-medium">
-            <span className={cn("font-bold", totalStock === 0 ? "text-red-500" : "text-[#00b900]")}>{totalStock}</span> in stock
           </div>
         </div>
       </div>
