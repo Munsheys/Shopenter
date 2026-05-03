@@ -57,7 +57,8 @@ export function CreatableDropdown({
   onChange,
   options,
   placeholder,
-  theme = 'light'
+  theme = 'light',
+  required = false
 }: {
   label: string;
   value: string;
@@ -65,6 +66,7 @@ export function CreatableDropdown({
   options: string[];
   placeholder: string;
   theme?: 'light' | 'dark';
+  required?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -97,7 +99,7 @@ export function CreatableDropdown({
   return (
     <div className="relative" ref={wrapperRef}>
       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">
-        {label}
+        {label} {required && <span className="text-red-500">*</span>}
       </label>
       <div 
         className={cn(
@@ -172,7 +174,8 @@ export function TagSelector({
   options,
   placeholder = "Type to search or add...",
   isColorMode = false,
-  theme = 'light'
+  theme = 'light',
+  required = false
 }: { 
   label?: string,
   selected: string[], 
@@ -181,7 +184,8 @@ export function TagSelector({
   options: string[],
   placeholder?: string,
   isColorMode?: boolean,
-  theme?: 'light' | 'dark'
+  theme?: 'light' | 'dark',
+  required?: boolean
 }) {
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -203,7 +207,11 @@ export function TagSelector({
 
   return (
     <div ref={wrapperRef}>
-      {label && <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">{label}</label>}
+      {label && (
+        <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">
+          {label} {required && <span className="text-red-500">*</span>}
+        </label>
+      )}
       <div className={cn(
         "w-full border rounded-xl px-2 py-2 flex flex-wrap gap-2 transition-colors",
         theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
@@ -383,6 +391,7 @@ function ProductModal({
                 options={existingOptions.brands} 
                 placeholder="e.g. Celine" 
                 theme={theme}
+                required={true}
               />
               <CreatableDropdown 
                 label="Model Line / Family" 
@@ -395,7 +404,9 @@ function ProductModal({
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">Display Product Name *</label>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">
+                Display Product Name <span className="text-red-500">*</span>
+              </label>
               <input 
                 type="text" 
                 value={form.name} 
@@ -460,9 +471,12 @@ function ProductModal({
                       options={existingOptions.thicknesses} 
                       placeholder="1.2 mm" 
                       theme={theme}
+                      required={true}
                     />
                     <div>
-                      <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Price (THB)</label>
+                      <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">
+                        Price (THB) <span className="text-red-500">*</span>
+                      </label>
                       <input 
                         type="number" 
                         value={v.price} 

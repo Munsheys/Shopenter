@@ -737,7 +737,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
               {/* STEP 4: THICKNESS */}
               {selProduct && (
                 <div className="animate-in slide-in-from-top-2">
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">4. Thickness</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">
+                    4. Thickness <span className="text-red-500">*</span>
+                  </label>
                   <div className="flex gap-2">
                     {thicknessOptions.map((t: string) => (
                       <button 
@@ -760,7 +762,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
               {/* STEP 5: COLOR */}
               {selThickness && (
                 <div className="animate-in slide-in-from-top-2">
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">5. Color Swatch</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">
+                    5. Color Swatch <span className="text-red-500">*</span>
+                  </label>
                   <div className="flex flex-wrap gap-2">
                     {colorOptions.map((c: string) => {
                       const isHex = c.startsWith('#');
@@ -798,6 +802,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                       onChange={setManualBrand}
                       options={brands}
                       placeholder="e.g. Celine"
+                      required={true}
                     />
                   </div>
                   <div className="relative z-[50]">
@@ -812,7 +817,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">DISPLAY PRODUCT NAME *</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">
+                    DISPLAY PRODUCT NAME <span className="text-red-500">*</span>
+                  </label>
                   <input 
                     type="text"
                     placeholder="e.g. Kunka"
@@ -862,6 +869,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                           theme={theme}
                           options={Array.from(new Set(products.flatMap((p: any) => p.variants?.map((v: any) => v.thickness) || [])))} 
                           placeholder="e.g. 1.2 mm" 
+                          required={true}
                         />
                       </div>
                       <div className="relative z-[30]">
@@ -872,13 +880,14 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                           theme={theme}
                           options={Array.from(new Set(products.flatMap((p: any) => p.variants?.flatMap((v: any) => v.colors) || [])))} 
                           placeholder="e.g. Peach" 
+                          required={true}
                         />
                       </div>
                     </div>
                     
                     <div className={cn("pt-4 border-t transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
                       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block flex items-center justify-between">
-                        FINAL PRICE (THB)
+                        <span>FINAL PRICE (THB) <span className="text-red-500">*</span></span>
                         <span className="text-[9px] font-bold text-[#00b900] bg-[#00b90011] px-2 py-0.5 rounded-full">Editable</span>
                       </label>
                       <div className="relative">
@@ -931,7 +940,9 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
           {!isManual && (
             <div className="pt-4 border-t border-[#f4f6f9] flex-shrink-0">
               <div className="flex justify-between items-end mb-3">
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Final Price (Editable for Discount)</label>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">
+                  Final Price (Editable) <span className="text-red-500">*</span>
+                </label>
                 {currentVariant && price !== currentVariant.price.toString() && (
                   <span className="text-[9px] font-black text-[#00b900] bg-[#00b90008] px-2 py-0.5 rounded-full">Discount Applied</span>
                 )}
@@ -1253,6 +1264,7 @@ export default function AdminDashboard() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -1602,19 +1614,32 @@ export default function AdminDashboard() {
               )}
             >
               <div className={cn("p-3 border-b transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
-                  <input 
-                    type="text" 
-                    placeholder={t.search_customers}
+                {isSidebarCollapsed ? (
+                  <button 
+                    onClick={() => setIsSearchModalOpen(true)}
                     className={cn(
-                      "w-full rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-[#00b900] transition-all outline-none",
-                      theme === 'dark' ? "bg-[#1a1d2e] text-white placeholder-[#8b92ad]/50" : "bg-[#f4f6f9] text-[#1a1d2e]"
+                      "w-full flex items-center justify-center p-2 rounded-lg transition-all",
+                      theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:text-white" : "bg-[#f4f6f9] text-[#8b92ad] hover:text-[#1a1d2e]"
                     )}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
+                    title={t.search_customers}
+                  >
+                    <Search size={16} />
+                  </button>
+                ) : (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
+                    <input 
+                      type="text" 
+                      placeholder={t.search_customers}
+                      className={cn(
+                        "w-full rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-[#00b900] transition-all outline-none",
+                        theme === 'dark' ? "bg-[#1a1d2e] text-white placeholder-[#8b92ad]/50" : "bg-[#f4f6f9] text-[#1a1d2e]"
+                      )}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex-1 overflow-y-auto">
@@ -1625,7 +1650,7 @@ export default function AdminDashboard() {
                         key={customer.userId} 
                         customer={customer} 
                         active={selectedCustomer?.userId === customer.userId}
-                        collapsed={false} // Always show full on mobile/sidebar
+                        collapsed={isSidebarCollapsed}
                         unreadCount={customer.unreadCount || 0}
                         hasPendingOrder={hasPendingOrder}
                         lang={lang}
@@ -1745,6 +1770,60 @@ export default function AdminDashboard() {
             <ChevronLeft size={14} />
           </button>
         )}
+        
+        {/* Search Modal for Collapsed Sidebar */}
+        <ConfirmModal 
+          isOpen={isSearchModalOpen}
+          title={t.search_customers}
+          onCancel={() => setIsSearchModalOpen(false)}
+          theme={theme}
+          type="alert"
+          onConfirm={() => setIsSearchModalOpen(false)}
+          message={
+            <div className="mt-4">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={18} />
+                <input 
+                  autoFocus
+                  type="text"
+                  placeholder={t.search_customers}
+                  className={cn(
+                    "w-full rounded-2xl pl-12 pr-4 py-4 text-base outline-none focus:ring-2 focus:ring-[#00b900] shadow-inner transition-all",
+                    theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f4f6f9] border-[#e2e5ef] text-[#1a1d2e]"
+                  )}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="mt-4 max-h-[300px] overflow-y-auto no-scrollbar">
+                {customers
+                  .filter((c: any) => c.displayName.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .slice(0, 5)
+                  .map((customer: any) => (
+                    <div 
+                      key={customer.userId}
+                      onClick={() => {
+                        setSelectedCustomer(customer);
+                        setIsChatOpen(true);
+                        setIsSearchModalOpen(false);
+                      }}
+                      className={cn(
+                        "p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-colors mb-2",
+                        theme === 'dark' ? "hover:bg-[#2d324d]" : "hover:bg-[#f4f6f9]"
+                      )}
+                    >
+                      <img src={customer.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      <div className="text-left">
+                        <div className={cn("font-bold text-sm", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{customer.displayName}</div>
+                        <div className="text-[10px] text-[#8b92ad]">{t.last_seen}: {new Date(customer.lastSeen).toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          }
+        />
       </div>
     </div>
   );
