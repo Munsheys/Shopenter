@@ -27,6 +27,7 @@ interface Order {
   displayName: string;
   address: string;
   product: string;
+  quantity: number;
   items: any[];
   soldTHB: number;
   status: 'pending' | 'paid' | 'preparing' | 'shipped';
