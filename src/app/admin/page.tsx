@@ -36,37 +36,44 @@ import SettingsView from '@/components/SettingsView';
 import ReportsView from '@/components/ReportsView';
 import ShopOrdersView from '@/components/ShopOrdersView';
 import SetupView from '@/components/SetupView';
+import LoadingView from '@/components/LoadingView';
 import liff from '@line/liff';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, type = 'confirm' }: any) {
+function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, type = 'confirm', theme }: any) {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+      <div className={cn(
+        "rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 transition-colors",
+        theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white"
+      )}>
         <div className="p-8 text-center">
           <div className={`w-16 h-16 rounded-3xl mx-auto mb-6 flex items-center justify-center ${type === 'danger' ? 'bg-red-50 text-red-500' : 'bg-[#00b90011] text-[#00b900]'}`}>
             {type === 'danger' ? <Trash2 size={32} /> : <Package size={32} />}
           </div>
-          <h3 className="text-xl font-bold text-[#1a1d2e] mb-2">{title}</h3>
+          <h3 className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{title}</h3>
           <p className="text-[#8b92ad] text-sm leading-relaxed">{message}</p>
         </div>
-        <div className="flex border-t border-[#f4f6f9]">
+        <div className={cn("flex border-t", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <button 
             onClick={onCancel}
-            className="flex-1 py-5 text-sm font-bold text-[#8b92ad] hover:bg-[#fafbfc] transition-colors border-r border-[#f4f6f9]"
-          >
-            Cancel
-          </button>
+            className={cn(
+              "flex-1 py-5 text-sm font-bold text-[#8b92ad] transition-colors border-r",
+              theme === 'dark' ? "hover:bg-[#1a1d2e] border-[#1f2335]" : "hover:bg-[#fafbfc] border-[#f4f6f9]"
+            )}
+          >Cancel</button>
           <button 
             onClick={onConfirm}
-            className={`flex-1 py-5 text-sm font-bold transition-colors hover:opacity-90 ${type === 'danger' ? 'text-red-500 hover:bg-red-50' : 'text-[#00b900] hover:bg-[#00b90008]'}`}
-          >
-            {type === 'alert' ? 'OK' : 'Confirm'}
-          </button>
+            className={cn(
+              "flex-1 py-5 text-sm font-bold transition-colors",
+              type === 'danger' ? "text-red-500 hover:bg-red-50" : "text-[#00b900] hover:bg-[#00b90008]",
+              theme === 'dark' && (type === 'danger' ? "hover:bg-red-500/10" : "hover:bg-[#00b90011]")
+            )}
+          >{type === 'alert' ? 'OK' : 'Confirm'}</button>
         </div>
       </div>
     </div>
@@ -81,7 +88,8 @@ function ChatHistory({
   onMarkAsRead,
   fontSize = 14,
   onFontSizeChange,
-  lang = 'en'
+  lang = 'en',
+  theme = 'light'
 }: { 
   userId: string, 
   customerName?: string, 
@@ -89,7 +97,8 @@ function ChatHistory({
   onMarkAsRead?: () => void,
   fontSize?: number,
   onFontSizeChange?: (size: number) => void,
-  lang?: 'th' | 'en'
+  lang?: 'th' | 'en',
+  theme?: 'light' | 'dark'
 }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -99,6 +108,17 @@ function ChatHistory({
   const [isReadAnimating, setIsReadAnimating] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const shouldScrollRef = useRef(true);
+
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+      // If user is within 150px of bottom, they probably want to keep auto-scrolling
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 150;
+      shouldScrollRef.current = isAtBottom;
+    }
+  };
 
   const handleMarkAsReadClick = () => {
     if (onMarkAsRead) onMarkAsRead();
@@ -156,7 +176,9 @@ function ChatHistory({
   }, [userId, adminSecret]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (shouldScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   // Group messages by date
@@ -212,31 +234,48 @@ function ChatHistory({
       setTimeout(() => setSendError(""), 5000);
     } finally {
       setIsSending(false);
+      // After sending a message, we always want to scroll to bottom
+      shouldScrollRef.current = true;
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
   };
 
+  if (isLoading) return <LoadingView theme={theme} message="Opening Secure Channel..." />;
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-[#f4f5f7]">
+    <div className={cn("flex flex-col flex-1 min-h-0 transition-colors", theme === 'dark' ? "bg-[#0f111a]" : "bg-[#f4f5f7]")}>
       {/* Compact Header */}
-      <div className="px-4 py-3 border-b border-[#e2e5ef] bg-white flex items-center gap-3 shadow-sm z-10 flex-shrink-0">
+      <div className={cn(
+        "px-4 py-3 border-b flex items-center gap-3 shadow-sm z-10 flex-shrink-0 transition-colors",
+        theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+      )}>
         <div className="w-8 h-8 rounded-full bg-[#eab308] text-[#1a1d2e] flex items-center justify-center font-bold text-sm flex-shrink-0">
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-sm text-[#1a1d2e] truncate">{customerName}</div>
+          <div className={cn("font-bold text-sm truncate", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{customerName}</div>
           <div className="text-[10px] text-[#00b900] font-semibold">LINE Chat</div>
         </div>
         
-        <div className="flex items-center gap-1 bg-[#f4f6f9] p-0.5 rounded-lg border border-[#e2e5ef] mr-1 hidden xs:flex">
+        <div className={cn(
+          "flex items-center gap-1 p-0.5 rounded-lg border mr-1 hidden xs:flex transition-colors",
+          theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f4f6f9] border-[#e2e5ef]"
+        )}>
           <button 
             onClick={() => onFontSizeChange?.(Math.max(10, fontSize - 1))}
-            className="w-7 h-7 flex items-center justify-center text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-white rounded transition-all font-bold text-[10px]"
+            className={cn(
+              "w-7 h-7 flex items-center justify-center rounded transition-all font-bold text-[10px]",
+              theme === 'dark' ? "text-[#8b92ad] hover:text-white hover:bg-[#161925]" : "text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-white"
+            )}
             title="Decrease text size"
           >A-</button>
-          <div className="w-[1px] h-3 bg-[#e2e5ef]" />
+          <div className={cn("w-[1px] h-3", theme === 'dark' ? "bg-[#1f2335]" : "bg-[#e2e5ef]")} />
           <button 
             onClick={() => onFontSizeChange?.(Math.min(24, fontSize + 1))}
-            className="w-7 h-7 flex items-center justify-center text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-white rounded transition-all font-bold text-[10px]"
+            className={cn(
+              "w-7 h-7 flex items-center justify-center rounded transition-all font-bold text-[10px]",
+              theme === 'dark' ? "text-[#8b92ad] hover:text-white hover:bg-[#161925]" : "text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-white"
+            )}
             title="Increase text size"
           >A+</button>
         </div>
@@ -264,14 +303,12 @@ function ChatHistory({
         </button>
       </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1">
-        {isLoading && (
-          <div className="flex justify-center items-center h-full">
-            <div className="text-[#8b92ad] text-sm">{lang === 'th' ? TRANSLATIONS.th.loading_messages : TRANSLATIONS.en.loading_messages}</div>
-          </div>
-        )}
-
+      {/* Messages */}
+      <div 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
+      >
         {!isLoading && grouped.length === 0 && (
           <div className="flex flex-col justify-center items-center h-full gap-3 text-[#8b92ad]">
             <MessageCircle size={36} className="opacity-30" />
@@ -308,7 +345,7 @@ function ChatHistory({
               <div key={m._id || i} className="flex justify-end items-end gap-2 mb-2">
                 <span className="text-[10px] text-[#8b92ad] mb-1">{timeStr}</span>
                 <div 
-                  className="bg-[#a7e4b5] text-[#1a1d2e] max-w-[75%] px-4 py-2 rounded-2xl rounded-tr-sm shadow-sm leading-snug"
+                  className="bg-[#00b900] text-white max-w-[75%] px-4 py-2 rounded-2xl rounded-tr-sm shadow-sm leading-snug"
                   style={{ fontSize: `${fontSize}px` }}
                 >
                   {m.text}
@@ -339,7 +376,10 @@ function ChatHistory({
                   </div>
                 ) : (
                   <div 
-                    className="bg-white border border-[#e2e5ef] text-[#1a1d2e] max-w-[75%] px-4 py-2 rounded-2xl rounded-tl-sm shadow-sm leading-snug"
+                    className={cn(
+                      "p-3 rounded-2xl max-w-[85%] break-words leading-relaxed shadow-sm transition-colors",
+                      theme === 'dark' ? "bg-[#161925] text-white border border-[#1f2335] rounded-tl-none" : "bg-white text-[#1a1d2e] rounded-tl-none"
+                    )}
                     style={{ fontSize: `${fontSize}px` }}
                   >
                     {m.text}
@@ -375,7 +415,7 @@ function ChatHistory({
       )}
 
       {/* Chat Input Area */}
-      <div className="bg-white border-t border-[#e2e5ef] p-3 flex-shrink-0 z-10">
+      <div className={cn("border-t p-3 flex-shrink-0 z-10 transition-colors", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
         {sendError && (
           <div className="mb-2 text-[10px] font-bold text-red-500 bg-red-50 p-2 rounded-lg text-center animate-in fade-in slide-in-from-bottom-2 border border-red-100">
             {sendError}
@@ -383,7 +423,10 @@ function ChatHistory({
         )}
         <form 
           onSubmit={handleSend}
-          className="bg-[#f4f5f7] rounded-3xl flex items-end px-4 py-2 border border-[#e2e5ef] focus-within:border-[#00b900] focus-within:ring-1 focus-within:ring-[#00b900] transition-all"
+          className={cn(
+            "rounded-3xl flex items-end px-4 py-2 border focus-within:border-[#00b900] focus-within:ring-1 focus-within:ring-[#00b900] transition-all",
+            theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f4f5f7] border-[#e2e5ef]"
+          )}
         >
           <textarea
             value={newMessage}
@@ -395,7 +438,10 @@ function ChatHistory({
               }
             }}
             placeholder={lang === 'th' ? TRANSLATIONS.th.type_message : TRANSLATIONS.en.type_message}
-            className="flex-1 bg-transparent border-none outline-none resize-none py-2 text-sm text-[#1a1d2e] max-h-32 min-h-[40px] leading-tight"
+            className={cn(
+              "flex-1 bg-transparent border-none outline-none resize-none py-2 text-sm max-h-32 min-h-[40px] leading-tight transition-colors",
+              theme === 'dark' ? "text-white placeholder-[#8b92ad]/50" : "text-[#1a1d2e] placeholder-[#8b92ad]"
+            )}
             rows={1}
             disabled={isSending}
             style={{ overflowY: newMessage.split('\n').length > 3 ? 'auto' : 'hidden' }}
@@ -414,7 +460,7 @@ function ChatHistory({
 }
 
 
-function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
+function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light' }: any) {
   const [isManual, setIsManual] = useState(false);
   
   // SELECT Selection State
@@ -531,20 +577,34 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className={`bg-white rounded-[32px] w-full ${isManual ? 'max-w-4xl' : 'max-w-lg'} overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col transition-all`}>
-        <div className="p-8 pb-4 flex-shrink-0 border-b border-[#f4f6f9]">
+      <div className={cn(
+        "w-full transition-all rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col",
+        isManual ? 'max-w-4xl' : 'max-w-lg',
+        theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white"
+      )}>
+        <div className={cn("p-8 pb-4 flex-shrink-0 border-b transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <div className="flex justify-between items-center mb-2">
-            <h3 className="text-xl font-bold text-[#1a1d2e]">Manual Quick Order</h3>
-            <div className="flex bg-[#f8f9fc] p-1 rounded-xl">
+            <h3 className={cn("text-xl font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Manual Quick Order</h3>
+            <div className={cn("flex p-1 rounded-xl transition-colors", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}>
               <button 
                 onClick={() => setIsManual(false)}
-                className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${!isManual ? 'bg-white shadow-sm text-[#00b900]' : 'text-[#8b92ad]'}`}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all",
+                  !isManual 
+                    ? (theme === 'dark' ? "bg-[#2d324d] text-[#00b900] shadow-lg" : "bg-white shadow-sm text-[#00b900]") 
+                    : "text-[#8b92ad]"
+                )}
               >
                 SELECT
               </button>
               <button 
                 onClick={() => setIsManual(true)}
-                className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${isManual ? 'bg-white shadow-sm text-[#00b900]' : 'text-[#8b92ad]'}`}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all",
+                  isManual 
+                    ? (theme === 'dark' ? "bg-[#2d324d] text-[#00b900] shadow-lg" : "bg-white shadow-sm text-[#00b900]") 
+                    : "text-[#8b92ad]"
+                )}
               >
                 NEW
               </button>
@@ -568,10 +628,13 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                   placeholder="Search catalog (e.g. 'Boston' or 'Pink')..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#00b900] outline-none"
+                  className={cn(
+                    "w-full border rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#00b900] outline-none transition-colors",
+                    theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
+                  )}
                 />
                 {searchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-[#e2e5ef] rounded-2xl mt-2 shadow-2xl z-[10] overflow-hidden">
+                  <div className={cn("absolute top-full left-0 right-0 border rounded-2xl mt-2 shadow-2xl z-[10] overflow-hidden transition-colors", theme === 'dark' ? "bg-[#1f2335] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
                     {searchResults.map((p: any) => (
                       <button 
                         key={p._id}
@@ -581,11 +644,14 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                           setSelProduct(p);
                           setSearchTerm('');
                         }}
-                        className="w-full px-4 py-3 text-left hover:bg-[#00b90005] border-b border-[#f4f6f9] last:border-0 flex justify-between items-center group"
+                        className={cn(
+                          "w-full px-4 py-3 text-left border-b last:border-0 flex justify-between items-center group transition-colors",
+                          theme === 'dark' ? "border-[#2d324d] hover:bg-[#161925]" : "border-[#f4f6f9] hover:bg-[#00b90005]"
+                        )}
                       >
                         <div>
                           <div className="text-[9px] font-bold text-[#8b92ad] uppercase">{p.brand} &gt; {p.modelLine}</div>
-                          <div className="text-sm font-bold text-[#1a1d2e] group-hover:text-[#00b900]">{p.name}</div>
+                          <div className={cn("text-sm font-bold group-hover:text-[#00b900] transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{p.name}</div>
                         </div>
                         <span className="text-[10px] font-bold text-[#8b92ad]">Select →</span>
                       </button>
@@ -603,7 +669,12 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                     <button 
                       key={b} 
                       onClick={() => { setSelBrand(b); setSelModelLine(''); setSelProduct(null); setSelThickness(''); setSelColor(''); }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${selBrand === b ? 'bg-[#1a1d2e] text-white border-[#1a1d2e] shadow-lg' : 'bg-white border-[#e2e5ef] text-[#8b92ad] hover:border-[#00b900]'}`}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
+                        selBrand === b 
+                          ? (theme === 'dark' ? "bg-white text-[#161925] border-white shadow-lg" : "bg-[#1a1d2e] text-white border-[#1a1d2e] shadow-lg") 
+                          : (theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-[#8b92ad] hover:border-[#00b900]" : "bg-white border-[#e2e5ef] text-[#8b92ad] hover:border-[#00b900]")
+                      )}
                     >
                       {b}
                     </button>
@@ -626,7 +697,12 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                           setSelThickness(''); 
                           setSelColor(''); 
                         }}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${selModelLine === ml ? 'bg-[#1a1d2e] text-white border-[#1a1d2e] shadow-md' : 'bg-white border-[#e2e5ef] text-[#8b92ad] hover:border-[#00b900]'}`}
+                        className={cn(
+                          "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
+                          selModelLine === ml 
+                            ? (theme === 'dark' ? "bg-white text-[#161925] border-white shadow-md" : "bg-[#1a1d2e] text-white border-[#1a1d2e] shadow-md") 
+                            : (theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-[#8b92ad] hover:border-[#00b900]" : "bg-white border-[#e2e5ef] text-[#8b92ad] hover:border-[#00b900]")
+                        )}
                       >
                         {ml}
                       </button>
@@ -644,7 +720,12 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                       <button 
                         key={p._id} 
                         onClick={() => { setSelProduct(p); setSelThickness(''); setSelColor(''); }}
-                        className={`px-4 py-3 rounded-xl text-xs font-bold text-left transition-all border ${selProduct?._id === p._id ? 'bg-[#00b900] text-white border-[#00b900] shadow-md' : 'bg-white border-[#e2e5ef] text-[#1a1d2e] hover:border-[#00b900]'}`}
+                        className={cn(
+                          "px-4 py-3 rounded-xl text-xs font-bold text-left transition-all border",
+                          selProduct?._id === p._id 
+                            ? "bg-[#00b900] text-white border-[#00b900] shadow-md" 
+                            : (theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white hover:border-[#00b900]" : "bg-white border-[#e2e5ef] text-[#1a1d2e] hover:border-[#00b900]")
+                        )}
                       >
                         {p.name}
                       </button>
@@ -662,7 +743,12 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                       <button 
                         key={t} 
                         onClick={() => { setSelThickness(t); setSelColor(''); }}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${selThickness === t ? 'bg-[#1a1d2e] text-white border-[#1a1d2e]' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#8b92ad]'}`}
+                        className={cn(
+                          "flex-1 py-2 rounded-xl text-xs font-bold transition-all border",
+                          selThickness === t 
+                            ? (theme === 'dark' ? "bg-white text-[#161925] border-white" : "bg-[#1a1d2e] text-white border-[#1a1d2e]") 
+                            : (theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-[#8b92ad]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#8b92ad]")
+                        )}
                       >
                         {t}
                       </button>
@@ -682,7 +768,12 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                         <button 
                           key={c} 
                           onClick={() => setSelColor(c)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all border ${selColor === c ? 'bg-[#00b900] text-white border-[#00b900] shadow-md' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]'}`}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all border",
+                            selColor === c 
+                              ? "bg-[#00b900] text-white border-[#00b900] shadow-md" 
+                              : (theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")
+                          )}
                         >
                           {isHex && <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: c }} />}
                           {c}
@@ -727,7 +818,10 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                     placeholder="e.g. Kunka"
                     value={manualName}
                     onChange={(e) => setManualName(e.target.value)}
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900]"
+                    className={cn(
+                      "w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900] transition-colors",
+                      theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                    )}
                   />
                 </div>
 
@@ -746,7 +840,10 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                     value={manualDescription}
                     onChange={e => setManualDescription(e.target.value)}
                     rows={3}
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900] resize-none"
+                    className={cn(
+                      "w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900] resize-none transition-colors",
+                      theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                    )}
                   />
                 </div>
               </div>
@@ -755,13 +852,14 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
               <div className="space-y-6">
                 <div>
                   <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SPECIFIC THICKNESS & COLOR</label>
-                  <div className="bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl p-4">
+                  <div className={cn("border rounded-2xl p-4 transition-colors", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]")}>
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="relative z-[40]">
                         <CreatableDropdown 
                           label="THICKNESS" 
                           value={manualThickness} 
                           onChange={setManualThickness}
+                          theme={theme}
                           options={Array.from(new Set(products.flatMap((p: any) => p.variants?.map((v: any) => v.thickness) || [])))} 
                           placeholder="e.g. 1.2 mm" 
                         />
@@ -771,13 +869,14 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                           label="COLOR" 
                           value={manualColor} 
                           onChange={setManualColor}
+                          theme={theme}
                           options={Array.from(new Set(products.flatMap((p: any) => p.variants?.flatMap((v: any) => v.colors) || [])))} 
                           placeholder="e.g. Peach" 
                         />
                       </div>
                     </div>
                     
-                    <div className="pt-4 border-t border-[#e2e5ef]">
+                    <div className={cn("pt-4 border-t transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
                       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block flex items-center justify-between">
                         FINAL PRICE (THB)
                         <span className="text-[9px] font-bold text-[#00b900] bg-[#00b90011] px-2 py-0.5 rounded-full">Editable</span>
@@ -789,12 +888,15 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                           placeholder="0.00"
                           value={price}
                           onChange={(e) => setPrice(e.target.value)}
-                          className="w-full border border-[#e2e5ef] rounded-xl pl-8 pr-4 py-3 text-lg font-black text-[#1a1d2e] outline-none focus:border-[#00b900] transition-all bg-white shadow-sm"
+                          className={cn(
+                            "w-full border rounded-xl pl-8 pr-4 py-3 text-sm outline-none focus:border-[#00b900] font-bold transition-colors",
+                            theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                          )}
                         />
                       </div>
                     </div>
                     
-                    <div className="pt-4 border-t border-[#e2e5ef]">
+                    <div className={cn("pt-4 border-t transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
                       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block flex items-center justify-between">
                         QUANTITY
                       </label>
@@ -949,7 +1051,10 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-[#e2e5ef] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+    <div className={cn(
+      "rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-all",
+      theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+    )}>
       <div 
         className="p-4 flex items-center justify-between cursor-pointer group"
       >
@@ -957,14 +1062,17 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-3 flex-1"
         >
-          <div className="bg-[#f8f9fc] p-2 rounded-xl group-hover:bg-[#00b90011] transition-colors">
+          <div className={cn(
+            "p-2 rounded-xl transition-colors",
+            theme === 'dark' ? "bg-[#1a1d2e] group-hover:bg-[#00b90011]" : "bg-[#f8f9fc] group-hover:bg-[#00b90011]"
+          )}>
             <Package size={18} className="text-[#8b92ad] group-hover:text-[#00b900]" />
           </div>
           <div>
-            <div className="font-bold text-sm">{order.product}</div>
+            <div className={cn("font-bold text-sm transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{order.product}</div>
             <div className="text-[10px] text-[#8b92ad] flex items-center gap-2">
               {new Date(order.createdAt).toLocaleDateString()} • {order.tracking}
-              <span className="bg-[#f0f2f5] px-1.5 py-0.5 rounded text-[8px] font-bold">@{editData.rateUsed}</span>
+              <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-bold transition-colors", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f0f2f5] text-[#8b92ad]")}>@{editData.rateUsed}</span>
               <ChevronDown size={12} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
             </div>
           </div>
@@ -992,7 +1100,10 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
       </div>
 
       {isExpanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-[#f4f6f9] bg-[#fafbfc]">
+        <div className={cn(
+          "px-4 pb-4 pt-2 border-t transition-colors",
+          theme === 'dark' ? "border-[#1f2335] bg-[#1a1d2e]" : "border-[#f4f6f9] bg-[#fafbfc]"
+        )}>
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div>
               <label className="text-[9px] font-bold text-[#8b92ad] uppercase mb-1 block">Sold (THB)</label>
@@ -1001,7 +1112,10 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
                 step="0.01"
                 value={editData.soldTHB}
                 onChange={(e) => setEditData({...editData, soldTHB: parseFloat(e.target.value)})}
-                className="w-full border border-[#e2e5ef] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#00b900]"
+                className={cn(
+                  "w-full border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#00b900] transition-colors",
+                  theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                )}
               />
             </div>
             <div>
@@ -1011,7 +1125,10 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
                 step="0.01"
                 value={editData.costKRW}
                 onChange={(e) => setEditData({...editData, costKRW: parseFloat(e.target.value)})}
-                className="w-full border border-[#e2e5ef] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#00b900]"
+                className={cn(
+                  "w-full border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#00b900] transition-colors",
+                  theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                )}
               />
             </div>
             <div>
@@ -1021,14 +1138,20 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
                 step="0.0001"
                 value={editData.rateUsed}
                 onChange={(e) => setEditData({...editData, rateUsed: parseFloat(e.target.value)})}
-                className="w-full border border-[#e2e5ef] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#00b900]"
+                className={cn(
+                  "w-full border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#00b900] transition-colors",
+                  theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                )}
               />
             </div>
           </div>
           <button 
             onClick={() => setShowConfirm(true)}
             disabled={isSaving}
-            className="w-full bg-[#1a1d2e] text-white py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-50"
+            className={cn(
+              "w-full py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50",
+              theme === 'dark' ? "bg-[#2d324d] text-white hover:bg-[#3d4466]" : "bg-[#1a1d2e] text-white hover:opacity-90"
+            )}
           >
             {isSaving ? 'Saving...' : 'Update Prices'}
           </button>
@@ -1360,11 +1483,11 @@ export default function AdminDashboard() {
 
   if (liffState === 'loading') {
     return (
-      <div className="h-screen w-full bg-[#1a1d2e] flex flex-col items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#00b900]/20 border-t-[#00b900] rounded-full animate-spin mb-6"></div>
-        <p className="text-[#8b92ad] text-xs font-bold tracking-widest uppercase animate-pulse">
-          {lang === 'th' ? TRANSLATIONS.th.initializing : TRANSLATIONS.en.initializing}
-        </p>
+      <div className={cn("h-screen w-full flex items-center justify-center transition-colors", theme === 'dark' ? "bg-[#0f111a]" : "bg-[#f8f9fc]")}>
+        <LoadingView 
+          theme={theme} 
+          message={lang === 'th' ? TRANSLATIONS.th.initializing : TRANSLATIONS.en.initializing} 
+        />
       </div>
     );
   }
@@ -1396,28 +1519,34 @@ export default function AdminDashboard() {
             </div>
             
             <nav className="hidden md:flex gap-4">
-              <TabButton icon={<Package size={18}/>} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
-              <TabButton icon={<ShoppingCart size={18}/>} label={t.shop_orders} active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
-              <TabButton icon={<Package size={18}/>} label={t.products} active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
-              <TabButton icon={<BarChart3 size={18}/>} label={t.reports} active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
-              <TabButton icon={<SettingsIcon size={18}/>} label={t.settings} active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+              <TabButton icon={<Package size={18}/>} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} theme={theme} />
+              <TabButton icon={<ShoppingCart size={18}/>} label={t.shop_orders} active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} theme={theme} />
+              <TabButton icon={<Package size={18}/>} label={t.products} active={activeTab === 'products'} onClick={() => setActiveTab('products')} theme={theme} />
+              <TabButton icon={<BarChart3 size={18}/>} label={t.reports} active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} theme={theme} />
+              <TabButton icon={<SettingsIcon size={18}/>} label={t.settings} active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} theme={theme} />
             </nav>
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="bg-[#fffbe6] border border-[#ffe58f] px-2 md:px-4 py-1 md:py-1.5 rounded-full flex items-center gap-1 md:gap-3 text-[10px] md:text-sm font-bold">
-              <span className="text-[#1a1d2e] opacity-80 whitespace-nowrap hidden xs:inline">1 KRW =</span>
+            <div className={cn(
+              "px-2 md:px-4 py-1 md:py-1.5 rounded-full flex items-center gap-1 md:gap-3 text-[10px] md:text-sm font-bold border transition-colors",
+              theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#fffbe6] border-[#ffe58f]"
+            )}>
+              <span className={cn("opacity-80 whitespace-nowrap hidden xs:inline", theme === 'dark' ? "text-[#8b92ad]" : "text-[#1a1d2e]")}>1 KRW =</span>
               <input 
                 type="number" 
                 step="0.0001" 
                 value={krwRate} 
                 onChange={(e) => setKrwRate(parseFloat(e.target.value))}
-                className="bg-white border border-[#d9d9d9] rounded-lg w-14 md:w-20 px-1 md:px-2 py-0.5 text-center outline-none focus:ring-2 focus:ring-[#00b900] transition-all"
+                className={cn(
+                  "rounded-lg w-14 md:w-20 px-1 md:px-2 py-0.5 text-center outline-none focus:ring-2 focus:ring-[#00b900] transition-all",
+                  theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#d9d9d9] text-[#1a1d2e]"
+                )}
               />
-              <span className="text-[#856404] opacity-50 font-medium hidden md:inline">({liveRate.toFixed(4)})</span>
+              <span className={cn("opacity-50 font-medium hidden md:inline", theme === 'dark' ? "text-[#8b92ad]" : "text-[#856404]")}>({liveRate.toFixed(4)})</span>
             </div>
 
-            <div className="flex bg-white border border-[#e2e5ef] rounded-xl p-0.5 shadow-sm">
+            <div className={cn("flex border rounded-xl p-0.5 shadow-sm transition-colors", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
               <button 
                 onClick={() => setLang('th')}
                 className={cn(
@@ -1436,7 +1565,10 @@ export default function AdminDashboard() {
 
             <button
               onClick={handleGlobalRefresh}
-              className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl border border-[#e2e5ef] bg-white text-[#8b92ad] hover:text-[#00b900] transition-all shadow-sm"
+              className={cn(
+                "w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl border text-[#8b92ad] hover:text-[#00b900] transition-all shadow-sm",
+                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+              )}
             >
               <RefreshCw size={14} className={isRefreshing ? 'animate-spin text-[#00b900]' : ''} />
             </button>
@@ -1448,11 +1580,11 @@ export default function AdminDashboard() {
           "md:hidden border-b flex gap-2 px-2 overflow-x-auto no-scrollbar py-2 flex-shrink-0 transition-colors",
           theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
         )}>
-           <TabButton icon={<Package size={14}/>} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
-           <TabButton icon={<ShoppingCart size={14}/>} label={t.shop_orders} active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
-           <TabButton icon={<Package size={14}/>} label={t.products} active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
-           <TabButton icon={<BarChart3 size={14}/>} label={t.reports} active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
-           <TabButton icon={<SettingsIcon size={14}/>} label={t.settings} active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+           <TabButton icon={<Package size={14}/>} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} theme={theme} />
+           <TabButton icon={<ShoppingCart size={14}/>} label={t.shop_orders} active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} theme={theme} />
+           <TabButton icon={<Package size={14}/>} label={t.products} active={activeTab === 'products'} onClick={() => setActiveTab('products')} theme={theme} />
+           <TabButton icon={<BarChart3 size={14}/>} label={t.reports} active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} theme={theme} />
+           <TabButton icon={<SettingsIcon size={14}/>} label={t.settings} active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} theme={theme} />
         </div>
 
         <div className="flex flex-1 items-stretch overflow-hidden relative">
@@ -1467,13 +1599,16 @@ export default function AdminDashboard() {
                 theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
               )}
             >
-              <div className="p-3 border-b border-[#e2e5ef]">
+              <div className={cn("p-3 border-b transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
                   <input 
                     type="text" 
                     placeholder={t.search_customers}
-                    className="w-full bg-[#f4f6f9] border-none rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-[#00b900] transition-all outline-none"
+                    className={cn(
+                      "w-full rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-[#00b900] transition-all outline-none",
+                      theme === 'dark' ? "bg-[#1a1d2e] text-white placeholder-[#8b92ad]/50" : "bg-[#f4f6f9] text-[#1a1d2e]"
+                    )}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -1506,7 +1641,10 @@ export default function AdminDashboard() {
 
               <button 
                 onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className="hidden md:block absolute bottom-6 right-[-15px] bg-white border border-[#e2e5ef] rounded-full p-1.5 shadow-md hover:bg-[#f9f9f9] transition-colors z-10"
+                className={cn(
+                  "hidden md:block absolute bottom-6 right-[-15px] border rounded-full p-1.5 shadow-md transition-colors z-10",
+                  theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white hover:bg-[#1a1d2e]" : "bg-white border-[#e2e5ef] hover:bg-[#f9f9f9]"
+                )}
               >
                 {isSidebarCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
               </button>
@@ -1525,21 +1663,24 @@ export default function AdminDashboard() {
           <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
            {activeTab === 'orders' && (
              selectedCustomer 
-               ? <OrdersView customerId={selectedCustomer.userId} customerName={selectedCustomer.displayName} krwRate={krwRate} t={t} />
+               ? <OrdersView customerId={selectedCustomer.userId} customerName={selectedCustomer.displayName} krwRate={krwRate} t={t} theme={theme} />
                : (
                  <div className="flex flex-col items-center justify-center h-full text-[#8b92ad] animate-in fade-in zoom-in duration-300">
-                    <div className="w-20 h-20 bg-white rounded-[32px] flex items-center justify-center shadow-sm mb-6">
+                    <div className={cn(
+                      "w-20 h-20 rounded-[32px] flex items-center justify-center shadow-sm mb-6 transition-colors",
+                      theme === 'dark' ? "bg-[#161925]" : "bg-white"
+                    )}>
                       <MessageCircle size={32} className="opacity-20" />
                     </div>
-                    <h2 className="text-xl font-bold text-[#1a1d2e] mb-2">{t.select_customer}</h2>
+                    <h2 className={cn("text-xl font-bold mb-2 transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{t.select_customer}</h2>
                     <p className="text-sm opacity-60">{t.select_customer_desc}</p>
                  </div>
                )
            )}
-           {activeTab === 'shop-orders' && <ShopOrdersView />}
-           {activeTab === 'products' && <ProductManagement />}
-           {activeTab === 'reports' && <ReportsView />}
-           {activeTab === 'settings' && <SettingsView />}
+           {activeTab === 'shop-orders' && <ShopOrdersView theme={theme} />}
+           {activeTab === 'products' && <ProductManagement theme={theme} />}
+           {activeTab === 'reports' && <ReportsView theme={theme} />}
+           {activeTab === 'settings' && <SettingsView theme={theme} onSave={() => setRefreshKey(prev => prev + 1)} />}
         </main>
            
         {selectedCustomer && isChatOpen && (
@@ -1609,13 +1750,15 @@ export default function AdminDashboard() {
   return null;
 }
 
-function TabButton({ icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: any }) {
+function TabButton({ icon, label, active, onClick, theme }: { icon: any, label: string, active: boolean, onClick: any, theme?: 'light' | 'dark' }) {
   return (
     <button 
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 px-1 py-1 border-b-2 transition-all duration-200 font-bold text-xs uppercase tracking-wider",
-        active ? "border-[#00b900] text-[#1a1d2e]" : "border-transparent text-[#8b92ad] hover:text-[#1a1d2e]"
+        active 
+          ? (theme === 'dark' ? "border-[#00b900] text-white" : "border-[#00b900] text-[#1a1d2e]") 
+          : (theme === 'dark' ? "border-transparent text-[#8b92ad] hover:text-white" : "border-transparent text-[#8b92ad] hover:text-[#1a1d2e]")
       )}
     >
       {icon}
@@ -1624,20 +1767,21 @@ function TabButton({ icon, label, active, onClick }: { icon: any, label: string,
   );
 }
 
-function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrder, onClick, lang = 'en' }: { customer: any, active: boolean, collapsed: boolean, unreadCount: number, hasPendingOrder: boolean, onClick: any, lang?: 'th' | 'en' }) {
+function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrder, onClick, lang = 'en', theme = 'light' }: { customer: any, active: boolean, collapsed: boolean, unreadCount: number, hasPendingOrder: boolean, onClick: any, lang?: 'th' | 'en', theme?: 'light' | 'dark' }) {
   if (collapsed) {
     return (
       <div 
         onClick={onClick}
         className={cn(
-          "p-3 flex justify-center cursor-pointer hover:bg-[#f9f9f9] transition-colors relative",
-          active && "bg-[#e8f8e8] border-l-4 border-[#00b900]"
+          "p-3 flex justify-center cursor-pointer transition-colors relative",
+          theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#f9f9f9]",
+          active && (theme === 'dark' ? "bg-[#2d324d] border-l-4 border-[#00b900]" : "bg-[#e8f8e8] border-l-4 border-[#00b900]")
         )}
       >
         <div className="relative">
           <img src={customer.pictureUrl} alt="" className="w-8 h-8 rounded-full bg-[#eee]" />
-          {unreadCount > 0 && <div className="absolute top-0 right-0 w-3 h-3 bg-[#00b900] border-2 border-white rounded-full animate-pulse z-10" />}
-          {hasPendingOrder && unreadCount === 0 && <div className="absolute top-0 right-0 w-3 h-3 bg-[#ffb700] border-2 border-white rounded-full animate-pulse z-10" />}
+          {unreadCount > 0 && <div className={cn("absolute top-0 right-0 w-3 h-3 bg-[#00b900] border-2 rounded-full animate-pulse z-10", theme === 'dark' ? "border-[#1a1d2e]" : "border-white")} />}
+          {hasPendingOrder && unreadCount === 0 && <div className={cn("absolute top-0 right-0 w-3 h-3 bg-[#ffb700] border-2 rounded-full animate-pulse z-10", theme === 'dark' ? "border-[#1a1d2e]" : "border-white")} />}
         </div>
       </div>
     );
@@ -1647,8 +1791,9 @@ function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrde
     <div 
       onClick={onClick}
       className={cn(
-        "px-4 py-3 flex items-center gap-3 cursor-pointer border-b border-[#e2e5ef] hover:bg-[#f9f9f9] transition-colors",
-        active && "bg-[#e8f8e8] border-l-4 border-[#00b900]"
+        "px-4 py-3 flex items-center gap-3 cursor-pointer border-b transition-colors",
+        theme === 'dark' ? "border-[#1f2335] hover:bg-[#1a1d2e]" : "border-[#e2e5ef] hover:bg-[#f9f9f9]",
+        active && (theme === 'dark' ? "bg-[#2d324d] border-l-4 border-[#00b900]" : "bg-[#e8f8e8] border-l-4 border-[#00b900]")
       )}
     >
       <div className="relative">
@@ -1660,16 +1805,16 @@ function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrde
             const target = e.currentTarget;
             target.style.display = 'none';
             const fallback = document.createElement('div');
-            fallback.className = 'w-10 h-10 rounded-full bg-[#1a1d2e] text-white flex items-center justify-center text-sm font-bold';
+            fallback.className = cn('w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold', theme === 'dark' ? "bg-[#2d324d] text-white" : "bg-[#1a1d2e] text-white");
             fallback.textContent = customer.displayName.charAt(0).toUpperCase();
             target.parentElement?.insertBefore(fallback, target);
           }}
         />
-        {unreadCount > 0 && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#00b900] border-2 border-white rounded-full animate-pulse shadow-sm z-10" title="New Message" />}
-        {hasPendingOrder && unreadCount === 0 && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#ffb700] border-2 border-white rounded-full animate-pulse shadow-sm z-10" title="Pending Order" />}
+        {unreadCount > 0 && <div className={cn("absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#00b900] border-2 rounded-full animate-pulse shadow-sm z-10", theme === 'dark' ? "border-[#161925]" : "border-white")} title="New Message" />}
+        {hasPendingOrder && unreadCount === 0 && <div className={cn("absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#ffb700] border-2 rounded-full animate-pulse shadow-sm z-10", theme === 'dark' ? "border-[#161925]" : "border-white")} title="Pending Order" />}
       </div>
       <div className="flex-1 overflow-hidden">
-        <div className="font-bold text-sm truncate flex justify-between items-center">
+        <div className={cn("font-bold text-sm truncate flex justify-between items-center transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
           {customer.displayName}
           {unreadCount > 0 && <span className="bg-[#00b900] text-white text-[9px] px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
         </div>
@@ -1679,7 +1824,7 @@ function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrde
   );
 }
 
-const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { customerId: string, customerName: string, krwRate: number, t: any }) => {
+const OrdersView = React.memo(({ customerId, customerName, krwRate, t, theme }: { customerId: string, customerName: string, krwRate: number, t: any, theme?: 'light' | 'dark' }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -2297,17 +2442,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
   }
 
   if (isInitialLoading) {
-    return (
-      <div className="max-w-4xl mx-auto h-[60vh] flex flex-col items-center justify-center animate-in fade-in duration-500">
-        <div className="relative">
-          <div className="w-20 h-20 border-4 border-[#00b900]/10 border-t-[#00b900] rounded-full animate-spin"></div>
-          <div className="absolute inset-0 flex items-center justify-center text-[#00b900] animate-pulse">
-            <Package size={24} />
-          </div>
-        </div>
-        <p className="mt-6 text-xs font-bold text-[#8b92ad] uppercase tracking-[0.2em] animate-pulse">Loading Customer Data...</p>
-      </div>
-    );
+    return <LoadingView theme={theme} message="Loading Customer Data..." />;
   }
 
   return (
@@ -2320,12 +2455,15 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl md:text-2xl font-bold">{customerName}</h1>
+          <h1 className={cn("text-xl md:text-2xl font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{customerName}</h1>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <button 
             onClick={() => setIsQuickOrderOpen(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[#1a1d2e] text-white rounded-lg text-[10px] md:text-xs font-bold hover:opacity-90 shadow-lg active:scale-95 transition-all"
+            className={cn(
+              "flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 text-white rounded-lg text-[10px] md:text-xs font-bold hover:opacity-90 shadow-lg active:scale-95 transition-all",
+              theme === 'dark' ? "bg-[#2d324d] shadow-[#00000033]" : "bg-[#1a1d2e]"
+            )}
           >
             <Bell size={16} className="hidden xs:block" /> {t.quick_order}
           </button>
@@ -2354,7 +2492,13 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                         key={order._id} 
                         className={cn(
                           "border rounded-3xl p-4 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group transition-all",
-                          isPreparing ? "bg-yellow-50 border-yellow-100" : isPaid ? "bg-emerald-50 border-emerald-100" : selectedOrderIds.has(order._id) ? "bg-[#00b90008] border-[#00b900]" : "bg-orange-50/50 border-orange-100 hover:bg-orange-50"
+                          isPreparing 
+                            ? (theme === 'dark' ? "bg-yellow-400/10 border-yellow-400/30" : "bg-yellow-50 border-yellow-100") 
+                            : isPaid 
+                              ? (theme === 'dark' ? "bg-emerald-400/10 border-emerald-400/30" : "bg-emerald-50 border-emerald-100") 
+                              : selectedOrderIds.has(order._id) 
+                                ? (theme === 'dark' ? "bg-[#00b900]/10 border-[#00b900]" : "bg-[#00b90008] border-[#00b900]") 
+                                : (theme === 'dark' ? "bg-[#161925] border-[#1f2335] hover:bg-[#1a1d2e]" : "bg-orange-50/50 border-orange-100 hover:bg-orange-50")
                         )}
                       >
                         <div className="flex items-start gap-3 md:gap-4 w-full">
@@ -2383,8 +2527,8 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                             )}>
                               {isPreparing ? `✓ ${t.in_parcel}` : isPaid ? `✓ ${t.paid}` : t.new_order_request}
                             </div>
-                            <div className="font-bold text-[#1a1d2e] flex items-center flex-wrap gap-2 leading-tight">
-                              {order.product}
+                            <div className="font-bold flex items-center flex-wrap gap-2 leading-tight transition-colors">
+                              <span className={theme === 'dark' ? "text-white" : "text-[#1a1d2e]"}>{order.product}</span>
                               {(order.quantity > 1 || order.product.match(/^\d+x\s/)) && (
                                 <span className="bg-[#1a1d2e] text-white text-[10px] px-1.5 py-0.5 rounded-md font-black shrink-0">
                                   {order.product.match(/^\d+x\s/) ? order.product.match(/^(\d+)x\s/)?.[1] : order.quantity}x
@@ -2396,7 +2540,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                           
                           <button 
                             onClick={() => handleDeleteOrder(order)}
-                            className="md:hidden p-2 text-[#8b92ad] hover:text-red-500 rounded-xl transition-all"
+                            className={cn(
+                              "md:hidden p-2 text-[#8b92ad] hover:text-red-500 rounded-xl transition-all",
+                              theme === 'dark' ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                            )}
                             title="Delete Order"
                           >
                             <Trash2 size={16} />
@@ -2429,8 +2576,9 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                               "flex-1 md:flex-none px-4 py-2 rounded-2xl text-[10px] font-bold transition-all shadow-sm flex justify-center items-center gap-1 group/btn",
                               isPreparing 
                                 ? "bg-yellow-400 text-white border border-yellow-400 hover:bg-red-500 hover:border-red-500 active:scale-95" 
-                                : isPaid ? "bg-white text-emerald-500 border border-emerald-200 hover:bg-emerald-500 hover:text-white active:scale-95"
-                                : "bg-white text-orange-500 border border-orange-200 hover:bg-orange-500 hover:text-white active:scale-95"
+                                : isPaid 
+                                  ? (theme === 'dark' ? "bg-[#1a1d2e] text-emerald-500 border border-[#00b900]/20 hover:bg-[#00b900] hover:text-white active:scale-95" : "bg-white text-emerald-500 border border-emerald-200 hover:bg-emerald-500 hover:text-white active:scale-95")
+                                  : (theme === 'dark' ? "bg-[#1a1d2e] text-orange-500 border border-orange-500/20 hover:bg-orange-500 hover:text-white active:scale-95" : "bg-white text-orange-500 border border-orange-200 hover:bg-orange-500 hover:text-white active:scale-95")
                             )}
                           >
                             {isPreparing ? (
@@ -2449,7 +2597,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                                   "flex-1 md:flex-none px-3 py-2 rounded-2xl text-[10px] font-bold transition-all shadow-sm border flex items-center justify-center gap-1 active:scale-95",
                                   order.paymentQrSent 
                                     ? "bg-[#00b900] text-white border-[#00b900]" 
-                                    : "bg-white text-[#1a1d2e] border-[#e2e5ef] hover:bg-[#f8f9fc]"
+                                    : (theme === 'dark' ? "bg-[#1a1d2e] text-white border-[#1f2335] hover:bg-[#161925]" : "bg-white text-[#1a1d2e] border-[#e2e5ef] hover:bg-[#f8f9fc]")
                                 )}
                               >
                                 <QrCode size={14} /> {order.paymentQrSent ? 'QR Sent ✓' : t.send_qr}
@@ -2465,7 +2613,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
 
                           <button 
                             onClick={() => handleDeleteOrder(order)}
-                            className="hidden md:block p-2 text-[#8b92ad] hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                            className={cn(
+                              "hidden md:block p-2 text-[#8b92ad] hover:text-red-500 rounded-xl transition-all",
+                              theme === 'dark' ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                            )}
                             title="Delete Order"
                           >
                             <Trash2 size={16} />
@@ -2478,7 +2629,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
              </div>
            )}
 
-           <div className="bg-white rounded-3xl border border-[#e2e5ef] p-6 mb-8 shadow-sm">
+           <div className={cn("rounded-3xl border p-6 mb-8 shadow-sm transition-colors", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-4 block">
                Select Delivery Address (SAVED ADDRESSES)
              </label>
@@ -2488,7 +2639,9 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                  <div key={i} className="flex items-center gap-3">
                    <label className={cn(
                       "flex-1 flex items-center gap-3 p-4 border rounded-2xl transition-all cursor-pointer group",
-                      selectedAddress === addr ? "border-[#00b900] bg-[#00b90005]" : "border-[#e2e5ef] hover:border-[#00b900]"
+                      selectedAddress === addr 
+                        ? "border-[#00b900] bg-[#00b90005]" 
+                        : (theme === 'dark' ? "border-[#1f2335] bg-[#1a1d2e] hover:border-[#00b900]" : "border-[#e2e5ef] hover:border-[#00b900]")
                     )}>
                      <input 
                         type="radio" 
@@ -2498,11 +2651,14 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                         onChange={() => setSelectedAddress(addr)}
                         className="w-4 h-4 accent-[#00b900]" 
                       />
-                     <span className="text-sm">{addr}</span>
+                     <span className={cn("text-sm transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{addr}</span>
                    </label>
                    <button 
                      onClick={() => handleRemoveAddress(addr)}
-                     className="p-3 text-[#8b92ad] hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                     className={cn(
+                       "p-3 text-[#8b92ad] hover:text-red-500 rounded-xl transition-all",
+                       theme === 'dark' ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                     )}
                      title="Remove address"
                    >
                      <Trash2 size={18} />
@@ -2516,7 +2672,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                    placeholder="Add new address..." 
                    value={newAddress}
                    onChange={(e) => setNewAddress(e.target.value)}
-                   className="flex-1 bg-white border border-[#e2e5ef] rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#00b900] outline-none"
+                   className={cn(
+                     "flex-1 border rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#00b900] outline-none transition-colors",
+                     theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                   )}
                  />
                  <button 
                    onClick={handleAddAddress}
@@ -2530,7 +2689,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
 
            <div className="space-y-8">
              {parcels.map(parcel => (
-               <div key={parcel.id} className="border-2 border-dashed border-[#e2e5ef] rounded-3xl p-6 relative bg-[#f8f9fc]">
+               <div key={parcel.id} className={cn(
+                  "border-2 border-dashed rounded-3xl p-6 relative transition-colors",
+                  theme === 'dark' ? "bg-[#161925]/50 border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]"
+                )}>
                  <div className="absolute -top-4 left-6 bg-[#1a1d2e] text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-md">
                    Parcel ID: {parcel.tracking || parcel.id.toString().slice(-4)}
                  </div>
@@ -2553,11 +2715,14 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                  {parcel.items.map((item: any) => {
                    const profit = item.sold - (item.cost * krwRate);
                    return (
-                     <div key={item.id} className="bg-white rounded-2xl border border-[#e2e5ef] p-6 mb-4 shadow-sm relative overflow-hidden group">
+                     <div key={item.id} className={cn(
+                        "rounded-2xl border p-6 mb-4 shadow-sm relative overflow-hidden group transition-colors",
+                        theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+                      )}>
                         <div className="absolute top-0 left-0 w-1 h-full bg-[#00b900] opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         
                         <div className="flex justify-between items-start mb-6">
-                           <div className="text-[10px] font-black text-[#1a1d2e] opacity-20 uppercase tracking-[0.2em]">Item Details</div>
+                           <div className={cn("text-[10px] font-black uppercase tracking-[0.2em] transition-colors", theme === 'dark' ? "text-white opacity-20" : "text-[#1a1d2e] opacity-20")}>Item Details</div>
                         </div>
 
                         <div className="flex justify-between items-center mb-4 gap-4">
@@ -2567,7 +2732,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                                 type="text" 
                                 value={item.name} 
                                 onChange={(e) => updateItem(parcel.id, item.id, 'name', e.target.value)}
-                                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900]" 
+                                className={cn(
+                                   "w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-colors",
+                                   theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                                 )} 
                              />
                            </div>
                            <div className="flex-1">
@@ -2576,12 +2744,18 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                                 type="number" 
                                 value={item.quantity || 1} 
                                 onChange={(e) => updateItem(parcel.id, item.id, 'quantity', parseInt(e.target.value) || 1)}
-                                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900]" 
+                                className={cn(
+                                   "w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-colors",
+                                   theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                                 )} 
                              />
                            </div>
                            <button 
                              onClick={() => removeItemFromParcel(parcel.id, item.id, item.orderId)}
-                             className="mt-6 p-3 text-[#8b92ad] hover:text-red-500 hover:bg-red-50 rounded-xl transition-all flex-shrink-0"
+                             className={cn(
+                               "mt-6 p-3 text-[#8b92ad] hover:text-red-500 rounded-xl transition-all flex-shrink-0",
+                               theme === 'dark' ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                             )}
                              title="Remove item and revert to pending"
                            >
                              <Trash2 size={18} />
@@ -2595,7 +2769,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                                type="number" 
                                value={item.sold} 
                                onChange={(e) => updateItem(parcel.id, item.id, 'sold', parseFloat(e.target.value) || 0)}
-                               className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900]" 
+                               className={cn(
+                                   "w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-colors",
+                                   theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                                 )} 
                             />
                           </div>
                           <div>
@@ -2604,7 +2781,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                                type="number" 
                                value={item.cost} 
                                onChange={(e) => updateItem(parcel.id, item.id, 'cost', parseFloat(e.target.value) || 0)}
-                               className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900]" 
+                               className={cn(
+                                   "w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-colors",
+                                   theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                                 )} 
                             />
                           </div>
                         </div>
@@ -2622,7 +2802,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                       <select 
                         value={parcel.courier}
                         onChange={(e) => updateParcel(parcel.id, 'courier', e.target.value)}
-                        className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3.5 text-sm outline-none focus:border-[#00b900] bg-white transition-all appearance-none"
+                        className={cn(
+                          "w-full border rounded-xl px-4 py-3.5 text-sm outline-none focus:border-[#00b900] transition-all appearance-none",
+                          theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                        )}
                       >
                         <option value="">-- Select --</option>
                         {settings?.shippingCompanies?.map((c: string) => (
@@ -2637,7 +2820,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
                         value={parcel.tracking}
                         placeholder="Ex: TH12345678"
                         onChange={(e) => updateParcel(parcel.id, 'tracking', e.target.value)}
-                        className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3.5 text-sm outline-none focus:border-[#00b900]" 
+                        className={cn(
+                          "w-full border rounded-xl px-4 py-3.5 text-sm outline-none focus:border-[#00b900] transition-colors",
+                          theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                        )} 
                       />
                     </div>
                  </div>
@@ -2678,6 +2864,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
         title={modal.title}
         message={modal.message}
         type={modal.type}
+        theme={theme}
         onConfirm={modal.onConfirm}
         onCancel={modal.onCancel || (() => setModal({ ...modal, isOpen: false }))}
       />
@@ -2685,6 +2872,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
       <QuickOrderModal 
         isOpen={isQuickOrderOpen}
         products={products}
+        theme={theme}
         onConfirm={handleQuickOrder}
         onCancel={() => setIsQuickOrderOpen(false)}
       />
@@ -2701,7 +2889,10 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { custo
           <div className="flex items-center gap-3">
             <button 
               onClick={handleBatchSendQr}
-              className="px-5 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95 bg-white text-[#1a1d2e] hover:bg-[#f8f9fc]"
+              className={cn(
+                "px-5 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95",
+                theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#161925]" : "bg-white text-[#1a1d2e] hover:bg-[#f8f9fc]"
+              )}
             >
               <QrCode size={16} /> Send Combined QR
             </button>

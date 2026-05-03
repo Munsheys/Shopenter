@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Package, Plus, Edit2, Trash2, X, ImageIcon, Search, ChevronDown, Layers, Palette, Ruler } from 'lucide-react';
+import LoadingView from './LoadingView';
 
 interface ProductVariant {
   thickness: string;
@@ -37,7 +38,10 @@ const EMPTY_FORM: ProductForm = {
   description: '',
   price: '',
   categories: [],
-  variants: [{ ...EMPTY_VARIANT }],
+  variants: [
+    { ...EMPTY_VARIANT, thickness: '1.2mm' },
+    { ...EMPTY_VARIANT, thickness: '2mm' }
+  ],
   imageUrl: '',
 };
 
@@ -46,13 +50,15 @@ export function CreatableDropdown({
   value,
   onChange,
   options,
-  placeholder
+  placeholder,
+  theme = 'light'
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: string[];
   placeholder: string;
+  theme?: 'light' | 'dark';
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -88,16 +94,23 @@ export function CreatableDropdown({
         {label}
       </label>
       <div 
-        className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm cursor-pointer bg-white focus-within:border-[#00b900] focus-within:ring-1 focus-within:ring-[#00b900] transition-all flex items-center justify-between"
+        className={cn(
+          "w-full border rounded-xl px-4 py-2.5 text-sm cursor-pointer transition-all flex items-center justify-between",
+          theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]",
+          "focus-within:border-[#00b900] focus-within:ring-1 focus-within:ring-[#00b900]"
+        )}
         onClick={() => setIsOpen(true)}
       >
-        <span className={value ? "text-[#1a1d2e] font-medium" : "text-[#8b92ad]"}>{value || placeholder}</span>
+        <span className={value ? (theme === 'dark' ? "text-white font-medium" : "text-[#1a1d2e] font-medium") : "text-[#8b92ad]"}>{value || placeholder}</span>
         <ChevronDown size={14} className="text-[#8b92ad]" />
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#e2e5ef] rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-          <div className="p-2 border-b border-[#f4f6f9]">
+        <div className={cn(
+          "absolute top-full left-0 right-0 mt-2 border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100",
+          theme === 'dark' ? "bg-[#1f2335] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+        )}>
+          <div className={cn("p-2 border-b transition-colors", theme === 'dark' ? "border-[#2d324d]" : "border-[#f4f6f9]")}>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
               <input
@@ -107,7 +120,10 @@ export function CreatableDropdown({
                 onChange={e => setSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Search or add..."
-                className="w-full bg-[#f4f6f9] rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[#00b900]"
+                className={cn(
+                  "w-full rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[#00b900] transition-colors",
+                  theme === 'dark' ? "bg-[#161925] text-white" : "bg-[#f4f6f9] text-[#1a1d2e]"
+                )}
               />
             </div>
           </div>
@@ -115,7 +131,10 @@ export function CreatableDropdown({
             {filtered.map(opt => (
               <button
                 key={opt}
-                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[#f4f6f9] transition-colors"
+                className={cn(
+                  "w-full text-left px-3 py-2 text-sm rounded-lg transition-colors",
+                  theme === 'dark' ? "text-white hover:bg-[#2d324d]" : "text-[#1a1d2e] hover:bg-[#f4f6f9]"
+                )}
                 onClick={() => { onChange(opt); setIsOpen(false); setSearch(''); }}
               >
                 {opt}
@@ -123,7 +142,10 @@ export function CreatableDropdown({
             ))}
             {showCreate && (
               <button
-                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[#00b90008] text-[#00b900] font-bold transition-colors flex items-center gap-2"
+                className={cn(
+                  "w-full text-left px-3 py-2 text-sm rounded-lg font-bold transition-colors flex items-center gap-2",
+                  theme === 'dark' ? "text-[#00b900] hover:bg-[#00b90011]" : "text-[#00b900] hover:bg-[#00b90008]"
+                )}
                 onClick={() => { onChange(search.trim()); setIsOpen(false); setSearch(''); }}
               >
                 <Plus size={14} /> Create "{search.trim()}"
@@ -143,7 +165,8 @@ export function TagSelector({
   onRemove, 
   options,
   placeholder = "Type to search or add...",
-  isColorMode = false
+  isColorMode = false,
+  theme = 'light'
 }: { 
   label?: string,
   selected: string[], 
@@ -151,7 +174,8 @@ export function TagSelector({
   onRemove: (c: string) => void,
   options: string[],
   placeholder?: string,
-  isColorMode?: boolean
+  isColorMode?: boolean,
+  theme?: 'light' | 'dark'
 }) {
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -174,82 +198,68 @@ export function TagSelector({
   return (
     <div ref={wrapperRef}>
       {label && <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">{label}</label>}
-      <div className="flex flex-wrap gap-1.5 mb-2">
+      <div className={cn(
+        "w-full border rounded-xl px-2 py-2 flex flex-wrap gap-2 transition-colors",
+        theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+      )}>
         {selected.map(c => (
-          <span key={c} className="bg-[#1a1d2e] text-white px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 animate-in zoom-in-90">
+          <div key={c} className={cn(
+            "flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-lg text-xs font-bold transition-colors animate-in zoom-in-90",
+            theme === 'dark' ? "bg-[#161925] text-white" : "bg-[#f4f6f9] text-[#1a1d2e]"
+          )}>
             {isHex(c) && <span className="w-2.5 h-2.5 rounded-full border border-white/20" style={{ backgroundColor: c }} />}
             {c}
             <button onClick={() => onRemove(c)} className="hover:text-red-400 opacity-70 hover:opacity-100"><X size={10} /></button>
-          </span>
+          </div>
         ))}
-      </div>
-      <div className="relative flex gap-2">
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-[150px]">
           <input 
-            type="text"
-            placeholder={placeholder}
+            type="text" 
             value={search}
-            onFocus={() => setIsOpen(true)}
             onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && search.trim()) {
-                e.preventDefault();
-                onAdd(search.trim());
-                setSearch('');
-              }
-            }}
-            className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2 text-sm outline-none focus:border-[#00b900] bg-white transition-all"
+            onFocus={() => setIsOpen(true)}
+            placeholder={placeholder}
+            className={cn("w-full bg-transparent border-none outline-none px-2 py-1.5 text-sm", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}
           />
-          {isColorMode && (
-            <button 
-              onClick={() => colorInputRef.current?.click()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[#8b92ad] hover:text-[#00b900] transition-colors"
-              title="Pick color"
-            >
-              <Palette size={16} />
-            </button>
+          {isOpen && (
+            <div className={cn(
+              "absolute bottom-full left-0 right-0 mb-2 border rounded-xl shadow-xl z-50 overflow-hidden animate-in slide-in-from-bottom-2 duration-100",
+              theme === 'dark' ? "bg-[#1f2335] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+            )}>
+              <div className="max-h-40 overflow-y-auto p-1">
+                {filtered.map(o => (
+                  <button key={o} onClick={() => { onAdd(o); setSearch(''); setIsOpen(false); }} className={cn("w-full text-left px-3 py-2 text-sm rounded-lg transition-colors", theme === 'dark' ? "text-white hover:bg-[#2d324d]" : "text-[#1a1d2e] hover:bg-[#f4f6f9]")}>
+                    {isHex(o) && <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: o }} />}
+                    {o}
+                  </button>
+                ))}
+                {search && !options.some(o => o.toLowerCase() === search.toLowerCase().trim()) && (
+                  <button onClick={() => { onAdd(search.trim()); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-[#00b900] font-bold hover:bg-[#00b90008] rounded-lg flex items-center gap-2">
+                    <Plus size={14} /> Create "{search}"
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
-        
-        {isColorMode && (
-          <input 
-            ref={colorInputRef}
-            type="color"
-            className="sr-only"
-            onChange={(e) => {
-              const hex = e.target.value.toUpperCase();
-              if (!selected.includes(hex)) onAdd(hex);
-            }}
-          />
-        )}
-
-        {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e5ef] rounded-xl shadow-xl z-[60] p-1 max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-100">
-            {filtered.map(o => (
-              <button key={o} onClick={() => { onAdd(o); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[#f4f6f9] rounded-lg transition-colors flex items-center gap-2">
-                {isHex(o) && <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: o }} />}
-                {o}
-              </button>
-            ))}
-            {search && !options.some(o => o.toLowerCase() === search.toLowerCase().trim()) && (
-              <button onClick={() => { onAdd(search.trim()); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-[#00b900] font-bold hover:bg-[#00b90008] rounded-lg flex items-center gap-2">
-                <Plus size={14} /> Create "{search}"
-              </button>
-            )}
-            {!search && filtered.length === 0 && (
-              <div className="px-3 py-4 text-xs text-center text-[#8b92ad] italic">
-                {options.length === 0 ? "No existing items found. Type to create new." : "All items already selected."}
-              </div>
-            )}
-          </div>
-        )}
       </div>
+      {isColorMode && (
+        <input 
+          ref={colorInputRef}
+          type="color"
+          className="sr-only"
+          onChange={(e) => {
+            const hex = e.target.value.toUpperCase();
+            if (!selected.includes(hex)) onAdd(hex);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-export function ImageUploader({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [isDragging, setIsDragging] = useState(false);
+export function ImageUploader({ value, onChange, theme = 'light' }: { value: string, onChange: (v: string) => void, theme?: 'light' | 'dark' }) {
+  const [isUploading, setIsUploading] = useState(false);
 
   const processFile = (file: File) => {
     if (!file.type.startsWith('image/')) return;
@@ -261,11 +271,7 @@ export function ImageUploader({ value, onChange }: { value: string; onChange: (v
         let width = img.width;
         let height = img.height;
         const max = 800;
-        if (width > height && width > max) {
-          height *= max / width; width = max;
-        } else if (height > max) {
-          width *= max / height; height = max;
-        }
+        if (width > height && width > max) { height *= max / width; width = max; } else if (height > max) { width *= max / height; height = max; }
         canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
@@ -279,11 +285,10 @@ export function ImageUploader({ value, onChange }: { value: string; onChange: (v
   return (
     <div>
       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Product Image</label>
-      <div 
-        className={`relative w-full h-40 rounded-2xl border-2 border-dashed transition-all flex items-center justify-center overflow-hidden cursor-pointer ${isDragging ? 'border-[#00b900] bg-[#00b90008]' : 'border-[#e2e5ef] bg-[#f8f9fc] hover:border-[#00b900]'}`}
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; if (file) processFile(file); }}
+      <div className={cn(
+        "relative rounded-2xl overflow-hidden aspect-video border-2 border-dashed flex flex-col items-center justify-center transition-all cursor-pointer",
+        theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] hover:border-[#00b900]" : "bg-[#f8f9fc] border-[#e2e5ef] hover:border-[#00b900]"
+      )}
         onClick={() => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.onchange = (e: any) => { if (e.target.files[0]) processFile(e.target.files[0]); }; i.click(); }}
       >
         {value ? (
@@ -312,7 +317,8 @@ function ProductModal({
   onSave: (data: ProductForm) => void;
   onClose: () => void;
   isSaving: boolean;
-  existingOptions: { brands: string[], modelLines: string[], categories: string[], colors: string[], thicknesses: string[] }
+  existingOptions: { brands: string[], modelLines: string[], categories: string[], colors: string[], thicknesses: string[] };
+  theme?: 'light' | 'dark';
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const prevId = useRef<string | null>(null);
@@ -345,19 +351,22 @@ function ProductModal({
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-[32px] w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-8 pt-8 pb-4 border-b border-[#f4f6f9]">
+      <div className={cn(
+        "w-full max-w-4xl transition-all rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col",
+        theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white"
+      )}>
+        <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <div>
-            <h3 className="text-xl font-bold text-[#1a1d2e]">{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
+            <h3 className={cn("text-xl font-bold transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
             <p className="text-xs text-[#8b92ad]">Luxury Hierarchy Management (Brand &gt; Model Line &gt; Product Name)</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-[#f4f6f9] hover:bg-[#e2e5ef] transition-colors"><X size={16} /></button>
+          <button onClick={onClose} className={cn("w-8 h-8 flex items-center justify-center rounded-full transition-colors", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
         </div>
 
         <div className="px-8 py-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Left Column: Core Info */}
           <div className="space-y-6">
-            <ImageUploader value={form.imageUrl} onChange={v => updateForm({ imageUrl: v })} />
+            <ImageUploader value={form.imageUrl} onChange={v => updateForm({ imageUrl: v })} theme={theme} />
             
             <div className="grid grid-cols-2 gap-4">
               <CreatableDropdown 
@@ -366,6 +375,7 @@ function ProductModal({
                 onChange={v => updateForm({ brand: v })} 
                 options={existingOptions.brands} 
                 placeholder="e.g. Celine" 
+                theme={theme}
               />
               <CreatableDropdown 
                 label="Model Line / Family" 
@@ -373,17 +383,21 @@ function ProductModal({
                 onChange={v => updateForm({ modelLine: v })} 
                 options={existingOptions.modelLines} 
                 placeholder="e.g. Boston Bag" 
+                theme={theme}
               />
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Display Product Name *</label>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">Display Product Name *</label>
               <input 
                 type="text" 
                 value={form.name} 
                 onChange={e => updateForm({ name: e.target.value })}
                 placeholder="e.g. Kunka"
-                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900]"
+                className={cn(
+                  "w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900] transition-colors",
+                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                )}
               />
             </div>
 
@@ -394,15 +408,19 @@ function ProductModal({
               onRemove={c => updateForm({ categories: form.categories.filter(x => x !== c) })}
               options={existingOptions.categories}
               placeholder="Search or add category..."
+              theme={theme}
             />
 
             <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Description</label>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">Description</label>
               <textarea 
                 value={form.description}
                 onChange={e => updateForm({ description: e.target.value })}
                 rows={3}
-                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900] resize-none"
+                className={cn(
+                  "w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900] resize-none transition-colors",
+                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                )}
               />
             </div>
           </div>
@@ -418,9 +436,12 @@ function ProductModal({
 
             <div className="space-y-4">
               {form.variants.map((v, idx) => (
-                <div key={idx} className="bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl p-4 relative group animate-in slide-in-from-right-4">
+                <div key={idx} className={cn(
+                  "border rounded-2xl p-4 relative group animate-in slide-in-from-right-4 transition-colors",
+                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]"
+                )}>
                   {form.variants.length > 1 && (
-                    <button onClick={() => removeVariant(idx)} className="absolute -top-2 -right-2 bg-white border border-[#e2e5ef] text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-10">
+                    <button onClick={() => removeVariant(idx)} className={cn("absolute -top-2 -right-2 border text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-10 transition-colors", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
                       <Trash2 size={12} />
                     </button>
                   )}
@@ -431,6 +452,7 @@ function ProductModal({
                       onChange={val => updateVariant(idx, { thickness: val })} 
                       options={existingOptions.thicknesses} 
                       placeholder="1.2 mm" 
+                      theme={theme}
                     />
                     <div>
                       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Price (THB)</label>
@@ -438,7 +460,10 @@ function ProductModal({
                         type="number" 
                         value={v.price} 
                         onChange={e => updateVariant(idx, { price: e.target.value })}
-                        className="w-full border border-[#e2e5ef] rounded-xl px-3 py-2 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900]"
+                        className={cn(
+                          "w-full border rounded-xl px-3 py-2 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900] transition-colors",
+                          theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+                        )}
                       />
                     </div>
                   </div>
@@ -451,6 +476,7 @@ function ProductModal({
                     options={existingOptions.colors}
                     placeholder="Search or add color..."
                     isColorMode={true}
+                    theme={theme}
                   />
                 </div>
               ))}
@@ -458,8 +484,8 @@ function ProductModal({
           </div>
         </div>
 
-        <div className="p-8 pt-4 border-t border-[#f4f6f9] flex gap-3">
-          <button onClick={onClose} className="flex-1 py-4 text-sm font-bold text-[#8b92ad] bg-[#f8f9fc] rounded-2xl transition-all">Cancel</button>
+        <div className={cn("p-8 pt-4 border-t flex gap-3 transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
+          <button onClick={onClose} className={cn("flex-1 py-4 text-sm font-bold rounded-2xl transition-all", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#e2e5ef]")}>Cancel</button>
           <button 
             disabled={!isValid || isSaving}
             onClick={() => onSave(form)}
@@ -473,7 +499,7 @@ function ProductModal({
   );
 }
 
-export default React.memo(function ProductManagement() {
+export default React.memo(function ProductManagement({ theme }: { theme?: 'light' | 'dark' }) {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -516,74 +542,51 @@ export default React.memo(function ProductManagement() {
   const handleSave = async (form: ProductForm) => {
     setIsSaving(true);
     try {
-      const isEdit = !!editingProduct;
-      const url = isEdit ? `/api/products/${editingProduct._id}` : '/api/products';
-      
-      const prices = form.variants.map(v => parseFloat(v.price) || 0);
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-
-      const res = await fetch(url, {
-        method: isEdit ? 'PATCH' : 'POST',
+      const res = await fetch(editingProduct ? `/api/products/${editingProduct._id}` : '/api/products', {
+        method: editingProduct ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify({
-          ...form,
-          price: minPrice,
-          maxPrice: maxPrice,
-          variants: form.variants.map(v => ({
-            ...v,
-            price: parseFloat(v.price) || 0,
-            cost: parseFloat(v.cost) || 0,
-            stock: parseInt(v.stock) || 0
-          }))
-        }),
+        body: JSON.stringify(form)
       });
-
       if (res.ok) {
-        await loadProducts();
         setIsModalOpen(false);
+        loadProducts();
       }
     } catch (err) { console.error(err); } finally { setIsSaving(false); }
   };
 
   return (
-    <div className="max-w-7xl mx-auto pb-12">
+    <div className="max-w-6xl mx-auto pb-20">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-2xl font-bold flex items-center gap-3">
-          <Package className="text-[#8b92ad]" size={28} /> Product Catalog
+        <h2 className={`text-2xl font-bold flex items-center gap-3 ${theme === 'dark' ? 'text-white' : 'text-[#1a1d2e]'}`}>
+          <Package size={28} className="text-[#8b92ad]" /> {products.length} Products
         </h2>
-        <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="bg-[#00b900] text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all">
+        <button 
+          onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
+          className="bg-[#00b900] text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-[#00b90033] hover:opacity-90 active:scale-95 transition-all flex items-center gap-2"
+        >
           <Plus size={18} /> New Product
         </button>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-48"><div className="w-8 h-8 border-4 border-[#00b900]/20 border-t-[#00b900] rounded-full animate-spin" /></div>
-      ) : products.length === 0 ? (
-        <div className="text-center py-20 text-[#8b92ad]">No products in catalog.</div>
+        <LoadingView theme={theme} message="Loading Product Catalog..." />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {products.map((p: any) => (
-            <div key={p._id} className="bg-white rounded-2xl border border-[#e2e5ef] overflow-hidden shadow-sm hover:shadow-md transition-all group flex flex-col">
-              <div className="aspect-[4/3] bg-[#f4f6f9] relative">
-                {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />}
-                <div className="absolute top-2 left-2 flex flex-col gap-1">
-                  <span className="bg-black/60 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest self-start">{p.brand}</span>
-                  {p.modelLine && <span className="bg-[#00b900] text-white text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest self-start">{p.modelLine}</span>}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.map(p => (
+            <div key={p._id} className={`${theme === 'dark' ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'} rounded-3xl border p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden`}>
+              <div className="flex gap-4">
+                <div className="w-20 h-20 rounded-2xl bg-[#f4f6f9] flex items-center justify-center overflow-hidden flex-shrink-0 border border-[#e2e5ef]">
+                  {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-[#8b92ad]" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-bold text-[#00b900] uppercase tracking-wider mb-1">{p.brand} {p.modelLine ? `• ${p.modelLine}` : ''}</div>
+                  <h3 className={`font-bold text-sm mb-1 truncate ${theme === 'dark' ? 'text-white' : 'text-[#1a1d2e]'}`}>{p.name}</h3>
+                  <div className="text-xs text-[#8b92ad]">฿{p.price?.toLocaleString()}</div>
                 </div>
               </div>
-              <div className="p-4 flex flex-col flex-1">
-                <h3 className="font-bold text-sm truncate">{p.name}</h3>
-                <div className="flex flex-wrap gap-1 mt-1 mb-2">
-                  {p.categories?.slice(0, 2).map((c: string) => <span key={c} className="text-[8px] bg-[#f4f6f9] px-1.5 py-0.5 rounded text-[#8b92ad] font-bold">{c}</span>)}
-                </div>
-                <div className="text-xs font-black text-[#00b900] mt-auto">
-                  ฿{p.price?.toLocaleString()} {p.maxPrice > p.price ? `- ฿${p.maxPrice.toLocaleString()}` : ''}
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-3">
-                  <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="p-2 bg-[#f4f6f9] rounded-lg hover:bg-[#e2e5ef] transition-colors flex justify-center"><Edit2 size={14} /></button>
-                  <button onClick={() => setDeleteConfirm(p._id)} className="p-2 bg-[#fff1f0] text-red-500 rounded-lg hover:bg-[#ffccc7] transition-colors flex justify-center"><Trash2 size={14} /></button>
-                </div>
+              <div className={cn("flex gap-2 mt-6 pt-6 border-t transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
+                <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className={cn("flex-1 py-2 rounded-xl text-[10px] font-bold transition-colors", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>Edit</button>
+                <button onClick={() => setDeleteConfirm(p._id)} className={cn("p-2 rounded-xl transition-colors", theme === 'dark' ? "text-red-500 hover:bg-red-500/10" : "text-red-500 hover:bg-red-50")}><Trash2 size={16} /></button>
               </div>
             </div>
           ))}
@@ -591,6 +594,7 @@ export default React.memo(function ProductManagement() {
       )}
 
       <ProductModal 
+        theme={theme}
         isOpen={isModalOpen} 
         initialData={useMemo(() => editingProduct ? {
           ...editingProduct,
@@ -603,20 +607,18 @@ export default React.memo(function ProductManagement() {
         existingOptions={existingOptions}
       />
 
-      {deleteConfirm && (
         <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95">
-            <h3 className="text-xl font-bold mb-2">Delete Product?</h3>
+          <div className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95 transition-colors", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+            <h3 className={cn("text-xl font-bold mb-2 transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete Product?</h3>
             <p className="text-sm text-[#8b92ad] mb-6">This will remove it from the catalog permanently.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3 text-sm font-bold bg-[#f4f6f9] rounded-xl">Cancel</button>
+              <button onClick={() => setDeleteConfirm(null)} className={cn("flex-1 py-3 text-sm font-bold rounded-xl transition-colors", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>Cancel</button>
               <button onClick={() => {
                 fetch(`/api/products/${deleteConfirm}`, { method: 'DELETE', headers: { 'x-admin-secret': secret } }).then(() => { loadProducts(); setDeleteConfirm(null); });
               }} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl">Delete</button>
             </div>
           </div>
         </div>
-      )}
     </div>
   );
 });

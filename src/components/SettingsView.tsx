@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff } from 'lucide-react';
+import LoadingView from './LoadingView';
 
-export default function SettingsView() {
+export default function SettingsView({ theme, onSave }: { theme?: 'light' | 'dark', onSave?: () => void }) {
   const [settings, setSettings] = useState<any>(null);
   const [newCompany, setNewCompany] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -42,6 +43,7 @@ export default function SettingsView() {
         if (settings.adminSecret) {
           localStorage.setItem('admin_secret', settings.adminSecret);
         }
+        onSave?.();
         alert('Settings saved successfully!');
       }
     } catch (error) {
@@ -60,39 +62,45 @@ export default function SettingsView() {
   };
 
   const addCompany = () => {
-    if (!newCompany) return;
-    updateSetting('shippingCompanies', [...(settings.shippingCompanies || []), newCompany]);
+    if (!newCompany.trim()) return;
+    updateSetting('shippingCompanies', [...(settings.shippingCompanies || []), newCompany.trim()]);
     setNewCompany('');
   };
 
-  if (!settings) return (
-    <div className="flex items-center justify-center h-64 text-[#8b92ad]">
-      Loading settings...
-    </div>
-  );
+  if (!settings) return <LoadingView theme={theme} message="Loading System Settings..." />;
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
-      <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
+      <h2 className={`text-2xl font-bold mb-8 flex items-center gap-3 ${theme === 'dark' ? 'text-white' : 'text-[#1a1d2e]'}`}>
         <SettingsIcon size={28} className="text-[#8b92ad]" /> Settings
       </h2>
 
-      <div className="bg-white rounded-3xl border border-[#e2e5ef] p-8 shadow-sm">
+      <div className={`${theme === 'dark' ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'} rounded-3xl border p-8 shadow-sm transition-colors`}>
         {/* Shop Name field removed. It is now dynamically fetched from LINE OA */}
 
         <div className="grid grid-cols-2 gap-8 mb-8">
           <div>
             <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Theme Preference</label>
-            <div className="flex bg-[#f4f6f9] p-1 rounded-xl w-fit">
+            <div className={cn("p-1 rounded-xl w-fit transition-colors", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f4f6f9]")}>
               <button 
                 onClick={() => updateSetting('theme', 'light')}
-                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${settings.theme !== 'dark' ? 'bg-white shadow-sm text-[#00b900]' : 'text-[#8b92ad]'}`}
+                className={cn(
+                  "px-6 py-2 rounded-lg text-xs font-bold transition-all",
+                  settings.theme !== 'dark' 
+                    ? (theme === 'dark' ? "bg-[#2d324d] text-[#00b900] shadow-lg" : "bg-white shadow-sm text-[#00b900]") 
+                    : "text-[#8b92ad]"
+                )}
               >
                 Light
               </button>
               <button 
                 onClick={() => updateSetting('theme', 'dark')}
-                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${settings.theme === 'dark' ? 'bg-[#1a1d2e] text-white shadow-sm' : 'text-[#8b92ad]'}`}
+                className={cn(
+                  "px-6 py-2 rounded-lg text-xs font-bold transition-all",
+                  settings.theme === 'dark' 
+                    ? (theme === 'dark' ? "bg-[#2d324d] text-white shadow-lg" : "bg-white text-[#1a1d2e] shadow-sm") 
+                    : "text-[#8b92ad]"
+                )}
               >
                 Dark
               </button>
@@ -104,7 +112,10 @@ export default function SettingsView() {
           <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SHIPPING COMPANIES</label>
           <div className="flex flex-wrap gap-2 mb-3">
              {settings.shippingCompanies?.map((c: string, i: number) => (
-               <div key={i} className="flex items-center gap-2 bg-[#f4f6f9] border border-[#e2e5ef] px-3 py-1.5 rounded-full text-xs font-semibold">
+               <div key={i} className={cn(
+                 "flex items-center gap-2 border px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                 theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f4f6f9] border-[#e2e5ef] text-[#1a1d2e]"
+               )}>
                  {c} <button onClick={() => removeCompany(c)} className="text-red-400 hover:text-red-600"><X size={14}/></button>
                </div>
              ))}
@@ -115,7 +126,10 @@ export default function SettingsView() {
               placeholder="Add shipping company..." 
               value={newCompany}
               onChange={(e) => setNewCompany(e.target.value)}
-              className="flex-1 border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900]" 
+              className={cn(
+                "flex-1 border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-colors",
+                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+              )} 
             />
             <button onClick={addCompany} className="bg-[#00b900] text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all">
               <Plus size={18} /> Add
@@ -129,7 +143,10 @@ export default function SettingsView() {
             rows={3} 
             value={settings.senderAddress || ''} 
             onChange={(e) => updateSetting('senderAddress', e.target.value)}
-            className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] resize-none transition-all" 
+            className={cn(
+              "w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] resize-none transition-all",
+              theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+            )} 
           />
         </div>
 
@@ -140,14 +157,17 @@ export default function SettingsView() {
                rows={6} 
                value={settings.trackingTemplate || ''} 
                onChange={(e) => updateSetting('trackingTemplate', e.target.value)}
-               className="w-full border border-[#e2e5ef] rounded-xl px-4 py-4 text-sm font-medium outline-none focus:border-[#00b900] resize-none leading-relaxed transition-all" 
+               className={cn(
+                 "w-full border rounded-xl px-4 py-4 text-sm font-medium outline-none focus:border-[#00b900] resize-none leading-relaxed transition-all",
+                 theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+               )} 
              />
              <div className="mt-2 text-[10px] text-[#8b92ad]">Placeholders: &#123;tracking&#125;, &#123;courier&#125;, &#123;product&#125;, &#123;name&#125;</div>
           </div>
         </div>
 
-        <div className="pt-8 border-t border-[#f4f6f9] mb-10">
-          <h3 className="text-sm font-bold text-[#1a1d2e] mb-6">Payment Configuration</h3>
+        <div className={cn("pt-8 border-t transition-colors mb-10", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
+          <h3 className={cn("text-sm font-bold mb-6 transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Payment Configuration</h3>
           
           <div className="mb-6">
             <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">PROMPTPAY ID (PHONE OR NID)</label>

@@ -37,6 +37,10 @@ export async function GET(req: Request) {
       }
     });
 
+    const recentOrders = await Order.find()
+      .sort({ createdAt: -1 })
+      .limit(10);
+
     return NextResponse.json({
       sales: totalSales,
       profit: totalProfit,
@@ -44,7 +48,8 @@ export async function GET(req: Request) {
       orders: orders.length,
       totalRevTHB: totalSales,
       totalProfit: totalProfit,
-      monthly: monthlyStats
+      monthly: monthlyStats,
+      recent: recentOrders
     });
   } catch (error) {
     console.error("Stats API Error:", error);
