@@ -74,7 +74,23 @@ function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, type = 'con
 }
 
 
-function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMarkAsRead }: { userId: string, customerName?: string, unreadCount?: number, onMarkAsRead?: () => void }) {
+function ChatHistory({ 
+  userId, 
+  customerName = "Customer", 
+  unreadCount = 0, 
+  onMarkAsRead,
+  fontSize = 14,
+  onFontSizeChange,
+  lang = 'en'
+}: { 
+  userId: string, 
+  customerName?: string, 
+  unreadCount?: number, 
+  onMarkAsRead?: () => void,
+  fontSize?: number,
+  onFontSizeChange?: (size: number) => void,
+  lang?: 'th' | 'en'
+}) {
   const [messages, setMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newMessage, setNewMessage] = useState("");
@@ -210,6 +226,20 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
           <div className="font-bold text-sm text-[#1a1d2e] truncate">{customerName}</div>
           <div className="text-[10px] text-[#00b900] font-semibold">LINE Chat</div>
         </div>
+        
+        <div className="flex items-center gap-1 bg-[#f4f6f9] p-0.5 rounded-lg border border-[#e2e5ef] mr-1 hidden xs:flex">
+          <button 
+            onClick={() => onFontSizeChange?.(Math.max(10, fontSize - 1))}
+            className="w-7 h-7 flex items-center justify-center text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-white rounded transition-all font-bold text-[10px]"
+            title="Decrease text size"
+          >A-</button>
+          <div className="w-[1px] h-3 bg-[#e2e5ef]" />
+          <button 
+            onClick={() => onFontSizeChange?.(Math.min(24, fontSize + 1))}
+            className="w-7 h-7 flex items-center justify-center text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-white rounded transition-all font-bold text-[10px]"
+            title="Increase text size"
+          >A+</button>
+        </div>
         <button 
           onClick={handleMarkAsReadClick}
           className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all shadow-sm flex items-center gap-1 ${
@@ -223,7 +253,7 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
           {isReadAnimating ? (
             <>
               <Check size={12} className="text-white animate-in zoom-in" />
-              <span>Read</span>
+              <span>{lang === 'th' ? TRANSLATIONS.th.read : TRANSLATIONS.en.read}</span>
             </>
           ) : (
             <>
@@ -238,15 +268,15 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1">
         {isLoading && (
           <div className="flex justify-center items-center h-full">
-            <div className="text-[#8b92ad] text-sm">Loading messages...</div>
+            <div className="text-[#8b92ad] text-sm">{lang === 'th' ? TRANSLATIONS.th.loading_messages : TRANSLATIONS.en.loading_messages}</div>
           </div>
         )}
 
         {!isLoading && grouped.length === 0 && (
           <div className="flex flex-col justify-center items-center h-full gap-3 text-[#8b92ad]">
             <MessageCircle size={36} className="opacity-30" />
-            <p className="text-sm font-medium">No messages yet</p>
-            <p className="text-xs text-center opacity-70">Messages will appear here once the webhook receives them from LINE.</p>
+            <p className="text-sm font-medium">{lang === 'th' ? TRANSLATIONS.th.no_messages : TRANSLATIONS.en.no_messages}</p>
+            <p className="text-xs text-center opacity-70">{lang === 'th' ? TRANSLATIONS.th.no_messages_desc : TRANSLATIONS.en.no_messages_desc}</p>
           </div>
         )}
 
@@ -277,7 +307,10 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
             return (
               <div key={m._id || i} className="flex justify-end items-end gap-2 mb-2">
                 <span className="text-[10px] text-[#8b92ad] mb-1">{timeStr}</span>
-                <div className="bg-[#a7e4b5] text-[#1a1d2e] max-w-[75%] px-4 py-2 rounded-2xl rounded-tr-sm text-sm shadow-sm">
+                <div 
+                  className="bg-[#a7e4b5] text-[#1a1d2e] max-w-[75%] px-4 py-2 rounded-2xl rounded-tr-sm shadow-sm leading-snug"
+                  style={{ fontSize: `${fontSize}px` }}
+                >
                   {m.text}
                 </div>
               </div>
@@ -305,7 +338,10 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-white border border-[#e2e5ef] text-[#1a1d2e] max-w-[75%] px-4 py-2 rounded-2xl rounded-tl-sm text-sm shadow-sm">
+                  <div 
+                    className="bg-white border border-[#e2e5ef] text-[#1a1d2e] max-w-[75%] px-4 py-2 rounded-2xl rounded-tl-sm shadow-sm leading-snug"
+                    style={{ fontSize: `${fontSize}px` }}
+                  >
                     {m.text}
                   </div>
                 )}
@@ -358,7 +394,7 @@ function ChatHistory({ userId, customerName = "Customer", unreadCount = 0, onMar
                 handleSend();
               }
             }}
-            placeholder="Type a message..."
+            placeholder={lang === 'th' ? TRANSLATIONS.th.type_message : TRANSLATIONS.en.type_message}
             className="flex-1 bg-transparent border-none outline-none resize-none py-2 text-sm text-[#1a1d2e] max-h-32 min-h-[40px] leading-tight"
             rows={1}
             disabled={isSending}
@@ -1013,9 +1049,72 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
   );
 }
 
+const TRANSLATIONS = {
+  th: {
+    orders: "ออเดอร์",
+    shop_orders: "ออเดอร์ร้าน",
+    products: "สินค้า",
+    reports: "รายงาน",
+    settings: "ตั้งค่า",
+    search_customers: "ค้นหาลูกค้า...",
+    select_customer: "เลือกลูกค้าเพื่อจัดการ",
+    select_customer_desc: "คลิกที่ชื่อลูกค้าด้านซ้ายเพื่อดูออเดอร์",
+    quick_order: "สั่งซื้อด่วน",
+    add_parcel: "เพิ่มพัสดุ",
+    active_orders: "ออเดอร์ที่กำลังดำเนินการ",
+    new_order_request: "คำขอสั่งซื้อใหม่",
+    in_parcel: "อยู่ในพัสดุ",
+    paid: "ชำระเงินแล้ว",
+    send_qr: "ส่ง QR",
+    mark_paid: "แจ้งโอน",
+    move_to_parcel: "ย้ายไปพัสดุ",
+    items: "รายการ",
+    stats: "สถิติ",
+    config: "ตั้งค่า",
+    last_seen: "ล่าสุดเมื่อ",
+    loading_messages: "กำลังโหลดข้อความ...",
+    no_messages: "ยังไม่มีข้อความ",
+    no_messages_desc: "ข้อความจะปรากฏขึ้นที่นี่เมื่อได้รับจาก LINE",
+    type_message: "พิมพ์ข้อความ...",
+    initializing: "กำลังเข้าสู่ระบบที่ปลอดภัย...",
+    read: "อ่านแล้ว"
+  },
+  en: {
+    orders: "Orders",
+    shop_orders: "Shop Orders",
+    products: "Products",
+    reports: "Reports",
+    settings: "Settings",
+    search_customers: "Search customers...",
+    select_customer: "Select a customer to manage",
+    select_customer_desc: "Click on a customer name on the left to view orders",
+    quick_order: "Quick Chat Order",
+    add_parcel: "Add Parcel",
+    active_orders: "Active Orders (AWAITING FULFILLMENT)",
+    new_order_request: "New Order Request",
+    in_parcel: "In Parcel (Not Shipped)",
+    paid: "PAID",
+    send_qr: "Send QR",
+    mark_paid: "Mark Paid",
+    move_to_parcel: "Move to Parcel →",
+    items: "Items",
+    stats: "Stats",
+    config: "Config",
+    last_seen: "Last seen",
+    loading_messages: "Loading messages...",
+    no_messages: "No messages yet",
+    no_messages_desc: "Messages will appear here once received from LINE.",
+    type_message: "Type a message...",
+    initializing: "Initializing Secure Session...",
+    read: "Read"
+  }
+} as const;
+
 export default function AdminDashboard() {
   const [liffState, setLiffState] = useState<'loading' | 'admin' | 'customer' | 'unauthorized'>('loading');
   const [activeTab, setActiveTab] = useState('orders');
+  const [lang, setLang] = useState<'th' | 'en'>('th');
+  const [chatFontSize, setChatFontSize] = useState(14);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [krwRate, setKrwRate] = useState(0.026);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -1025,6 +1124,25 @@ export default function AdminDashboard() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Load preferences
+  useEffect(() => {
+    const savedLang = localStorage.getItem('admin_lang') as 'th' | 'en';
+    if (savedLang) setLang(savedLang);
+    const savedFontSize = localStorage.getItem('chat_font_size');
+    if (savedFontSize) setChatFontSize(parseInt(savedFontSize));
+  }, []);
+
+  // Save preferences
+  useEffect(() => {
+    localStorage.setItem('admin_lang', lang);
+  }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem('chat_font_size', chatFontSize.toString());
+  }, [chatFontSize]);
+
+  const t = TRANSLATIONS[lang];
 
   const handleGlobalRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -1234,7 +1352,9 @@ export default function AdminDashboard() {
     return (
       <div className="h-screen w-full bg-[#1a1d2e] flex flex-col items-center justify-center">
         <div className="w-16 h-16 border-4 border-[#00b900]/20 border-t-[#00b900] rounded-full animate-spin mb-6"></div>
-        <p className="text-[#8b92ad] text-xs font-bold tracking-widest uppercase animate-pulse">Initializing Secure Session...</p>
+        <p className="text-[#8b92ad] text-xs font-bold tracking-widest uppercase animate-pulse">
+          {lang === 'th' ? TRANSLATIONS.th.initializing : TRANSLATIONS.en.initializing}
+        </p>
       </div>
     );
   }
@@ -1260,11 +1380,11 @@ export default function AdminDashboard() {
             </div>
             
             <nav className="hidden md:flex gap-4">
-              <TabButton icon={<Package size={18}/>} label="Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
-              <TabButton icon={<ShoppingCart size={18}/>} label="Shop Orders" active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
-              <TabButton icon={<Package size={18}/>} label="Products" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
-              <TabButton icon={<BarChart3 size={18}/>} label="Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
-              <TabButton icon={<SettingsIcon size={18}/>} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+              <TabButton icon={<Package size={18}/>} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
+              <TabButton icon={<ShoppingCart size={18}/>} label={t.shop_orders} active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
+              <TabButton icon={<Package size={18}/>} label={t.products} active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
+              <TabButton icon={<BarChart3 size={18}/>} label={t.reports} active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
+              <TabButton icon={<SettingsIcon size={18}/>} label={t.settings} active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
             </nav>
           </div>
 
@@ -1279,6 +1399,23 @@ export default function AdminDashboard() {
                 className="bg-white border border-[#d9d9d9] rounded-lg w-14 md:w-20 px-1 md:px-2 py-0.5 text-center outline-none focus:ring-2 focus:ring-[#00b900] transition-all"
               />
               <span className="text-[#856404] opacity-50 font-medium hidden md:inline">({liveRate.toFixed(4)})</span>
+              
+              <div className="flex gap-1 ml-1 border-l border-[#ffe58f] pl-2 hidden xs:flex">
+                <button 
+                  onClick={() => setLang('th')}
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[9px] font-black transition-all",
+                    lang === 'th' ? "bg-[#00b900] text-white" : "text-[#888] hover:bg-[#00000005]"
+                  )}
+                >TH</button>
+                <button 
+                  onClick={() => setLang('en')}
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[9px] font-black transition-all",
+                    lang === 'en' ? "bg-[#00b900] text-white" : "text-[#888] hover:bg-[#00000005]"
+                  )}
+                >EN</button>
+              </div>
             </div>
             <button
               onClick={handleGlobalRefresh}
@@ -1291,11 +1428,11 @@ export default function AdminDashboard() {
 
         {/* Mobile Tab Navigation */}
         <div className="md:hidden bg-white border-b border-[#e2e5ef] flex gap-2 px-2 overflow-x-auto no-scrollbar py-2 flex-shrink-0">
-           <TabButton icon={<Package size={14}/>} label="Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
-           <TabButton icon={<ShoppingCart size={14}/>} label="Shop Orders" active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
-           <TabButton icon={<Package size={14}/>} label="Products" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
-           <TabButton icon={<BarChart3 size={14}/>} label="Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
-           <TabButton icon={<SettingsIcon size={14}/>} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+           <TabButton icon={<Package size={14}/>} label={t.orders} active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
+           <TabButton icon={<ShoppingCart size={14}/>} label={t.shop_orders} active={activeTab === 'shop-orders'} onClick={() => setActiveTab('shop-orders')} />
+           <TabButton icon={<Package size={14}/>} label={t.products} active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
+           <TabButton icon={<BarChart3 size={14}/>} label={t.reports} active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
+           <TabButton icon={<SettingsIcon size={14}/>} label={t.settings} active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </div>
 
         <div className="flex flex-1 items-stretch overflow-hidden relative">
@@ -1314,7 +1451,7 @@ export default function AdminDashboard() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
                   <input 
                     type="text" 
-                    placeholder="Search customers..." 
+                    placeholder={t.search_customers}
                     className="w-full bg-[#f4f6f9] border-none rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-[#00b900] transition-all outline-none"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1333,6 +1470,7 @@ export default function AdminDashboard() {
                         collapsed={false} // Always show full on mobile/sidebar
                         unreadCount={customer.unreadCount || 0}
                         hasPendingOrder={hasPendingOrder}
+                        lang={lang}
                         onClick={() => { 
                           if (selectedCustomer?.userId !== customer.userId) {
                             setSelectedCustomer(customer); 
@@ -1364,7 +1502,19 @@ export default function AdminDashboard() {
 
           {/* Main Content */}
           <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
-           {activeTab === 'orders' && <OrdersView customerId={selectedCustomer?.userId || ''} customerName={selectedCustomer?.displayName || ''} krwRate={krwRate} />}
+           {activeTab === 'orders' && (
+             selectedCustomer 
+               ? <OrdersView customerId={selectedCustomer.userId} customerName={selectedCustomer.displayName} krwRate={krwRate} t={t} />
+               : (
+                 <div className="flex flex-col items-center justify-center h-full text-[#8b92ad] animate-in fade-in zoom-in duration-300">
+                    <div className="w-20 h-20 bg-white rounded-[32px] flex items-center justify-center shadow-sm mb-6">
+                      <MessageCircle size={32} className="opacity-20" />
+                    </div>
+                    <h2 className="text-xl font-bold text-[#1a1d2e] mb-2">{t.select_customer}</h2>
+                    <p className="text-sm opacity-60">{t.select_customer_desc}</p>
+                 </div>
+               )
+           )}
            {activeTab === 'shop-orders' && <ShopOrdersView />}
            {activeTab === 'products' && <ProductManagement />}
            {activeTab === 'reports' && <ReportsView />}
@@ -1408,6 +1558,9 @@ export default function AdminDashboard() {
                 userId={selectedCustomer.userId} 
                 customerName={selectedCustomer.displayName} 
                 unreadCount={selectedCustomer.unreadCount || 0}
+                fontSize={chatFontSize}
+                onFontSizeChange={setChatFontSize}
+                lang={lang}
                 onMarkAsRead={() => {
                   setCustomers(prev => prev.map(c => c.userId === selectedCustomer.userId ? { ...c, unreadCount: 0 } : c));
                   const headers = { 'x-admin-secret': localStorage.getItem('admin_secret') || '' };
@@ -1450,7 +1603,7 @@ function TabButton({ icon, label, active, onClick }: { icon: any, label: string,
   );
 }
 
-function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrder, onClick }: { customer: any, active: boolean, collapsed: boolean, unreadCount: number, hasPendingOrder: boolean, onClick: any }) {
+function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrder, onClick, lang = 'en' }: { customer: any, active: boolean, collapsed: boolean, unreadCount: number, hasPendingOrder: boolean, onClick: any, lang?: 'th' | 'en' }) {
   if (collapsed) {
     return (
       <div 
@@ -1499,13 +1652,13 @@ function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrde
           {customer.displayName}
           {unreadCount > 0 && <span className="bg-[#00b900] text-white text-[9px] px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
         </div>
-        <div className="text-[10px] text-[#8b92ad]">Last seen: {new Date(customer.lastSeen).toLocaleDateString()}</div>
+        <div className="text-[10px] text-[#8b92ad] truncate">{lang === 'th' ? TRANSLATIONS.th.last_seen : TRANSLATIONS.en.last_seen}: {new Date(customer.lastSeen).toLocaleDateString()}</div>
       </div>
     </div>
   );
 }
 
-const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customerId: string, customerName: string, krwRate: number }) => {
+const OrdersView = React.memo(({ customerId, customerName, krwRate, t }: { customerId: string, customerName: string, krwRate: number, t: any }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -2113,8 +2266,8 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
         <div className="bg-white p-8 rounded-full mb-4 shadow-sm">
            <Search size={48} />
         </div>
-        <h2 className="text-xl font-bold">Select a customer to manage</h2>
-        <p className="text-sm">Click on a customer name on the left to view orders</p>
+        <h2 className="text-xl font-bold">{t.select_customer}</h2>
+        <p className="text-sm">{t.select_customer_desc}</p>
       </div>
     );
   }
@@ -2150,13 +2303,13 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
             onClick={() => setIsQuickOrderOpen(true)}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[#1a1d2e] text-white rounded-lg text-[10px] md:text-xs font-bold hover:opacity-90 shadow-lg active:scale-95 transition-all"
           >
-            <Bell size={16} className="hidden xs:block" /> Quick Chat Order
+            <Bell size={16} className="hidden xs:block" /> {t.quick_order}
           </button>
           <button 
             onClick={addParcel}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-[#00b900] text-white rounded-lg text-[10px] md:text-xs font-bold hover:opacity-90 shadow-lg shadow-[#00b90033] active:scale-95 transition-all"
           >
-            <Plus size={16} className="hidden xs:block" /> Add Parcel
+            <Plus size={16} className="hidden xs:block" /> {t.add_parcel}
           </button>
         </div>
       </div>
@@ -2166,7 +2319,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
            {orders.filter(o => ['pending', 'paid', 'preparing'].includes(o.status)).length > 0 && (
              <div className="mb-8 animate-in fade-in slide-in-from-top-4">
                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-4 block flex items-center gap-2">
-                 <Clock size={12} className="text-orange-400" /> Active Orders (AWAITING FULFILLMENT)
+                 <Clock size={12} className="text-orange-400" /> {t.active_orders}
                </label>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  {orders.filter(o => ['pending', 'paid', 'preparing'].includes(o.status)).map((order) => {
@@ -2204,7 +2357,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                               "text-[10px] font-bold uppercase mb-1",
                               isPreparing ? "text-yellow-600" : isPaid ? "text-emerald-500" : "text-orange-400"
                             )}>
-                              {isPreparing ? "✓ In Parcel (Not Shipped)" : isPaid ? "✓ PAID" : "New Order Request"}
+                              {isPreparing ? `✓ ${t.in_parcel}` : isPaid ? `✓ ${t.paid}` : t.new_order_request}
                             </div>
                             <div className="font-bold text-[#1a1d2e] flex items-center flex-wrap gap-2 leading-tight">
                               {order.product}
@@ -2260,7 +2413,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                                 <span className="flex items-center gap-1 group-hover/btn:hidden"><CheckCircle2 size={14} /> ✓ In Parcel</span>
                                 <span className="hidden items-center gap-1 group-hover/btn:flex"><Trash2 size={14} /> Remove</span>
                               </>
-                            ) : "Move to Parcel →"}
+                            ) : t.move_to_parcel}
                           </button>
 
                           {order.status === 'pending' && (
@@ -2274,13 +2427,13 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                                     : "bg-white text-[#1a1d2e] border-[#e2e5ef] hover:bg-[#f8f9fc]"
                                 )}
                               >
-                                <QrCode size={14} /> {order.paymentQrSent ? 'QR Sent ✓' : 'Send QR'}
+                                <QrCode size={14} /> {order.paymentQrSent ? 'QR Sent ✓' : t.send_qr}
                               </button>
                               <button
                                 onClick={() => handleMarkPaid(order)}
                                 className="flex-1 md:flex-none px-3 py-2 rounded-2xl text-[10px] font-bold bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm flex items-center justify-center gap-1 active:scale-95"
                               >
-                                <CheckCircle2 size={14} /> Mark Paid
+                                <CheckCircle2 size={14} /> {t.mark_paid}
                               </button>
                             </>
                           )}
