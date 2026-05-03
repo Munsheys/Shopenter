@@ -1858,6 +1858,7 @@ function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrde
           theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#f9f9f9]",
           active && (theme === 'dark' ? "bg-[#2d324d] border-l-4 border-[#00b900]" : "bg-[#e8f8e8] border-l-4 border-[#00b900]")
         )}
+        title={customer.displayName}
       >
         <div className="relative">
           <img src={customer.pictureUrl} alt="" className="w-8 h-8 rounded-full bg-[#eee]" />
