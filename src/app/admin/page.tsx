@@ -350,6 +350,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
   const [manualDescription, setManualDescription] = useState('');
   
   const [price, setPrice] = useState<string>('');
+  const [quantity, setQuantity] = useState<number>(1);
   const [autoCatalog, setAutoCatalog] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -388,6 +389,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
       setManualImageUrl('');
       setManualDescription('');
       setPrice('');
+      setQuantity(1);
       setSearchTerm('');
       setIsManual(false);
     }
@@ -428,13 +430,13 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
         description: manualDescription,
         cost: 0,
         autoCatalog 
-      }, finalPrice);
+      }, finalPrice, quantity);
     } else {
       onConfirm({
         ...selProduct,
         selectedThickness: selThickness,
         selectedColor: selColor
-      }, finalPrice);
+      }, finalPrice, quantity);
     }
   };
 
@@ -700,6 +702,17 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                         />
                       </div>
                     </div>
+                    
+                    <div className="pt-4 border-t border-[#e2e5ef]">
+                      <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block flex items-center justify-between">
+                        QUANTITY
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-xl bg-[#f8f9fc] border border-[#e2e5ef] text-[#1a1d2e] font-bold hover:bg-[#e2e5ef] flex items-center justify-center transition-all">-</button>
+                        <span className="font-bold text-lg w-8 text-center">{quantity}</span>
+                        <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-xl bg-[#f8f9fc] border border-[#e2e5ef] text-[#1a1d2e] font-bold hover:bg-[#e2e5ef] flex items-center justify-center transition-all">+</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -739,6 +752,15 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                   onChange={(e) => setPrice(e.target.value)}
                   className="w-full border border-[#e2e5ef] rounded-2xl pl-8 pr-4 py-4 text-2xl font-black text-[#1a1d2e] outline-none focus:border-[#00b900] transition-all bg-[#fcfdfe]"
                 />
+              </div>
+
+              <div className="mt-4 flex justify-between items-center bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl p-4">
+                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">QUANTITY</label>
+                 <div className="flex items-center gap-3">
+                   <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-xl bg-white border border-[#e2e5ef] text-[#1a1d2e] font-bold shadow-sm hover:border-[#00b900] flex items-center justify-center transition-all active:scale-95">-</button>
+                   <span className="font-bold text-xl w-8 text-center">{quantity}</span>
+                   <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-xl bg-white border border-[#e2e5ef] text-[#1a1d2e] font-bold shadow-sm hover:border-[#00b900] flex items-center justify-center transition-all active:scale-95">+</button>
+                 </div>
               </div>
             </div>
           )}
@@ -1399,6 +1421,7 @@ function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrde
 
 const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customerId: string, customerName: string, krwRate: number }) => {
   const [orders, setOrders] = useState<any[]>([]);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [customerData, setCustomerData] = useState<any>(null);
   const [newAddress, setNewAddress] = useState('');
@@ -1714,6 +1737,55 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
     }
   };
 
+  const handleBatchSendQr = async () => {
+    if (selectedOrderIds.size === 0) return;
+    try {
+      const res = await fetch(`/api/orders/batch/send-qr`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' 
+        },
+        body: JSON.stringify({ orderIds: Array.from(selectedOrderIds) })
+      });
+      if (res.ok) {
+        setOrders(prev => prev.map(o => selectedOrderIds.has(o._id) ? { ...o, paymentQrSent: true } : o));
+        setSelectedOrderIds(new Set());
+        showToast('Batch QR Sent', '📱');
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Failed to send batch QR', '❌');
+      }
+    } catch (e) {
+      showToast('Error sending batch QR', '❌');
+    }
+  };
+
+  const handleBatchMarkPaid = async () => {
+    if (selectedOrderIds.size === 0) return;
+    if (!confirm(`Mark ${selectedOrderIds.size} orders as PAID and send Thank You message?`)) return;
+    try {
+      const res = await fetch(`/api/orders/batch/mark-paid`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-secret': (typeof window !== 'undefined' ? localStorage.getItem('admin_secret') : '') || '' 
+        },
+        body: JSON.stringify({ orderIds: Array.from(selectedOrderIds) })
+      });
+      if (res.ok) {
+        setOrders(prev => prev.map(o => selectedOrderIds.has(o._id) ? { ...o, status: 'paid' } : o));
+        setSelectedOrderIds(new Set());
+        showToast('Batch Marked Paid', '✅');
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Failed to mark batch paid', '❌');
+      }
+    } catch (e) {
+      showToast('Error marking batch paid', '❌');
+    }
+  };
+
   const handleMarkPaid = async (order: any) => {
     if (!confirm('Mark order as PAID and send Thank You message via LINE?')) return;
     try {
@@ -1733,7 +1805,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
     }
   };
 
-  const handleQuickOrder = async (product: any, finalPrice: number) => {
+  const handleQuickOrder = async (product: any, finalPrice: number, quantity: number) => {
     if (!customerId) return;
     isLocked.current = true;
     try {
@@ -1772,15 +1844,15 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
 
       const thickness = product.selectedThickness || product.thickness;
       const color = product.selectedColor || product.color;
-      const fullProductName = `${product.brand ? `[${product.brand}] ` : ''}${product.modelLine ? `${product.modelLine} - ` : ''}${product.name}${thickness ? ` (${thickness})` : ''}${color ? ` - ${color}` : ''}`;
+      const fullProductName = `${quantity > 1 ? `${quantity}x ` : ''}${product.brand ? `[${product.brand}] ` : ''}${product.modelLine ? `${product.modelLine} - ` : ''}${product.name}${thickness ? ` (${thickness})` : ''}${color ? ` - ${color}` : ''}`;
 
       const orderData = {
         lineUserId: customerId,
         displayName: customerName,
         product: fullProductName,
-        soldTHB: finalPrice,
+        soldTHB: finalPrice * quantity,
         costKRW: product.cost || 0,
-        profit: finalPrice - ((product.cost || 0) * krwRate),
+        profit: (finalPrice * quantity) - ((product.cost || 0) * krwRate),
         rateUsed: krwRate,
         status: 'pending',
         tracking: '',
@@ -2017,18 +2089,38 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                        key={order._id} 
                        className={cn(
                          "border rounded-3xl p-5 flex justify-between items-center group transition-all",
-                         isPreparing ? "bg-yellow-50 border-yellow-100" : isPaid ? "bg-emerald-50 border-emerald-100" : "bg-orange-50/50 border-orange-100 hover:bg-orange-50"
+                         isPreparing ? "bg-yellow-50 border-yellow-100" : isPaid ? "bg-emerald-50 border-emerald-100" : selectedOrderIds.has(order._id) ? "bg-[#00b90008] border-[#00b900]" : "bg-orange-50/50 border-orange-100 hover:bg-orange-50"
                        )}
                      >
-                       <div>
-                         <div className={cn(
-                           "text-[10px] font-bold uppercase mb-1",
-                           isPreparing ? "text-yellow-600" : isPaid ? "text-emerald-500" : "text-orange-400"
-                         )}>
-                           {isPreparing ? "✓ In Parcel (Not Shipped)" : isPaid ? "✓ PAID" : "New Order Request"}
+                       <div className="flex items-start gap-4">
+                         {!isPreparing && !isPaid && (
+                           <button 
+                             onClick={() => {
+                               setSelectedOrderIds(prev => {
+                                 const next = new Set(prev);
+                                 if (next.has(order._id)) next.delete(order._id);
+                                 else next.add(order._id);
+                                 return next;
+                               });
+                             }}
+                             className={cn(
+                               "mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                               selectedOrderIds.has(order._id) ? "bg-[#00b900] border-[#00b900] text-white" : "border-[#b3b9c4] hover:border-[#00b900]"
+                             )}
+                           >
+                             {selectedOrderIds.has(order._id) && <Check size={14} strokeWidth={3} />}
+                           </button>
+                         )}
+                         <div>
+                           <div className={cn(
+                             "text-[10px] font-bold uppercase mb-1",
+                             isPreparing ? "text-yellow-600" : isPaid ? "text-emerald-500" : "text-orange-400"
+                           )}>
+                             {isPreparing ? "✓ In Parcel (Not Shipped)" : isPaid ? "✓ PAID" : "New Order Request"}
+                           </div>
+                           <div className="font-bold text-[#1a1d2e]">{order.product}</div>
+                           <div className="text-xs text-[#8b92ad]">฿{order.soldTHB.toLocaleString()} • Korean Import</div>
                          </div>
-                         <div className="font-bold text-[#1a1d2e]">{order.product}</div>
-                         <div className="text-xs text-[#8b92ad]">฿{order.soldTHB.toLocaleString()} • Korean Import</div>
                        </div>
                        <div className="flex items-center gap-2">
                          <button 
@@ -2306,6 +2398,38 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
         onConfirm={handleQuickOrder}
         onCancel={() => setIsQuickOrderOpen(false)}
       />
+
+      {selectedOrderIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1a1d2e] text-white rounded-[32px] px-8 py-4 shadow-2xl flex items-center gap-6 z-[150] animate-in slide-in-from-bottom-8">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">{selectedOrderIds.size} ITEMS SELECTED</span>
+            <span className="text-lg font-black text-[#00b900]">
+              ฿{orders.filter(o => selectedOrderIds.has(o._id)).reduce((sum, o) => sum + (o.soldTHB || 0), 0).toLocaleString()}
+            </span>
+          </div>
+          <div className="w-px h-8 bg-[#2a2d3e]"></div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handleBatchSendQr}
+              className="px-5 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95 bg-white text-[#1a1d2e] hover:bg-[#f8f9fc]"
+            >
+              <QrCode size={16} /> Send Combined QR
+            </button>
+            <button 
+              onClick={handleBatchMarkPaid}
+              className="px-5 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95 bg-[#00b900] text-white hover:opacity-90"
+            >
+              <CheckCircle2 size={16} /> Mark All Paid
+            </button>
+            <button 
+              onClick={() => setSelectedOrderIds(new Set())}
+              className="p-2 ml-2 text-[#8b92ad] hover:text-white transition-all rounded-full hover:bg-[#2a2d3e]"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
     );
   });
