@@ -26,8 +26,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Prepare text
     let messageText = settings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
+    const displayProduct = `${(order.quantity || 1) > 1 ? `${order.quantity}x ` : ''}${order.product?.replace(/^\d+x\s/, '') || 'Order'}`;
     messageText = messageText
-      .replace(/{product}/g, order.product || 'Order')
+      .replace(/{product}/g, displayProduct)
       .replace(/{amount}/g, (order.soldTHB || 0).toLocaleString())
       .replace(/{name}/g, order.displayName || 'Customer');
 

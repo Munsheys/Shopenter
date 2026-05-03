@@ -458,14 +458,14 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
 
   useEffect(() => {
     if (currentVariant) {
-      setPrice((currentVariant.price * quantity).toString() || '');
+      setPrice(currentVariant.price?.toString() || '');
     }
-  }, [currentVariant, quantity]);
+  }, [currentVariant]);
 
   if (!isOpen) return null;
 
   const handleConfirm = () => {
-    const totalPrice = parseFloat(price) || 0;
+    const finalPrice = parseFloat(price) || 0;
     if (isManual) {
       onConfirm({ 
         name: manualName, 
@@ -478,13 +478,13 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
         description: manualDescription,
         cost: 0,
         autoCatalog 
-      }, totalPrice, quantity);
+      }, finalPrice, quantity);
     } else {
       onConfirm({
         ...selProduct,
         selectedThickness: selThickness,
         selectedColor: selColor
-      }, totalPrice, quantity);
+      }, finalPrice, quantity);
     }
   };
 
@@ -751,12 +751,14 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
                       </div>
                     </div>
                     
-                    <div className="pt-4 border-t border-[#e2e5ef] flex items-center justify-between">
-                      <div className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Order Multiplier</div>
-                      <div className="flex items-center gap-2 bg-[#f8f9fc] border border-[#e2e5ef] rounded-xl px-2 py-1">
-                        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-8 h-8 rounded-lg bg-white border border-[#e2e5ef] text-[#1a1d2e] font-bold hover:bg-[#e2e5ef] flex items-center justify-center transition-all shadow-sm">-</button>
-                        <span className="font-bold text-sm w-8 text-center">{quantity}x</span>
-                        <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 rounded-lg bg-white border border-[#e2e5ef] text-[#1a1d2e] font-bold hover:bg-[#e2e5ef] flex items-center justify-center transition-all shadow-sm">+</button>
+                    <div className="pt-4 border-t border-[#e2e5ef]">
+                      <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block flex items-center justify-between">
+                        QUANTITY
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-xl bg-[#f8f9fc] border border-[#e2e5ef] text-[#1a1d2e] font-bold hover:bg-[#e2e5ef] flex items-center justify-center transition-all">-</button>
+                        <span className="font-bold text-lg w-8 text-center">{quantity}</span>
+                        <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-xl bg-[#f8f9fc] border border-[#e2e5ef] text-[#1a1d2e] font-bold hover:bg-[#e2e5ef] flex items-center justify-center transition-all">+</button>
                       </div>
                     </div>
                   </div>
@@ -801,10 +803,10 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel }: any) {
               </div>
 
               <div className="mt-4 flex justify-between items-center bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl p-4">
-                 <div className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Order Multiplier</div>
-                 <div className="flex items-center gap-2">
+                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">QUANTITY</label>
+                 <div className="flex items-center gap-3">
                    <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-xl bg-white border border-[#e2e5ef] text-[#1a1d2e] font-bold shadow-sm hover:border-[#00b900] flex items-center justify-center transition-all active:scale-95">-</button>
-                   <span className="font-bold text-xl w-10 text-center">{quantity}x</span>
+                   <span className="font-bold text-xl w-8 text-center">{quantity}</span>
                    <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-xl bg-white border border-[#e2e5ef] text-[#1a1d2e] font-bold shadow-sm hover:border-[#00b900] flex items-center justify-center transition-all active:scale-95">+</button>
                  </div>
               </div>
@@ -837,8 +839,6 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
   const [showConfirm, setShowConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editData, setEditData] = useState({ 
-    product: order.product,
-    qty: order.items?.[0]?.qty || 1,
     soldTHB: order.soldTHB, 
     costKRW: order.costKRW,
     rateUsed: order.rateUsed || krwRate
@@ -950,42 +950,7 @@ function HistoryItem({ order, krwRate, onUpdate }: { order: any, krwRate: number
 
       {isExpanded && (
         <div className="px-4 pb-4 pt-2 border-t border-[#f4f6f9] bg-[#fafbfc]">
-          <div className="mb-4">
-            <label className="text-[9px] font-bold text-[#8b92ad] uppercase mb-1 block">Product Name</label>
-            <input 
-              type="text" 
-              value={editData.product}
-              onChange={(e) => setEditData({...editData, product: e.target.value})}
-              className="w-full border border-[#e2e5ef] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#00b900]"
-            />
-          </div>
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <div>
-              <label className="text-[9px] font-bold text-[#8b92ad] uppercase mb-1 block">Qty</label>
-              <div className="flex items-center gap-1 bg-white border border-[#e2e5ef] rounded-lg p-1">
-                <button 
-                  onClick={() => {
-                    const newQty = Math.max(1, editData.qty - 1);
-                    const unitPrice = editData.soldTHB / editData.qty;
-                    let newName = editData.product.replace(/^\d+x /, '');
-                    if (newQty > 1) newName = `${newQty}x ${newName}`;
-                    setEditData({...editData, qty: newQty, soldTHB: unitPrice * newQty, product: newName});
-                  }}
-                  className="w-6 h-6 rounded flex items-center justify-center bg-[#f8f9fc] hover:bg-[#e2e5ef]"
-                >-</button>
-                <span className="flex-1 text-center font-bold text-xs">{editData.qty}</span>
-                <button 
-                  onClick={() => {
-                    const newQty = editData.qty + 1;
-                    const unitPrice = editData.soldTHB / editData.qty;
-                    let newName = editData.product.replace(/^\d+x /, '');
-                    newName = `${newQty}x ${newName}`;
-                    setEditData({...editData, qty: newQty, soldTHB: unitPrice * newQty, product: newName});
-                  }}
-                  className="w-6 h-6 rounded flex items-center justify-center bg-[#f8f9fc] hover:bg-[#e2e5ef]"
-                >+</button>
-              </div>
-            </div>
+          <div className="grid grid-cols-3 gap-3 mb-4">
             <div>
               <label className="text-[9px] font-bold text-[#8b92ad] uppercase mb-1 block">Sold (THB)</label>
               <input 
@@ -1691,7 +1656,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
       body: JSON.stringify({ status: 'preparing' })
     });
 
-    const newItem = { id: Date.now(), name: order.product, sold: order.soldTHB, cost: order.costKRW, orderId: order._id };
+    const newItem = { id: Date.now(), name: order.product, quantity: order.quantity || 1, sold: order.soldTHB, cost: order.costKRW, orderId: order._id };
     
     setParcels(prev => {
       const lastParcel = prev[prev.length - 1];
@@ -1927,15 +1892,16 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
 
       const thickness = product.selectedThickness || product.thickness;
       const color = product.selectedColor || product.color;
-      const fullProductName = `${quantity > 1 ? `${quantity}x ` : ''}${product.brand ? `[${product.brand}] ` : ''}${product.modelLine ? `${product.modelLine} - ` : ''}${product.name}${thickness ? ` (${thickness})` : ''}${color ? ` - ${color}` : ''}`;
+      const fullProductName = `${product.brand ? `[${product.brand}] ` : ''}${product.modelLine ? `${product.modelLine} - ` : ''}${product.name}${thickness ? ` (${thickness})` : ''}${color ? ` - ${color}` : ''}`;
 
       const orderData = {
         lineUserId: customerId,
         displayName: customerName,
         product: fullProductName,
-        soldTHB: finalPrice,
+        quantity: quantity,
+        soldTHB: finalPrice * quantity,
         costKRW: product.cost || 0,
-        profit: finalPrice - ((product.cost || 0) * krwRate),
+        profit: (finalPrice * quantity) - ((product.cost || 0) * krwRate),
         rateUsed: krwRate,
         status: 'pending',
         tracking: '',
@@ -1994,6 +1960,7 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
         lineUserId: customerId,
         displayName: customerName,
         product: item.name,
+        quantity: item.quantity || 1,
         soldTHB: item.sold,
         costKRW: item.cost,
         profit,
@@ -2201,7 +2168,14 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                            )}>
                              {isPreparing ? "✓ In Parcel (Not Shipped)" : isPaid ? "✓ PAID" : "New Order Request"}
                            </div>
-                           <div className="font-bold text-[#1a1d2e]">{order.product}</div>
+                           <div className="font-bold text-[#1a1d2e] flex items-center gap-2">
+                             {order.product}
+                             {(order.quantity > 1 || order.product.match(/^\d+x\s/)) && (
+                               <span className="bg-[#1a1d2e] text-white text-[10px] px-1.5 py-0.5 rounded-md font-black">
+                                 {order.product.match(/^\d+x\s/) ? order.product.match(/^(\d+)x\s/)?.[1] : order.quantity}x
+                               </span>
+                             )}
+                           </div>
                            <div className="text-xs text-[#8b92ad]">฿{order.soldTHB.toLocaleString()} • Korean Import</div>
                          </div>
                        </div>
@@ -2362,8 +2336,8 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                            <div className="text-[10px] font-black text-[#1a1d2e] opacity-20 uppercase tracking-[0.2em]">Item Details</div>
                         </div>
 
-                        <div className="flex justify-between items-center mb-4">
-                           <div className="flex-1">
+                        <div className="flex justify-between items-center mb-4 gap-4">
+                           <div className="flex-[3]">
                              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Product Name</label>
                              <input 
                                 type="text" 
@@ -2372,50 +2346,27 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate }: { customer
                                 className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900]" 
                              />
                            </div>
+                           <div className="flex-1">
+                             <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Qty</label>
+                             <input 
+                                type="number" 
+                                value={item.quantity || 1} 
+                                onChange={(e) => updateItem(parcel.id, item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900]" 
+                             />
+                           </div>
                            <button 
                              onClick={() => removeItemFromParcel(parcel.id, item.id, item.orderId)}
-                             className="ml-2 mt-6 p-3 text-[#8b92ad] hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                             className="mt-6 p-3 text-[#8b92ad] hover:text-red-500 hover:bg-red-50 rounded-xl transition-all flex-shrink-0"
                              title="Remove item and revert to pending"
                            >
                              <Trash2 size={18} />
                            </button>
                          </div>
 
-                        <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="grid grid-cols-2 gap-4 mb-4">
                           <div>
-                            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Qty</label>
-                            <div className="flex items-center gap-2 bg-[#f8f9fc] border border-[#e2e5ef] rounded-xl px-2 py-1">
-                              <button 
-                                onClick={() => {
-                                  const newQty = Math.max(1, (item.qty || 1) - 1);
-                                  const unitPrice = item.sold / (item.qty || 1);
-                                  updateItem(parcel.id, item.id, 'qty', newQty);
-                                  updateItem(parcel.id, item.id, 'sold', unitPrice * newQty);
-                                  // Update name prefix
-                                  let newName = item.name.replace(/^\d+x /, '');
-                                  if (newQty > 1) newName = `${newQty}x ${newName}`;
-                                  updateItem(parcel.id, item.id, 'name', newName);
-                                }}
-                                className="w-8 h-8 rounded-lg bg-white border border-[#e2e5ef] text-[#1a1d2e] font-bold flex items-center justify-center hover:border-[#00b900] active:scale-95 transition-all"
-                              >-</button>
-                              <span className="flex-1 text-center font-bold text-sm">{item.qty || 1}</span>
-                              <button 
-                                onClick={() => {
-                                  const newQty = (item.qty || 1) + 1;
-                                  const unitPrice = item.sold / (item.qty || 1);
-                                  updateItem(parcel.id, item.id, 'qty', newQty);
-                                  updateItem(parcel.id, item.id, 'sold', unitPrice * newQty);
-                                  // Update name prefix
-                                  let newName = item.name.replace(/^\d+x /, '');
-                                  newName = `${newQty}x ${newName}`;
-                                  updateItem(parcel.id, item.id, 'name', newName);
-                                }}
-                                className="w-8 h-8 rounded-lg bg-white border border-[#e2e5ef] text-[#1a1d2e] font-bold flex items-center justify-center hover:border-[#00b900] active:scale-95 transition-all"
-                              >+</button>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Total Sold (THB)</label>
+                            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Sold (THB)</label>
                             <input 
                                type="number" 
                                value={item.sold} 

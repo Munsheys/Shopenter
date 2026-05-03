@@ -57,7 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           contents: [
             {
               type: "text",
-              text: order.product || "Order Payment",
+              text: `${order.quantity > 1 ? `${order.quantity}x ` : ''}${order.product?.replace(/^\d+x\s/, '') || "Order Payment"}`,
               weight: "bold",
               size: "md",
               wrap: true

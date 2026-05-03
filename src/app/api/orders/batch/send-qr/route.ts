@@ -27,7 +27,10 @@ export async function POST(req: NextRequest) {
     // Assume all orders belong to the same user (enforced by UI)
     const lineUserId = orders[0].lineUserId;
     const totalTHB = orders.reduce((sum, o) => sum + (o.soldTHB || 0), 0);
-    const combinedProducts = orders.map(o => o.product).join(' + ');
+    const combinedProducts = orders.map(o => {
+      const cleanName = o.product?.replace(/^\d+x\s/, '');
+      return `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${cleanName}`;
+    }).join(' + ');
 
     const origin = req.headers.get('origin') || `https://${req.headers.get('host')}`;
     const qrUrl = `${origin}/api/qr?amount=${totalTHB}&ref=batch`;

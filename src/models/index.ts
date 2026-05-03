@@ -55,6 +55,7 @@ const OrderSchema = new mongoose.Schema({
   displayName: String,
   address: String,
   product: String,
+  quantity: { type: Number, default: 1 },
   items: [{
     productId: String,
     name: String,

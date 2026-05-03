@@ -194,7 +194,10 @@ export async function POST(req: Request) {
                       const orderIds = ordersToMarkPaid.map(o => o._id);
                       await Order.updateMany({ _id: { $in: orderIds } }, { $set: { status: 'paid' } });
                       
-                      const combinedProducts = ordersToMarkPaid.map(o => o.product).join(', ');
+                      const combinedProducts = ordersToMarkPaid.map(o => {
+                        const cleanName = o.product?.replace(/^\d+x\s/, '');
+                        return `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${cleanName}`;
+                      }).join(', ');
                       const customer = await Customer.findOne({ userId }).lean() as any;
                       let messageText = settings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
                       messageText = messageText
