@@ -22,7 +22,8 @@ import {
   History,
   Copy,
   Send,
-  RefreshCw
+  RefreshCw,
+  Check
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
