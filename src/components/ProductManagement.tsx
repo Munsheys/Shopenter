@@ -273,7 +273,7 @@ export function TagSelector({
           />
           {isOpen && (
             <div className={cn(
-              "absolute bottom-full left-0 right-0 mb-2 border rounded-xl shadow-xl z-50 overflow-hidden animate-in slide-in-from-bottom-2 duration-100",
+              "absolute top-full left-0 right-0 mt-2 border rounded-xl shadow-xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-100",
               theme === 'dark' ? "bg-[#1f2335] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
             )}>
               <div className="max-h-40 overflow-y-auto p-1">
@@ -376,10 +376,16 @@ function ProductModal({
 
   useEffect(() => {
     if (isOpen) {
-      const currentId = (initialData as any)?._id || 'new';
-      if (currentId !== prevId.current) {
-        setForm(initialData ?? EMPTY_FORM);
-        prevId.current = currentId;
+      if (!initialData) {
+        // Always reset to empty for a new product
+        setForm(EMPTY_FORM);
+        prevId.current = null;
+      } else {
+        const currentId = (initialData as any)?._id;
+        if (currentId !== prevId.current) {
+          setForm(initialData);
+          prevId.current = currentId;
+        }
       }
     } else {
       prevId.current = null;
