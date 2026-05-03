@@ -1727,7 +1727,20 @@ export default function AdminDashboard() {
                  </div>
                )
            )}
-           {activeTab === 'shop-orders' && <ShopOrdersView theme={theme} />}
+           {activeTab === 'shop-orders' && (
+             <ShopOrdersView 
+               theme={theme} 
+               onViewCustomer={(uid) => {
+                 const cust = (customers as any[]).find(c => c.userId === uid);
+                 if (cust) setSelectedCustomer(cust);
+                 else {
+                   setSelectedCustomer({ userId: uid, displayName: 'Customer' });
+                 }
+                 setActiveTab('orders');
+                 setIsChatOpen(true);
+               }} 
+             />
+           )}
            {activeTab === 'products' && <ProductManagement theme={theme} />}
            {activeTab === 'reports' && <ReportsView theme={theme} />}
            {activeTab === 'settings' && <SettingsView theme={theme} onSave={() => setRefreshKey(prev => prev + 1)} />}

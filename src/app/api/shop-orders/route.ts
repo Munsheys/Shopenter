@@ -10,7 +10,34 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orders = await Order.find({ status: 'pending' }).sort({ createdAt: -1 });
+    const { searchParams } = new URL(req.url);
+    const customerId = searchParams.get('customerId');
+    const status = searchParams.get('status');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+    const search = searchParams.get('search');
+
+    await dbConnect();
+    let query: any = {};
+
+    if (customerId) query.lineUserId = customerId;
+    if (status) query.status = status;
+    
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    if (search) {
+      query.$or = [
+        { displayName: { $regex: search, $options: 'i' } },
+        { product: { $regex: search, $options: 'i' } },
+        { tracking: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const orders = await Order.find(query).sort({ createdAt: -1 }).limit(200);
     return NextResponse.json(orders);
   } catch (error) {
     return NextResponse.json({ error: 'Failed' }, { status: 500 });
