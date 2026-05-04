@@ -134,7 +134,7 @@ export default function Shop() {
   // Derived Variant Selection
   const availableThicknesses = useMemo<string[]>(() => {
     if (!selectedProduct?.variants) return [];
-    return Array.from(new Set(selectedProduct.variants.map((v: any) => String(v.thickness)))).filter(Boolean);
+    return Array.from(new Set(selectedProduct.variants.map((v: any) => String(v.thickness)))).filter(Boolean) as string[];
   }, [selectedProduct]);
 
   const availableColors = useMemo<string[]>(() => {
@@ -142,7 +142,7 @@ export default function Shop() {
     const matching = selectedProduct.variants.filter((v: any) => v.thickness === selThickness);
     const colors = new Set<string>();
     matching.forEach((v: any) => v.colors?.forEach((c: any) => colors.add(String(c))));
-    return Array.from(colors);
+    return Array.from(colors) as string[];
   }, [selectedProduct, selThickness]);
 
   // Update selected variant when thickness/color changes
