@@ -34,11 +34,15 @@ export default function Shop() {
         setShopInfo(data);
         if (data.liffId) {
           try {
-            // Initialize LIFF without forcing login immediately
+            // Initialize LIFF
             await liff.init({ liffId: data.liffId });
+            
             if (liff.isLoggedIn()) {
               const profile = await liff.getProfile();
               setCustomer(profile);
+            } else if (liff.isInClient()) {
+              // Auto-login only if running inside the LINE app (In-App Browser)
+              liff.login();
             }
           } catch (err) {
             console.error("LIFF Init failed:", err);
