@@ -31,13 +31,19 @@ export default function Shop() {
 
   // Load shop info and init LIFF
   useEffect(() => {
-    // Warm Cache: Pre-load customer from localStorage to prevent "Guest" flicker
+    // 1. Detect if we are in a login callback flow
+    const url = new URL(window.location.href);
+    const isCallback = url.searchParams.has('code') || url.searchParams.has('liff.state');
+    
+    // Warm Cache
     const cachedCustomer = localStorage.getItem('liff_profile');
     if (cachedCustomer) {
       try {
         setCustomer(JSON.parse(cachedCustomer));
         setAuthStatus('logged_in');
       } catch (e) { localStorage.removeItem('liff_profile'); }
+    } else if (isCallback) {
+      setAuthStatus('verifying');
     }
 
     fetch('/api/shop-info')
@@ -47,7 +53,8 @@ export default function Shop() {
         if (data.liffId && !liffInitialized.current) {
           liffInitialized.current = true;
           try {
-            setAuthStatus('verifying');
+            if (!cachedCustomer) setAuthStatus('verifying');
+            
             await liff.init({ liffId: data.liffId });
             
             if (liff.isLoggedIn()) {
@@ -57,7 +64,7 @@ export default function Shop() {
                 localStorage.setItem('liff_profile', JSON.stringify(profile));
                 setAuthStatus('logged_in');
               } catch (pErr) {
-                // Fallback: ID Token
+                // Fallback to ID Token if profile fetch fails
                 const token = liff.getDecodedIDToken();
                 if (token) {
                   const p = { userId: token.sub, displayName: token.name || "Member", pictureUrl: token.picture };
@@ -69,9 +76,12 @@ export default function Shop() {
                 }
               }
             } else {
+              // Not logged in
               setAuthStatus('guest');
               localStorage.removeItem('liff_profile');
-              if (liff.isInClient()) {
+              
+              // Only auto-login if explicitly in LINE client and NOT just returned from a callback
+              if (liff.isInClient() && !isCallback) {
                 liff.login();
               }
             }
@@ -180,9 +190,11 @@ export default function Shop() {
             </div>
             <div className="hidden sm:flex flex-col">
               <span className="text-[9px] font-black uppercase tracking-widest text-[#d4af37] leading-none mb-0.5">
-                {customer ? "Verified Member" : "Guest Account"}
+                {authStatus === 'verifying' ? "Secure Session" : customer ? "Verified Member" : "Guest Account"}
               </span>
-              {customer ? (
+              {authStatus === 'verifying' ? (
+                <span className="text-xs font-bold text-[#1a1d2e] leading-none animate-pulse">Verifying...</span>
+              ) : customer ? (
                 <span className="text-xs font-bold text-[#1a1d2e] leading-none truncate max-w-[100px] lg:max-w-[150px]">
                   {customer.displayName}
                 </span>
