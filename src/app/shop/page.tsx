@@ -11,7 +11,7 @@ function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 type CartItem = { productId: string; name: string; price: number; variantLabel?: string; qty: number; imageUrl?: string; };
 type Product = any;
 type View = 'home' | 'detail' | 'cart' | 'payment';
-type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'featured';
+type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'brand' | 'featured';
 
 export default function Shop() {
   const [shopInfo, setShopInfo] = useState<any>(null);
@@ -20,6 +20,11 @@ export default function Shop() {
   const [view, setView] = useState<View>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+  
+  // 2-Tier Selection States
+  const [selThickness, setSelThickness] = useState<string>('');
+  const [selColor, setSelColor] = useState<string>('');
+
   const [customer, setCustomer] = useState<any>(null);
   const [isOrdering, setIsOrdering] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
@@ -117,12 +122,37 @@ export default function Shop() {
       case 'price-desc':
         result.sort((a, b) => (b.price || 0) - (a.price || 0));
         break;
+      case 'brand':
+        result.sort((a, b) => (a.brand || '').localeCompare(b.brand || ''));
+        break;
       default:
-        // Featured - default order
         break;
     }
     return result;
   }, [products, activeCategory, searchQuery, sortBy]);
+
+  // Derived Variant Selection
+  const availableThicknesses = useMemo(() => {
+    if (!selectedProduct?.variants) return [];
+    return Array.from(new Set(selectedProduct.variants.map((v: any) => v.thickness))).filter(Boolean);
+  }, [selectedProduct]);
+
+  const availableColors = useMemo(() => {
+    if (!selectedProduct?.variants || !selThickness) return [];
+    const matching = selectedProduct.variants.filter((v: any) => v.thickness === selThickness);
+    const colors = new Set<string>();
+    matching.forEach((v: any) => v.colors?.forEach((c: string) => colors.add(c)));
+    return Array.from(colors);
+  }, [selectedProduct, selThickness]);
+
+  // Update selected variant when thickness/color changes
+  useEffect(() => {
+    if (!selectedProduct?.variants) return;
+    const match = selectedProduct.variants.find((v: any) => 
+      v.thickness === selThickness && v.colors?.includes(selColor)
+    );
+    setSelectedVariant(match || null);
+  }, [selThickness, selColor, selectedProduct]);
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
@@ -130,7 +160,7 @@ export default function Shop() {
   const addToCart = useCallback(() => {
     if (!selectedProduct) return;
     const price = selectedVariant?.price ?? selectedProduct.price;
-    const variantLabel = selectedVariant ? [selectedVariant.thickness, selectedVariant.colors?.join('/')].filter(Boolean).join(' · ') : undefined;
+    const variantLabel = selectedVariant ? [selectedVariant.thickness, selColor].filter(Boolean).join(' · ') : undefined;
     const key = selectedProduct._id + (variantLabel || '');
     setCart(prev => {
       const existing = prev.find(i => i.productId + (i.variantLabel || '') === key);
@@ -139,9 +169,11 @@ export default function Shop() {
     });
     setView('home');
     setIsCartOpen(true);
+    setSelThickness('');
+    setSelColor('');
     setSelectedVariant(null);
     setQty(1);
-  }, [selectedProduct, selectedVariant, qty]);
+  }, [selectedProduct, selectedVariant, selColor, qty]);
 
   const handleConfirmOrder = async () => {
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.origin + '/shop' }); return; }
@@ -221,7 +253,6 @@ export default function Shop() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                {/* Search */}
                 <div className="relative flex-1 sm:w-[300px] lg:w-[350px] group">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[#1a1d2e]/30 group-focus-within:text-[#d4af37] transition-colors" size={18} />
                   <input
@@ -232,7 +263,6 @@ export default function Shop() {
                   />
                 </div>
 
-                {/* Sort Dropdown */}
                 <div className="relative group min-w-[180px]">
                   <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#1a1d2e]/30 pointer-events-none"><ArrowUpDown size={16} /></div>
                   <select
@@ -242,6 +272,7 @@ export default function Shop() {
                   >
                     <option value="featured">Featured</option>
                     <option value="newest">Newest Arrival</option>
+                    <option value="brand">Brand (A-Z)</option>
                     <option value="price-asc">Price: Low to High</option>
                     <option value="price-desc">Price: High to Low</option>
                   </select>
@@ -250,8 +281,7 @@ export default function Shop() {
               </div>
             </div>
 
-            {/* Smart Categories */}
-            <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-3 overflow-x-auto py-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
               {categories.map(cat => (
                 <button
                   key={cat.name}
@@ -275,34 +305,27 @@ export default function Shop() {
             </div>
           </div>
 
-          {/* PRODUCT GRID */}
+          {/* HIGH-DENSITY GRID */}
           {filteredAndSorted.length === 0 ? (
             <div className="text-center py-20 lg:py-40">
               <Package size={48} className="mx-auto mb-4 text-[#1a1d2e]/10" />
               <p className="font-bold text-[#1a1d2e]/40 uppercase tracking-widest text-xs">No Items Match Your Filter</p>
-              <button onClick={() => {setActiveCategory('All'); setSearchQuery('');}} className="mt-4 text-[#d4af37] text-xs font-black uppercase underline underline-offset-4">Reset Filters</button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 sm:gap-x-8 gap-y-10 sm:gap-y-16">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-6 gap-y-8 sm:gap-y-12">
               {filteredAndSorted.map((p: Product) => (
                 <button
                   key={p._id}
-                  onClick={() => { setSelectedProduct(p); setSelectedVariant(null); setQty(1); setView('detail'); }}
+                  onClick={() => { setSelectedProduct(p); setSelThickness(''); setSelColor(''); setQty(1); setView('detail'); }}
                   className="group text-left active:scale-[0.98] transition-all"
                 >
-                  <div className="aspect-[4/5] rounded-[24px] sm:rounded-[48px] overflow-hidden bg-[#1a1d2e]/5 mb-4 sm:mb-6 relative shadow-sm group-hover:shadow-3xl transition-all border border-transparent group-hover:border-[#d4af37]/20">
-                    {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" /> : <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10"><Package size={40} /></div>}
-                    {p.brand && <span className="absolute top-4 left-4 sm:top-6 sm:left-6 bg-white/90 backdrop-blur-md text-[#1a1d2e] text-[8px] sm:text-[10px] font-black px-3 py-1 sm:py-1.5 rounded-full uppercase tracking-widest border border-[#1a1d2e]/5">{p.brand}</span>}
+                  <div className="aspect-[3/4] rounded-[24px] sm:rounded-[32px] overflow-hidden bg-[#1a1d2e]/5 mb-3 sm:mb-4 relative shadow-sm group-hover:shadow-2xl transition-all border border-transparent group-hover:border-[#d4af37]/20">
+                    {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" /> : <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10"><Package size={32} /></div>}
+                    {p.brand && <span className="absolute top-3 left-3 sm:top-4 sm:left-4 bg-white/90 backdrop-blur-md text-[#1a1d2e] text-[7px] sm:text-[9px] font-black px-2 sm:px-3 py-1 rounded-full uppercase tracking-widest border border-[#1a1d2e]/5">{p.brand}</span>}
                   </div>
-                  <div className="px-1 sm:px-4">
-                    <p className="font-serif font-black text-lg sm:text-2xl text-[#1a1d2e] leading-tight mb-1 sm:mb-2 group-hover:text-[#d4af37] transition-colors">{p.name}</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[#d4af37] font-black text-sm sm:text-lg tracking-tight">฿{p.price?.toLocaleString()}</p>
-                      <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                         <span className="text-[10px] font-black text-[#1a1d2e]/40 uppercase tracking-widest">In Stock</span>
-                      </div>
-                    </div>
+                  <div className="px-1 sm:px-2">
+                    <p className="font-serif font-black text-base sm:text-xl text-[#1a1d2e] leading-tight mb-1 group-hover:text-[#d4af37] transition-colors line-clamp-1">{p.name}</p>
+                    <p className="text-[#d4af37] font-black text-xs sm:text-base tracking-tight">฿{p.price?.toLocaleString()}</p>
                   </div>
                 </button>
               ))}
@@ -329,28 +352,53 @@ export default function Shop() {
               <h2 className="text-4xl sm:text-6xl font-serif font-black text-[#1a1d2e] mb-4 lg:mb-8 tracking-tight leading-none italic">{selectedProduct.name}</h2>
               {selectedProduct.description && <p className="text-[#8b92ad] text-base sm:text-xl leading-relaxed mb-8 lg:mb-12 font-medium max-w-xl">{selectedProduct.description}</p>}
               <div className="flex items-end gap-3 mb-10 lg:mb-16"><span className="text-4xl sm:text-6xl font-black text-[#1a1d2e]">฿{(selectedVariant?.price ?? selectedProduct.price)?.toLocaleString()}</span><span className="text-xs font-bold text-[#8b92ad] mb-2 uppercase tracking-widest">Investment</span></div>
-              {selectedProduct.variants?.length > 0 && (
-                <div className="mb-8 lg:mb-12">
-                  <p className="text-[10px] font-black text-[#1a1d2e]/30 uppercase tracking-[0.2em] mb-4">Specifications</p>
+              
+              {/* 2-TIER VARIANT SELECTOR */}
+              {availableThicknesses.length > 0 && (
+                <div className="mb-8">
+                  <p className="text-[10px] font-black text-[#1a1d2e]/30 uppercase tracking-[0.2em] mb-4">1. Choose Thickness</p>
                   <div className="flex flex-wrap gap-3">
-                    {selectedProduct.variants.map((v: any, i: number) => {
-                      const label = [v.thickness, v.colors?.join(' / ')].filter(Boolean).join(' · ');
-                      return (<button key={i} onClick={() => setSelectedVariant(v)} className={cn("px-6 py-3 rounded-2xl text-[10px] sm:text-xs font-black border transition-all uppercase tracking-widest", selectedVariant === v ? "bg-[#1a1d2e] border-[#1a1d2e] text-white shadow-xl" : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/40 hover:border-[#d4af37]/40")}>{label || `Model ${i + 1}`}</button>);
-                    })}
+                    {availableThicknesses.map(t => (
+                      <button 
+                        key={t} 
+                        onClick={() => { setSelThickness(t); setSelColor(''); }} 
+                        className={cn("px-6 py-3 rounded-2xl text-[10px] sm:text-xs font-black border transition-all uppercase tracking-widest", selThickness === t ? "bg-[#1a1d2e] border-[#1a1d2e] text-white shadow-xl" : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/40 hover:border-[#d4af37]/40")}
+                      >
+                        {t}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
+
+              {selThickness && availableColors.length > 0 && (
+                <div className="mb-10 lg:mb-14 animate-in fade-in slide-in-from-top-2 duration-500">
+                  <p className="text-[10px] font-black text-[#1a1d2e]/30 uppercase tracking-[0.2em] mb-4">2. Choose Color</p>
+                  <div className="flex flex-wrap gap-3">
+                    {availableColors.map(c => (
+                      <button 
+                        key={c} 
+                        onClick={() => setSelColor(c)} 
+                        className={cn("px-6 py-3 rounded-2xl text-[10px] sm:text-xs font-black border transition-all uppercase tracking-widest", selColor === c ? "bg-[#1a1d2e] border-[#1a1d2e] text-white shadow-xl" : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/40 hover:border-[#d4af37]/40")}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between bg-[#1a1d2e]/5 rounded-3xl p-4 lg:p-6 mb-10 lg:mb-16 lg:max-w-md"><span className="text-[10px] font-black uppercase tracking-widest text-[#1a1d2e]/40">Quantity</span><div className="flex items-center gap-6 sm:gap-10"><button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-8 h-8 sm:w-12 sm:h-12 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e] hover:bg-white transition-all"><Minus size={14} /></button><span className="font-black text-lg sm:text-2xl text-[#1a1d2e]">{qty}</span><button onClick={() => setQty(q => q + 1)} className="w-8 h-8 sm:w-12 sm:h-12 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e] hover:bg-white transition-all"><Plus size={14} /></button></div></div>
-              <div className="hidden lg:block lg:max-w-md"><button onClick={addToCart} disabled={selectedProduct.variants?.length > 0 && !selectedVariant} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-6 rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4"><ShoppingBag size={24} className="text-[#d4af37]" />ADD TO BAG</button></div>
+              <div className="hidden lg:block lg:max-w-md"><button onClick={addToCart} disabled={(availableThicknesses.length > 0 && !selThickness) || (availableColors.length > 0 && !selColor)} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-6 rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4"><ShoppingBag size={24} className="text-[#d4af37]" />ADD TO BAG</button></div>
             </div>
           </div>
           <div className="lg:hidden fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#fdfbf7] via-[#fdfbf7] to-transparent z-40">
-            <div className="max-w-lg mx-auto"><button onClick={addToCart} disabled={selectedProduct.variants?.length > 0 && !selectedVariant} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-5 rounded-[24px] font-black text-base shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"><ShoppingBag size={20} className="text-[#d4af37]" />{selectedProduct.variants?.length > 0 && !selectedVariant ? 'CHOOSE SPEC' : `ADD TO BAG · ฿${((selectedVariant?.price ?? selectedProduct.price) * qty).toLocaleString()}`}</button></div>
+            <div className="max-w-lg mx-auto"><button onClick={addToCart} disabled={(availableThicknesses.length > 0 && !selThickness) || (availableColors.length > 0 && !selColor)} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-5 rounded-[24px] font-black text-base shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"><ShoppingBag size={20} className="text-[#d4af37]" />{(availableThicknesses.length > 0 && !selThickness) || (availableColors.length > 0 && !selColor) ? 'COMPLETE SELECTION' : `ADD TO BAG · ฿${((selectedVariant?.price ?? selectedProduct.price) * qty).toLocaleString()}`}</button></div>
           </div>
         </div>
       )}
 
-      {/* PAYMENT & CART (Existing logic maintained) */}
+      {/* PAYMENT & CART */}
       {view === 'payment' && currentOrder && (
         <div className="max-w-3xl mx-auto px-6 pt-20 pb-32 text-center animate-in zoom-in-95 duration-700">
           <div className="w-20 h-20 bg-[#d4af37]/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-[#d4af37]/20"><CheckCircle className="text-[#d4af37]" size={40} /></div>
