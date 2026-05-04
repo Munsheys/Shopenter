@@ -21,13 +21,11 @@ export default function AdminGateway() {
       setShopInfo(checkData);
       const isConfigured = !!checkData.liffId;
 
-      if (!isConfigured) {
-        setLiffState('admin'); 
-        return;
-      }
-
-      // If configured, root always redirects to the shop for the best customer UX
-      window.location.href = '/shop';
+      // Preserve any query parameters (like ?code= and ?state=) when redirecting
+      const searchParams = new URLSearchParams(window.location.search).toString();
+      const redirectPath = searchParams ? `/shop?${searchParams}` : '/shop';
+      
+      window.location.href = redirectPath;
     } catch (err) {
       console.error("Auth gate failed:", err);
       // Fallback to shop if anything fails but we think it's configured
