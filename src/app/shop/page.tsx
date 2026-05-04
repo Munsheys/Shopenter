@@ -132,16 +132,16 @@ export default function Shop() {
   }, [products, activeCategory, searchQuery, sortBy]);
 
   // Derived Variant Selection
-  const availableThicknesses = useMemo(() => {
+  const availableThicknesses = useMemo<string[]>(() => {
     if (!selectedProduct?.variants) return [];
-    return Array.from(new Set(selectedProduct.variants.map((v: any) => v.thickness))).filter(Boolean);
+    return Array.from(new Set(selectedProduct.variants.map((v: any) => String(v.thickness)))).filter(Boolean);
   }, [selectedProduct]);
 
-  const availableColors = useMemo(() => {
+  const availableColors = useMemo<string[]>(() => {
     if (!selectedProduct?.variants || !selThickness) return [];
     const matching = selectedProduct.variants.filter((v: any) => v.thickness === selThickness);
     const colors = new Set<string>();
-    matching.forEach((v: any) => v.colors?.forEach((c: string) => colors.add(c)));
+    matching.forEach((v: any) => v.colors?.forEach((c: any) => colors.add(String(c))));
     return Array.from(colors);
   }, [selectedProduct, selThickness]);
 
