@@ -281,13 +281,13 @@ export default function Shop() {
               </div>
             </div>
 
-            <div className="flex gap-3 overflow-x-auto py-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-3 overflow-x-auto py-6 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
               {categories.map(cat => (
                 <button
                   key={cat.name}
                   onClick={() => setActiveCategory(cat.name)}
                   className={cn(
-                    "whitespace-nowrap px-6 py-2.5 rounded-full text-[11px] font-black transition-all border flex-shrink-0 uppercase tracking-widest flex items-center gap-2",
+                    "whitespace-nowrap px-6 py-2.5 rounded-full text-[11px] font-black transition-all border flex-shrink-0 uppercase tracking-widest flex items-center gap-2 outline-none focus:ring-2 focus:ring-[#d4af37]/20",
                     activeCategory === cat.name
                       ? "bg-[#1a1d2e] border-[#1a1d2e] text-white shadow-xl shadow-[#1a1d2e]/20 scale-105"
                       : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/40 hover:border-[#d4af37]/40 hover:text-[#1a1d2e]"
