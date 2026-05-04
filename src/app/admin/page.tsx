@@ -1368,6 +1368,7 @@ export default function AdminDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSavingKRW, setIsSavingKRW] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const krwLoadedRef = useRef(false); // Prevents debounce from firing on initial DB load
 
   // Load preferences
   useEffect(() => {
@@ -1457,7 +1458,10 @@ export default function AdminDashboard() {
     const headers = { 'x-admin-secret': secret };
     
     fetch('/api/shop-info', { headers }).then(r => r.json()).then(data => setShopInfo(data)).catch(console.error);
-    fetch('/api/rate', { headers }).then(r => r.ok ? r.json() : { rate: 0.026 }).then(data => setKrwRate(data?.rate || 0.026)).catch(console.error);
+    fetch('/api/rate', { headers }).then(r => r.ok ? r.json() : { rate: 0.026 }).then(data => {
+      setKrwRate(data?.rate || 0.026);
+      krwLoadedRef.current = true; // Mark as loaded — debounce is now safe to fire
+    }).catch(console.error);
 
     // --- SSE Stream for real-time customer & order updates ---
     // One persistent connection per tab instead of N requests/5s
@@ -1505,19 +1509,17 @@ export default function AdminDashboard() {
     };
   }, [liffState]);
 
-  // Debounced KRW Rate Sync to DB
+  // Debounced KRW Rate Sync to DB — only fires after initial load
   useEffect(() => {
     if (liffState !== 'admin') return;
+    if (!krwLoadedRef.current) return; // Skip until DB value is loaded
     const timer = setTimeout(async () => {
       try {
         const secret = localStorage.getItem('admin_secret') || '';
-        await fetch('/api/settings', {
+        await fetch('/api/rate', {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-admin-secret': secret
-          },
-          body: JSON.stringify({ krwRate })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rate: krwRate })
         });
       } catch (err) {
         console.error('Failed to sync KRW rate:', err);
@@ -1661,11 +1663,10 @@ export default function AdminDashboard() {
                 onClick={async () => {
                   try {
                     setIsSavingKRW(true);
-                    const secret = localStorage.getItem('admin_secret') || '';
-                    await fetch('/api/settings', {
+                    await fetch('/api/rate', {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-                      body: JSON.stringify({ krwRate })
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ rate: krwRate })
                     });
                     setTimeout(() => setIsSavingKRW(false), 2000);
                   } catch (err) { 
