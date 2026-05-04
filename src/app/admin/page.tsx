@@ -1532,7 +1532,7 @@ export default function AdminDashboard() {
     try {
       const secret = localStorage.getItem('admin_secret');
       if (!secret) {
-        window.location.href = '/';
+        setLiffState('unauthorized');
         return;
       }
 
@@ -1542,7 +1542,7 @@ export default function AdminDashboard() {
       const verifyRes = await fetch('/api/customers', { headers, cache: 'no-store' });
       if (verifyRes.status === 401) {
         localStorage.removeItem('admin_secret');
-        window.location.href = '/';
+        setLiffState('unauthorized');
         return;
       }
 
@@ -1582,14 +1582,8 @@ export default function AdminDashboard() {
       setLiffState('admin');
     } catch (err) {
       console.error("Dashboard primary init failed:", err);
-      // Only redirect to root if we don't have a valid session at all
-      if (err instanceof Error && err.message.includes("401")) {
-         window.location.href = '/';
-      } else {
-         // If it's just a network error or something else, stay on the page but show an error maybe?
-         // For now, let's just let it be and see if it renders
-         setLiffState('admin');
-      }
+      // Stay on page but show login if auth related
+      setLiffState('unauthorized');
     }
   }, []);
 
@@ -1604,6 +1598,43 @@ export default function AdminDashboard() {
           theme={theme} 
           message={lang === 'th' ? TRANSLATIONS.th.initializing : TRANSLATIONS.en.initializing} 
         />
+      </div>
+    );
+  }
+
+  if (liffState === 'unauthorized') {
+    return (
+      <div className={cn("h-screen w-full flex items-center justify-center p-6", theme === 'dark' ? "bg-[#0f111a]" : "bg-[#f8f9fc]")}>
+        <div className={cn("max-w-md w-full rounded-[40px] p-12 text-center shadow-2xl relative overflow-hidden", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white border border-[#e2e5ef]")}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#00b900]/5 rounded-full -mr-16 -mt-16"></div>
+          <div className="w-20 h-20 bg-[#f8f9fc]/10 rounded-3xl mx-auto mb-8 flex items-center justify-center text-[#00b900]">
+            <SettingsIcon size={32} />
+          </div>
+          <h2 className={cn("text-2xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Administrative Login</h2>
+          <p className="text-sm text-[#8b92ad] mb-10">Please enter your master secret key to access the dashboard.</p>
+          
+          <input 
+            type="password"
+            autoFocus
+            placeholder="••••••••"
+            className={cn("w-full rounded-2xl py-5 px-6 text-center text-2xl tracking-[0.5em] outline-none focus:ring-2 focus:ring-[#00b900] transition-all mb-4 font-mono", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]")}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                localStorage.setItem('admin_secret', (e.target as HTMLInputElement).value);
+                window.location.reload();
+              }
+            }}
+          />
+          <p className="text-[10px] text-[#8b92ad]">Press Enter to Unlock</p>
+          <div className="mt-8 pt-8 border-t border-gray-100/10">
+            <button 
+              onClick={() => window.location.href = '/shop'}
+              className="text-[10px] text-[#00b900] hover:opacity-70 font-bold tracking-widest uppercase"
+            >
+              Back to Storefront
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
