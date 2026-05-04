@@ -34,12 +34,11 @@ export default function Shop() {
         setShopInfo(data);
         if (data.liffId) {
           try {
+            // Initialize LIFF without forcing login immediately
             await liff.init({ liffId: data.liffId });
             if (liff.isLoggedIn()) {
               const profile = await liff.getProfile();
               setCustomer(profile);
-            } else {
-              liff.login();
             }
           } catch (err) {
             console.error("LIFF Init failed:", err);
@@ -127,11 +126,31 @@ export default function Shop() {
           <div className="flex items-center gap-3">
             {customer?.pictureUrl
               ? <img src={customer.pictureUrl} className="w-9 h-9 rounded-full border-2 border-[#00b900]/60 object-cover" alt="" />
-              : <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><User size={16} className="text-white/40" /></div>
+              : (
+                <button 
+                  onClick={() => liff.login()}
+                  className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:border-[#00b900]/40 transition-colors"
+                >
+                  <User size={16} className="text-white/40" />
+                </button>
+              )
             }
             <div>
-              <p className="text-[11px] text-white/40 leading-none">Welcome back</p>
-              <p className="text-sm font-bold text-white leading-tight truncate max-w-[140px]">{customer?.displayName?.split(' ')[0] || 'Guest'}</p>
+              <p className="text-[11px] text-white/40 leading-none">
+                {customer ? "Welcome back" : "Guest Mode"}
+              </p>
+              {customer ? (
+                <p className="text-sm font-bold text-white leading-tight truncate max-w-[140px]">
+                  {customer.displayName?.split(' ')[0]}
+                </p>
+              ) : (
+                <button 
+                  onClick={() => liff.login()}
+                  className="text-sm font-bold text-[#00b900] leading-tight hover:underline"
+                >
+                  Sign in with LINE
+                </button>
+              )}
             </div>
           </div>
 
