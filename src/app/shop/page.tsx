@@ -367,7 +367,7 @@ export default function Shop() {
                   onClick={() => { setSelectedProduct(p); setSelThickness(''); setSelColor(''); setQty(1); setView('detail'); }}
                   className="group text-left active:scale-[0.98] transition-all"
                 >
-                  <div className="aspect-square rounded-[32px] overflow-hidden bg-[#1a1d2e]/5 mb-4 relative shadow-sm group-hover:shadow-2xl transition-all border border-transparent group-hover:border-[#d4af37]/20">
+                  <div className="aspect-square w-full rounded-[32px] overflow-hidden bg-[#1a1d2e]/5 mb-4 relative shadow-sm group-hover:shadow-2xl transition-all border border-transparent group-hover:border-[#d4af37]/20">
                     {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" /> : <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10"><Package size={32} /></div>}
                     {p.brand && <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md text-[#1a1d2e] text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-[#1a1d2e]/5">{p.brand}</span>}
                   </div>
@@ -391,7 +391,7 @@ export default function Shop() {
           </div>
           <div className="lg:flex lg:gap-16 lg:px-8 lg:pt-8">
             <div className="px-5 mb-10 lg:w-1/2 lg:flex lg:justify-end">
-              <div className="rounded-[48px] overflow-hidden aspect-square bg-[#1a1d2e]/5 shadow-2xl border border-[#1a1d2e]/5 w-full lg:max-w-sm">
+              <div className="rounded-[48px] overflow-hidden w-full aspect-square lg:w-[400px] lg:h-[400px] bg-[#1a1d2e]/5 shadow-2xl border border-[#1a1d2e]/5">
                 {selectedProduct.imageUrl ? <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10"><Package size={80} /></div>}
               </div>
             </div>
