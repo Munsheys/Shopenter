@@ -259,12 +259,8 @@ export default function Shop() {
           {/* Sub-Header Branding */}
           <div className="mb-10 text-center lg:text-left flex flex-col lg:flex-row lg:items-end lg:justify-between lg:mb-16">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#d4af37]/10 rounded-full mb-3">
-                <Sparkles size={12} className="text-[#d4af37]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d4af37]">Exclusive Boutique</span>
-              </div>
               <h2 className="text-3xl sm:text-5xl font-serif font-black text-[#1a1d2e] tracking-tight mb-2 italic">
-                Our Collection
+                Shop
               </h2>
               <p className="text-[#8b92ad] text-sm font-medium">Curated selection of premium items from Seoul, Korea</p>
             </div>
@@ -346,7 +342,6 @@ export default function Shop() {
             <button onClick={() => setView('home')} className="w-10 h-10 rounded-full bg-[#1a1d2e]/5 flex items-center justify-center text-[#1a1d2e] hover:bg-[#1a1d2e]/10 transition-colors">
               <ChevronLeft size={20} />
             </button>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#d4af37]">Collection 2026</span>
             <div className="w-10" />
           </div>
 
@@ -363,7 +358,7 @@ export default function Shop() {
             <div className="px-8 lg:w-1/2 lg:px-0 lg:flex lg:flex-col lg:justify-center">
               <div className="flex items-center gap-2 mb-3 lg:mb-6">
                 <div className="h-[1px] w-8 bg-[#d4af37]" />
-                <p className="text-[#d4af37] text-[10px] font-black uppercase tracking-[0.3em]">{selectedProduct.brand || "Exclusive"}</p>
+                <p className="text-[#d4af37] text-[10px] font-black uppercase tracking-[0.3em]">{selectedProduct.brand || "Boutique Selection"}</p>
               </div>
               <h2 className="text-4xl sm:text-6xl font-serif font-black text-[#1a1d2e] mb-4 lg:mb-8 tracking-tight leading-none italic">{selectedProduct.name}</h2>
               {selectedProduct.description && <p className="text-[#8b92ad] text-base sm:text-xl leading-relaxed mb-8 lg:mb-12 font-medium max-w-xl">{selectedProduct.description}</p>}
@@ -416,7 +411,7 @@ export default function Shop() {
                   className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-6 rounded-[32px] font-black text-lg shadow-2xl shadow-[#1a1d2e]/30 active:scale-95 transition-all flex items-center justify-center gap-4"
                 >
                   <ShoppingBag size={24} className="text-[#d4af37]" />
-                  ADD TO COLLECTION
+                  ADD TO BAG
                 </button>
               </div>
             </div>
@@ -433,7 +428,7 @@ export default function Shop() {
                 <ShoppingBag size={20} className="text-[#d4af37]" />
                 {selectedProduct.variants?.length > 0 && !selectedVariant 
                   ? 'CHOOSE SPEC' 
-                  : `ADD TO COLLECTION · ฿${((selectedVariant?.price ?? selectedProduct.price) * qty).toLocaleString()}`}
+                  : `ADD TO BAG · ฿${((selectedVariant?.price ?? selectedProduct.price) * qty).toLocaleString()}`}
               </button>
             </div>
           </div>
