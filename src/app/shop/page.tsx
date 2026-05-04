@@ -304,9 +304,9 @@ export default function Shop() {
             </div>
 
             {/* BRAND SELECTION */}
-            <div className="mb-6">
+            <div className="mb-6 -my-6">
               <p className="text-[10px] font-black text-[#1a1d2e]/20 uppercase tracking-widest mb-4 ml-1">Boutique Brands</p>
-              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="flex gap-3 overflow-x-auto py-10 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
                 {brands.map(b => (
                   <button
                     key={b.name}
@@ -325,9 +325,9 @@ export default function Shop() {
             </div>
 
             {/* CATEGORY SELECTION */}
-            <div className="mb-6">
+            <div className="mb-6 -my-6">
               <p className="text-[10px] font-black text-[#1a1d2e]/20 uppercase tracking-widest mb-4 ml-1">Categories {activeBrand !== 'All' ? `within ${activeBrand}` : ''}</p>
-              <div className="flex gap-3 overflow-x-auto py-6 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="flex gap-3 overflow-x-auto py-10 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
                 {categories.map(cat => (
                   <button
                     key={cat.name}
@@ -391,7 +391,7 @@ export default function Shop() {
           </div>
           <div className="lg:flex lg:gap-16 lg:px-8 lg:pt-8">
             <div className="px-5 mb-10 lg:w-1/2 lg:flex lg:justify-end">
-              <div className="rounded-[48px] overflow-hidden aspect-square bg-[#1a1d2e]/5 shadow-2xl border border-[#1a1d2e]/5 w-full lg:max-w-md">
+              <div className="rounded-[48px] overflow-hidden aspect-square bg-[#1a1d2e]/5 shadow-2xl border border-[#1a1d2e]/5 w-full lg:max-w-sm">
                 {selectedProduct.imageUrl ? <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10"><Package size={80} /></div>}
               </div>
             </div>
