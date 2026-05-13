@@ -119,7 +119,7 @@ export function CreatableDropdown({
   }, []);
 
   const filtered = options.filter(o => o && typeof o === 'string' && o.toLowerCase().includes(search.toLowerCase()));
-  const showCreate = search.trim() !== '' && !options.some(o => o.toLowerCase() === search.toLowerCase().trim());
+  const showCreate = search.trim() !== '' && !options.some(o => (o || '').toLowerCase() === search.toLowerCase().trim());
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -283,7 +283,7 @@ export function TagSelector({
                     {o}
                   </button>
                 ))}
-                {search && !options.some(o => o.toLowerCase() === search.toLowerCase().trim()) && (
+                {search && !options.some(o => (o || '').toLowerCase() === search.toLowerCase().trim()) && (
                   <button onClick={() => { onAdd(search.trim()); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-[#00b900] font-bold hover:bg-[#00b90008] rounded-lg flex items-center gap-2">
                     <Plus size={14} /> Create "{search}"
                   </button>
@@ -619,10 +619,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
   const filteredProducts = useMemo(() => {
     let result = products.filter(p => {
       const matchesSearch = !searchTerm || 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.modelLine?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.categories.some(c => c.toLowerCase().includes(searchTerm.toLowerCase()));
+        (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.brand || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.modelLine || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.categories || []).some((c: string) => (c || '').toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesBrand = !brandFilter || p.brand === brandFilter;
       const matchesCategory = !categoryFilter || p.categories.includes(categoryFilter);

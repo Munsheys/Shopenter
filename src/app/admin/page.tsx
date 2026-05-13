@@ -1814,7 +1814,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="flex-1 overflow-y-auto">
-                 {customers.filter((c: any) => c.displayName.toLowerCase().includes(searchQuery.toLowerCase())).map((customer: any) => {
+                 {customers.filter((c: any) => (c.displayName || '').toLowerCase().includes((searchQuery || '').toLowerCase())).map((customer: any) => {
                    const hasPendingOrder = globalPendingOrders.some((o: any) => o.lineUserId === customer.userId);
                    return (
                      <CustomerItem 
@@ -1989,7 +1989,7 @@ export default function AdminDashboard() {
               </div>
               <div className="mt-4 max-h-[300px] overflow-y-auto no-scrollbar">
                 {customers
-                  .filter((c: any) => c.displayName.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .filter((c: any) => (c.displayName || '').toLowerCase().includes((searchQuery || '').toLowerCase()))
                   .slice(0, 5)
                   .map((customer: any) => (
                     <div 
@@ -2080,7 +2080,7 @@ function CustomerItem({ customer, active, collapsed, unreadCount, hasPendingOrde
             target.style.display = 'none';
             const fallback = document.createElement('div');
             fallback.className = cn('w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold', theme === 'dark' ? "bg-[#2d324d] text-white" : "bg-[#1a1d2e] text-white");
-            fallback.textContent = customer.displayName.charAt(0).toUpperCase();
+            fallback.textContent = (customer.displayName || '?').charAt(0).toUpperCase();
             target.parentElement?.insertBefore(fallback, target);
           }}
         />
