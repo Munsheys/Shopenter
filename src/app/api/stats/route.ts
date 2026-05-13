@@ -3,8 +3,6 @@ import dbConnect from '@/lib/db';
 import { Order, Customer } from '@/models';
 import { verifyAuth } from '@/lib/auth';
 
-export const runtime = 'nodejs';
-
 export async function GET(req: Request) {
   try {
     const secret = req.headers.get('x-admin-secret');

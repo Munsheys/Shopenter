@@ -3,8 +3,6 @@ import dbConnect from '@/lib/db';
 import { Order } from '@/models';
 import { updateMockOrder } from '@/lib/mockData';
 
-export const runtime = 'nodejs';
-
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await request.json().catch(() => ({}));

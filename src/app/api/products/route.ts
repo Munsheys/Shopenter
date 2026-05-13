@@ -1,44 +1,45 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Product } from '@/models';
-import { getMerchantFromRequest } from '@/lib/auth';
+import { verifyAuth } from '@/lib/auth';
 
-export const runtime = 'nodejs';
-
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const merchant = getMerchantFromRequest(req);
-    if (!merchant) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     await dbConnect();
-    const products = await Product.find({ merchantId: merchant.merchantId });
+    const products = await Product.find({});
     return NextResponse.json(products);
   } catch (error) {
-    console.error('API Products GET Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const mockProducts = [
+      {
+        _id: 'prod-1',
+        name: 'Samorga Card Holder Wallet',
+        category: 'Wallets',
+        price: 1400,
+        imageUrl: 'https://ui-avatars.com/api/?name=Wallet&background=333&color=fff&size=512'
+      },
+      {
+        _id: 'prod-2',
+        name: 'BS 4040 Crossbody Bag',
+        category: 'Bags',
+        price: 2500,
+        imageUrl: 'https://ui-avatars.com/api/?name=Bag&background=112&color=fff&size=512'
+      }
+    ];
+    return NextResponse.json(mockProducts);
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const merchant = getMerchantFromRequest(req);
-    if (!merchant) {
+    const secret = req.headers.get('x-admin-secret');
+    if (!(await verifyAuth(secret))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
-    await dbConnect();
-    
-    const product = await Product.create({
-      ...body,
-      merchantId: merchant.merchantId,
-    });
-
+    const product = await Product.create(body);
     return NextResponse.json(product);
   } catch (error) {
-    console.error('API Products POST Error:', error);
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   }
 }

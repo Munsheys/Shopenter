@@ -3,8 +3,6 @@ import dbConnect from '@/lib/db';
 import { Customer, Settings } from '@/models';
 import { messagingApi } from '@line/bot-sdk';
 
-export const runtime = 'nodejs';
-
 export async function POST(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
   

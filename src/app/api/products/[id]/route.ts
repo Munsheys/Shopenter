@@ -3,8 +3,6 @@ import dbConnect from '@/lib/db';
 import { Product } from '@/models';
 import { verifyAuth as globalVerifyAuth } from '@/lib/auth';
 
-export const runtime = 'nodejs';
-
 async function verifyAuth(req: NextRequest) {
   const secret = req.headers.get('x-admin-secret');
   return await globalVerifyAuth(secret);

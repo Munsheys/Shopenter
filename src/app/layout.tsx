@@ -9,9 +9,9 @@ const promptFont = Prompt({
 });
 
 export const metadata: Metadata = {
-  title: "LineOA SaaS — Sell on LINE with Zero Code",
-  description: "Turn your LINE Official Account into a powerful e-commerce store. Manage inventory, process orders, and grow your business.",
-  robots: "index, follow",
+  title: "LineOA CRM — Admin Dashboard",
+  description: "Order fulfillment and customer management for LINE Official Account",
+  robots: "noindex, nofollow",
 };
 
 export default function RootLayout({

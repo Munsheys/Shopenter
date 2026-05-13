@@ -3,8 +3,6 @@ import dbConnect from '@/lib/db';
 import { Order, Settings, Message } from '@/models';
 import { verifyAuth } from '@/lib/auth';
 
-export const runtime = 'nodejs';
-
 export async function POST(req: NextRequest) {
   try {
     const secret = req.headers.get('x-admin-secret');

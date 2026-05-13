@@ -3,8 +3,6 @@ import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
 import { getLocalSettings } from '@/lib/storage';
 
-export const runtime = 'nodejs';
-
 export async function GET() {
   try {
     await dbConnect();

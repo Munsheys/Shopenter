@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Customer, Order, Message } from '@/models';
 
-export const runtime = 'nodejs';
-
 export async function GET() {
   try {
     await dbConnect();

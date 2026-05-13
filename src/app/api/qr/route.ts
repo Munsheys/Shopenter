@@ -5,7 +5,6 @@ import ppqr from 'th-promptpay-qr';
 import QRCode from 'qrcode';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   try {
