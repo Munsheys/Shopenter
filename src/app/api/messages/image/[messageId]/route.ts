@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
 
+export const runtime = 'nodejs';
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ messageId: string }> }) {
   try {
     const { messageId } = await params;

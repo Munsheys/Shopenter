@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import dbConnect from '@/lib/db';
 import { Customer, Message, Settings, ProcessedEvent, Order } from '@/models';
 import { messagingApi } from '@line/bot-sdk';
+
+export const runtime = 'nodejs';
 import { enqueueCustomerUpdate } from '@/lib/customerQueue';
 
 const PROFILE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours

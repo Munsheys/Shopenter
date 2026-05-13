@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db';
 import { Order, Settings, Message } from '@/models';
 import { verifyAuth } from '@/lib/auth';
 
+export const runtime = 'nodejs';
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;

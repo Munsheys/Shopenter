@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db';
 import { Customer, Order } from '@/models';
 import { globalMockOrders } from '@/lib/mockData';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
   try {

@@ -1,16 +1,23 @@
 import { NextRequest } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Message } from '@/models';
-import { verifyAuth } from '@/lib/auth';
+import { verifyMerchantToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
-  const secret = req.nextUrl.searchParams.get('secret') || '';
   const { userId } = await params;
+  
+  // Extract token from query or cookie
+  const token = req.nextUrl.searchParams.get('token') || req.cookies.get('merchant_token')?.value;
+  
+  if (!token) {
+    return new Response('Unauthorized', { status: 401 });
+  }
 
-  if (!(await verifyAuth(secret))) {
+  const merchant = verifyMerchantToken(token);
+  if (!merchant) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -26,20 +33,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
         }
       };
 
-      // Mock logic for mock-user
-      if (userId === 'mock-user-123') {
-        const now = Date.now();
-        const mockMessages = [
-          { _id: 'm1', lineUserId: userId, sender: 'user',  text: 'สวัสดีครับ มีสินค้าแนะนำไหมครับ', createdAt: new Date(now - 86400000 * 2).toISOString() },
-          { _id: 'm2', lineUserId: userId, sender: 'admin', text: 'สวัสดีครับ! วันนี้มีครีมบำรุงผิวเกาหลีใหม่เลยครับ 🌿', createdAt: new Date(now - 86400000 * 2 + 60000).toISOString() },
-        ];
-        send(mockMessages);
-        return;
-      }
+      await dbConnect();
 
       // Initial load
       try {
-        const initialMessages = await Message.find({ lineUserId: userId }).sort({ createdAt: 1 }).lean();
+        const initialMessages = await Message.find({ 
+          lineUserId: userId,
+          merchantId: merchant.merchantId
+        }).sort({ createdAt: 1 }).lean();
         send(initialMessages);
       } catch (err) {
         console.error('[SSE Messages] Initial fetch error:', err);
@@ -48,7 +49,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
       // Poll every 2 seconds
       const interval = setInterval(async () => {
         try {
-          const latestMessages = await Message.find({ lineUserId: userId }).sort({ createdAt: 1 }).lean();
+          const latestMessages = await Message.find({ 
+            lineUserId: userId,
+            merchantId: merchant.merchantId
+          }).sort({ createdAt: 1 }).lean();
           send(latestMessages);
         } catch (err) {
           console.error('[SSE Messages] Fetch error:', err);
