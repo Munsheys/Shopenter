@@ -1352,6 +1352,7 @@ const TRANSLATIONS = {
 } as const;
 
 export default function AdminDashboard() {
+  const [mounted, setMounted] = useState(false);
   const [liffState, setLiffState] = useState<'loading' | 'admin' | 'customer' | 'unauthorized'>('loading');
   const [activeTab, setActiveTab] = useState('orders');
   const [lang, setLang] = useState<'th' | 'en'>('th');
@@ -1369,6 +1370,10 @@ export default function AdminDashboard() {
   const [isSavingKRW, setIsSavingKRW] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const krwLoadedRef = useRef(false); // Prevents debounce from firing on initial DB load
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load preferences
   useEffect(() => {
@@ -1590,6 +1595,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     initLiffRouter();
   }, [initLiffRouter]);
+
+  if (!mounted) {
+    return (
+      <div className={cn("h-screen w-full flex items-center justify-center transition-colors", theme === 'dark' ? "bg-[#0f111a]" : "bg-[#f8f9fc]")}>
+        <LoadingView 
+          theme={theme} 
+          message={lang === 'th' ? TRANSLATIONS.th.initializing : TRANSLATIONS.en.initializing} 
+        />
+      </div>
+    );
+  }
 
   if (liffState === 'loading') {
     return (
