@@ -1,30 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Order } from '@/models';
-import { verifyAuth } from '@/lib/auth';
+import { getMerchantFromRequest } from '@/lib/auth';
 
-export async function GET(req: Request) {
+export const runtime = 'nodejs';
+
+export async function GET(req: NextRequest) {
+  const merchant = getMerchantFromRequest(req);
+  if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
-    const secret = req.headers.get('x-admin-secret');
-    if (!(await verifyAuth(secret))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const orders = await Order.find().sort({ createdAt: -1 });
+    await dbConnect();
+    const orders = await Order.find({ merchantId: merchant.merchantId }).sort({ createdAt: -1 });
     return NextResponse.json(orders);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
+  const merchant = getMerchantFromRequest(req);
+  if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     await dbConnect();
-    const body = await request.json();
-    const order = await Order.create(body);
-    return NextResponse.json(order);
-  } catch (error) {
-    console.error("Order creation error:", error);
+    const body = await req.json();
+    const order = await Order.create({ ...body, merchantId: merchant.merchantId });
+    return NextResponse.json(order, { status: 201 });
+  } catch {
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
   }
 }

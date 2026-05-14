@@ -1,57 +1,39 @@
 import { NextRequest } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Message } from '@/models';
-import { verifyAuth } from '@/lib/auth';
+import { getMerchantFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
-  const secret = req.nextUrl.searchParams.get('secret') || '';
+  const merchant = getMerchantFromRequest(req);
+  if (!merchant) return new Response('Unauthorized', { status: 401 });
+
   const { userId } = await params;
-
-  if (!(await verifyAuth(secret))) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
   const encoder = new TextEncoder();
+
+  await dbConnect();
 
   const stream = new ReadableStream({
     async start(controller) {
       const send = (data: any) => {
-        try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-        } catch {
-          // Client disconnected
-        }
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`)); } catch {}
       };
 
-      // Mock logic for mock-user
-      if (userId === 'mock-user-123') {
-        const now = Date.now();
-        const mockMessages = [
-          { _id: 'm1', lineUserId: userId, sender: 'user',  text: 'สวัสดีครับ มีสินค้าแนะนำไหมครับ', createdAt: new Date(now - 86400000 * 2).toISOString() },
-          { _id: 'm2', lineUserId: userId, sender: 'admin', text: 'สวัสดีครับ! วันนี้มีครีมบำรุงผิวเกาหลีใหม่เลยครับ 🌿', createdAt: new Date(now - 86400000 * 2 + 60000).toISOString() },
-        ];
-        send(mockMessages);
-        return;
-      }
-
-      // Initial load
       try {
-        const initialMessages = await Message.find({ lineUserId: userId }).sort({ createdAt: 1 }).lean();
-        send(initialMessages);
+        const initial = await Message.find({ merchantId: merchant.merchantId, lineUserId: userId }).sort({ createdAt: 1 }).lean();
+        send(initial);
       } catch (err) {
-        console.error('[SSE Messages] Initial fetch error:', err);
+        console.error('[SSE messages] initial fetch', err);
       }
 
-      // Poll every 2 seconds
       const interval = setInterval(async () => {
         try {
-          const latestMessages = await Message.find({ lineUserId: userId }).sort({ createdAt: 1 }).lean();
-          send(latestMessages);
+          const latest = await Message.find({ merchantId: merchant.merchantId, lineUserId: userId }).sort({ createdAt: 1 }).lean();
+          send(latest);
         } catch (err) {
-          console.error('[SSE Messages] Fetch error:', err);
+          console.error('[SSE messages] poll error', err);
         }
       }, 2000);
 

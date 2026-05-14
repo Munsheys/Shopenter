@@ -1,108 +1,54 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
-import { getLocalSettings, saveLocalSettings } from '@/lib/storage'; // kept import but we won't use it or we can just remove it
+import { getMerchantFromRequest } from '@/lib/auth';
 
-export async function GET(req: Request) {
+export const runtime = 'nodejs';
+
+export async function GET(req: NextRequest) {
+  const merchant = getMerchantFromRequest(req);
+  if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     await dbConnect();
-    let s = await Settings.findOne({ liffId: { $exists: true, $ne: "" } }).sort({ _id: -1 });
-    if (!s) s = await Settings.findOne().sort({ _id: -1 });
-    
-    if (s) {
-      const settings = s.toObject ? s.toObject() : { ...s };
-      const secret = req.headers.get('x-admin-secret');
-      
-      // Dynamic verify: check if the secret matches the DB
-      const isValid = secret === settings.adminSecret;
-      
-      if (!isValid) {
-        // Strip sensitive info for public checks
-        delete settings.adminSecret;
-        delete settings.lineChannelAccessToken;
-        delete settings.lineChannelSecret;
-      }
-      if (settings.lineChannelAccessToken) {
-        try {
-          const botInfoRes = await fetch('https://api.line.me/v2/bot/info', {
-            headers: { Authorization: `Bearer ${settings.lineChannelAccessToken}` }
-          });
-          if (botInfoRes.ok) {
-            const botInfo = await botInfoRes.json();
-            if (botInfo.displayName) {
-              settings.shopName = botInfo.displayName;
-            }
-          }
-        } catch (e) {
-          console.error("Failed to fetch bot info:", e);
-        }
-      }
-      return NextResponse.json(settings);
+    let s = await Settings.findOne({ merchantId: merchant.merchantId });
+    if (!s) {
+      s = await Settings.create({ merchantId: merchant.merchantId });
     }
-    return NextResponse.json({
-      shopName: "Auto-Market",
-      theme: "light",
-      krwRate: 0.026,
-      shippingCompanies: ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express'],
-      trackingTemplate: "📦 Shipped!\n\nCourier: {courier}\nTracking: {tracking}\nItems: {product}\n\nThank you! 🙏"
-    });
-  } catch (error) {
-    console.error("API Settings GET Error:", error);
-    return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
+    const settings = s.toObject();
+    // Strip LINE secrets from response — clients get them only through the LINE SDK
+    delete settings.lineChannelAccessToken;
+    delete settings.lineChannelSecret;
+    delete settings.adminSecret;
+    return NextResponse.json(settings);
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const merchant = getMerchantFromRequest(req);
+  if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
+    await dbConnect();
     const body = await req.json();
-    await dbConnect();
-    
-    const existing = await Settings.findOne();
-    const isUnconfigured = !existing || !existing.adminSecret;
 
-    // Security check: Only allow unauthenticated POST if no adminSecret exists yet
-    if (!isUnconfigured) {
-      const secret = req.headers.get('x-admin-secret');
-      if (!secret || secret !== existing.adminSecret) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-    }
+    // Sanitize LINE credential strings
+    if (typeof body.lineChannelSecret === 'string') body.lineChannelSecret = body.lineChannelSecret.trim();
+    if (typeof body.lineChannelAccessToken === 'string') body.lineChannelAccessToken = body.lineChannelAccessToken.trim();
+    if (typeof body.liffId === 'string') body.liffId = body.liffId.trim();
 
-    // If starting fresh, purge and create
-    if (isUnconfigured) {
-      await Settings.deleteMany({});
-    }
+    // Never let clients overwrite the merchantId binding
+    delete body.merchantId;
 
-    // Clean sensitive strings
-    const cleanedBody = { ...body };
-    if (typeof cleanedBody.lineChannelSecret === 'string') cleanedBody.lineChannelSecret = cleanedBody.lineChannelSecret.trim();
-    if (typeof cleanedBody.lineChannelAccessToken === 'string') cleanedBody.lineChannelAccessToken = cleanedBody.lineChannelAccessToken.trim();
-    if (typeof cleanedBody.liffId === 'string') cleanedBody.liffId = cleanedBody.liffId.trim();
-
-    const s = await Settings.findOneAndUpdate({}, cleanedBody, { upsert: true, returnDocument: 'after' });
+    const s = await Settings.findOneAndUpdate(
+      { merchantId: merchant.merchantId },
+      { $set: body },
+      { upsert: true, new: true }
+    );
     return NextResponse.json(s);
-  } catch (error: any) {
-    return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const secret = req.headers.get("x-admin-secret");
-    await dbConnect();
-    const settings = await Settings.findOne();
-    
-    // No settings yet? Allow deletion (which does nothing)
-    if (!settings) return NextResponse.json({ message: "No settings to delete" });
-
-    // Must match the current DB secret to perform a reset
-    if (!secret || secret !== settings.adminSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    await Settings.deleteMany({});
-    return NextResponse.json({ message: "Settings reset successfully" });
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to reset settings" }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
   }
 }

@@ -1,19 +1,26 @@
 import mongoose from 'mongoose';
 
+const MerchantSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  passwordHash: { type: String, required: true },
+  shopName: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Per-merchant shop config (replaces singleton Settings)
 const SettingsSchema = new mongoose.Schema({
-  shopName: { type: String, default: "Auto-Market" },
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  shopName: { type: String, default: "My Shop" },
   theme: { type: String, enum: ['light', 'dark'], default: "light" },
   krwRate: { type: Number, default: 0.026 },
   trackingTemplate: { type: String, default: "📦 ส่งสินค้าแล้วครับ!\n\nขนส่ง: {courier}\nเลขพัสดุ: {tracking}\nรายการ: {product}\n\nขอบคุณครับ 🙏" },
   senderAddress: String,
   shippingCompanies: { type: [String], default: ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express'] },
-  // LINE Platform Configurations
   lineChannelAccessToken: { type: String, default: "" },
   lineChannelSecret: { type: String, default: "" },
   liffId: { type: String, default: "" },
   adminLineId: { type: String, default: "" },
   adminSecret: { type: String, default: "" },
-  // Payment
   promptPayId: { type: String, default: "" },
   paymentTemplate: { type: String, default: "✅ ยืนยันการชำระเงินแล้วครับ!\n\nรายการ: {product}\nจำนวน: ฿{amount}\n\nขอบคุณที่ใช้บริการครับ 🙏" },
   slipokBranchId: { type: String, default: "" },
@@ -21,11 +28,12 @@ const SettingsSchema = new mongoose.Schema({
 });
 
 const ProductSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   name: { type: String, required: true },
   brand: String,
-  modelLine: String, // Family or Model Line (e.g. Croc Handle)
+  modelLine: String,
   description: String,
-  price: { type: Number, required: true }, // Used as minPrice for sorting
+  price: { type: Number, required: true },
   maxPrice: Number,
   imageUrl: String,
   categories: { type: [String], default: [] },
@@ -41,7 +49,8 @@ const ProductSchema = new mongoose.Schema({
 
 // Profile cache: only re-fetch from LINE if profileCachedAt is older than 24h
 const CustomerSchema = new mongoose.Schema({
-  userId: { type: String, required: true, unique: true, index: true },
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  userId: { type: String, required: true, index: true },
   displayName: String,
   pictureUrl: String,
   addresses: [String],
@@ -49,8 +58,11 @@ const CustomerSchema = new mongoose.Schema({
   profileCachedAt: { type: Date, default: null },
   unreadCount: { type: Number, default: 0 }
 });
+// Compound unique: same LINE userId can follow multiple merchants
+CustomerSchema.index({ merchantId: 1, userId: 1 }, { unique: true });
 
 const OrderSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   lineUserId: String,
   displayName: String,
   address: String,
@@ -80,6 +92,7 @@ const OrderSchema = new mongoose.Schema({
 });
 
 const MessageSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   lineUserId: { type: String, required: true, index: true },
   type: { type: String, enum: ['text', 'image', 'system'], default: 'text' },
   messageId: String,
@@ -92,10 +105,12 @@ const MessageSchema = new mongoose.Schema({
 // Idempotency: prevents duplicate processing of the same LINE webhook event
 // TTL index auto-deletes after 24 hours — storage stays flat
 const ProcessedEventSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   webhookEventId: { type: String, required: true, unique: true },
-  createdAt: { type: Date, default: Date.now, expires: 86400 } // TTL: 24h
+  createdAt: { type: Date, default: Date.now, expires: 86400 }
 });
 
+export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
 export const Customer = mongoose.models.Customer || mongoose.model('Customer', CustomerSchema);

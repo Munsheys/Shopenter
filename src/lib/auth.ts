@@ -1,24 +1,39 @@
-import dbConnect from './db';
-import { Settings } from '@/models';
+import { NextRequest } from 'next/server';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
-/**
- * Verifies the admin secret against the database.
- * If the database has no settings yet, authentication is considered unconfigured.
- */
-export async function verifyAuth(secret: string | null): Promise<boolean> {
-  if (!secret) return false;
-  
-  await dbConnect();
-  
-  // Find the settings document
-  const settings = await Settings.findOne();
-  
-  // If no settings exist yet, we are in initial setup mode.
-  // Note: Initial setup is handled specially in the /api/settings route.
-  if (!settings || !settings.adminSecret) {
-    return false;
+const JWT_SECRET = process.env.JWT_SECRET!;
+const BCRYPT_ROUNDS = 12;
+
+export interface MerchantJwtPayload {
+  merchantId: string;
+  email: string;
+}
+
+export function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
+}
+
+export function comparePassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
+}
+
+export function signMerchantToken(payload: MerchantJwtPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+}
+
+export function verifyMerchantToken(token: string): MerchantJwtPayload {
+  return jwt.verify(token, JWT_SECRET) as MerchantJwtPayload;
+}
+
+export function getMerchantFromRequest(req: NextRequest): MerchantJwtPayload | null {
+  const cookie = req.cookies.get('merchant_token')?.value;
+  const header = req.headers.get('authorization')?.replace('Bearer ', '');
+  const token = cookie || header;
+  if (!token) return null;
+  try {
+    return verifyMerchantToken(token);
+  } catch {
+    return null;
   }
-  
-  // Verify against the dynamic secret in the DB
-  return secret === settings.adminSecret;
 }

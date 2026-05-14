@@ -1,45 +1,33 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Product } from '@/models';
-import { verifyAuth } from '@/lib/auth';
+import { getMerchantFromRequest } from '@/lib/auth';
 
-export async function GET() {
+export const runtime = 'nodejs';
+
+export async function GET(req: NextRequest) {
+  const merchant = getMerchantFromRequest(req);
+  if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     await dbConnect();
-    const products = await Product.find({});
+    const products = await Product.find({ merchantId: merchant.merchantId });
     return NextResponse.json(products);
-  } catch (error) {
-    const mockProducts = [
-      {
-        _id: 'prod-1',
-        name: 'Samorga Card Holder Wallet',
-        category: 'Wallets',
-        price: 1400,
-        imageUrl: 'https://ui-avatars.com/api/?name=Wallet&background=333&color=fff&size=512'
-      },
-      {
-        _id: 'prod-2',
-        name: 'BS 4040 Crossbody Bag',
-        category: 'Bags',
-        price: 2500,
-        imageUrl: 'https://ui-avatars.com/api/?name=Bag&background=112&color=fff&size=512'
-      }
-    ];
-    return NextResponse.json(mockProducts);
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
 }
 
-export async function POST(req: Request) {
-  try {
-    const secret = req.headers.get('x-admin-secret');
-    if (!(await verifyAuth(secret))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export async function POST(req: NextRequest) {
+  const merchant = getMerchantFromRequest(req);
+  if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  try {
+    await dbConnect();
     const body = await req.json();
-    const product = await Product.create(body);
-    return NextResponse.json(product);
-  } catch (error) {
+    const product = await Product.create({ ...body, merchantId: merchant.merchantId });
+    return NextResponse.json(product, { status: 201 });
+  } catch {
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   }
 }

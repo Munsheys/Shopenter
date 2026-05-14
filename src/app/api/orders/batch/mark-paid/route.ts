@@ -1,70 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Order, Settings, Message } from '@/models';
-import { verifyAuth } from '@/lib/auth';
+import { getMerchantFromRequest } from '@/lib/auth';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
+  const merchant = getMerchantFromRequest(req);
+  if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { orderIds } = await req.json();
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    return NextResponse.json({ error: 'No orders provided' }, { status: 400 });
+  }
+
   try {
-    const secret = req.headers.get('x-admin-secret');
-    if (!(await verifyAuth(secret))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { orderIds } = await req.json();
-    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
-      return NextResponse.json({ error: 'No orders provided' }, { status: 400 });
-    }
-
     await dbConnect();
-    const orders = await Order.find({ _id: { $in: orderIds } });
+    const orders = await Order.find({ _id: { $in: orderIds }, merchantId: merchant.merchantId });
     if (orders.length === 0) return NextResponse.json({ error: 'Orders not found' }, { status: 404 });
 
-    const settings = await Settings.findOne();
-    if (!settings || !settings.lineChannelAccessToken) {
+    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    if (!settings?.lineChannelAccessToken) {
       return NextResponse.json({ error: 'LINE access token not configured' }, { status: 400 });
     }
 
     const lineUserId = orders[0].lineUserId;
     const totalTHB = orders.reduce((sum, o) => sum + (o.soldTHB || 0), 0);
-    const combinedProducts = orders.map(o => {
-      const cleanName = o.product?.replace(/^\d+x\s/, '');
-      return `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${cleanName}`;
-    }).join(', ');
-    const displayName = orders[0].displayName || 'Customer';
+    const combinedProducts = orders.map(o => `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${o.product?.replace(/^\d+x\s/, '')}`).join(', ');
 
-    await Order.updateMany(
-      { _id: { $in: orderIds } },
-      { $set: { status: 'paid' } }
-    );
+    await Order.updateMany({ _id: { $in: orderIds }, merchantId: merchant.merchantId }, { $set: { status: 'paid' } });
 
     let messageText = settings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
     messageText = messageText
       .replace(/{product}/g, combinedProducts)
       .replace(/{amount}/g, totalTHB.toLocaleString())
-      .replace(/{name}/g, displayName);
+      .replace(/{name}/g, orders[0].displayName || 'Customer');
 
-    const lineResponse = await fetch('https://api.line.me/v2/bot/message/push', {
+    const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.lineChannelAccessToken}`
-      },
-      body: JSON.stringify({
-        to: lineUserId,
-        messages: [{
-          type: 'text',
-          text: messageText
-        }]
-      })
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.lineChannelAccessToken}` },
+      body: JSON.stringify({ to: lineUserId, messages: [{ type: 'text', text: messageText }] })
     });
-
-    if (!lineResponse.ok) {
-      const errData = await lineResponse.text();
-      console.error("LINE Push Error:", errData);
-    }
+    if (!lineRes.ok) console.error('[LINE push batch-mark-paid]', await lineRes.text());
 
     await Message.create({
-      lineUserId: lineUserId,
+      merchantId: merchant.merchantId,
+      lineUserId,
       type: 'system',
       text: '✅ Batch Payment Confirmed',
       metadata: { amount: totalTHB, product: combinedProducts },
@@ -72,8 +53,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Batch Mark Paid Error:", error);
+  } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
