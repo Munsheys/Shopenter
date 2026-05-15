@@ -31,6 +31,26 @@ type Product = {
 
 const COST_CURRENCIES = ['THB', 'KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'];
 
+const AVATAR_COLORS = [
+  'bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-orange-500',
+  'bg-pink-500', 'bg-cyan-500', 'bg-amber-500', 'bg-rose-500',
+];
+function avatarColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'now';
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
 export default function CustomersView({ theme }: { theme: string }) {
   const isDark = theme === 'dark';
 
@@ -39,6 +59,8 @@ export default function CustomersView({ theme }: { theme: string }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatOpen, setChatOpen] = useState(true);
+  const [listOpen, setListOpen] = useState(true);
+  const [customerSearch, setCustomerSearch] = useState('');
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -61,7 +83,6 @@ export default function CustomersView({ theme }: { theme: string }) {
   const selectedRef = useRef<Customer | null>(null);
   selectedRef.current = selectedCustomer;
 
-  // SSE for real-time customer list + pending orders
   useEffect(() => {
     const evs = new EventSource('/api/stream');
     evs.onmessage = (e) => {
@@ -79,7 +100,6 @@ export default function CustomersView({ theme }: { theme: string }) {
     return () => evs.close();
   }, []);
 
-  // Load all orders once (and after mutations)
   const refreshOrders = useCallback(async () => {
     const res = await fetch('/api/orders');
     if (res.ok) {
@@ -90,7 +110,6 @@ export default function CustomersView({ theme }: { theme: string }) {
 
   useEffect(() => { refreshOrders(); }, [refreshOrders]);
 
-  // Load products and settings for quick order modal
   useEffect(() => {
     fetch('/api/products').then(r => r.json()).then(d => {
       if (Array.isArray(d)) setProducts(d);
@@ -101,7 +120,6 @@ export default function CustomersView({ theme }: { theme: string }) {
     }).catch(() => {});
   }, []);
 
-  // Poll messages when customer is selected
   const loadMessages = useCallback(async (userId: string) => {
     const res = await fetch(`/api/messages/${userId}`);
     if (res.ok) {
@@ -218,15 +236,14 @@ export default function CustomersView({ theme }: { theme: string }) {
     }
   }
 
-  // Theme helpers
   const s = {
-    bg: isDark ? 'bg-[#0f1117]' : 'bg-gray-50',
-    surface: isDark ? 'bg-[#161925]' : 'bg-white',
-    border: isDark ? 'border-[#1f2335]' : 'border-gray-200',
-    text: isDark ? 'text-white' : 'text-gray-900',
-    muted: isDark ? 'text-gray-400' : 'text-gray-500',
-    hover: isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50',
-    input: isDark
+    bg:      isDark ? 'bg-[#0f1117]'   : 'bg-gray-50',
+    surface: isDark ? 'bg-[#161925]'   : 'bg-white',
+    border:  isDark ? 'border-[#1f2335]' : 'border-gray-200',
+    text:    isDark ? 'text-white'      : 'text-gray-900',
+    muted:   isDark ? 'text-gray-400'   : 'text-gray-500',
+    hover:   isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50',
+    input:   isDark
       ? 'bg-[#1e2433] border-[#2a3050] text-white placeholder-gray-600'
       : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400',
   };
@@ -242,53 +259,151 @@ export default function CustomersView({ theme }: { theme: string }) {
     return !q || p.name.toLowerCase().includes(q) || (p.brand?.toLowerCase().includes(q) ?? false);
   });
 
+  const visibleCustomers = customers.filter(c =>
+    !customerSearch || c.displayName.toLowerCase().includes(customerSearch.toLowerCase())
+  );
+
+  const totalUnread = customers.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+
   return (
     <div className={`flex h-full overflow-hidden ${s.bg}`}>
-      {/* Narrow customer avatar sidebar */}
-      <aside className={`w-14 flex-shrink-0 border-r ${s.border} ${s.surface} flex flex-col items-center py-3 gap-2 overflow-y-auto`}>
-        {customers.length === 0 ? (
-          <div className={`text-center px-1 pt-2 ${s.muted}`}>
-            <MessageCircle size={20} className="mx-auto opacity-30" />
-          </div>
-        ) : customers.map(c => (
-          <button
-            key={c._id}
-            onClick={() => selectCustomer(c)}
-            title={c.displayName}
-            className={`relative w-9 h-9 rounded-full flex-shrink-0 transition-all ${
-              selectedCustomer?._id === c._id ? 'ring-2 ring-green-500 ring-offset-1' : 'opacity-70 hover:opacity-100'
-            }`}
-          >
-            {c.pictureUrl ? (
-              <img src={c.pictureUrl} alt={c.displayName} className="w-full h-full rounded-full object-cover" />
-            ) : (
-              <div className="w-full h-full rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">
-                {(c.displayName || '?')[0]}
-              </div>
-            )}
-            {c.unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[8px] font-bold min-w-[14px] h-3.5 rounded-full flex items-center justify-center px-0.5">
-                {c.unreadCount > 9 ? '9+' : c.unreadCount}
+
+      {/* ── Customer list panel ── */}
+      <aside className={`flex-shrink-0 flex flex-col border-r ${s.border} ${s.surface} transition-all duration-200 ${listOpen ? 'w-64' : 'w-12'}`}>
+        {listOpen ? (
+          <>
+            {/* Panel header */}
+            <div className={`flex items-center gap-2 px-3 py-2.5 border-b ${s.border} flex-shrink-0`}>
+              <MessageCircle size={14} className="text-green-500 flex-shrink-0" />
+              <span className={`font-semibold text-sm flex-1 ${s.text}`}>
+                Customers
+                {totalUnread > 0 && (
+                  <span className="ml-1.5 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{totalUnread}</span>
+                )}
               </span>
-            )}
-          </button>
-        ))}
+              <button onClick={() => setListOpen(false)} className={`p-1 rounded-lg ${s.muted} ${s.hover} flex-shrink-0`}>
+                <ChevronLeft size={14} />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className={`px-3 py-2 border-b ${s.border} flex-shrink-0`}>
+              <div className="relative">
+                <Search size={13} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${s.muted}`} />
+                <input
+                  value={customerSearch}
+                  onChange={e => setCustomerSearch(e.target.value)}
+                  placeholder="Search customers..."
+                  className={`w-full text-xs rounded-lg pl-7 pr-3 py-1.5 border outline-none ${s.input}`}
+                />
+                {customerSearch && (
+                  <button onClick={() => setCustomerSearch('')} className={`absolute right-2 top-1/2 -translate-y-1/2 ${s.muted}`}>
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Customer list */}
+            <div className="flex-1 overflow-y-auto">
+              {customers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full px-4 gap-3">
+                  <MessageCircle size={28} className="opacity-20 text-gray-400" />
+                  <p className={`text-xs text-center ${s.muted}`}>No customers yet</p>
+                  <p className={`text-[10px] text-center ${s.muted} opacity-70`}>Customers appear when they message your LINE OA</p>
+                  <SeedButton isDark={isDark} s={s} />
+                </div>
+              ) : visibleCustomers.length === 0 ? (
+                <div className={`text-center px-4 py-6 text-xs ${s.muted}`}>No results for "{customerSearch}"</div>
+              ) : (
+                visibleCustomers.map(c => {
+                  const isSelected = selectedCustomer?._id === c._id;
+                  const ac = avatarColor(c.displayName);
+                  return (
+                    <button
+                      key={c._id}
+                      onClick={() => selectCustomer(c)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 transition-all border-l-2 text-left ${
+                        isSelected
+                          ? isDark ? 'bg-green-500/15 border-l-green-500' : 'bg-green-50 border-l-green-500'
+                          : `border-l-transparent ${s.hover}`
+                      }`}
+                    >
+                      <div className="relative flex-shrink-0">
+                        {c.pictureUrl ? (
+                          <img src={c.pictureUrl} alt={c.displayName} className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          <div className={`w-8 h-8 rounded-full ${ac} text-white flex items-center justify-center text-xs font-bold`}>
+                            {(c.displayName || '?')[0].toUpperCase()}
+                          </div>
+                        )}
+                        {c.unreadCount > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[8px] font-bold min-w-[14px] h-3.5 rounded-full flex items-center justify-center px-0.5 leading-none">
+                            {c.unreadCount > 9 ? '9+' : c.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className={`text-xs font-semibold truncate ${s.text}`}>{c.displayName}</p>
+                          <span className={`text-[10px] flex-shrink-0 ${s.muted}`}>{timeAgo(c.lastSeen)}</span>
+                        </div>
+                        <p className={`text-[10px] truncate ${c.unreadCount > 0 ? 'text-green-500 font-medium' : s.muted}`}>
+                          {c.unreadCount > 0 ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}` : 'LINE customer'}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </>
+        ) : (
+          /* Collapsed: just avatars + expand button */
+          <div className="flex flex-col items-center py-2 gap-2 flex-1 overflow-y-auto">
+            <button
+              onClick={() => setListOpen(true)}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.muted} ${s.hover} flex-shrink-0`}
+              title="Expand customer list"
+            >
+              <ChevronRight size={14} />
+            </button>
+            {customers.map(c => {
+              const ac = avatarColor(c.displayName);
+              return (
+                <button
+                  key={c._id}
+                  onClick={() => selectCustomer(c)}
+                  title={c.displayName}
+                  className={`relative w-8 h-8 rounded-full flex-shrink-0 transition-all ${
+                    selectedCustomer?._id === c._id ? 'ring-2 ring-green-500 ring-offset-1' : 'opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  {c.pictureUrl ? (
+                    <img src={c.pictureUrl} alt={c.displayName} className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    <div className={`w-full h-full rounded-full ${ac} text-white flex items-center justify-center text-xs font-bold`}>
+                      {(c.displayName || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                  {c.unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 border border-white text-white text-[7px] font-bold w-3 h-3 rounded-full flex items-center justify-center">
+                      {c.unreadCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </aside>
 
-      {/* Main orders panel */}
+      {/* ── Main orders panel ── */}
       {!selectedCustomer ? (
         <div className="flex-1 flex items-center justify-center">
           <div className={`text-center ${s.muted}`}>
             <MessageCircle size={40} className="mx-auto mb-3 opacity-20" />
-            {customers.length === 0 ? (
-              <>
-                <p className="text-sm mb-1">No customers yet</p>
-                <p className="text-xs mb-4 opacity-70">Real customers appear here when they message your LINE OA</p>
-                <SeedButton isDark={isDark} s={s} />
-              </>
-            ) : (
-              <p className="text-sm">Select a customer to view their orders and chat</p>
-            )}
+            <p className="text-sm">Select a customer to view their orders and chat</p>
           </div>
         </div>
       ) : (
@@ -298,27 +413,39 @@ export default function CustomersView({ theme }: { theme: string }) {
             <div className={`flex items-center justify-between px-5 py-3 border-b ${s.border} ${s.surface} flex-shrink-0`}>
               <div className="flex items-center gap-3">
                 {selectedCustomer.pictureUrl ? (
-                  <img src={selectedCustomer.pictureUrl} className="w-8 h-8 rounded-full" alt="" />
+                  <img src={selectedCustomer.pictureUrl} className="w-9 h-9 rounded-full ring-2 ring-green-500/30" alt="" />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold">
-                    {(selectedCustomer.displayName || '?')[0]}
+                  <div className={`w-9 h-9 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-sm font-bold ring-2 ring-offset-1 ring-green-500/30`}>
+                    {(selectedCustomer.displayName || '?')[0].toUpperCase()}
                   </div>
                 )}
                 <div>
                   <h2 className={`font-semibold text-sm ${s.text}`}>{selectedCustomer.displayName || 'Unknown'}</h2>
-                  <p className={`text-xs ${s.muted}`}>LINE Customer</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] ${s.muted}`}>LINE Customer</span>
+                    {activeOrders.length > 0 && (
+                      <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-medium">
+                        {activeOrders.length} active
+                      </span>
+                    )}
+                    {parcelOrders.length > 0 && (
+                      <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
+                        {parcelOrders.length} in parcel
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white rounded-xl text-xs font-medium"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-gray-700 text-white rounded-xl text-xs font-medium transition-colors"
                 >
-                  <ShoppingCart size={12} /> Quick Chat Order
+                  <ShoppingCart size={12} /> Quick Order
                 </button>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-medium"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-medium transition-colors"
                 >
                   <Plus size={12} /> Add Parcel
                 </button>
@@ -327,52 +454,40 @@ export default function CustomersView({ theme }: { theme: string }) {
 
             {/* Orders content */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
-              {/* Active orders */}
               <div>
                 <p className={`text-[10px] font-bold uppercase tracking-wider ${s.muted} mb-3`}>
-                  Active Orders (Awaiting Fulfillment)
+                  Active Orders
                 </p>
                 {activeOrders.length === 0 && parcelOrders.length === 0 ? (
                   <p className={`text-sm ${s.muted}`}>No active orders</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {parcelOrders.map(order => (
-                      <OrderCard
-                        key={order._id} order={order} variant="parcel" isDark={isDark} s={s}
-                        onDelete={() => deleteOrder(order._id)}
-                      />
+                      <OrderCard key={order._id} order={order} variant="parcel" isDark={isDark} s={s}
+                        onDelete={() => deleteOrder(order._id)} />
                     ))}
                     {activeOrders.map(order => (
-                      <OrderCard
-                        key={order._id} order={order} variant="active" isDark={isDark} s={s}
+                      <OrderCard key={order._id} order={order} variant="active" isDark={isDark} s={s}
                         onDelete={() => deleteOrder(order._id)}
                         onSendQR={() => sendQR(order._id)}
                         onMarkPaid={() => markPaid(order._id)}
-                        onMoveToParcel={() => patchOrder(order._id, { status: 'preparing' })}
-                      />
+                        onMoveToParcel={() => patchOrder(order._id, { status: 'preparing' })} />
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Delivery address */}
-              <AddressSection
-                customer={selectedCustomer} isDark={isDark} s={s}
-                onAdd={addAddress}
-              />
+              <AddressSection customer={selectedCustomer} isDark={isDark} s={s} onAdd={addAddress} />
 
-              {/* Parcel section with tracking */}
               {parcelOrders.length > 0 && (
-                <ParcelSection
-                  orders={parcelOrders} isDark={isDark} s={s}
+                <ParcelSection orders={parcelOrders} isDark={isDark} s={s}
                   onPatch={patchOrder}
-                  onMarkShipped={(id) => patchOrder(id, { status: 'shipped' })}
-                />
+                  onMarkShipped={(id) => patchOrder(id, { status: 'shipped' })} />
               )}
             </div>
           </div>
 
-          {/* Collapsible chat panel */}
+          {/* ── Chat panel ── */}
           <div className={`flex-shrink-0 flex border-l ${s.border} transition-all duration-200 ${chatOpen ? 'w-72' : 'w-8'}`}>
             <button
               onClick={() => setChatOpen(v => !v)}
@@ -383,8 +498,8 @@ export default function CustomersView({ theme }: { theme: string }) {
             {chatOpen && (
               <div className={`flex-1 flex flex-col min-w-0 ${s.surface}`}>
                 <div className={`flex items-center gap-2 px-3 py-2.5 border-b ${s.border} flex-shrink-0`}>
-                  <div className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">
-                    {(selectedCustomer.displayName || '?')[0]}
+                  <div className={`w-6 h-6 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0`}>
+                    {(selectedCustomer.displayName || '?')[0].toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <p className={`text-xs font-semibold truncate ${s.text}`}>{selectedCustomer.displayName}</p>
@@ -413,9 +528,7 @@ export default function CustomersView({ theme }: { theme: string }) {
                       )}
                     </div>
                   ))}
-                  {messages.length === 0 && (
-                    <p className={`text-[11px] text-center ${s.muted} pt-4`}>No messages yet</p>
-                  )}
+                  {messages.length === 0 && <p className={`text-[11px] text-center ${s.muted} pt-4`}>No messages yet</p>}
                   <div ref={messagesEndRef} />
                 </div>
                 <div className={`flex items-center gap-2 px-3 py-2 border-t ${s.border} flex-shrink-0`}>
@@ -440,7 +553,7 @@ export default function CustomersView({ theme }: { theme: string }) {
         </>
       )}
 
-      {/* Quick Order Modal */}
+      {/* ── Quick Order Modal ── */}
       {showModal && selectedCustomer && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className={`${s.surface} rounded-2xl shadow-xl w-full max-w-md`}>
@@ -484,14 +597,11 @@ export default function CustomersView({ theme }: { theme: string }) {
                         <span className="ml-2 flex-shrink-0">฿{p.price.toLocaleString()}</span>
                       </button>
                     ))}
-                    {filteredProducts.length === 0 && (
-                      <p className={`text-xs text-center py-3 ${s.muted}`}>No products found</p>
-                    )}
+                    {filteredProducts.length === 0 && <p className={`text-xs text-center py-3 ${s.muted}`}>No products found</p>}
                   </div>
                 </div>
               )}
 
-              {/* Cost price row */}
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <label className={`block text-xs font-medium mb-1 ${s.muted}`}>Cost ({qoCostCurrency})</label>
@@ -500,18 +610,13 @@ export default function CustomersView({ theme }: { theme: string }) {
                 </div>
                 <div className="flex-shrink-0">
                   <label className={`block text-xs font-medium mb-1 ${s.muted}`}>Currency</label>
-                  <select
-                    value={qoCostCurrency}
-                    onChange={e => setQoCostCurrency(e.target.value)}
-                    className={`text-sm rounded-xl px-2 py-2 border outline-none ${s.input}`}
-                    style={{ height: 42 }}
-                  >
+                  <select value={qoCostCurrency} onChange={e => setQoCostCurrency(e.target.value)}
+                    className={`text-sm rounded-xl px-2 py-2 border outline-none ${s.input}`} style={{ height: 42 }}>
                     {COST_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
 
-              {/* Sold price + qty row */}
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className={`block text-xs font-medium mb-1 ${s.muted}`}>
@@ -532,7 +637,6 @@ export default function CustomersView({ theme }: { theme: string }) {
                 </div>
               </div>
 
-              {/* Rate hint */}
               {qoCostPrice && parseFloat(qoCostPrice) > 0 && (
                 <p className={`text-[10px] ${s.muted}`}>
                   Rate: 1 {qoCostCurrency} = {merchantSettings?.krwRate ?? '?'} {merchantSettings?.localCurrency || 'THB'}
@@ -555,42 +659,46 @@ export default function CustomersView({ theme }: { theme: string }) {
   );
 }
 
+// ── Status config ─────────────────────────────────────────────────────────────
+const STATUS = {
+  pending:  { label: 'New Order',       badge: 'bg-orange-100 text-orange-700 border-orange-200', accent: 'border-l-orange-400', bg: 'bg-orange-50/60 dark:bg-orange-950/20' },
+  paid:     { label: '✓ Paid',          badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'border-l-emerald-400', bg: 'bg-emerald-50/60 dark:bg-emerald-950/20' },
+  preparing:{ label: '✓ In Parcel',     badge: 'bg-blue-100 text-blue-700 border-blue-200', accent: 'border-l-blue-400', bg: 'bg-blue-50/60 dark:bg-blue-950/20' },
+  shipped:  { label: 'Shipped',         badge: 'bg-slate-100 text-slate-600 border-slate-200', accent: 'border-l-slate-400', bg: '' },
+};
+
 function OrderCard({ order, variant, isDark, s, onDelete, onSendQR, onMarkPaid, onMoveToParcel }: {
   order: Order; variant: 'active' | 'parcel'; isDark: boolean; s: any;
   onDelete: () => void; onSendQR?: () => void; onMarkPaid?: () => void; onMoveToParcel?: () => void;
 }) {
+  const st = STATUS[order.status] || STATUS.pending;
   return (
-    <div className={`${s.surface} rounded-xl border ${s.border} p-3`}>
+    <div className={`rounded-xl border-l-4 border border-r border-t border-b ${st.accent} ${isDark ? 'bg-[#161925] border-[#1f2335]' : `${st.bg} border-gray-200`} p-3`}>
       <div className="flex items-start justify-between gap-2 mb-2">
-        {variant === 'parcel' ? (
-          <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">
-            ✓ In Parcel (Not Shipped)
-          </span>
-        ) : (
-          <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full flex-shrink-0 ${
-            order.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-          }`}>
-            {order.status === 'paid' ? '✓ Paid' : 'New Order Request'}
-          </span>
-        )}
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide flex-shrink-0 ${st.badge}`}>
+          {variant === 'parcel' ? '✓ In Parcel' : st.label}
+        </span>
         <button onClick={onDelete} className="text-gray-400 hover:text-red-500 flex-shrink-0"><Trash2 size={13} /></button>
       </div>
       <p className={`font-semibold text-sm leading-snug ${s.text}`}>{order.product}</p>
-      <p className={`text-xs mt-0.5 ${s.muted}`}>{order.soldCurrency || 'THB'} {order.soldTHB?.toLocaleString()} · {order.displayName}</p>
+      <p className={`text-xs mt-0.5 ${s.muted}`}>
+        <span className="font-medium">{order.soldCurrency || 'THB'} {order.soldTHB?.toLocaleString()}</span>
+        {order.profit > 0 && <span className="ml-2 text-green-600">+{(order.soldCurrency || 'THB')} {order.profit?.toLocaleString(undefined, { maximumFractionDigits: 0 })} profit</span>}
+      </p>
       {variant === 'active' && (
-        <div className="flex flex-wrap gap-1 mt-2">
+        <div className="flex flex-wrap gap-1 mt-2.5">
           {onMoveToParcel && (
-            <button onClick={onMoveToParcel} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border ${s.border} ${s.hover}`}>
+            <button onClick={onMoveToParcel} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border ${s.border} ${s.hover} ${s.text}`}>
               <Package size={10} /> Move to Parcel →
             </button>
           )}
           {onSendQR && !order.paymentQrSent && (
-            <button onClick={onSendQR} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border ${s.border} ${s.hover}`}>
+            <button onClick={onSendQR} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border ${s.border} ${s.hover} ${s.text}`}>
               <QrCode size={10} /> Send QR
             </button>
           )}
           {onMarkPaid && order.status === 'pending' && (
-            <button onClick={onMarkPaid} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border border-green-300 text-green-700 hover:bg-green-50">
+            <button onClick={onMarkPaid} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
               <CheckCircle size={10} /> Mark Paid
             </button>
           )}
@@ -606,7 +714,7 @@ function AddressSection({ customer, isDark, s, onAdd }: {
   const [newAddr, setNewAddr] = useState('');
   return (
     <div className={`${s.surface} rounded-xl border ${s.border} p-4`}>
-      <p className={`text-[10px] font-bold uppercase tracking-wider ${s.muted} mb-3`}>Select Delivery Address (Saved Addresses)</p>
+      <p className={`text-[10px] font-bold uppercase tracking-wider ${s.muted} mb-3`}>Delivery Addresses</p>
       <div className="space-y-2">
         {(customer.addresses || []).map((addr, i) => (
           <div key={i} className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${s.border}`}>
@@ -618,15 +726,11 @@ function AddressSection({ customer, isDark, s, onAdd }: {
           </div>
         ))}
         <div className="flex gap-2">
-          <input value={newAddr} onChange={e => setNewAddr(e.target.value)}
-            placeholder="Add new address..."
-            className={`flex-1 text-sm rounded-xl px-3 py-2 border outline-none ${s.input}`}
-          />
-          <button
-            onClick={() => { if (newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
-            className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-medium whitespace-nowrap"
-          >
-            + Add Address
+          <input value={newAddr} onChange={e => setNewAddr(e.target.value)} placeholder="Add new address..."
+            className={`flex-1 text-sm rounded-xl px-3 py-2 border outline-none ${s.input}`} />
+          <button onClick={() => { if (newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
+            className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-medium whitespace-nowrap transition-colors">
+            + Add
           </button>
         </div>
       </div>
@@ -653,44 +757,43 @@ function ParcelSection({ orders, isDark, s, onPatch, onMarkShipped }: {
   }
 
   return (
-    <div className={`rounded-xl border-2 border-dashed ${isDark ? 'border-[#2a3050]' : 'border-gray-300'} p-4 space-y-3`}>
-      {orders.map((order, idx) => {
+    <div className={`rounded-xl border-2 border-dashed ${isDark ? 'border-[#2a3050]' : 'border-blue-200 bg-blue-50/40'} p-4 space-y-3`}>
+      <p className={`text-[10px] font-bold uppercase tracking-wider text-blue-600 mb-1`}>Parcels — Awaiting Shipment</p>
+      {orders.map((order) => {
         const t = getT(order);
         const parcelId = order._id.slice(-4).toUpperCase();
         return (
           <div key={order._id}>
             <div className="flex items-center justify-between mb-2">
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${isDark ? 'bg-white/10 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
-                Parcel ID: {parcelId}
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-700`}>
+                Parcel #{parcelId}
               </span>
               <div className="flex gap-2">
-                <button className={`text-xs ${s.muted} ${s.hover} px-2 py-0.5 rounded`}>+ Add Item</button>
-                <button className="text-xs text-red-500 hover:text-red-600 px-2 py-0.5 rounded">Delete Parcel</button>
+                <button className="text-xs text-red-500 hover:text-red-600 px-2 py-0.5 rounded">Delete</button>
               </div>
             </div>
 
             <div className={`${s.surface} border ${s.border} rounded-xl p-3`}>
-              <p className={`text-[10px] font-bold uppercase tracking-wider ${s.muted} mb-2`}>Item Details</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mb-2">
                 <div>
-                  <span className={s.muted}>Product Name</span>
-                  <span className="block font-medium">{order.product}</span>
+                  <span className={s.muted}>Product</span>
+                  <span className={`block font-medium ${s.text}`}>{order.product}</span>
                 </div>
                 <div>
                   <span className={s.muted}>QTY</span>
-                  <span className="block font-medium">{order.quantity}</span>
+                  <span className={`block font-medium ${s.text}`}>{order.quantity}</span>
                 </div>
                 <div>
                   <span className={s.muted}>Sold ({order.soldCurrency || 'THB'})</span>
-                  <span className="block font-medium">{order.soldTHB?.toLocaleString()}</span>
+                  <span className={`block font-medium ${s.text}`}>{order.soldTHB?.toLocaleString()}</span>
                 </div>
                 <div>
                   <span className={s.muted}>Cost ({order.costCurrency || 'KRW'})</span>
-                  <span className="block font-medium">{order.costKRW || 0}</span>
+                  <span className={`block font-medium ${s.text}`}>{order.costKRW || 0}</span>
                 </div>
               </div>
-              <p className="text-xs font-bold text-green-500">
-                Profit: {order.soldCurrency || 'THB'} {((order.soldTHB || 0) - (order.costTHB || 0)).toLocaleString('en', { minimumFractionDigits: 2 })}
+              <p className="text-xs font-bold text-emerald-600">
+                Profit: {order.soldCurrency || 'THB'} {((order.soldTHB || 0) - (order.costTHB || 0)).toLocaleString('en', { maximumFractionDigits: 0 })}
               </p>
             </div>
 
@@ -700,16 +803,14 @@ function ParcelSection({ orders, isDark, s, onPatch, onMarkShipped }: {
                 <input value={t.tracking}
                   onChange={e => setTrackingMap(m => ({ ...m, [order._id]: { ...getT(order), tracking: e.target.value } }))}
                   placeholder="Enter tracking..."
-                  className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none mt-0.5 ${s.input}`}
-                />
+                  className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none mt-0.5 ${s.input}`} />
               </div>
               <div>
                 <label className={`text-[10px] uppercase tracking-wide ${s.muted}`}>Courier</label>
                 <input value={t.courier}
                   onChange={e => setTrackingMap(m => ({ ...m, [order._id]: { ...getT(order), courier: e.target.value } }))}
                   placeholder="Flash, Kerry..."
-                  className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none mt-0.5 ${s.input}`}
-                />
+                  className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none mt-0.5 ${s.input}`} />
               </div>
             </div>
             <div className="flex gap-3 mt-2">
@@ -743,18 +844,15 @@ function SeedButton({ isDark, s }: { isDark: boolean; s: any }) {
   }
 
   if (state === 'done') return (
-    <p className="text-xs text-green-500 font-medium">Mock customers seeded — they'll appear in a moment</p>
+    <p className="text-xs text-green-500 font-medium text-center">Seeded — customers will appear shortly</p>
   );
 
   return (
-    <button
-      onClick={seed}
-      disabled={state === 'loading'}
+    <button onClick={seed} disabled={state === 'loading'}
       className={`text-xs px-4 py-2 rounded-xl border font-medium transition-all disabled:opacity-50 ${
         isDark ? 'border-[#2a3050] text-gray-300 hover:border-green-500' : 'border-gray-200 text-gray-600 hover:border-green-500'
-      }`}
-    >
-      {state === 'loading' ? 'Seeding...' : state === 'error' ? 'Failed — try again' : '+ Add mock customers for testing'}
+      }`}>
+      {state === 'loading' ? 'Seeding...' : state === 'error' ? 'Failed — try again' : '+ Add mock customers'}
     </button>
   );
 }
