@@ -150,25 +150,25 @@ export default function SettingsView({ theme, onSave }: { theme?: 'light' | 'dar
         <div className="mb-10">
           <h3 className={sectionTitle}>Currency & Exchange Rate</h3>
           <p className="text-[10px] text-[#8b92ad] mb-6 leading-relaxed">
-            Configure your import and local currencies to calculate cost and profit on orders.
+            Set the default currencies for cost and selling price. You can override the cost currency per order.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className={label}>Import Currency (purchase cost)</label>
+              <label className={label}>Cost Currency</label>
               <select
                 value={settings.importCurrency || 'KRW'}
                 onChange={e => set('importCurrency', e.target.value)}
                 className={inp}
               >
-                {['KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'].map(c => (
+                {['THB', 'KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'].map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <p className={hint}>Currency you pay when purchasing inventory</p>
+              <p className={hint}>Default currency you pay when sourcing products (can be changed per order)</p>
             </div>
             <div>
-              <label className={label}>Local Currency (selling price)</label>
+              <label className={label}>Selling Currency</label>
               <select
                 value={settings.localCurrency || 'THB'}
                 onChange={e => set('localCurrency', e.target.value)}
@@ -178,7 +178,7 @@ export default function SettingsView({ theme, onSave }: { theme?: 'light' | 'dar
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <p className={hint}>Currency your customers pay in</p>
+              <p className={hint}>Currency your customers pay in (fixed per order)</p>
             </div>
           </div>
 

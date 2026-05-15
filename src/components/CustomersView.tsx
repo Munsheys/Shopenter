@@ -29,7 +29,7 @@ type Product = {
   variants?: { thickness?: string; colors?: string[]; price?: number }[];
 };
 
-const COST_CURRENCIES = ['KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'];
+const COST_CURRENCIES = ['THB', 'KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'];
 
 export default function CustomersView({ theme }: { theme: string }) {
   const isDark = theme === 'dark';
