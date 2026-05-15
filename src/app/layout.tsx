@@ -9,9 +9,9 @@ const promptFont = Prompt({
 });
 
 export const metadata: Metadata = {
-  title: "LineOA CRM — Admin Dashboard",
-  description: "Order fulfillment and customer management for LINE Official Account",
-  robots: "noindex, nofollow",
+  title: "Shopenter — LINE OA Commerce Platform",
+  description: "Multi-tenant e-commerce platform for LINE Official Account merchants. Manage orders, products, customers, and payments.",
+  robots: "index, follow",
 };
 
 export default function RootLayout({
