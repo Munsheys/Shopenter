@@ -84,10 +84,12 @@ export default function CustomersView({ theme }: { theme: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [merchantSettings, setMerchantSettings] = useState<any>(null);
 
-  const [qoMode, setQoMode] = useState<'manual' | 'catalog'>('manual');
+  const [qoMode, setQoMode] = useState<'existing' | 'new'>('existing');
   const [qoSearch, setQoSearch] = useState('');
   const [qoSelected, setQoSelected] = useState<Product | null>(null);
   const [qoName, setQoName] = useState('');
+  const [qoBrand, setQoBrand] = useState('');
+  const [qoSaveToCatalog, setQoSaveToCatalog] = useState(false);
   const [qoPrice, setQoPrice] = useState('');
   const [qoCostPrice, setQoCostPrice] = useState('');
   const [qoCostCurrency, setQoCostCurrency] = useState('KRW');
@@ -205,12 +207,32 @@ export default function CustomersView({ theme }: { theme: string }) {
 
   async function submitQuickOrder() {
     if (!selectedCustomer || qoSubmitting) return;
-    const name = qoMode === 'catalog' && qoSelected ? qoSelected.name : qoName.trim();
+    const name = qoMode === 'existing' && qoSelected ? qoSelected.name : qoName.trim();
     if (!name) return;
     const price = parseFloat(qoPrice) || (qoSelected?.price ?? 0);
     const costAmount = parseFloat(qoCostPrice) || 0;
     setQoSubmitting(true);
     try {
+      let productId = qoSelected?._id;
+
+      if (qoMode === 'new' && qoSaveToCatalog) {
+        const pRes = await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            brand: qoBrand.trim() || undefined,
+            price,
+            isActive: true,
+          }),
+        });
+        if (pRes.ok) {
+          const newProduct = await pRes.json();
+          productId = newProduct._id;
+          setProducts(prev => [newProduct, ...prev]);
+        }
+      }
+
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -219,7 +241,7 @@ export default function CustomersView({ theme }: { theme: string }) {
           displayName: selectedCustomer.displayName,
           product: `${qoQty > 1 ? `${qoQty}x ` : ''}${name}`,
           quantity: qoQty,
-          items: [{ productId: qoSelected?._id, name, qty: qoQty, price }],
+          items: [{ productId, name, qty: qoQty, price }],
           soldTHB: price * qoQty,
           costKRW: costAmount,
           costCurrency: qoCostCurrency,
@@ -230,7 +252,8 @@ export default function CustomersView({ theme }: { theme: string }) {
         const order = await res.json();
         setAllOrders(prev => [order, ...prev]);
         setShowModal(false);
-        setQoName(''); setQoPrice(''); setQoCostPrice('');
+        setQoName(''); setQoBrand(''); setQoSaveToCatalog(false);
+        setQoPrice(''); setQoCostPrice('');
         setQoQty(1); setQoSelected(null); setQoSearch('');
         setQoCostCurrency(merchantSettings?.importCurrency || 'KRW');
       }
@@ -663,22 +686,15 @@ export default function CustomersView({ theme }: { theme: string }) {
             </div>
             <div className="p-6 space-y-4">
               <div className="flex gap-2">
-                {(['manual', 'catalog'] as const).map(m => (
+                {(['existing', 'new'] as const).map(m => (
                   <button key={m} onClick={() => setQoMode(m)}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold capitalize transition-all ${qoMode === m ? 'bg-[#00b900] text-white shadow-sm shadow-[#00b900]/20' : isDark ? 'bg-white/5 text-[#8b92ad] hover:bg-white/10' : 'bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#f0f1f5]'}`}>
-                    {m}
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${qoMode === m ? 'bg-[#00b900] text-white shadow-sm shadow-[#00b900]/20' : isDark ? 'bg-white/5 text-[#8b92ad] hover:bg-white/10' : 'bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#f0f1f5]'}`}>
+                    {m === 'existing' ? 'Existing Product' : 'New Product'}
                   </button>
                 ))}
               </div>
 
-              {qoMode === 'manual' ? (
-                <div>
-                  <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Product Name</label>
-                  <input value={qoName} onChange={e => setQoName(e.target.value)}
-                    placeholder="e.g. [Goyard] Boheme Hobo – Linen"
-                    className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`} />
-                </div>
-              ) : (
+              {qoMode === 'existing' ? (
                 <div className="space-y-2">
                   <div className="relative">
                     <Search size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 ${k.muted}`} />
@@ -697,6 +713,26 @@ export default function CustomersView({ theme }: { theme: string }) {
                     ))}
                     {filteredProducts.length === 0 && <p className={`text-xs text-center py-4 ${k.muted}`}>No products found</p>}
                   </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Product Name *</label>
+                    <input value={qoName} onChange={e => setQoName(e.target.value)}
+                      placeholder="e.g. Boheme Hobo Bag"
+                      className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`} />
+                  </div>
+                  <div>
+                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Brand</label>
+                    <input value={qoBrand} onChange={e => setQoBrand(e.target.value)}
+                      placeholder="e.g. Goyard"
+                      className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`} />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={qoSaveToCatalog} onChange={e => setQoSaveToCatalog(e.target.checked)}
+                      className="w-3.5 h-3.5 accent-[#00b900]" />
+                    <span className={`text-xs ${k.muted}`}>Save to product catalog</span>
+                  </label>
                 </div>
               )}
 
@@ -743,7 +779,7 @@ export default function CustomersView({ theme }: { theme: string }) {
               )}
 
               <button
-                disabled={qoSubmitting || (qoMode === 'manual' ? !qoName.trim() : !qoSelected)}
+                disabled={qoSubmitting || (qoMode === 'existing' ? !qoSelected : !qoName.trim())}
                 onClick={submitQuickOrder}
                 className="w-full bg-[#00b900] hover:opacity-90 disabled:opacity-40 text-white rounded-2xl py-3 font-black text-sm shadow-sm shadow-[#00b900]/20 transition-all active:scale-95"
               >

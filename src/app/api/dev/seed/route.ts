@@ -19,7 +19,11 @@ export async function POST(req: NextRequest) {
       userId: `mock-${mid}-alice`,
       displayName: 'Alice (Mock)',
       pictureUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alice',
-      addresses: ['88/2 Sukhumvit Soi 11, Bangkok 10110'],
+      // Multiple addresses to demo address section
+      addresses: [
+        '88/2 Sukhumvit Soi 11, Bangkok 10110',
+        '45/9 Thonglor 13, Watthana, Bangkok 10110',
+      ],
     },
     {
       userId: `mock-${mid}-bob`,
@@ -35,154 +39,167 @@ export async function POST(req: NextRequest) {
     },
   ];
 
-  // Upsert customers
+  // Upsert customers — Alice gets 3 unread to surface the badge
   for (const u of mockUsers) {
     await Customer.findOneAndUpdate(
       { merchantId: mid, userId: u.userId },
-      { ...u, merchantId: mid, lastSeen: new Date(), unreadCount: u.userId.includes('alice') ? 2 : 0 },
-      { upsert: true }
+      { ...u, merchantId: mid, lastSeen: new Date(), unreadCount: u.userId.includes('alice') ? 3 : 0 },
+      { upsert: true, new: true }
     );
   }
 
-  // Wipe old mock orders/messages for this merchant
+  // Wipe old mock orders/messages
   await Order.deleteMany({ merchantId: mid, lineUserId: { $in: mockUsers.map(u => u.userId) } });
   await Message.deleteMany({ merchantId: mid, lineUserId: { $in: mockUsers.map(u => u.userId) } });
 
   const now = Date.now();
+  const alice = mockUsers[0].userId;
+  const bob   = mockUsers[1].userId;
+  const charlie = mockUsers[2].userId;
 
-  // ── Alice: pending KRW order + one paid order ──────────────────────────────
+  // ── ALICE — all four order states + rich chat ─────────────────────────────
+  // Demonstrates: New Order, Paid, In Parcel, Shipped (order history)
   await Order.insertMany([
     {
-      merchantId: mid,
-      lineUserId: mockUsers[0].userId,
-      displayName: mockUsers[0].displayName,
-      product: 'Glow Serum XL',
+      // 1. pending — "New Order" card
+      merchantId: mid, lineUserId: alice, displayName: 'Alice (Mock)',
+      product: '[Chanel] Classic Flap Medium — Caviar Black',
       quantity: 1,
-      items: [{ name: 'Glow Serum XL', qty: 1, price: 1250 }],
-      soldTHB: 1250,
-      costKRW: 32000,
-      costTHB: 832,
-      profit: 418,
-      rateUsed: 0.026,
-      costCurrency: 'KRW',
-      soldCurrency: 'THB',
+      items: [{ name: '[Chanel] Classic Flap Medium — Caviar Black', qty: 1, price: 4500 }],
+      soldTHB: 4500, costKRW: 95000, costTHB: 2470, profit: 2030,
+      rateUsed: 0.026, costCurrency: 'KRW', soldCurrency: 'THB',
       address: mockUsers[0].addresses[0],
-      status: 'pending',
-      paymentQrSent: false,
-      createdAt: new Date(now - 1000 * 60 * 30), // 30 min ago
+      status: 'pending', paymentQrSent: false,
+      createdAt: new Date(now - 1000 * 60 * 12), // 12 min ago
     },
     {
-      merchantId: mid,
-      lineUserId: mockUsers[0].userId,
-      displayName: mockUsers[0].displayName,
-      product: 'Sunscreen SPF50+',
-      quantity: 2,
-      items: [{ name: 'Sunscreen SPF50+', qty: 2, price: 390 }],
-      soldTHB: 780,
-      costKRW: 18000,
-      costTHB: 468,
-      profit: 312,
-      rateUsed: 0.026,
-      costCurrency: 'KRW',
-      soldCurrency: 'THB',
+      // 2. paid — "✓ Paid" card, QR already sent
+      merchantId: mid, lineUserId: alice, displayName: 'Alice (Mock)',
+      product: '[Bottega Veneta] Jodie Bag — Tan',
+      quantity: 1,
+      items: [{ name: '[Bottega Veneta] Jodie Bag — Tan', qty: 1, price: 3200 }],
+      soldTHB: 3200, costKRW: 68000, costTHB: 1768, profit: 1432,
+      rateUsed: 0.026, costCurrency: 'KRW', soldCurrency: 'THB',
       address: mockUsers[0].addresses[0],
-      status: 'paid',
-      paymentQrSent: true,
-      createdAt: new Date(now - 1000 * 60 * 90), // 90 min ago
+      status: 'paid', paymentQrSent: true,
+      createdAt: new Date(now - 1000 * 60 * 45), // 45 min ago
+    },
+    {
+      // 3. preparing — "✓ In Parcel" — shows in active cards AND in parcel card
+      merchantId: mid, lineUserId: alice, displayName: 'Alice (Mock)',
+      product: '[Goyard] Saint Louis PM — Yellow',
+      quantity: 1,
+      items: [{ name: '[Goyard] Saint Louis PM — Yellow', qty: 1, price: 5800 }],
+      soldTHB: 5800, costKRW: 132000, costTHB: 3432, profit: 2368,
+      rateUsed: 0.026, costCurrency: 'KRW', soldCurrency: 'THB',
+      address: mockUsers[0].addresses[0],
+      status: 'preparing', paymentQrSent: true,
+      tracking: '', courier: '',
+      createdAt: new Date(now - 1000 * 60 * 90), // 1.5 hrs ago
+    },
+    {
+      // 4. shipped — appears in Fulfilled Order History
+      merchantId: mid, lineUserId: alice, displayName: 'Alice (Mock)',
+      product: '[Hermès] Evelyne III 29 — Etoupe',
+      quantity: 1,
+      items: [{ name: '[Hermès] Evelyne III 29 — Etoupe', qty: 1, price: 6200 }],
+      soldTHB: 6200, costKRW: 148000, costTHB: 3848, profit: 2352,
+      rateUsed: 0.026, costCurrency: 'KRW', soldCurrency: 'THB',
+      address: mockUsers[0].addresses[0],
+      status: 'shipped', paymentQrSent: true,
+      tracking: 'FL9912345678TH', courier: 'Flash Express',
+      createdAt: new Date(now - 1000 * 60 * 60 * 72), // 3 days ago
+    },
+    {
+      // 5. shipped (older) — second history row
+      merchantId: mid, lineUserId: alice, displayName: 'Alice (Mock)',
+      product: '[Celine] Nano Luggage — Black',
+      quantity: 1,
+      items: [{ name: '[Celine] Nano Luggage — Black', qty: 1, price: 2900 }],
+      soldTHB: 2900, costKRW: 61000, costTHB: 1586, profit: 1314,
+      rateUsed: 0.026, costCurrency: 'KRW', soldCurrency: 'THB',
+      address: mockUsers[0].addresses[1],
+      status: 'shipped', paymentQrSent: true,
+      tracking: 'KR7723456789TH', courier: 'Kerry Express',
+      createdAt: new Date(now - 1000 * 60 * 60 * 168), // 7 days ago
     },
   ]);
 
-  // ── Bob: preparing (in parcel) — USD cost ─────────────────────────────────
+  // ── BOB — preparing (in parcel, USD cost) ────────────────────────────────
   await Order.insertMany([
     {
-      merchantId: mid,
-      lineUserId: mockUsers[1].userId,
-      displayName: mockUsers[1].displayName,
-      product: 'Vintage Levi\'s 501 W32',
+      merchantId: mid, lineUserId: bob, displayName: 'Bob (Mock)',
+      product: "Vintage Levi's 501 W32 — Indigo",
       quantity: 1,
-      items: [{ name: 'Vintage Levi\'s 501 W32', qty: 1, price: 1800 }],
-      soldTHB: 1800,
-      costKRW: 42,       // costKRW field repurposed as cost amount (USD here)
-      costTHB: 1512,     // 42 USD × 36 THB
-      profit: 288,
-      rateUsed: 36,
-      costCurrency: 'USD',
-      soldCurrency: 'THB',
+      items: [{ name: "Vintage Levi's 501 W32 — Indigo", qty: 1, price: 1800 }],
+      soldTHB: 1800, costKRW: 42, costTHB: 1512, profit: 288,
+      rateUsed: 36, costCurrency: 'USD', soldCurrency: 'THB',
       address: mockUsers[1].addresses[0],
-      status: 'preparing',
-      paymentQrSent: true,
-      tracking: '',
-      courier: '',
+      status: 'preparing', paymentQrSent: true,
+      tracking: '', courier: '',
       createdAt: new Date(now - 1000 * 60 * 60 * 5), // 5 hrs ago
     },
+    {
+      merchantId: mid, lineUserId: bob, displayName: 'Bob (Mock)',
+      product: "Carhartt WIP Detroit Jacket — Black",
+      quantity: 1,
+      items: [{ name: "Carhartt WIP Detroit Jacket — Black", qty: 1, price: 2400 }],
+      soldTHB: 2400, costKRW: 55, costTHB: 1980, profit: 420,
+      rateUsed: 36, costCurrency: 'USD', soldCurrency: 'THB',
+      address: mockUsers[1].addresses[0],
+      status: 'paid', paymentQrSent: true,
+      createdAt: new Date(now - 1000 * 60 * 60 * 3), // 3 hrs ago
+    },
   ]);
 
-  // ── Charlie: local THB cost (bought locally, sold locally) ───────────────
+  // ── CHARLIE — pending (no address) ───────────────────────────────────────
   await Order.insertMany([
     {
-      merchantId: mid,
-      lineUserId: mockUsers[2].userId,
-      displayName: mockUsers[2].displayName,
-      product: 'Thai Silk Scarf',
-      quantity: 1,
-      items: [{ name: 'Thai Silk Scarf', qty: 1, price: 650 }],
-      soldTHB: 650,
-      costKRW: 320,      // cost in THB stored here
-      costTHB: 320,
-      profit: 330,
-      rateUsed: 1,
-      costCurrency: 'THB',
-      soldCurrency: 'THB',
+      merchantId: mid, lineUserId: charlie, displayName: 'Charlie (Mock)',
+      product: 'Thai Silk Scarf — Royal Blue',
+      quantity: 2,
+      items: [{ name: 'Thai Silk Scarf — Royal Blue', qty: 2, price: 650 }],
+      soldTHB: 1300, costKRW: 640, costTHB: 640, profit: 660,
+      rateUsed: 1, costCurrency: 'THB', soldCurrency: 'THB',
       address: '',
-      status: 'pending',
-      paymentQrSent: false,
-      createdAt: new Date(now - 1000 * 60 * 15), // 15 min ago
-    },
-    {
-      merchantId: mid,
-      lineUserId: mockUsers[2].userId,
-      displayName: mockUsers[2].displayName,
-      product: 'Hand-woven Basket',
-      quantity: 1,
-      items: [{ name: 'Hand-woven Basket', qty: 1, price: 450 }],
-      soldTHB: 450,
-      costKRW: 200,
-      costTHB: 200,
-      profit: 250,
-      rateUsed: 1,
-      costCurrency: 'THB',
-      soldCurrency: 'THB',
-      address: '',
-      status: 'shipped',
-      paymentQrSent: true,
-      tracking: 'TH99887766',
-      courier: 'ThaiPost',
-      createdAt: new Date(now - 1000 * 60 * 60 * 48), // 2 days ago
+      status: 'pending', paymentQrSent: false,
+      createdAt: new Date(now - 1000 * 60 * 8), // 8 min ago
     },
   ]);
 
-  // ── Messages for Alice ────────────────────────────────────────────────────
+  // ── ALICE messages — full conversation showing purchase flow ─────────────
   await Message.insertMany([
-    { merchantId: mid, lineUserId: mockUsers[0].userId, type: 'text', text: 'สวัสดีค่ะ! สนใจ Glow Serum ที่โพสต์ไว้ค่ะ', sender: 'user', createdAt: new Date(now - 1000 * 60 * 35) },
-    { merchantId: mid, lineUserId: mockUsers[0].userId, type: 'text', text: 'สวัสดีครับ! มีอยู่ครับ ราคา ฿1,250 ต่อขวดนะครับ 🙏', sender: 'admin', createdAt: new Date(now - 1000 * 60 * 33) },
-    { merchantId: mid, lineUserId: mockUsers[0].userId, type: 'text', text: 'ขอ 1 ขวดค่ะ จัดส่งได้เร็วไหมคะ?', sender: 'user', createdAt: new Date(now - 1000 * 60 * 31) },
-    { merchantId: mid, lineUserId: mockUsers[0].userId, type: 'text', text: 'ส่งได้ภายใน 1-2 วันทำการครับ จะส่ง QR ให้ชำระเงินตอนนี้เลยนะครับ', sender: 'admin', createdAt: new Date(now - 1000 * 60 * 28) },
-    { merchantId: mid, lineUserId: mockUsers[0].userId, type: 'text', text: 'ได้เลยค่ะ รอนะคะ', sender: 'user', createdAt: new Date(now - 1000 * 60 * 25) },
-    { merchantId: mid, lineUserId: mockUsers[0].userId, type: 'text', text: 'ชำระแล้วค่ะ', sender: 'user', createdAt: new Date(now - 1000 * 60 * 5) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'สวัสดีค่ะ! เห็นโพสต์กระเป๋า Chanel ในเพจค่ะ ยังมีอยู่ไหมคะ?', sender: 'user', createdAt: new Date(now - 1000 * 60 * 60) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'สวัสดีครับ! ยังมีอยู่ครับ ราคา ฿4,500 ครับ มีแค่ 1 ใบเลยนะครับ 🙏', sender: 'admin', createdAt: new Date(now - 1000 * 60 * 58) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'โอ้โห สวยมากเลยค่ะ ขอจองได้เลยไหมคะ?', sender: 'user', createdAt: new Date(now - 1000 * 60 * 56) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'ได้เลยครับ จะส่ง QR ให้ชำระเงินมัดจำก่อนได้เลยครับ', sender: 'admin', createdAt: new Date(now - 1000 * 60 * 54) },
+    { merchantId: mid, lineUserId: alice, type: 'system', text: 'Order created — [Chanel] Classic Flap Medium ฿4,500', sender: 'system', createdAt: new Date(now - 1000 * 60 * 52) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'โอนแล้วค่ะ ตรวจสอบด้วยนะคะ 🙂', sender: 'user', createdAt: new Date(now - 1000 * 60 * 20) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'ได้รับแล้วครับ ขอบคุณมากครับ จะแพคส่งให้เร็วๆ นี้เลยครับ', sender: 'admin', createdAt: new Date(now - 1000 * 60 * 18) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'ขอบคุณนะคะ รอค่ะ 💚', sender: 'user', createdAt: new Date(now - 1000 * 60 * 15) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'อยากได้ Bottega ด้วยค่ะ มีไหมคะ?', sender: 'user', createdAt: new Date(now - 1000 * 60 * 10) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'มีอยู่ครับ Jodie Bag สีน้ำตาลทอง ฿3,200 ครับ', sender: 'admin', createdAt: new Date(now - 1000 * 60 * 8) },
+    { merchantId: mid, lineUserId: alice, type: 'text', text: 'สั่งเลยค่ะ 🛍️', sender: 'user', createdAt: new Date(now - 1000 * 60 * 5) },
   ]);
 
-  // ── Messages for Bob ──────────────────────────────────────────────────────
+  // ── BOB messages ─────────────────────────────────────────────────────────
   await Message.insertMany([
-    { merchantId: mid, lineUserId: mockUsers[1].userId, type: 'text', text: 'Hi! Is the Levi\'s still available?', sender: 'user', createdAt: new Date(now - 1000 * 60 * 60 * 6) },
-    { merchantId: mid, lineUserId: mockUsers[1].userId, type: 'text', text: 'Yes it is! ฿1,800 shipped 🙌', sender: 'admin', createdAt: new Date(now - 1000 * 60 * 60 * 5.9) },
-    { merchantId: mid, lineUserId: mockUsers[1].userId, type: 'text', text: 'Paid! Please ship to Chiang Mai', sender: 'user', createdAt: new Date(now - 1000 * 60 * 60 * 5) },
+    { merchantId: mid, lineUserId: bob, type: 'text', text: "Hi! Is the Levi's still available?", sender: 'user', createdAt: new Date(now - 1000 * 60 * 60 * 6) },
+    { merchantId: mid, lineUserId: bob, type: 'text', text: 'Yes it is! ฿1,800 + free shipping 🙌', sender: 'admin', createdAt: new Date(now - 1000 * 60 * 60 * 5.9) },
+    { merchantId: mid, lineUserId: bob, type: 'text', text: "Great, I'll take it. Do you have the Carhartt jacket too?", sender: 'user', createdAt: new Date(now - 1000 * 60 * 60 * 5.5) },
+    { merchantId: mid, lineUserId: bob, type: 'text', text: 'Yes! Detroit jacket in black, ฿2,400. Both items shipped together? 📦', sender: 'admin', createdAt: new Date(now - 1000 * 60 * 60 * 5.3) },
+    { merchantId: mid, lineUserId: bob, type: 'text', text: 'Perfect, paid for both. Please ship to Chiang Mai 🙏', sender: 'user', createdAt: new Date(now - 1000 * 60 * 60 * 5) },
   ]);
 
   return NextResponse.json({
     success: true,
     seeded: {
       customers: mockUsers.map(u => u.displayName),
-      note: 'Alice has 2 unread messages + pending/paid orders. Bob has a preparing parcel (USD cost). Charlie has local THB cost orders.',
+      orders: {
+        alice: '5 orders — pending, paid, preparing (parcel), shipped ×2 (history)',
+        bob: '2 orders — paid + preparing (parcel, USD cost)',
+        charlie: '1 order — pending, no address',
+      },
     },
   });
 }
