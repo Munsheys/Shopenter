@@ -8,13 +8,16 @@ import SettingsView from '@/components/SettingsView';
 import ReportsView from '@/components/ReportsView';
 import ShopOrdersView from '@/components/ShopOrdersView';
 import StorefrontCustomizer from '@/components/StorefrontCustomizer';
+import CustomersView from '@/components/CustomersView';
 import LoadingView from '@/components/LoadingView';
 
-type Tab = 'orders' | 'products' | 'reports' | 'storefront' | 'settings';
+type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'storefront' | 'settings';
 
 interface Merchant {
   merchantId: string;
   email: string;
+  shopName?: string;
+  slug?: string | null;
 }
 
 export default function DashboardPage() {
@@ -67,6 +70,7 @@ export default function DashboardPage() {
   if (loading) return <LoadingView />;
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'customers', label: 'Customers', icon: <MessageCircle size={18} /> },
     { id: 'orders', label: 'Orders', icon: <ShoppingCart size={18} /> },
     { id: 'products', label: 'Products', icon: <Package size={18} /> },
     { id: 'reports', label: 'Reports', icon: <BarChart3 size={18} /> },
@@ -95,12 +99,12 @@ export default function DashboardPage() {
           <p className={`text-xs truncate ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{merchant?.email}</p>
           {merchant && (
             <a
-              href={`/merchant/${merchant.merchantId}`}
+              href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-2 flex items-center gap-1.5 text-xs text-green-500 hover:text-green-400 font-medium"
             >
-              <ExternalLink size={11} /> View storefront
+              <ExternalLink size={11} /> {merchant.slug ? `/shop/${merchant.slug}` : 'View storefront'}
             </a>
           )}
         </div>
@@ -131,7 +135,8 @@ export default function DashboardPage() {
           <span className="font-semibold text-sm">{tabs.find(t => t.id === activeTab)?.label}</span>
         </header>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto flex flex-col">
+          {activeTab === 'customers' && <CustomersView theme={theme} />}
           {activeTab === 'orders' && <ShopOrdersView theme={theme} t={{}} />}
           {activeTab === 'products' && <ProductManagement theme={theme} t={{}} />}
           {activeTab === 'reports' && <ReportsView theme={theme} t={{}} />}
@@ -143,8 +148,11 @@ export default function DashboardPage() {
                 <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                   Choose a theme, set your brand colors, and configure what customers see at{' '}
                   {merchant && (
-                    <a href={`/merchant/${merchant.merchantId}`} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:underline">
-                      /merchant/{merchant.merchantId}
+                    <a
+                      href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
+                      target="_blank" rel="noopener noreferrer" className="text-green-500 hover:underline"
+                    >
+                      {merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
                     </a>
                   )}
                 </p>

@@ -3,6 +3,19 @@ import dbConnect from '@/lib/db';
 import { Merchant, Settings } from '@/models';
 import { hashPassword, signMerchantToken } from '@/lib/auth';
 
+function toSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop';
+}
+
+async function generateUniqueSlug(base: string): Promise<string> {
+  let slug = base;
+  let i = 2;
+  while (await Merchant.findOne({ slug })) {
+    slug = `${base}-${i++}`;
+  }
+  return slug;
+}
+
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
@@ -24,7 +37,8 @@ export async function POST(req: NextRequest) {
     }
 
     const passwordHash = await hashPassword(password);
-    const merchant = await Merchant.create({ email: email.toLowerCase().trim(), passwordHash, shopName });
+    const slug = await generateUniqueSlug(toSlug(shopName));
+    const merchant = await Merchant.create({ email: email.toLowerCase().trim(), passwordHash, shopName, slug });
 
     // Bootstrap default settings for the new merchant
     await Settings.create({ merchantId: merchant._id, shopName });

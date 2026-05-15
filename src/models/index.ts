@@ -4,6 +4,7 @@ const MerchantSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
   shopName: { type: String, required: true },
+  slug: { type: String, unique: true, sparse: true, lowercase: true },
   createdAt: { type: Date, default: Date.now }
 });
 
