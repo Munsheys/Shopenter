@@ -24,7 +24,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [merchant, setMerchant] = useState<Merchant | null>(null);
   const [settings, setSettings] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('orders');
+  const [activeTab, setActiveTab] = useState<Tab>('customers');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
