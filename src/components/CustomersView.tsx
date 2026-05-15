@@ -15,6 +15,7 @@ type Order = {
   _id: string; lineUserId: string; displayName: string; product: string;
   quantity: number; items: OrderItem[]; soldTHB: number; costKRW: number;
   costTHB: number; profit: number; shipCostTHB: number;
+  costCurrency?: string; soldCurrency?: string;
   tracking?: string; courier?: string; address?: string;
   status: 'pending' | 'paid' | 'preparing' | 'shipped';
   paymentQrSent: boolean; createdAt: string;
@@ -28,6 +29,8 @@ type Product = {
   variants?: { thickness?: string; colors?: string[]; price?: number }[];
 };
 
+const COST_CURRENCIES = ['KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'];
+
 export default function CustomersView({ theme }: { theme: string }) {
   const isDark = theme === 'dark';
 
@@ -40,6 +43,7 @@ export default function CustomersView({ theme }: { theme: string }) {
   const [sending, setSending] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [merchantSettings, setMerchantSettings] = useState<any>(null);
 
   // Quick order form
   const [qoMode, setQoMode] = useState<'manual' | 'catalog'>('manual');
@@ -47,6 +51,8 @@ export default function CustomersView({ theme }: { theme: string }) {
   const [qoSelected, setQoSelected] = useState<Product | null>(null);
   const [qoName, setQoName] = useState('');
   const [qoPrice, setQoPrice] = useState('');
+  const [qoCostPrice, setQoCostPrice] = useState('');
+  const [qoCostCurrency, setQoCostCurrency] = useState('KRW');
   const [qoQty, setQoQty] = useState(1);
   const [qoSubmitting, setQoSubmitting] = useState(false);
 
@@ -84,10 +90,14 @@ export default function CustomersView({ theme }: { theme: string }) {
 
   useEffect(() => { refreshOrders(); }, [refreshOrders]);
 
-  // Load products for quick order modal
+  // Load products and settings for quick order modal
   useEffect(() => {
     fetch('/api/products').then(r => r.json()).then(d => {
       if (Array.isArray(d)) setProducts(d);
+    }).catch(() => {});
+    fetch('/api/settings').then(r => r.json()).then(s => {
+      setMerchantSettings(s);
+      setQoCostCurrency(s.importCurrency || 'KRW');
     }).catch(() => {});
   }, []);
 
@@ -164,6 +174,7 @@ export default function CustomersView({ theme }: { theme: string }) {
     const name = qoMode === 'catalog' && qoSelected ? qoSelected.name : qoName.trim();
     if (!name) return;
     const price = parseFloat(qoPrice) || (qoSelected?.price ?? 0);
+    const costAmount = parseFloat(qoCostPrice) || 0;
     setQoSubmitting(true);
     try {
       const res = await fetch('/api/orders', {
@@ -176,6 +187,8 @@ export default function CustomersView({ theme }: { theme: string }) {
           quantity: qoQty,
           items: [{ productId: qoSelected?._id, name, qty: qoQty, price }],
           soldTHB: price * qoQty,
+          costKRW: costAmount,
+          costCurrency: qoCostCurrency,
           status: 'pending',
         }),
       });
@@ -183,7 +196,9 @@ export default function CustomersView({ theme }: { theme: string }) {
         const order = await res.json();
         setAllOrders(prev => [order, ...prev]);
         setShowModal(false);
-        setQoName(''); setQoPrice(''); setQoQty(1); setQoSelected(null); setQoSearch('');
+        setQoName(''); setQoPrice(''); setQoCostPrice('');
+        setQoQty(1); setQoSelected(null); setQoSearch('');
+        setQoCostCurrency(merchantSettings?.importCurrency || 'KRW');
       }
     } finally { setQoSubmitting(false); }
   }
@@ -468,9 +483,32 @@ export default function CustomersView({ theme }: { theme: string }) {
                 </div>
               )}
 
+              {/* Cost price row */}
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className={`block text-xs font-medium mb-1 ${s.muted}`}>Cost ({qoCostCurrency})</label>
+                  <input type="number" value={qoCostPrice} onChange={e => setQoCostPrice(e.target.value)} placeholder="0"
+                    className={`w-full text-sm rounded-xl px-3 py-2 border outline-none ${s.input}`} />
+                </div>
+                <div className="flex-shrink-0">
+                  <label className={`block text-xs font-medium mb-1 ${s.muted}`}>Currency</label>
+                  <select
+                    value={qoCostCurrency}
+                    onChange={e => setQoCostCurrency(e.target.value)}
+                    className={`text-sm rounded-xl px-2 py-2 border outline-none ${s.input}`}
+                    style={{ height: 42 }}
+                  >
+                    {COST_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Sold price + qty row */}
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className={`block text-xs font-medium mb-1 ${s.muted}`}>Sold (THB)</label>
+                  <label className={`block text-xs font-medium mb-1 ${s.muted}`}>
+                    Sold ({merchantSettings?.localCurrency || 'THB'})
+                  </label>
                   <input type="number" value={qoPrice} onChange={e => setQoPrice(e.target.value)} placeholder="0"
                     className={`w-full text-sm rounded-xl px-3 py-2 border outline-none ${s.input}`} />
                 </div>
@@ -485,6 +523,14 @@ export default function CustomersView({ theme }: { theme: string }) {
                   </div>
                 </div>
               </div>
+
+              {/* Rate hint */}
+              {qoCostPrice && parseFloat(qoCostPrice) > 0 && (
+                <p className={`text-[10px] ${s.muted}`}>
+                  Rate: 1 {qoCostCurrency} = {merchantSettings?.krwRate ?? '?'} {merchantSettings?.localCurrency || 'THB'}
+                  {merchantSettings?.useAutoRate && ' · live rate applied on save'}
+                </p>
+              )}
 
               <button
                 disabled={qoSubmitting || (qoMode === 'manual' ? !qoName.trim() : !qoSelected)}
@@ -522,7 +568,7 @@ function OrderCard({ order, variant, isDark, s, onDelete, onSendQR, onMarkPaid, 
         <button onClick={onDelete} className="text-gray-400 hover:text-red-500 flex-shrink-0"><Trash2 size={13} /></button>
       </div>
       <p className={`font-semibold text-sm leading-snug ${s.text}`}>{order.product}</p>
-      <p className={`text-xs mt-0.5 ${s.muted}`}>฿{order.soldTHB?.toLocaleString()} · {order.displayName}</p>
+      <p className={`text-xs mt-0.5 ${s.muted}`}>{order.soldCurrency || 'THB'} {order.soldTHB?.toLocaleString()} · {order.displayName}</p>
       {variant === 'active' && (
         <div className="flex flex-wrap gap-1 mt-2">
           {onMoveToParcel && (
@@ -627,15 +673,17 @@ function ParcelSection({ orders, isDark, s, onPatch, onMarkShipped }: {
                   <span className="block font-medium">{order.quantity}</span>
                 </div>
                 <div>
-                  <span className={s.muted}>Sold (THB)</span>
+                  <span className={s.muted}>Sold ({order.soldCurrency || 'THB'})</span>
                   <span className="block font-medium">{order.soldTHB?.toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className={s.muted}>Cost (KRW)</span>
+                  <span className={s.muted}>Cost ({order.costCurrency || 'KRW'})</span>
                   <span className="block font-medium">{order.costKRW || 0}</span>
                 </div>
               </div>
-              <p className="text-xs font-bold text-green-500">Profit: ฿{((order.soldTHB || 0) - (order.costTHB || 0)).toLocaleString('en', { minimumFractionDigits: 2 })}</p>
+              <p className="text-xs font-bold text-green-500">
+                Profit: {order.soldCurrency || 'THB'} {((order.soldTHB || 0) - (order.costTHB || 0)).toLocaleString('en', { minimumFractionDigits: 2 })}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-2 mt-2">

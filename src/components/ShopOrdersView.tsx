@@ -56,16 +56,13 @@ export default function ShopOrdersView({
   const fetchOrders = useCallback(async () => {
     setIsLoading(true);
     try {
-      const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') || '' : '';
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter) params.append('status', statusFilter);
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
-      const res = await fetch(`/api/shop-orders?${params.toString()}`, {
-        headers: { 'x-admin-secret': secret }
-      });
+      const res = await fetch(`/api/shop-orders?${params.toString()}`);
       const data = await res.json();
       setOrders(Array.isArray(data) ? data : []);
     } catch (error) {

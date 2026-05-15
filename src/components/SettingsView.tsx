@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check, ExternalLink } from 'lucide-react';
+import { Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
 import LoadingView from './LoadingView';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -34,6 +34,8 @@ export default function SettingsView({ theme, onSave }: { theme?: 'light' | 'dar
   const [showLiff, setShowLiff] = useState(false);
   const [showSlipKey, setShowSlipKey] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [fetchingRate, setFetchingRate] = useState(false);
+  const [liveRateError, setLiveRateError] = useState('');
 
   useEffect(() => {
     fetch('/api/settings')
@@ -61,6 +63,23 @@ export default function SettingsView({ theme, onSave }: { theme?: 'light' | 'dar
       setSaveError('Network error. Please try again.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleFetchLiveRate = async () => {
+    setFetchingRate(true);
+    setLiveRateError('');
+    const from = settings.importCurrency || 'KRW';
+    const to = settings.localCurrency || 'THB';
+    try {
+      const res = await fetch(`/api/rate?from=${from}&to=${to}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      set('krwRate', data.rate);
+    } catch (e: any) {
+      setLiveRateError(e.message || 'Could not fetch live rate');
+    } finally {
+      setFetchingRate(false);
     }
   };
 
@@ -127,22 +146,99 @@ export default function SettingsView({ theme, onSave }: { theme?: 'light' | 'dar
           </div>
         </div>
 
-        {/* ── KRW rate ── */}
+        {/* ── Currency & Exchange Rate ── */}
         <div className="mb-10">
-          <label className={label}>KRW → THB Exchange Rate</label>
-          <div className="flex items-center gap-3 md:w-56">
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              value={settings.krwRate ?? 0.026}
-              onChange={e => set('krwRate', parseFloat(e.target.value) || 0)}
-              className={inp}
-              autoComplete="off"
-            />
-            <span className={cn('text-sm whitespace-nowrap', 'text-[#8b92ad]')}>THB / KRW</span>
+          <h3 className={sectionTitle}>Currency & Exchange Rate</h3>
+          <p className="text-[10px] text-[#8b92ad] mb-6 leading-relaxed">
+            Configure your import and local currencies to calculate cost and profit on orders.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className={label}>Import Currency (purchase cost)</label>
+              <select
+                value={settings.importCurrency || 'KRW'}
+                onChange={e => set('importCurrency', e.target.value)}
+                className={inp}
+              >
+                {['KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'].map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <p className={hint}>Currency you pay when purchasing inventory</p>
+            </div>
+            <div>
+              <label className={label}>Local Currency (selling price)</label>
+              <select
+                value={settings.localCurrency || 'THB'}
+                onChange={e => set('localCurrency', e.target.value)}
+                className={inp}
+              >
+                {['THB', 'USD', 'EUR', 'GBP', 'JPY', 'SGD', 'MYR', 'PHP', 'IDR', 'VND'].map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <p className={hint}>Currency your customers pay in</p>
+            </div>
           </div>
-          <p className={hint}>Used to calculate THB cost and profit when items have a KRW purchase price</p>
+
+          <div className="mb-4">
+            <label className={label}>Rate Source</label>
+            <div className={cn('p-1 rounded-xl w-fit', isDark ? 'bg-[#1a1d2e]' : 'bg-[#f4f6f9]')}>
+              {[false, true].map(isLive => (
+                <button
+                  key={String(isLive)}
+                  type="button"
+                  onClick={() => set('useAutoRate', isLive)}
+                  className={cn(
+                    'px-6 py-2 rounded-lg text-xs font-bold transition-all',
+                    (settings.useAutoRate ?? false) === isLive
+                      ? (isDark ? 'bg-[#2d324d] text-green-400 shadow-lg' : 'bg-white shadow-sm text-green-600')
+                      : 'text-[#8b92ad]'
+                  )}
+                >
+                  {isLive ? 'Live (auto)' : 'Manual'}
+                </button>
+              ))}
+            </div>
+            <p className={hint}>
+              {settings.useAutoRate
+                ? 'Live rate is fetched automatically on each profit calculation'
+                : 'Use a fixed rate you set below'}
+            </p>
+          </div>
+
+          <div className="flex items-end gap-3">
+            <div className="flex-1 md:max-w-xs">
+              <label className={label}>
+                1 {settings.importCurrency || 'KRW'} = ? {settings.localCurrency || 'THB'}
+              </label>
+              <input
+                type="number"
+                step="0.0001"
+                min="0"
+                value={settings.krwRate ?? 0.026}
+                onChange={e => set('krwRate', parseFloat(e.target.value) || 0)}
+                className={inp}
+                autoComplete="off"
+                disabled={settings.useAutoRate}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleFetchLiveRate}
+              disabled={fetchingRate}
+              className={cn(
+                'px-4 py-3 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 flex-shrink-0',
+                isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white hover:border-green-500' : 'bg-[#f4f6f9] border-[#e2e5ef] text-[#1a1d2e] hover:border-green-500',
+                'disabled:opacity-50 disabled:cursor-not-allowed'
+              )}
+            >
+              <RefreshCw size={14} className={fetchingRate ? 'animate-spin' : ''} />
+              {fetchingRate ? 'Fetching...' : 'Fetch live rate'}
+            </button>
+          </div>
+          {liveRateError && <p className="text-xs text-red-500 mt-2">{liveRateError}</p>}
         </div>
 
         {/* ── Shipping ── */}

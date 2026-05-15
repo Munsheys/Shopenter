@@ -99,18 +99,22 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'month' | 'all'>('30d');
+  const [localCurrency, setLocalCurrency] = useState('THB');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const secret = localStorage.getItem('admin_secret') || '';
-        const [ordersRes, productsRes] = await Promise.all([
-          fetch('/api/orders', { headers: { 'x-admin-secret': secret } }),
-          fetch('/api/products', { headers: { 'x-admin-secret': secret } })
+        const [ordersRes, productsRes, settingsRes] = await Promise.all([
+          fetch('/api/orders'),
+          fetch('/api/products'),
+          fetch('/api/settings'),
         ]);
-        
         if (ordersRes.ok) setOrders(await ordersRes.json());
         if (productsRes.ok) setProducts(await productsRes.json());
+        if (settingsRes.ok) {
+          const s = await settingsRes.json();
+          if (s.localCurrency) setLocalCurrency(s.localCurrency);
+        }
       } catch (error) {
         console.error("Reports data fetch error:", error);
       } finally {
@@ -252,7 +256,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
         ticks: { 
           color: '#8b92ad', 
           font: { size: 10 },
-          callback: (value: any) => '฿' + value.toLocaleString()
+          callback: (value: any) => localCurrency + ' ' + value.toLocaleString()
         },
         border: { display: false }
       }
@@ -260,7 +264,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
   };
 
   const handleExportCSV = () => {
-    const headers = ["Date", "Customer", "Items", "Revenue (THB)", "Cost (THB)", "Profit (THB)", "Status"];
+    const headers = ["Date", "Customer", "Items", `Revenue (${localCurrency})`, `Cost (${localCurrency})`, `Profit (${localCurrency})`, "Status"];
     const rows = filteredOrders.map(o => [
       new Date(o.createdAt).toLocaleDateString(),
       o.displayName || 'Unknown',
@@ -339,7 +343,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
           theme={theme}
           icon={<DollarSign size={24} />}
           label={t.revenue}
-          value={`฿${stats.revenue.toLocaleString()}`}
+          value={`${localCurrency} ${stats.revenue.toLocaleString()}`}
           trend={12}
           color="emerald"
         />
@@ -347,7 +351,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
           theme={theme}
           icon={<Target size={24} />}
           label={t.profit}
-          value={`฿${stats.profit.toLocaleString()}`}
+          value={`${localCurrency} ${stats.profit.toLocaleString()}`}
           trend={8}
           color="blue"
         />
@@ -412,7 +416,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
                 <div key={label} className="group">
                   <div className="flex justify-between items-center mb-2">
                     <span className={cn("text-xs font-bold transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{label}</span>
-                    <span className="text-[10px] font-black text-[#00b900]">฿{value.toLocaleString()}</span>
+                    <span className="text-[10px] font-black text-[#00b900]">{localCurrency} {value.toLocaleString()}</span>
                   </div>
                   <div className={cn("h-1.5 w-full rounded-full overflow-hidden transition-colors", theme === 'dark' ? "bg-[#1f2335]" : "bg-[#f4f6f9]")}>
                     <div 
