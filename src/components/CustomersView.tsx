@@ -280,7 +280,15 @@ export default function CustomersView({ theme }: { theme: string }) {
         <div className="flex-1 flex items-center justify-center">
           <div className={`text-center ${s.muted}`}>
             <MessageCircle size={40} className="mx-auto mb-3 opacity-20" />
-            <p className="text-sm">Select a customer to view their orders and chat</p>
+            {customers.length === 0 ? (
+              <>
+                <p className="text-sm mb-1">No customers yet</p>
+                <p className="text-xs mb-4 opacity-70">Real customers appear here when they message your LINE OA</p>
+                <SeedButton isDark={isDark} s={s} />
+              </>
+            ) : (
+              <p className="text-sm">Select a customer to view their orders and chat</p>
+            )}
           </div>
         </div>
       ) : (
@@ -718,5 +726,35 @@ function ParcelSection({ orders, isDark, s, onPatch, onMarkShipped }: {
         );
       })}
     </div>
+  );
+}
+
+function SeedButton({ isDark, s }: { isDark: boolean; s: any }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+
+  async function seed() {
+    setState('loading');
+    try {
+      const res = await fetch('/api/dev/seed', { method: 'POST' });
+      setState(res.ok ? 'done' : 'error');
+    } catch {
+      setState('error');
+    }
+  }
+
+  if (state === 'done') return (
+    <p className="text-xs text-green-500 font-medium">Mock customers seeded — they'll appear in a moment</p>
+  );
+
+  return (
+    <button
+      onClick={seed}
+      disabled={state === 'loading'}
+      className={`text-xs px-4 py-2 rounded-xl border font-medium transition-all disabled:opacity-50 ${
+        isDark ? 'border-[#2a3050] text-gray-300 hover:border-green-500' : 'border-gray-200 text-gray-600 hover:border-green-500'
+      }`}
+    >
+      {state === 'loading' ? 'Seeding...' : state === 'error' ? 'Failed — try again' : '+ Add mock customers for testing'}
+    </button>
   );
 }
