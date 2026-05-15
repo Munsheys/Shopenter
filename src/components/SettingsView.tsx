@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff } from 'lucide-react';
+import { Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check, ExternalLink } from 'lucide-react';
 import LoadingView from './LoadingView';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -10,379 +10,391 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export default function SettingsView({ theme, onSave }: { theme?: 'light' | 'dark', onSave?: () => void }) {
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="flex items-center gap-1 text-[10px] font-medium text-green-600 hover:text-green-700 flex-shrink-0"
+    >
+      {copied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy</>}
+    </button>
+  );
+}
+
+export default function SettingsView({ theme, onSave }: { theme?: 'light' | 'dark'; onSave?: () => void }) {
+  const isDark = theme === 'dark';
   const [settings, setSettings] = useState<any>(null);
   const [newCompany, setNewCompany] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [showLiff, setShowLiff] = useState(false);
-  const [showAdminId, setShowAdminId] = useState(false);
+  const [showSlipKey, setShowSlipKey] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState('');
 
   useEffect(() => {
-    const secret = localStorage.getItem('admin_secret') || '';
-    fetch('/api/settings', {
-      headers: { 'x-admin-secret': secret }
-    })
+    fetch('/api/settings')
       .then(r => r.json())
-      .then(data => {
-        console.log('DEBUG SETTINGS DATA:', data);
-        setSettings(data);
-      })
-      .catch(err => console.error('SETTINGS FETCH ERROR:', err));
+      .then(data => setSettings(data))
+      .catch(() => {});
+    setWebhookUrl(`${window.location.origin}/api/webhook`);
   }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveError('');
     try {
-      const secret = localStorage.getItem('admin_secret') || '';
       const res = await fetch('/api/settings', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-admin-secret': secret
-        },
-        body: JSON.stringify(settings)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
       });
       if (res.ok) {
-        // If the secret was changed, update our local session too!
-        if (settings.adminSecret) {
-          localStorage.setItem('admin_secret', settings.adminSecret);
-        }
         onSave?.();
-        alert('Settings saved successfully!');
+      } else {
+        setSaveError('Failed to save. Please try again.');
       }
-    } catch (error) {
-      alert('Failed to save settings');
+    } catch {
+      setSaveError('Network error. Please try again.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const updateSetting = (field: string, value: any) => {
-    setSettings({ ...settings, [field]: value });
-  };
-
-  const removeCompany = (company: string) => {
-    updateSetting('shippingCompanies', settings.shippingCompanies.filter((c: string) => c !== company));
-  };
-
+  const set = (field: string, value: any) => setSettings((s: any) => ({ ...s, [field]: value }));
+  const removeCompany = (c: string) => set('shippingCompanies', settings.shippingCompanies.filter((x: string) => x !== c));
   const addCompany = () => {
     if (!newCompany.trim()) return;
-    updateSetting('shippingCompanies', [...(settings.shippingCompanies || []), newCompany.trim()]);
+    set('shippingCompanies', [...(settings.shippingCompanies || []), newCompany.trim()]);
     setNewCompany('');
   };
 
-  if (!settings) return <LoadingView theme={theme} message="Loading System Settings..." />;
+  if (!settings) return <LoadingView theme={theme} message="Loading Settings..." />;
+
+  const inp = cn(
+    'w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500 transition-all',
+    isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-gray-600' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]'
+  );
+  const secInp = cn(inp, 'pr-12 font-mono text-xs');
+  const divider = cn('pt-8 border-t mb-8 transition-colors', isDark ? 'border-[#1f2335]' : 'border-[#f4f6f9]');
+  const sectionTitle = cn('text-sm font-bold mb-6', isDark ? 'text-white' : 'text-[#1a1d2e]');
+  const label = 'text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block';
+  const hint = 'text-[10px] text-[#8b92ad] mt-1 ml-1';
 
   return (
-    <div className="max-w-4xl mx-auto pb-20">
-      <h2 className={`text-2xl font-bold mb-8 flex items-center gap-3 ${theme === 'dark' ? 'text-white' : 'text-[#1a1d2e]'}`}>
+    <div className="max-w-4xl mx-auto pb-20 p-6">
+      <h2 className={cn('text-2xl font-bold mb-8 flex items-center gap-3', isDark ? 'text-white' : 'text-[#1a1d2e]')}>
         <SettingsIcon size={28} className="text-[#8b92ad]" /> Settings
       </h2>
 
-      <div className={`${theme === 'dark' ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'} rounded-3xl border p-8 shadow-sm transition-colors`}>
-        {/* Shop Name field removed. It is now dynamically fetched from LINE OA */}
+      <div className={cn('rounded-3xl border p-8 shadow-sm transition-colors', isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]')}>
 
-        <div className="grid grid-cols-2 gap-8 mb-8">
+        {/* ── Shop identity ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div>
-            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Theme Preference</label>
-            <div className={cn("p-1 rounded-xl w-fit transition-colors", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f4f6f9]")}>
-              <button 
-                onClick={() => updateSetting('theme', 'light')}
-                className={cn(
-                  "px-6 py-2 rounded-lg text-xs font-bold transition-all",
-                  settings.theme !== 'dark' 
-                    ? (theme === 'dark' ? "bg-[#2d324d] text-[#00b900] shadow-lg" : "bg-white shadow-sm text-[#00b900]") 
-                    : "text-[#8b92ad]"
-                )}
-              >
-                Light
-              </button>
-              <button 
-                onClick={() => updateSetting('theme', 'dark')}
-                className={cn(
-                  "px-6 py-2 rounded-lg text-xs font-bold transition-all",
-                  settings.theme === 'dark' 
-                    ? (theme === 'dark' ? "bg-[#2d324d] text-white shadow-lg" : "bg-white text-[#1a1d2e] shadow-sm") 
-                    : "text-[#8b92ad]"
-                )}
-              >
-                Dark
-              </button>
+            <label className={label}>Shop Name</label>
+            <input
+              type="text"
+              value={settings.shopName || ''}
+              onChange={e => set('shopName', e.target.value)}
+              placeholder="My Awesome Shop"
+              className={inp}
+              autoComplete="off"
+            />
+            <p className={hint}>Shown on your storefront header and dashboard</p>
+          </div>
+          <div>
+            <label className={label}>Theme Preference</label>
+            <div className={cn('p-1 rounded-xl w-fit', isDark ? 'bg-[#1a1d2e]' : 'bg-[#f4f6f9]')}>
+              {(['light', 'dark'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => set('theme', t)}
+                  className={cn(
+                    'px-6 py-2 rounded-lg text-xs font-bold transition-all capitalize',
+                    settings.theme === t
+                      ? (isDark ? 'bg-[#2d324d] text-green-400 shadow-lg' : 'bg-white shadow-sm text-green-600')
+                      : 'text-[#8b92ad]'
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="mb-8">
-          <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SHIPPING COMPANIES</label>
-          <div className="flex flex-wrap gap-2 mb-3">
-             {settings.shippingCompanies?.map((c: string, i: number) => (
-               <div key={i} className={cn(
-                 "flex items-center gap-2 border px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
-                 theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f4f6f9] border-[#e2e5ef] text-[#1a1d2e]"
-               )}>
-                 {c} <button onClick={() => removeCompany(c)} className="text-red-400 hover:text-red-600"><X size={14}/></button>
-               </div>
-             ))}
-          </div>
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              placeholder="Add shipping company..." 
-              value={newCompany}
-              onChange={(e) => setNewCompany(e.target.value)}
-              className={cn(
-                "flex-1 border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-colors",
-                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
-              )} 
-            />
-            <button onClick={addCompany} className="bg-[#00b900] text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all">
-              <Plus size={18} /> Add
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-8">
-          <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SENDER ADDRESS</label>
-          <textarea 
-            rows={3} 
-            value={settings.senderAddress || ''} 
-            onChange={(e) => updateSetting('senderAddress', e.target.value)}
-            className={cn(
-              "w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] resize-none transition-all",
-              theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
-            )} 
-          />
-        </div>
-
+        {/* ── KRW rate ── */}
         <div className="mb-10">
-          <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">TRACKING TEMPLATE</label>
-          <div className="relative">
-             <textarea 
-               rows={6} 
-               value={settings.trackingTemplate || ''} 
-               onChange={(e) => updateSetting('trackingTemplate', e.target.value)}
-               className={cn(
-                 "w-full border rounded-xl px-4 py-4 text-sm font-medium outline-none focus:border-[#00b900] resize-none leading-relaxed transition-all",
-                 theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
-               )} 
-             />
-             <div className="mt-2 text-[10px] text-[#8b92ad]">Placeholders: &#123;tracking&#125;, &#123;courier&#125;, &#123;product&#125;, &#123;name&#125;</div>
+          <label className={label}>KRW → THB Exchange Rate</label>
+          <div className="flex items-center gap-3 md:w-56">
+            <input
+              type="number"
+              step="0.001"
+              min="0"
+              value={settings.krwRate ?? 0.026}
+              onChange={e => set('krwRate', parseFloat(e.target.value) || 0)}
+              className={inp}
+              autoComplete="off"
+            />
+            <span className={cn('text-sm whitespace-nowrap', 'text-[#8b92ad]')}>THB / KRW</span>
+          </div>
+          <p className={hint}>Used to calculate THB cost and profit when items have a KRW purchase price</p>
+        </div>
+
+        {/* ── Shipping ── */}
+        <div className={divider}>
+          <h3 className={sectionTitle}>Shipping</h3>
+          <div className="mb-6">
+            <label className={label}>Shipping Companies</label>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {settings.shippingCompanies?.map((c: string, i: number) => (
+                <div key={i} className={cn(
+                  'flex items-center gap-2 border px-3 py-1.5 rounded-full text-xs font-semibold',
+                  isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white' : 'bg-[#f4f6f9] border-[#e2e5ef] text-[#1a1d2e]'
+                )}>
+                  {c}
+                  <button onClick={() => removeCompany(c)} className="text-red-400 hover:text-red-600"><X size={14} /></button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Add shipping company..."
+                value={newCompany}
+                onChange={e => setNewCompany(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addCompany(); }}
+                className={cn(inp, 'flex-1')}
+                autoComplete="off"
+              />
+              <button onClick={addCompany} className="bg-green-500 text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-green-600 transition-all">
+                <Plus size={18} /> Add
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className={label}>Sender Address</label>
+            <textarea
+              rows={3}
+              value={settings.senderAddress || ''}
+              onChange={e => set('senderAddress', e.target.value)}
+              placeholder="Your shop's return / sender address"
+              className={cn(inp, 'resize-none')}
+              autoComplete="off"
+            />
           </div>
         </div>
 
-        <div className={cn("pt-8 border-t transition-colors mb-10", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
-          <h3 className={cn("text-sm font-bold mb-6 transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Payment Configuration</h3>
-          
-          <div className="mb-6">
-            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">PROMPTPAY ID (PHONE OR NID)</label>
-            <input 
-              type="text" 
-              value={settings.promptPayId || ''} 
-              onChange={(e) => updateSetting('promptPayId', e.target.value)}
+        {/* ── Notifications ── */}
+        <div className={divider}>
+          <h3 className={sectionTitle}>Shipping Notification Message</h3>
+          <textarea
+            rows={6}
+            value={settings.trackingTemplate || ''}
+            onChange={e => set('trackingTemplate', e.target.value)}
+            className={cn(inp, 'resize-none leading-relaxed')}
+            autoComplete="off"
+          />
+          <p className="mt-2 text-[10px] text-[#8b92ad]">
+            Placeholders: <code>{'{'+'tracking}'}</code> <code>{'{'+'courier}'}</code> <code>{'{'+'product}'}</code> <code>{'{'+'name}'}</code>
+          </p>
+        </div>
+
+        {/* ── Payment ── */}
+        <div className={divider}>
+          <h3 className={sectionTitle}>Payment</h3>
+
+          <div className="mb-6 md:w-1/2">
+            <label className={label}>PromptPay ID (phone number or national ID)</label>
+            <input
+              type="text"
+              value={settings.promptPayId || ''}
+              onChange={e => set('promptPayId', e.target.value)}
               placeholder="e.g. 0812345678"
-              className="w-full md:w-1/2 border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-all" 
+              className={inp}
+              autoComplete="off"
             />
+            <p className={hint}>Used to generate the payment QR code sent to customers</p>
           </div>
 
-          <div className="mb-6">
-            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">PAYMENT CONFIRMATION MESSAGE</label>
-            <div className="relative">
-               <textarea 
-                 rows={5} 
-                 value={settings.paymentTemplate || ''} 
-                 onChange={(e) => updateSetting('paymentTemplate', e.target.value)}
-                 className="w-full border border-[#e2e5ef] rounded-xl px-4 py-4 text-sm font-medium outline-none focus:border-[#00b900] resize-none leading-relaxed transition-all" 
-               />
-               <div className="mt-2 text-[10px] text-[#8b92ad]">Placeholders: &#123;product&#125;, &#123;amount&#125;, &#123;name&#125;</div>
-            </div>
+          <div className="mb-8">
+            <label className={label}>Payment Confirmation Message</label>
+            <textarea
+              rows={5}
+              value={settings.paymentTemplate || ''}
+              onChange={e => set('paymentTemplate', e.target.value)}
+              className={cn(inp, 'resize-none leading-relaxed')}
+              autoComplete="off"
+            />
+            <p className="mt-2 text-[10px] text-[#8b92ad]">
+              Placeholders: <code>{'{'+'product}'}</code> <code>{'{'+'amount}'}</code> <code>{'{'+'name}'}</code>
+            </p>
           </div>
-          
-          <div className="pt-4 border-t border-[#f4f6f9]">
-            <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-4 block flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span> SlipOK Automatic Verification
+
+          {/* SlipOK */}
+          <div className={cn('rounded-xl p-5', isDark ? 'bg-[#1a1d2e]' : 'bg-[#f8faff]')}>
+            <label className={cn(label, 'flex items-center gap-2 mb-1')}>
+              <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+              SlipOK — Automatic Slip Verification
             </label>
+            <p className="text-[10px] text-[#8b92ad] mb-4 leading-relaxed">
+              Automatically verifies bank transfer slips uploaded by customers. Leave blank to skip verification.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SlipOK Branch ID</label>
-                <input 
-                  type="text" 
-                  value={settings.slipokBranchId || ''} 
-                  onChange={(e) => updateSetting('slipokBranchId', e.target.value)}
+                <label className={label}>Branch ID</label>
+                <input
+                  type="text"
+                  value={settings.slipokBranchId || ''}
+                  onChange={e => set('slipokBranchId', e.target.value)}
                   placeholder="e.g. 12345"
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-all" 
+                  className={inp}
+                  autoComplete="off"
+                  name="slipok-branch"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SlipOK API Key</label>
-                <input 
-                  type="password" 
-                  value={settings.slipokApiKey || ''} 
-                  onChange={(e) => updateSetting('slipokApiKey', e.target.value)}
-                  placeholder="e.g. sk_test_..."
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] transition-all" 
-                />
+                <label className={label}>API Key</label>
+                <div className="relative">
+                  <input
+                    type={showSlipKey ? 'text' : 'password'}
+                    value={settings.slipokApiKey || ''}
+                    onChange={e => set('slipokApiKey', e.target.value)}
+                    placeholder="sk_live_..."
+                    className={secInp}
+                    autoComplete="new-password"
+                    name="slipok-key"
+                  />
+                  <button type="button" onClick={() => setShowSlipKey(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad]">
+                    {showSlipKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="pt-8 border-t border-[#f4f6f9] mb-10">
-          <h3 className="text-sm font-bold text-[#1a1d2e] mb-6">Platform Integration (LINE)</h3>
-          
+        {/* ── LINE Integration ── */}
+        <div className={divider}>
+          <h3 className={sectionTitle}>LINE Integration</h3>
+
+          {/* Webhook URL helper */}
+          <div className={cn('rounded-xl p-4 mb-6', isDark ? 'bg-[#1a1d2e]' : 'bg-[#f4f6f9]')}>
+            <p className={cn(label, 'mb-2')}>Your Webhook URL</p>
+            <div className="flex items-center gap-3">
+              <code className={cn('flex-1 text-xs font-mono truncate', isDark ? 'text-green-400' : 'text-green-700')}>{webhookUrl}</code>
+              <CopyButton value={webhookUrl} />
+              <a href="https://developers.line.biz/" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[10px] text-[#8b92ad] hover:text-green-600">
+                Console <ExternalLink size={10} />
+              </a>
+            </div>
+            <p className="text-[10px] text-[#8b92ad] mt-2">Paste this into Messaging API → Webhook settings in the LINE Developer Console.</p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Admin Secret (Master Password)</label>
+              <label className={label}>LIFF ID (from LINE Login channel)</label>
               <div className="relative">
-                <input 
-                  type={showAdminId ? "text" : "password"} 
-                  value={settings.adminSecret || ''} 
-                  onChange={(e) => updateSetting('adminSecret', e.target.value)}
-                  placeholder="The secret key used to log into this dashboard"
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowAdminId(!showAdminId)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
-                >
-                  {showAdminId ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              <p className="text-[9px] text-[#8b92ad] mt-1 ml-1 italic">This controls access to the entire dashboard. Keep it safe.</p>
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Admin LINE ID</label>
-              <div className="relative">
-                <input 
-                  type="text"
-                  value={settings.adminLineId || ''} 
-                  onChange={(e) => updateSetting('adminLineId', e.target.value)}
-                  placeholder="U1234567890abcdef..."
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">LIFF ID (from LINE Login Channel)</label>
-              <div className="relative">
-                <input 
-                  type={showLiff ? "text" : "password"} 
-                  value={settings.liffId || ''} 
-                  onChange={(e) => updateSetting('liffId', e.target.value)}
+                <input
+                  type={showLiff ? 'text' : 'password'}
+                  value={settings.liffId || ''}
+                  onChange={e => set('liffId', e.target.value)}
                   placeholder="1234567890-AbCdEfGh"
-                  className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
+                  className={secInp}
+                  autoComplete="new-password"
+                  name="liff-id"
                 />
-                <button 
-                  type="button"
-                  onClick={() => setShowLiff(!showLiff)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
-                >
-                  {showLiff ? <EyeOff size={18} /> : <Eye size={18} />}
+                <button type="button" onClick={() => setShowLiff(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad]">
+                  {showLiff ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+              <p className={hint}>Lets customers log in with LINE on your storefront to place orders</p>
+            </div>
+            <div>
+              <label className={label}>Admin LINE ID (optional)</label>
+              <input
+                type="text"
+                value={settings.adminLineId || ''}
+                onChange={e => set('adminLineId', e.target.value)}
+                placeholder="U1234567890abcdef..."
+                className={cn(inp, 'font-mono text-xs')}
+                autoComplete="off"
+                name="admin-line-id"
+              />
+              <p className={hint}>Your personal LINE user ID for receiving order notifications</p>
             </div>
           </div>
-          
-          <div className="space-y-4 mb-6">
-            <div className="flex items-center gap-2 pt-2">
-              <div className="flex-1 h-px bg-[#e2e5ef]" />
-              <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest whitespace-nowrap">Messaging API Provider</span>
-              <div className="flex-1 h-px bg-[#e2e5ef]" />
+
+          <div className={cn('flex items-center gap-3 mb-4')}>
+            <div className={cn('flex-1 h-px', isDark ? 'bg-[#1f2335]' : 'bg-[#e2e5ef]')} />
+            <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest whitespace-nowrap">Messaging API Channel</span>
+            <div className={cn('flex-1 h-px', isDark ? 'bg-[#1f2335]' : 'bg-[#e2e5ef]')} />
+          </div>
+
+          <p className="text-[10px] text-[#8b92ad] mb-4 leading-relaxed">
+            <span className="text-red-500 font-bold">Important:</span> Use credentials from your <strong>Messaging API</strong> channel only — not a LINE Login channel.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className={label}>Channel Secret (Basic Settings tab)</label>
+              <div className="relative">
+                <input
+                  type={showSecret ? 'text' : 'password'}
+                  value={settings.lineChannelSecret || ''}
+                  onChange={e => set('lineChannelSecret', e.target.value)}
+                  placeholder="32-character hex string"
+                  className={secInp}
+                  autoComplete="new-password"
+                  name="line-channel-secret"
+                />
+                <button type="button" onClick={() => setShowSecret(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad]">
+                  {showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <p className={hint}>Verifies webhook requests are genuinely from LINE</p>
             </div>
-            <p className="text-[10px] text-[#8b92ad] leading-relaxed">
-              <span className="text-red-500 font-bold">CRITICAL:</span> Use keys from your <strong>Messaging API</strong> channel only.{' '}
-              <a href="https://developers.line.biz/" target="_blank" rel="noopener noreferrer" className="text-[#00b900] font-bold underline">
-                Open Console →
-              </a>
-            </p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Secret (Basic Settings Tab)</label>
-                <div className="relative">
-                  <input 
-                    type={showSecret ? "text" : "password"} 
-                    value={settings.lineChannelSecret || ''} 
-                    onChange={(e) => updateSetting('lineChannelSecret', e.target.value)}
-                    placeholder="32 character hex string"
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowSecret(!showSecret)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
-                  >
-                    {showSecret ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
+            <div>
+              <label className={label}>Channel Access Token (Messaging API tab)</label>
+              <div className="relative">
+                <input
+                  type={showToken ? 'text' : 'password'}
+                  value={settings.lineChannelAccessToken || ''}
+                  onChange={e => set('lineChannelAccessToken', e.target.value)}
+                  placeholder="Long-lived access token"
+                  className={secInp}
+                  autoComplete="new-password"
+                  name="line-access-token"
+                />
+                <button type="button" onClick={() => setShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad]">
+                  {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
-              <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Channel Access Token (Messaging API Tab)</label>
-                <div className="relative">
-                  <input 
-                    type={showToken ? "text" : "password"} 
-                    value={settings.lineChannelAccessToken || ''} 
-                    onChange={(e) => updateSetting('lineChannelAccessToken', e.target.value)}
-                    placeholder="Very long token string"
-                    className="w-full border border-[#e2e5ef] rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:border-[#00b900] font-mono text-xs transition-all" 
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowToken(!showToken)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-[#1a1d2e] transition-colors"
-                  >
-                    {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
+              <p className={hint}>Authorises outgoing messages (QR codes, tracking, order confirmations)</p>
             </div>
           </div>
-          <div className="bg-[#fffbe6] border border-[#ffe58f] rounded-xl p-4 text-xs text-[#856404] leading-relaxed mt-4">
-            <strong>Security Notice:</strong> Changing these keys will instantly reroute all webhooks and storefront identities. Ensure you have properly configured the Webhook URL and LIFF Endpoint in the LINE Developer Console before saving.
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800 leading-relaxed">
+            <strong>Note:</strong> Credential fields appear empty for security — your saved values are never sent back to the browser.
+            Leave a field blank to keep your current saved value. Only type in a field to update it.
           </div>
         </div>
 
-        <button 
+        {/* ── Save ── */}
+        {saveError && <p className="text-sm text-red-500 mb-4">{saveError}</p>}
+        <button
           onClick={handleSave}
           disabled={isSaving}
-          className="w-full bg-[#00b900] disabled:opacity-50 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90033] hover:opacity-90 active:scale-[0.99] transition-all mb-12"
+          className="w-full bg-green-500 disabled:opacity-50 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 hover:bg-green-600 active:scale-[0.99] transition-all"
         >
-           {isSaving ? "Saving..." : <><Save size={18} /> Save Settings</>}
+          {isSaving ? 'Saving...' : <><Save size={18} /> Save Settings</>}
         </button>
-
-        <div className="pt-8 border-t border-red-100">
-           <h3 className="text-sm font-bold text-red-500 mb-2">Danger Zone</h3>
-           <p className="text-[10px] text-[#8b92ad] mb-6 leading-relaxed">
-             Resetting the system will clear all LINE credentials, store names, and configurations. 
-             The system will return to the **Activation Wizard** on the next reload. 
-           </p>
-           <button 
-            onClick={async () => {
-              if (confirm("🚨 WARNING: Are you absolutely sure you want to RESET the entire system? This cannot be undone.")) {
-                const secret = localStorage.getItem('admin_secret') || '';
-                const res = await fetch('/api/settings', { 
-                  method: 'DELETE',
-                  headers: { 'x-admin-secret': secret }
-                });
-                if (res.ok) window.location.reload();
-              }
-            }}
-            className="text-red-500 border border-red-200 bg-red-50 px-6 py-3 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all"
-           >
-             Factory Reset System
-           </button>
-        </div>
-        
-        <div className="mt-8 pt-4 border-t border-gray-100 flex justify-between items-center opacity-30 grayscale hover:opacity-100 transition-all">
-          <div className="text-[8px] font-mono text-[#8b92ad]">
-            SOURCE: {settings?._id ? `DB (${settings._id})` : 'LOCAL CACHE'}
-          </div>
-          <div className="text-[8px] font-mono text-[#8b92ad]">
-            AUTH: {localStorage.getItem('admin_secret') ? 'ACTIVE' : 'MISSING'}
-          </div>
-        </div>
       </div>
     </div>
   );

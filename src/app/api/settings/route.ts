@@ -39,8 +39,15 @@ export async function POST(req: NextRequest) {
     if (typeof body.lineChannelAccessToken === 'string') body.lineChannelAccessToken = body.lineChannelAccessToken.trim();
     if (typeof body.liffId === 'string') body.liffId = body.liffId.trim();
 
-    // Never let clients overwrite the merchantId binding
+    // Never overwrite credentials with empty strings — GET strips them from the response so
+    // the client always sends '' for fields the user didn't explicitly change.
+    if (!body.lineChannelAccessToken) delete body.lineChannelAccessToken;
+    if (!body.lineChannelSecret) delete body.lineChannelSecret;
+    if (!body.slipokApiKey) delete body.slipokApiKey;
+
+    // Never let clients overwrite the merchantId binding or old single-tenant auth field
     delete body.merchantId;
+    delete body.adminSecret;
 
     const s = await Settings.findOneAndUpdate(
       { merchantId: merchant.merchantId },
