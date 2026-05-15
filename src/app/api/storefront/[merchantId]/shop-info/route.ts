@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mer
       liffId: s.liffId || null,
       promptPayId: s.promptPayId || null,
       krwRate: s.krwRate ?? 0.026,
-      branding: { theme: s.theme || 'light' }
+      storefront: s.storefront ?? {}
     });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch store info' }, { status: 500 });

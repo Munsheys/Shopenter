@@ -1,17 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { ShoppingBag, ChevronLeft, Plus, Minus, Trash2, Search, X, CheckCircle, ArrowRight, Package, SlidersHorizontal, ArrowUpDown, Tag } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { ShoppingBag, ChevronLeft, Plus, Minus, Trash2, Search, X, CheckCircle, ArrowRight, Package } from 'lucide-react';
 import { use } from 'react';
 import liff from '@line/liff';
-
-function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+import { resolvePreset, type StorefrontPreset } from '@/lib/storefrontPresets';
 
 type CartItem = { productId: string; name: string; price: number; variantLabel?: string; qty: number; imageUrl?: string };
 type View = 'home' | 'detail' | 'cart' | 'payment';
-type SortOption = 'newest' | 'price-asc' | 'price-desc';
 
 export default function MerchantStorefront({ params }: { params: Promise<{ merchantId: string }> }) {
   const { merchantId } = use(params);
@@ -24,21 +20,19 @@ export default function MerchantStorefront({ params }: { params: Promise<{ merch
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [activeBrand, setActiveBrand] = useState('All');
   const [selThickness, setSelThickness] = useState('');
   const [selColor, setSelColor] = useState('');
   const [customer, setCustomer] = useState<any>(null);
   const [isOrdering, setIsOrdering] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<any>(null);
   const [qty, setQty] = useState(1);
-  const [authStatus, setAuthStatus] = useState<'idle' | 'verifying' | 'logged_in' | 'guest'>('idle');
   const [notFound, setNotFound] = useState(false);
   const liffLock = useRef(false);
 
   useEffect(() => {
     const cached = localStorage.getItem(`liff_profile_${merchantId}`);
     if (cached) {
-      try { setCustomer(JSON.parse(cached)); setAuthStatus('logged_in'); } catch { localStorage.removeItem(`liff_profile_${merchantId}`); }
+      try { setCustomer(JSON.parse(cached)); } catch { localStorage.removeItem(`liff_profile_${merchantId}`); }
     }
 
     async function init() {
@@ -47,51 +41,49 @@ export default function MerchantStorefront({ params }: { params: Promise<{ merch
           fetch(`/api/storefront/${merchantId}/shop-info`),
           fetch(`/api/storefront/${merchantId}/products`)
         ]);
-
         if (!infoRes.ok) { setNotFound(true); return; }
         const [info, prods] = await Promise.all([infoRes.json(), productsRes.json()]);
         setShopInfo(info);
-        setProducts(prods);
+        setProducts(Array.isArray(prods) ? prods : []);
 
         if (info.liffId && !liffLock.current) {
           liffLock.current = true;
           try {
-            if (!cached) setAuthStatus('verifying');
             await liff.init({ liffId: info.liffId, withLoginOnExternalBrowser: true });
             if (liff.isLoggedIn()) {
               const profile = await liff.getProfile();
               setCustomer(profile);
               localStorage.setItem(`liff_profile_${merchantId}`, JSON.stringify(profile));
-              setAuthStatus('logged_in');
-            } else {
-              setAuthStatus('guest');
             }
-          } catch { setAuthStatus('guest'); }
-        } else if (!info.liffId) {
-          setAuthStatus('guest');
+          } catch { /* guest mode */ }
         }
       } catch { setNotFound(true); }
     }
     init();
   }, [merchantId]);
 
+  const sf = shopInfo?.storefront ?? {};
+  const p: StorefrontPreset = resolvePreset(sf.preset || 'midnight', sf.accentColor);
+  const cardLayout: 'grid' | 'list' = sf.cardLayout || 'grid';
+
   const categories = useMemo(() => {
-    const cats = new Set<string>();
-    products.forEach(p => p.categories?.forEach((c: string) => cats.add(c)));
-    return ['All', ...Array.from(cats)];
+    const s = new Set<string>();
+    products.forEach(pr => pr.categories?.forEach((c: string) => s.add(c)));
+    return ['All', ...Array.from(s)];
   }, [products]);
 
-  const filtered = useMemo(() => {
-    let list = products.filter(p => {
-      const q = searchQuery.toLowerCase();
-      const matchQ = !q || p.name?.toLowerCase().includes(q) || p.brand?.toLowerCase().includes(q);
-      const matchCat = activeCategory === 'All' || p.categories?.includes(activeCategory);
-      return matchQ && matchCat;
-    });
-    if (sortBy === 'price-asc') list = list.sort((a, b) => a.price - b.price);
-    if (sortBy === 'price-desc') list = list.sort((a, b) => b.price - a.price);
-    return list;
-  }, [products, searchQuery, activeCategory, sortBy]);
+  const brands = useMemo(() => {
+    const s = new Set<string>();
+    products.forEach(pr => pr.brand && s.add(pr.brand));
+    return ['All', ...Array.from(s)];
+  }, [products]);
+
+  const filtered = useMemo(() => products.filter(pr => {
+    const q = searchQuery.toLowerCase();
+    return (!q || pr.name?.toLowerCase().includes(q) || pr.brand?.toLowerCase().includes(q))
+      && (activeCategory === 'All' || pr.categories?.includes(activeCategory))
+      && (activeBrand === 'All' || pr.brand === activeBrand);
+  }), [products, searchQuery, activeCategory, activeBrand]);
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
@@ -102,14 +94,13 @@ export default function MerchantStorefront({ params }: { params: Promise<{ merch
       ? `${selThickness || ''}${selThickness && selColor ? ' / ' : ''}${selColor || ''}`.trim()
       : '';
     const price = selectedVariant?.price ?? selectedProduct.price;
+    const key = `${selectedProduct._id}-${variantLabel}`;
     setCart(prev => {
-      const key = `${selectedProduct._id}-${variantLabel}`;
       const existing = prev.find(i => `${i.productId}-${i.variantLabel}` === key);
       if (existing) return prev.map(i => `${i.productId}-${i.variantLabel}` === key ? { ...i, qty: i.qty + qty } : i);
       return [...prev, { productId: selectedProduct._id, name: selectedProduct.name, price, variantLabel, qty, imageUrl: selectedProduct.imageUrl }];
     });
-    setView('home');
-    setQty(1);
+    setView('home'); setQty(1);
   }
 
   async function placeOrder(address: string) {
@@ -121,131 +112,103 @@ export default function MerchantStorefront({ params }: { params: Promise<{ merch
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lineUserId: customer.userId,
-          displayName: customer.displayName,
-          address,
-          items,
+          lineUserId: customer.userId, displayName: customer.displayName, address, items,
           product: items.map(i => `${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}`).join(', '),
-          quantity: items.reduce((s, i) => s + i.qty, 0),
-          soldTHB: cartTotal
+          quantity: items.reduce((s, i) => s + i.qty, 0), soldTHB: cartTotal
         })
       });
-      if (res.ok) {
-        setCurrentOrder(await res.json());
-        setCart([]);
-        setView('payment');
-      }
-    } finally {
-      setIsOrdering(false);
-    }
+      if (res.ok) { setCart([]); setView('payment'); }
+    } finally { setIsOrdering(false); }
   }
 
-  const theme = shopInfo?.branding?.theme || 'light';
-  const isDark = theme === 'dark';
-  const bg = isDark ? 'bg-[#0f1117]' : 'bg-gray-50';
-  const card = isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-gray-200';
-  const text = isDark ? 'text-white' : 'text-gray-900';
-  const sub = isDark ? 'text-gray-400' : 'text-gray-500';
+  const style = {
+    page: { background: p.pageBg, color: p.textPrimary, minHeight: '100vh' } as React.CSSProperties,
+    header: { background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` } as React.CSSProperties,
+    card: { background: p.cardBg, border: `1px solid ${p.cardBorder}` } as React.CSSProperties,
+    input: { background: p.inputBg, border: `1px solid ${p.inputBorder}`, color: p.textPrimary } as React.CSSProperties,
+    accent: { background: p.accent, color: p.accentText } as React.CSSProperties,
+    pill: (active: boolean): React.CSSProperties => ({ background: active ? p.pillActiveBg : p.pillBg, color: active ? p.pillActiveText : p.textMuted }),
+    muted: { color: p.textMuted } as React.CSSProperties,
+    sub: { color: p.textSecondary } as React.CSSProperties,
+  };
 
-  if (notFound) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Package size={48} className="mx-auto text-gray-300 mb-4" />
-          <h1 className="text-xl font-bold text-gray-700 mb-2">Store not found</h1>
-          <p className="text-gray-400 text-sm">This store link may be invalid or the store may no longer exist.</p>
-        </div>
+  if (notFound) return (
+    <div style={style.page} className="flex items-center justify-center">
+      <div className="text-center p-8">
+        <Package size={48} className="mx-auto mb-4 opacity-30" />
+        <h1 className="text-xl font-bold mb-2">Store not found</h1>
+        <p style={style.muted} className="text-sm">This store link may be invalid or no longer exists.</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (!shopInfo) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+  if (!shopInfo) return (
+    <div style={{ ...style.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${p.accent}40`, borderTopColor: p.accent }} />
+    </div>
+  );
+
+  if (view === 'payment') return (
+    <div style={style.page} className="flex items-center justify-center p-4">
+      <div style={style.card} className="rounded-2xl p-8 w-full max-w-sm text-center">
+        <CheckCircle size={48} className="mx-auto mb-4" style={{ color: p.accent }} />
+        <h2 className="text-xl font-bold mb-2">Order placed!</h2>
+        <p style={style.muted} className="text-sm mb-6">We'll contact you on LINE when your order is ready for payment.</p>
+        <button onClick={() => setView('home')} style={style.accent} className="w-full rounded-xl py-3 font-semibold text-sm">Continue shopping</button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // ---- Payment view ----
-  if (view === 'payment' && currentOrder) {
-    return (
-      <div className={`min-h-screen ${bg} ${text} flex items-center justify-center p-4`}>
-        <div className={`rounded-2xl border p-8 w-full max-w-sm text-center ${card}`}>
-          <CheckCircle size={48} className="mx-auto text-green-500 mb-4" />
-          <h2 className="text-xl font-bold mb-2">Order placed!</h2>
-          <p className={`text-sm mb-6 ${sub}`}>We'll contact you on LINE when your order is ready for payment.</p>
-          <button onClick={() => { setCurrentOrder(null); setView('home'); }}
-            className="w-full bg-green-500 text-white rounded-xl py-3 font-semibold text-sm">
-            Continue shopping
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ---- Product detail view ----
   if (view === 'detail' && selectedProduct) {
-    const thicknesses = [...new Set(selectedProduct.variants?.map((v: any) => v.thickness).filter(Boolean))] as string[];
-    const colors = selectedVariant ? (selectedVariant.colors || []) : [];
-
+    const thicknesses = [...new Set((selectedProduct.variants ?? []).map((v: any) => v.thickness).filter(Boolean))] as string[];
+    const colors: string[] = selectedVariant?.colors ?? [];
     return (
-      <div className={`min-h-screen ${bg} ${text}`}>
-        <div className={`sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b ${card}`}>
-          <button onClick={() => setView('home')} className="p-1.5 rounded-xl hover:bg-gray-100"><ChevronLeft size={20} /></button>
+      <div style={style.page}>
+        <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
+          <button onClick={() => setView('home')} style={{ color: p.textPrimary }} className="p-1.5 rounded-xl"><ChevronLeft size={20} /></button>
           <span className="font-semibold text-sm">{selectedProduct.name}</span>
         </div>
         <div className="p-4 space-y-4 max-w-lg mx-auto">
-          {selectedProduct.imageUrl && (
-            <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl" />
-          )}
+          {selectedProduct.imageUrl
+            ? <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl" />
+            : <div className="w-full aspect-square rounded-2xl flex items-center justify-center" style={{ background: p.inputBg }}><Package size={48} style={style.muted} /></div>
+          }
           <div>
             <h2 className="text-lg font-bold">{selectedProduct.name}</h2>
-            {selectedProduct.brand && <p className={`text-sm ${sub}`}>{selectedProduct.brand}</p>}
-            <p className="text-green-500 font-bold text-xl mt-1">
-              ฿{(selectedVariant?.price ?? selectedProduct.price).toLocaleString()}
-            </p>
-            {selectedProduct.description && <p className={`text-sm mt-2 ${sub}`}>{selectedProduct.description}</p>}
+            {selectedProduct.brand && <p className="text-sm" style={style.muted}>{selectedProduct.brand}</p>}
+            <p className="text-xl font-bold mt-1" style={{ color: p.accent }}>฿{(selectedVariant?.price ?? selectedProduct.price).toLocaleString()}</p>
+            {selectedProduct.description && <p className="text-sm mt-2" style={style.sub}>{selectedProduct.description}</p>}
           </div>
-
           {thicknesses.length > 0 && (
             <div>
               <p className="text-sm font-medium mb-2">Size / Thickness</p>
               <div className="flex flex-wrap gap-2">
                 {thicknesses.map(t => (
                   <button key={t} onClick={() => { setSelThickness(t); setSelColor(''); setSelectedVariant(selectedProduct.variants?.find((v: any) => v.thickness === t)); }}
-                    className={`px-3 py-1.5 rounded-lg text-sm border font-medium transition-colors ${selThickness === t ? 'bg-green-500 text-white border-green-500' : isDark ? 'border-gray-600 text-gray-300' : 'border-gray-300 text-gray-700'}`}>
-                    {t}
-                  </button>
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium" style={style.pill(selThickness === t)}>{t}</button>
                 ))}
               </div>
             </div>
           )}
-
           {colors.length > 0 && (
             <div>
               <p className="text-sm font-medium mb-2">Color</p>
               <div className="flex flex-wrap gap-2">
                 {colors.map((c: string) => (
-                  <button key={c} onClick={() => setSelColor(c)}
-                    className={`px-3 py-1.5 rounded-lg text-sm border font-medium transition-colors ${selColor === c ? 'bg-green-500 text-white border-green-500' : isDark ? 'border-gray-600 text-gray-300' : 'border-gray-300 text-gray-700'}`}>
-                    {c}
-                  </button>
+                  <button key={c} onClick={() => setSelColor(c)} className="px-3 py-1.5 rounded-lg text-sm font-medium" style={style.pill(selColor === c)}>{c}</button>
                 ))}
               </div>
             </div>
           )}
-
           <div className="flex items-center gap-3">
             <p className="text-sm font-medium">Qty</p>
             <div className="flex items-center gap-2">
-              <button onClick={() => setQty(q => Math.max(1, q - 1))} className={`w-8 h-8 rounded-lg flex items-center justify-center border ${isDark ? 'border-gray-600' : 'border-gray-300'}`}><Minus size={14} /></button>
+              <button onClick={() => setQty(q => Math.max(1, q - 1))} style={style.card} className="w-8 h-8 rounded-lg flex items-center justify-center"><Minus size={14} /></button>
               <span className="w-6 text-center font-semibold">{qty}</span>
-              <button onClick={() => setQty(q => q + 1)} className={`w-8 h-8 rounded-lg flex items-center justify-center border ${isDark ? 'border-gray-600' : 'border-gray-300'}`}><Plus size={14} /></button>
+              <button onClick={() => setQty(q => q + 1)} style={style.card} className="w-8 h-8 rounded-lg flex items-center justify-center"><Plus size={14} /></button>
             </div>
           </div>
-
-          <button onClick={addToCart} className="w-full bg-green-500 text-white rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2">
+          <button onClick={addToCart} style={style.accent} className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2">
             <ShoppingBag size={16} /> Add to cart
           </button>
         </div>
@@ -253,73 +216,107 @@ export default function MerchantStorefront({ params }: { params: Promise<{ merch
     );
   }
 
-  // ---- Cart view ----
-  if (view === 'cart') {
-    return (
-      <CartView
-        cart={cart} cartTotal={cartTotal} isDark={isDark} bg={bg} card={card} text={text} sub={sub}
-        customer={customer} isOrdering={isOrdering}
-        onBack={() => setView('home')}
-        onRemove={(id: string) => setCart(prev => prev.filter(i => i.productId !== id))}
-        onQtyChange={(id: string, delta: number) => setCart(prev => prev.map(i => i.productId === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i))}
-        onOrder={placeOrder}
-      />
-    );
-  }
+  if (view === 'cart') return (
+    <CartView p={p} style={style} cart={cart} cartTotal={cartTotal} customer={customer} isOrdering={isOrdering}
+      onBack={() => setView('home')}
+      onRemove={(id: string) => setCart(prev => prev.filter(i => i.productId !== id))}
+      onQtyChange={(id: string, delta: number) => setCart(prev => prev.map(i => i.productId === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i))}
+      onOrder={placeOrder}
+    />
+  );
 
-  // ---- Home / product list ----
+  // Home
   return (
-    <div className={`min-h-screen ${bg} ${text}`}>
-      {/* Header */}
-      <div className={`sticky top-0 z-10 border-b ${card}`}>
+    <div style={style.page}>
+      {sf.announcementText && (
+        <div className="px-4 py-1.5 text-xs text-center font-medium" style={style.accent}>{sf.announcementText}</div>
+      )}
+      <div style={style.header} className="sticky top-0 z-10">
         <div className="px-4 py-3 flex items-center justify-between">
-          <h1 className="font-bold text-base">{shopInfo.shopName}</h1>
+          <div className="flex items-center gap-2">
+            {sf.logoUrl
+              ? <img src={sf.logoUrl} alt="logo" className="w-8 h-8 rounded-xl object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+              : <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold" style={style.accent}>{(shopInfo.shopName || 'S')[0]}</div>
+            }
+            <div>
+              <p className="font-bold text-sm">{shopInfo.shopName}</p>
+              {sf.shopTagline && <p className="text-xs" style={style.muted}>{sf.shopTagline}</p>}
+            </div>
+          </div>
           {cartCount > 0 && (
-            <button onClick={() => setView('cart')} className="relative p-2">
+            <button onClick={() => setView('cart')} className="relative p-2" style={{ color: p.textPrimary }}>
               <ShoppingBag size={20} />
-              <span className="absolute -top-0.5 -right-0.5 bg-green-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">{cartCount}</span>
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-xs flex items-center justify-center font-bold" style={style.accent}>{cartCount}</span>
             </button>
           )}
         </div>
-        <div className="px-4 pb-3">
-          <div className={`flex items-center gap-2 rounded-xl px-3 py-2 border ${isDark ? 'bg-[#1f2335] border-[#2a2e45]' : 'bg-gray-100 border-transparent'}`}>
-            <Search size={14} className={sub} />
-            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products..."
-              className={`flex-1 bg-transparent text-sm outline-none ${text}`} />
+        {sf.bannerUrl && (
+          <img src={sf.bannerUrl} alt="banner" className="w-full h-28 object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+        )}
+        {sf.showSearch !== false && (
+          <div className="px-4 pb-2">
+            <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={style.input}>
+              <Search size={14} style={style.muted} />
+              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products..."
+                className="flex-1 bg-transparent text-sm outline-none" style={{ color: p.textPrimary }} />
+              {searchQuery && <button onClick={() => setSearchQuery('')}><X size={14} style={style.muted} /></button>}
+            </div>
           </div>
-        </div>
-        {categories.length > 1 && (
-          <div className="flex gap-2 px-4 pb-3 overflow-x-auto no-scrollbar">
+        )}
+        {sf.showCategoryFilter !== false && categories.length > 1 && (
+          <div className="flex gap-2 px-4 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
             {categories.map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)}
-                className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${activeCategory === cat ? 'bg-green-500 text-white' : isDark ? 'bg-[#1f2335] text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
-                {cat}
-              </button>
+              <button key={cat} onClick={() => setActiveCategory(cat)} className="flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium" style={style.pill(activeCategory === cat)}>{cat}</button>
+            ))}
+          </div>
+        )}
+        {sf.showBrandFilter !== false && brands.length > 1 && (
+          <div className="flex gap-2 px-4 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            {brands.map(b => (
+              <button key={b} onClick={() => setActiveBrand(b)} className="flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium" style={style.pill(activeBrand === b)}>{b}</button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Product grid */}
-      <div className="p-4 grid grid-cols-2 gap-3 max-w-2xl mx-auto">
-        {filtered.map(p => (
-          <button key={p._id} onClick={() => { setSelectedProduct(p); setSelectedVariant(null); setSelThickness(''); setSelColor(''); setQty(1); setView('detail'); }}
-            className={`rounded-2xl border overflow-hidden text-left transition-all active:scale-95 ${card}`}>
-            {p.imageUrl
-              ? <img src={p.imageUrl} alt={p.name} className="w-full aspect-square object-cover" />
-              : <div className="w-full aspect-square bg-gray-100 flex items-center justify-center"><Package size={32} className="text-gray-300" /></div>
-            }
-            <div className="p-3">
-              <p className="font-semibold text-sm leading-tight line-clamp-2">{p.name}</p>
-              {p.brand && <p className={`text-xs mt-0.5 ${sub}`}>{p.brand}</p>}
-              <p className="text-green-500 font-bold text-sm mt-1">฿{p.price.toLocaleString()}</p>
-            </div>
+      <div className={`p-4 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}`}>
+        {filtered.map(pr => (
+          <button key={pr._id}
+            onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelThickness(''); setSelColor(''); setQty(1); setView('detail'); }}
+            className={`rounded-2xl overflow-hidden text-left transition-all active:scale-95 ${cardLayout === 'list' ? 'flex gap-3 p-3' : ''}`}
+            style={style.card}
+          >
+            {cardLayout === 'grid' ? (
+              <>
+                {pr.imageUrl
+                  ? <img src={pr.imageUrl} alt={pr.name} className="w-full aspect-square object-cover" />
+                  : <div className="w-full aspect-square flex items-center justify-center" style={{ background: p.inputBg }}><Package size={32} style={style.muted} /></div>
+                }
+                <div className="p-3">
+                  <p className="font-semibold text-sm leading-tight line-clamp-2">{pr.name}</p>
+                  {pr.brand && <p className="text-xs mt-0.5" style={style.muted}>{pr.brand}</p>}
+                  <p className="font-bold text-sm mt-1" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                {pr.imageUrl
+                  ? <img src={pr.imageUrl} alt={pr.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                  : <div className="w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: p.inputBg }}><Package size={20} style={style.muted} /></div>
+                }
+                <div className="flex-1 min-w-0 py-1">
+                  <p className="font-semibold text-sm line-clamp-2">{pr.name}</p>
+                  {pr.brand && <p className="text-xs mt-0.5" style={style.muted}>{pr.brand}</p>}
+                  <p className="font-bold text-sm mt-1" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
+                </div>
+              </>
+            )}
           </button>
         ))}
         {filtered.length === 0 && (
-          <div className="col-span-2 py-16 text-center">
-            <Package size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className={`text-sm ${sub}`}>No products found</p>
+          <div className={`${cardLayout === 'grid' ? 'col-span-2' : ''} py-16 text-center`}>
+            <Package size={40} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm" style={style.muted}>No products found</p>
           </div>
         )}
       </div>
@@ -327,58 +324,55 @@ export default function MerchantStorefront({ params }: { params: Promise<{ merch
   );
 }
 
-function CartView({ cart, cartTotal, isDark, bg, card, text, sub, customer, isOrdering, onBack, onRemove, onQtyChange, onOrder }: any) {
+function CartView({ p, style, cart, cartTotal, customer, isOrdering, onBack, onRemove, onQtyChange, onOrder }: {
+  p: StorefrontPreset; style: any; cart: CartItem[]; cartTotal: number; customer: any;
+  isOrdering: boolean; onBack: () => void; onRemove: (id: string) => void;
+  onQtyChange: (id: string, delta: number) => void; onOrder: (address: string) => void;
+}) {
   const [address, setAddress] = useState('');
-
   return (
-    <div className={`min-h-screen ${bg} ${text}`}>
-      <div className={`sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b ${card}`}>
-        <button onClick={onBack} className="p-1.5 rounded-xl hover:bg-gray-100"><ChevronLeft size={20} /></button>
+    <div style={style.page}>
+      <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
+        <button onClick={onBack} style={{ color: p.textPrimary }} className="p-1.5 rounded-xl"><ChevronLeft size={20} /></button>
         <span className="font-semibold text-sm">Cart ({cart.length} items)</span>
       </div>
       <div className="p-4 space-y-3 max-w-lg mx-auto">
-        {cart.map((item: CartItem) => (
-          <div key={`${item.productId}-${item.variantLabel}`} className={`rounded-2xl border p-3 flex items-center gap-3 ${card}`}>
+        {cart.map(item => (
+          <div key={`${item.productId}-${item.variantLabel}`} style={style.card} className="rounded-2xl p-3 flex items-center gap-3">
             {item.imageUrl
               ? <img src={item.imageUrl} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" alt={item.name} />
-              : <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0"><Package size={20} className="text-gray-300" /></div>
+              : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: p.inputBg }}><Package size={20} style={style.muted} /></div>
             }
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm line-clamp-1">{item.name}</p>
-              {item.variantLabel && <p className={`text-xs ${sub}`}>{item.variantLabel}</p>}
-              <p className="text-green-500 font-bold text-sm">฿{(item.price * item.qty).toLocaleString()}</p>
+              {item.variantLabel && <p className="text-xs" style={style.muted}>{item.variantLabel}</p>}
+              <p className="font-bold text-sm" style={{ color: p.accent }}>฿{(item.price * item.qty).toLocaleString()}</p>
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={() => onQtyChange(item.productId, -1)} className="w-7 h-7 rounded-lg border flex items-center justify-center"><Minus size={12} /></button>
+              <button onClick={() => onQtyChange(item.productId, -1)} style={style.card} className="w-7 h-7 rounded-lg flex items-center justify-center"><Minus size={12} /></button>
               <span className="w-5 text-center text-sm font-semibold">{item.qty}</span>
-              <button onClick={() => onQtyChange(item.productId, 1)} className="w-7 h-7 rounded-lg border flex items-center justify-center"><Plus size={12} /></button>
-              <button onClick={() => onRemove(item.productId)} className="w-7 h-7 ml-1 rounded-lg flex items-center justify-center text-red-400"><Trash2 size={12} /></button>
+              <button onClick={() => onQtyChange(item.productId, 1)} style={style.card} className="w-7 h-7 rounded-lg flex items-center justify-center"><Plus size={12} /></button>
+              <button onClick={() => onRemove(item.productId)} className="w-7 h-7 ml-1 rounded-lg flex items-center justify-center" style={{ color: '#ef4444' }}><Trash2 size={12} /></button>
             </div>
           </div>
         ))}
-
-        <div className={`rounded-2xl border p-4 ${card}`}>
+        <div style={style.card} className="rounded-2xl p-4">
           <p className="text-sm font-medium mb-2">Delivery address</p>
           <textarea value={address} onChange={e => setAddress(e.target.value)} rows={3} placeholder="Enter your delivery address..."
-            className={`w-full bg-transparent text-sm outline-none resize-none border rounded-xl p-3 ${isDark ? 'border-gray-600' : 'border-gray-200'}`} />
+            style={{ ...style.input, resize: 'none' as const, width: '100%', borderRadius: '0.75rem', padding: '0.75rem', fontSize: '0.875rem', outline: 'none', display: 'block' }} />
         </div>
-
-        <div className={`rounded-2xl border p-4 flex items-center justify-between ${card}`}>
+        <div style={style.card} className="rounded-2xl p-4 flex items-center justify-between">
           <span className="font-medium">Total</span>
-          <span className="font-bold text-lg text-green-500">฿{cartTotal.toLocaleString()}</span>
+          <span className="font-bold text-lg" style={{ color: p.accent }}>฿{cartTotal.toLocaleString()}</span>
         </div>
-
         {!customer && (
-          <div className={`rounded-xl p-3 text-sm text-center ${isDark ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-50 text-yellow-700'}`}>
+          <div className="rounded-xl p-3 text-sm text-center" style={{ background: `${p.accent}20`, color: p.accent }}>
             Please open this store in LINE to place an order
           </div>
         )}
-
-        <button
-          disabled={!customer || !address.trim() || isOrdering || cart.length === 0}
-          onClick={() => onOrder(address)}
-          className="w-full bg-green-500 text-white rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-        >
+        <button disabled={!customer || !address.trim() || isOrdering || cart.length === 0}
+          onClick={() => onOrder(address)} style={style.accent}
+          className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
           {isOrdering ? 'Placing order...' : <><ArrowRight size={16} /> Place order</>}
         </button>
       </div>

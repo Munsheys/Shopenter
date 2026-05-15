@@ -24,7 +24,20 @@ const SettingsSchema = new mongoose.Schema({
   promptPayId: { type: String, default: "" },
   paymentTemplate: { type: String, default: "✅ ยืนยันการชำระเงินแล้วครับ!\n\nรายการ: {product}\nจำนวน: ฿{amount}\n\nขอบคุณที่ใช้บริการครับ 🙏" },
   slipokBranchId: { type: String, default: "" },
-  slipokApiKey: { type: String, default: "" }
+  slipokApiKey: { type: String, default: "" },
+  // Storefront customization
+  storefront: {
+    preset: { type: String, default: 'midnight' },
+    shopTagline: { type: String, default: "" },
+    logoUrl: { type: String, default: "" },
+    bannerUrl: { type: String, default: "" },
+    accentColor: { type: String, default: "" }, // hex override, empty = use preset
+    cardLayout: { type: String, enum: ['grid', 'list'], default: 'grid' },
+    showBrandFilter: { type: Boolean, default: true },
+    showCategoryFilter: { type: Boolean, default: true },
+    showSearch: { type: Boolean, default: true },
+    announcementText: { type: String, default: "" },
+  }
 });
 
 const ProductSchema = new mongoose.Schema({
