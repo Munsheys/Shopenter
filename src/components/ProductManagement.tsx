@@ -50,7 +50,7 @@ interface Product {
   isActive: boolean;
 }
 
-interface ProductForm {
+export interface ProductForm {
   name: string;
   brand: string;
   modelLine: string;
@@ -354,14 +354,15 @@ export function ImageUploader({ value, onChange, theme = 'light' }: { value: str
   );
 }
 
-function ProductModal({
+export function ProductModal({
   isOpen,
   initialData,
   onSave,
   onClose,
   isSaving,
   existingOptions,
-  theme = 'light'
+  theme = 'light',
+  quickOrderMode = false,
 }: {
   isOpen: boolean;
   initialData: ProductForm | null;
@@ -370,6 +371,7 @@ function ProductModal({
   isSaving: boolean;
   existingOptions: { brands: string[], modelLines: string[], categories: string[], colors: string[], thicknesses: string[] };
   theme?: 'light' | 'dark';
+  quickOrderMode?: boolean;
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const prevId = useRef<string | null>(null);
@@ -377,8 +379,7 @@ function ProductModal({
   useEffect(() => {
     if (isOpen) {
       if (!initialData) {
-        // Always reset to empty for a new product
-        setForm(EMPTY_FORM);
+        setForm(quickOrderMode ? { ...EMPTY_FORM, variants: [] } : EMPTY_FORM);
         prevId.current = null;
       } else {
         const currentId = (initialData as any)?._id;
@@ -404,7 +405,9 @@ function ProductModal({
     updateForm({ variants: next });
   };
 
-  const isValid = form.name.trim() !== '' && form.brand.trim() !== '' && form.variants.length > 0 && form.variants.every(v => v.thickness.trim() !== '' && v.price.trim() !== '');
+  const isValid = quickOrderMode
+    ? form.name.trim() !== ''
+    : form.name.trim() !== '' && form.brand.trim() !== '' && form.variants.length > 0 && form.variants.every(v => v.thickness.trim() !== '' && v.price.trim() !== '');
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -415,7 +418,7 @@ function ProductModal({
         <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <div>
             <h3 className={cn("text-xl font-bold transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
-            <p className="text-xs text-[#8b92ad]">Luxury Hierarchy Management (Brand &gt; Model Line &gt; Product Name)</p>
+            <p className="text-xs text-[#8b92ad]">{quickOrderMode ? 'Fill what you need now — complete the rest later from Products page' : 'Luxury Hierarchy Management (Brand > Model Line > Product Name)'}</p>
           </div>
           <button onClick={onClose} className={cn("w-8 h-8 flex items-center justify-center rounded-full transition-colors", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
         </div>
@@ -560,7 +563,7 @@ function ProductModal({
             onClick={() => onSave(form)}
             className="flex-1 py-4 text-sm font-bold text-white bg-[#00b900] rounded-2xl shadow-lg shadow-[#00b90033] hover:opacity-90 disabled:opacity-40 transition-all"
           >
-            {isSaving ? 'Processing...' : initialData ? 'Update Catalog' : 'Catalog Product'}
+            {isSaving ? 'Processing...' : quickOrderMode ? 'Save & Select' : initialData ? 'Update Catalog' : 'Catalog Product'}
           </button>
         </div>
       </div>

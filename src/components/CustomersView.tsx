@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   MessageCircle, ShoppingCart, Send, Search, X, Plus, Minus, Trash2,
   Package, CheckCircle, QrCode, ChevronRight, ChevronLeft, MapPin,
-  Clock, Printer, History, ChevronDown, TrendingUp,
+  Clock, Printer, History, ChevronDown, TrendingUp, AlertTriangle, Pencil,
+  Circle, Check,
 } from 'lucide-react';
+import { ProductModal, type ProductForm } from './ProductManagement';
 
 type Customer = {
   _id: string; userId: string; displayName: string; pictureUrl?: string;
@@ -20,6 +22,8 @@ type Order = {
   tracking?: string; courier?: string; address?: string;
   status: 'pending' | 'paid' | 'preparing' | 'shipped';
   paymentQrSent: boolean; createdAt: string;
+  rateUsed?: number;
+  statusBeforeParcel?: string;
 };
 type Message = {
   _id: string; lineUserId: string; type: 'text' | 'image' | 'system';
@@ -83,6 +87,7 @@ export default function CustomersView({ theme }: { theme: string }) {
   const [showModal, setShowModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [merchantSettings, setMerchantSettings] = useState<any>(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
 
   const [qoMode, setQoMode] = useState<'existing' | 'new'>('existing');
   const [qoSearch, setQoSearch] = useState('');
@@ -90,11 +95,24 @@ export default function CustomersView({ theme }: { theme: string }) {
   const [qoName, setQoName] = useState('');
   const [qoBrand, setQoBrand] = useState('');
   const [qoSaveToCatalog, setQoSaveToCatalog] = useState(false);
+  const [qoNewProduct, setQoNewProduct] = useState<Product | null>(null);
+  const [showNewProductModal, setShowNewProductModal] = useState(false);
+  const [newProductSaving, setNewProductSaving] = useState(false);
   const [qoPrice, setQoPrice] = useState('');
   const [qoCostPrice, setQoCostPrice] = useState('');
   const [qoCostCurrency, setQoCostCurrency] = useState('KRW');
   const [qoQty, setQoQty] = useState(1);
   const [qoSubmitting, setQoSubmitting] = useState(false);
+
+  const [selectedAddressIdx, setSelectedAddressIdx] = useState(0);
+
+  const [confirm, setConfirm] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    danger?: boolean;
+  }>({ open: false, title: '', message: '', onConfirm: () => {} });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -159,6 +177,8 @@ export default function CustomersView({ theme }: { theme: string }) {
 
   function selectCustomer(c: Customer) {
     setSelectedCustomer(c);
+    setSelectedAddressIdx(0);
+    setSelectedOrderIds(new Set());
     if (c.unreadCount > 0) {
       fetch(`/api/customers/${c.userId}/read`, { method: 'POST' }).catch(() => {});
     }
@@ -205,43 +225,51 @@ export default function CustomersView({ theme }: { theme: string }) {
     setAllOrders(prev => prev.map(o => o._id === id ? { ...o, status: 'paid' } : o));
   }
 
+  function toggleOrderSelect(id: string) {
+    setSelectedOrderIds(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+  }
+
+  async function sendBatchQR(ids: string[]) {
+    await fetch('/api/orders/batch/send-qr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderIds: ids }),
+    });
+    setAllOrders(prev => prev.map(o => ids.includes(o._id) ? { ...o, paymentQrSent: true } : o));
+    setSelectedOrderIds(new Set());
+  }
+
+  async function markBatchPaid(ids: string[]) {
+    await fetch('/api/orders/batch/mark-paid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderIds: ids }),
+    });
+    setAllOrders(prev => prev.map(o => ids.includes(o._id) ? { ...o, status: 'paid' } : o));
+    setSelectedOrderIds(new Set());
+  }
+
   async function submitQuickOrder() {
     if (!selectedCustomer || qoSubmitting) return;
-    const name = qoMode === 'existing' && qoSelected ? qoSelected.name : qoName.trim();
-    if (!name) return;
-    const price = parseFloat(qoPrice) || (qoSelected?.price ?? 0);
+    const product = qoMode === 'existing' ? qoSelected : qoNewProduct;
+    if (!product) return;
+    const price = parseFloat(qoPrice) || product.price;
     const costAmount = parseFloat(qoCostPrice) || 0;
     setQoSubmitting(true);
     try {
-      let productId = qoSelected?._id;
-
-      if (qoMode === 'new' && qoSaveToCatalog) {
-        const pRes = await fetch('/api/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name,
-            brand: qoBrand.trim() || undefined,
-            price,
-            isActive: true,
-          }),
-        });
-        if (pRes.ok) {
-          const newProduct = await pRes.json();
-          productId = newProduct._id;
-          setProducts(prev => [newProduct, ...prev]);
-        }
-      }
-
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lineUserId: selectedCustomer.userId,
           displayName: selectedCustomer.displayName,
-          product: `${qoQty > 1 ? `${qoQty}x ` : ''}${name}`,
+          product: `${qoQty > 1 ? `${qoQty}x ` : ''}${product.name}`,
           quantity: qoQty,
-          items: [{ productId, name, qty: qoQty, price }],
+          items: [{ productId: product._id, name: product.name, qty: qoQty, price }],
           soldTHB: price * qoQty,
           costKRW: costAmount,
           costCurrency: qoCostCurrency,
@@ -252,12 +280,47 @@ export default function CustomersView({ theme }: { theme: string }) {
         const order = await res.json();
         setAllOrders(prev => [order, ...prev]);
         setShowModal(false);
-        setQoName(''); setQoBrand(''); setQoSaveToCatalog(false);
         setQoPrice(''); setQoCostPrice('');
         setQoQty(1); setQoSelected(null); setQoSearch('');
+        setQoNewProduct(null); setQoMode('existing');
         setQoCostCurrency(merchantSettings?.importCurrency || 'KRW');
       }
     } finally { setQoSubmitting(false); }
+  }
+
+  async function handleNewProductSave(form: ProductForm) {
+    setNewProductSaving(true);
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          brand: form.brand || undefined,
+          modelLine: form.modelLine || undefined,
+          description: form.description || undefined,
+          price: parseFloat(form.price as any) || 0,
+          categories: form.categories,
+          imageUrl: form.imageUrl || undefined,
+          isActive: true,
+          variants: form.variants.map(v => ({
+            ...v,
+            price: parseFloat(v.price as any) || 0,
+            cost: parseFloat(v.cost as any) || 0,
+            stock: parseInt(v.stock as any) || 0,
+          })),
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setProducts(prev => [created, ...prev]);
+        setQoNewProduct(created);
+        setQoPrice(String(created.price || 0));
+        setShowNewProductModal(false);
+      }
+    } finally {
+      setNewProductSaving(false);
+    }
   }
 
   async function addAddress(addr: string) {
@@ -290,6 +353,26 @@ export default function CustomersView({ theme }: { theme: string }) {
     }
   }
 
+  function confirmDeleteAddress(idx: number) {
+    setConfirm({
+      open: true,
+      title: 'Delete Address?',
+      message: 'This address will be permanently removed from this customer profile.',
+      danger: true,
+      onConfirm: () => removeAddress(idx)
+    });
+  }
+
+  function confirmDeleteOrder(id: string) {
+    setConfirm({
+      open: true,
+      title: 'Delete Order?',
+      message: 'This will permanently remove the order from your records. This action cannot be undone.',
+      danger: true,
+      onConfirm: () => deleteOrder(id)
+    });
+  }
+
   async function markAsRead() {
     if (!selectedCustomer) return;
     await fetch(`/api/customers/${selectedCustomer.userId}/read`, { method: 'POST' }).catch(() => {});
@@ -300,7 +383,10 @@ export default function CustomersView({ theme }: { theme: string }) {
   const customerOrders = selectedCustomer
     ? allOrders.filter(o => o.lineUserId === selectedCustomer.userId)
     : [];
-  const activeOrders = customerOrders.filter(o => ['pending', 'paid', 'preparing'].includes(o.status));
+  const activeOrders = customerOrders.filter(o => ['pending', 'paid'].includes(o.status));
+  const pendingOrders = activeOrders.filter(o => o.status === 'pending');
+  const selectedTotal = activeOrders.filter(o => selectedOrderIds.has(o._id)).reduce((s, o) => s + (o.soldTHB || 0), 0);
+  const allPendingSelected = pendingOrders.length > 0 && pendingOrders.every(o => selectedOrderIds.has(o._id));
   const parcelOrders = customerOrders.filter(o => o.status === 'preparing');
   const shippedOrders = customerOrders.filter(o => o.status === 'shipped');
 
@@ -530,14 +616,55 @@ export default function CustomersView({ theme }: { theme: string }) {
                 {/* Active Orders */}
                 {activeOrders.length > 0 && (
                   <section aria-label="Active orders">
-                    <SectionLabel>Active Orders</SectionLabel>
+                    <div className="flex items-center justify-between">
+                      <SectionLabel>Active Orders</SectionLabel>
+                      {pendingOrders.length > 1 && (
+                        <button
+                          onClick={() => setSelectedOrderIds(allPendingSelected ? new Set() : new Set(pendingOrders.map(o => o._id)))}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-lg transition-colors ${
+                            allPendingSelected
+                              ? 'text-[#00b900] bg-[#00b900]/10'
+                              : `${k.muted} hover:text-[#00b900]`
+                          }`}
+                        >
+                          {allPendingSelected ? 'Deselect All' : 'Select All'}
+                        </button>
+                      )}
+                    </div>
+                    {selectedOrderIds.size > 0 && (
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-2 ${isDark ? 'bg-[#00b900]/10 border border-[#00b900]/20' : 'bg-[#00b900]/5 border border-[#00b900]/20'}`}>
+                        <span className="text-xs font-bold text-[#00b900] flex-1">
+                          {selectedOrderIds.size} selected · ฿{fmt(selectedTotal)}
+                        </span>
+                        <button
+                          onClick={() => sendBatchQR([...selectedOrderIds])}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold hover:bg-amber-500 transition-all active:scale-95"
+                        >
+                          <QrCode size={11} /> Combined QR
+                        </button>
+                        <button
+                          onClick={() => markBatchPaid([...selectedOrderIds])}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#00b900] text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95"
+                        >
+                          <CheckCircle size={11} /> Mark All Paid
+                        </button>
+                        <button
+                          onClick={() => setSelectedOrderIds(new Set())}
+                          className={`p-1.5 rounded-lg ${k.muted} ${k.hover} transition-colors`}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                       {activeOrders.map(order => (
                         <ActiveOrderCard key={order._id} order={order} isDark={isDark} k={k}
-                          onDelete={() => deleteOrder(order._id)}
+                          onDelete={() => confirmDeleteOrder(order._id)}
                           onSendQR={() => sendQR(order._id)}
                           onMarkPaid={() => markPaid(order._id)}
-                          onMoveToParcel={() => patchOrder(order._id, { status: 'preparing' })} />
+                          onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
+                          selected={selectedOrderIds.has(order._id)}
+                          onToggleSelect={order.status === 'pending' ? () => toggleOrderSelect(order._id) : undefined} />
                       ))}
                     </div>
                   </section>
@@ -547,13 +674,21 @@ export default function CustomersView({ theme }: { theme: string }) {
                 {parcelOrders.length > 0 && (
                   <section aria-label="Parcels awaiting shipment">
                     <div className="space-y-4">
-                      {parcelOrders.map(order => (
-                        <ParcelCard key={order._id} order={order} isDark={isDark} k={k}
-                          onPatch={(patch) => patchOrder(order._id, patch)}
-                          onDelete={() => deleteOrder(order._id)}
-                          onMarkShipped={() => patchOrder(order._id, { status: 'shipped' })}
-                          onAddItem={() => setShowModal(true)} />
-                      ))}
+                      <ParcelContainer 
+                        orders={parcelOrders} 
+                        isDark={isDark} 
+                        k={k}
+                        merchantSettings={merchantSettings}
+                        onPatch={(id, patch) => patchOrder(id, patch)}
+                        onCancelParcel={(id) => patchOrder(id, { status: 'paid' })}
+                        onShip={async (tracking, courier) => {
+                          const addr = selectedCustomer?.addresses[selectedAddressIdx] || '';
+                          for (const o of parcelOrders) {
+                            await patchOrder(o._id, { tracking, courier, address: addr, status: 'shipped' });
+                          }
+                        }}
+                        onAddItem={() => setShowModal(true)} 
+                      />
                     </div>
                   </section>
                 )}
@@ -561,7 +696,15 @@ export default function CustomersView({ theme }: { theme: string }) {
                 {/* Delivery Addresses */}
                 <section aria-label="Delivery addresses">
                   <SectionLabel>Delivery Addresses</SectionLabel>
-                  <AddressSection customer={selectedCustomer} isDark={isDark} k={k} onAdd={addAddress} onRemove={removeAddress} />
+                  <AddressSection 
+                    customer={selectedCustomer} 
+                    isDark={isDark} 
+                    k={k} 
+                    selectedIdx={selectedAddressIdx}
+                    onSelect={setSelectedAddressIdx}
+                    onAdd={addAddress} 
+                    onRemove={confirmDeleteAddress} 
+                  />
                 </section>
 
                 {/* Order History */}
@@ -587,7 +730,10 @@ export default function CustomersView({ theme }: { theme: string }) {
                       {shippedOrders.map((order, i) => (
                         <HistoryRow key={order._id} order={order} isDark={isDark} k={k}
                           isLast={i === shippedOrders.length - 1}
-                          onPatch={(patch) => patchOrder(order._id, patch)} />
+                          onPatch={(patch) => patchOrder(order._id, patch)}
+                          onDelete={() => confirmDeleteOrder(order._id)}
+                          onPrint={() => window.print()}
+                        />
                       ))}
                     </div>
                   )}
@@ -771,10 +917,9 @@ export default function CustomersView({ theme }: { theme: string }) {
                 </div>
               </div>
 
-              {qoCostPrice && parseFloat(qoCostPrice) > 0 && (
+              {qoCostCurrency !== (merchantSettings?.localCurrency || 'THB') && merchantSettings?.krwRate && (
                 <p className={`text-[10px] ${k.muted} px-1`}>
-                  Rate: 1 {qoCostCurrency} = {merchantSettings?.krwRate ?? '?'} {merchantSettings?.localCurrency || 'THB'}
-                  {merchantSettings?.useAutoRate && ' · live rate applied on save'}
+                  @ {merchantSettings.krwRate} ({qoCostCurrency} → {merchantSettings.localCurrency || 'THB'}{merchantSettings.useAutoRate ? ' · live' : ''})
                 </p>
               )}
 
@@ -789,6 +934,42 @@ export default function CustomersView({ theme }: { theme: string }) {
           </div>
         </div>
       )}
+      <ConfirmModal config={confirm} onClose={() => setConfirm(v => ({ ...v, open: false }))} isDark={isDark} k={k} />
+    </div>
+  );
+}
+
+function ConfirmModal({ config, onClose, isDark, k }: { config: any, onClose: () => void, isDark: boolean, k: typeof DK }) {
+  if (!config.open) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className={`w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#1a1d2e] border border-white/10' : 'bg-white'}`}>
+        <div className="p-8 text-center">
+          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6 ${config.danger ? 'bg-red-500/10 text-red-500' : 'bg-[#00b900]/10 text-[#00b900]'}`}>
+            <AlertTriangle size={32} />
+          </div>
+          <h3 className={`text-xl font-black mb-3 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{config.title}</h3>
+          <p className={`text-sm leading-relaxed mb-8 ${k.muted}`}>{config.message}</p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => { config.onConfirm(); onClose(); }}
+              className={`w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-lg ${
+                config.danger 
+                  ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20' 
+                  : 'bg-[#00b900] hover:opacity-90 text-white shadow-[#00b900]/20'
+              }`}
+            >
+              Confirm
+            </button>
+            <button
+              onClick={onClose}
+              className={`w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-[#f8f9fc] hover:bg-[#f1f3f9] text-[#8b92ad]'}`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -801,71 +982,219 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 // ── Active Order Card ─────────────────────────────────────────────────────────
-const STATUS_BADGE: Record<string, string> = {
-  pending:   'bg-amber-100 text-amber-700 border-amber-200',
-  paid:      'bg-emerald-100 text-emerald-700 border-emerald-200',
-  preparing: 'bg-[#00b900]/10 text-[#00b900] border-[#00b900]/20',
-  shipped:   'bg-slate-100 text-slate-600 border-slate-200',
-};
-const STATUS_LABEL: Record<string, string> = {
-  pending: 'New Order', paid: '✓ Paid', preparing: '✓ In Parcel', shipped: 'Shipped',
-};
-const STATUS_BG: Record<string, string> = {
-  pending: 'bg-amber-50 border-amber-100', paid: 'bg-emerald-50 border-emerald-100',
-  preparing: 'bg-[#00b900]/5 border-[#00b900]/10', shipped: 'bg-slate-50 border-slate-100',
+const STATUS_COLORS: Record<string, { bg: string; text: string; border: string; lightBg: string }> = {
+  pending: {
+    bg: 'bg-amber-500',
+    text: 'text-amber-700',
+    border: 'border-amber-200',
+    lightBg: 'bg-amber-50/50',
+  },
+  paid: {
+    bg: 'bg-blue-500',
+    text: 'text-blue-700',
+    border: 'border-blue-200',
+    lightBg: 'bg-blue-50/50',
+  },
+  preparing: {
+    bg: 'bg-[#00b900]',
+    text: 'text-[#00b900]',
+    border: 'border-[#00b900]/20',
+    lightBg: 'bg-[#00b900]/5',
+  },
+  shipped: {
+    bg: 'bg-slate-500',
+    text: 'text-slate-600',
+    border: 'border-slate-200',
+    lightBg: 'bg-slate-50/50',
+  },
 };
 
-function ActiveOrderCard({ order, isDark, k, onDelete, onSendQR, onMarkPaid, onMoveToParcel }: {
+const STATUS_LABEL: Record<string, string> = {
+  pending: 'New Order', paid: 'Paid', preparing: 'In Parcel', shipped: 'Shipped',
+};
+
+function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSendQR, onMarkPaid, onMoveToParcel, selected, onToggleSelect }: {
   order: Order; isDark: boolean; k: typeof DK;
-  onDelete: () => void; onSendQR?: () => void; onMarkPaid?: () => void; onMoveToParcel?: () => void;
+  editable?: boolean;
+  onDelete: () => void;
+  onPatch?: (patch: object) => void;
+  onSendQR?: () => void;
+  onMarkPaid?: () => void;
+  onMoveToParcel?: () => void;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const sc = order.soldCurrency || 'THB';
-  const badge = STATUS_BADGE[order.status] || STATUS_BADGE.pending;
+  const cc = order.costCurrency || 'KRW';
+  const status = STATUS_COLORS[order.status] || STATUS_COLORS.pending;
   const label = STATUS_LABEL[order.status] || 'Order';
-  const cardBg = isDark ? 'bg-[#161925] border-[#1f2335]' : STATUS_BG[order.status] || STATUS_BG.pending;
+
+  // For editable mode
+  const [name, setName] = useState(order.product);
+  const [qty, setQty] = useState(order.quantity || 1);
+  const [sold, setSold] = useState(String(order.soldTHB || ''));
+  const [cost, setCost] = useState(String(order.costKRW || ''));
+  const initialRate = order.rateUsed || (order.costKRW ? (order.costTHB / order.costKRW) : 0);
+  const [rate, setRate] = useState(String(initialRate || ''));
+
+  const currentSold = parseFloat(sold) || 0;
+  const currentCostKRW = parseFloat(cost) || 0;
+  const currentRate = parseFloat(rate) || 0;
+  const currentCostTHB = currentCostKRW * currentRate;
+  const currentProfit = currentSold - currentCostTHB - (order.shipCostTHB || 0);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const showEdit = editable || isEditing;
+
+  // Sync state if order changes (e.g. from props)
+  useEffect(() => {
+    if (showEdit) {
+      setName(order.product);
+      setQty(order.quantity || 1);
+      setSold(String(order.soldTHB || ''));
+      setCost(String(order.costKRW || ''));
+      setRate(String(initialRate || ''));
+    }
+  }, [order._id, showEdit]);
+
+  const saveChanges = () => {
+    if (onPatch) {
+      onPatch({
+        product: name,
+        quantity: qty,
+        soldTHB: currentSold,
+        costKRW: currentCostKRW,
+        costTHB: currentCostTHB,
+        profit: currentProfit,
+        rateUsed: currentRate
+      });
+    }
+    setIsEditing(false);
+  };
+
+  const cardClasses = isDark
+    ? 'bg-[#161925] border-[#1f2335]'
+    : `bg-white ${status.border} shadow-sm hover:shadow-md transition-all`;
 
   return (
-    <article className={`rounded-2xl border p-4 ${cardBg}`}>
+    <article className={`relative overflow-hidden rounded-2xl border-l-4 p-4 ${cardClasses} ${!isDark ? `border-l-${order.status === 'pending' ? 'amber-400' : order.status === 'paid' ? 'blue-400' : 'green-400'}` : 'border-l-transparent'} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/40' : ''}`}>
       <div className="flex items-start justify-between gap-2 mb-3">
-        <span className={`text-[9px] font-black px-2 py-1 rounded-full border uppercase tracking-wider ${badge}`}>
-          {label}
-        </span>
-        <button onClick={onDelete} aria-label="Delete order" className="text-[#8b92ad] hover:text-red-500 transition-colors p-0.5 -mt-0.5">
-          <Trash2 size={13} />
-        </button>
-      </div>
-
-      <p className={`font-bold text-sm leading-snug mb-2 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
-
-      <div className="flex items-center gap-2.5">
-        <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-          {sc} {fmt(order.soldTHB)}
-        </p>
-        {(order.profit || 0) > 0 && (
-          <span className="text-[10px] text-[#00b900] font-bold bg-[#00b900]/10 px-1.5 py-0.5 rounded-full">
-            +{fmt(order.profit)} profit
-          </span>
-        )}
-      </div>
-
-      {order.status !== 'preparing' && (
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {onMoveToParcel && order.status === 'paid' && (
-            <button onClick={onMoveToParcel}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-blue-500 hover:bg-blue-600 text-white transition-all active:scale-95">
-              <Package size={10} /> Move to Parcel
+        <div className="flex items-center gap-2">
+          {onToggleSelect && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+              aria-label={selected ? 'Deselect order' : 'Select order'}
+              className={`w-4 h-4 flex-shrink-0 rounded border-2 flex items-center justify-center transition-all ${
+                selected
+                  ? 'bg-[#00b900] border-[#00b900]'
+                  : isDark ? 'border-white/30 hover:border-[#00b900]/60' : 'border-gray-300 hover:border-[#00b900]/60'
+              }`}
+            >
+              {selected && <Check size={10} className="text-white" strokeWidth={3} />}
             </button>
           )}
-          {onSendQR && !order.paymentQrSent && (
+          <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider ${
+            isDark ? 'bg-white/5 text-white/70 border-white/10' : `${status.lightBg} ${status.text} ${status.border}`
+          }`}>
+            {label}
+          </span>
+          {order.paymentQrSent && order.status === 'pending' && (
+            <span className="text-[9px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-md border border-violet-100">QR SENT</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {!editable && (
+            <button onClick={() => setIsEditing(!isEditing)} aria-label="Edit order" className={`p-1 rounded-md transition-colors ${isEditing ? 'text-[#00b900] bg-[#00b900]/10' : 'text-[#8b92ad] hover:text-[#00b900]'}`}>
+              <Pencil size={12} />
+            </button>
+          )}
+          <button onClick={onDelete} aria-label="Delete order" className="text-[#8b92ad] hover:text-red-500 transition-colors p-1">
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </div>
+
+      {!showEdit ? (
+        <>
+          <p className={`font-bold text-sm leading-snug mb-3 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
+          <div className="flex items-center justify-between mt-auto">
+            <div className="flex items-center gap-2">
+              <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+                ฿{fmt(order.soldTHB)}
+              </p>
+              {(order.profit || 0) > 0 && (
+                <span className={`text-[10px] font-bold ${isDark ? 'text-[#00b900]' : 'text-[#00b900] bg-[#00b900]/5 px-1.5 py-0.5 rounded-md'}`}>
+                  +฿{fmt(order.profit)}
+                </span>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Product Name</label>
+              <input value={name} onChange={e => setName(e.target.value)}
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+            </div>
+            <div className="w-12">
+              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Qty</label>
+              <input type="number" value={qty} onChange={e => setQty(parseInt(e.target.value) || 1)}
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Cost ({cc})</label>
+              <input type="number" step="any" value={cost} onChange={e => setCost(e.target.value)}
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+            </div>
+            <div>
+              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Sold ({sc})</label>
+              <input type="number" step="any" value={sold} onChange={e => setSold(e.target.value)}
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+            </div>
+            <div>
+              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Rate ({cc}→{sc})</label>
+              <input type="number" step="any" value={rate} onChange={e => setRate(e.target.value)}
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <p className={`text-[10px] font-black ${currentProfit >= 0 ? 'text-[#00b900]' : 'text-red-500'}`}>
+              Profit: {sc} {fmt(currentProfit)}
+            </p>
+            <button onClick={saveChanges}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00b900] hover:opacity-90 text-white text-[10px] font-black transition-all active:scale-95 shadow-sm shadow-[#00b900]/20">
+              <CheckCircle size={11} /> Save Changes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {order.status !== 'preparing' && !showEdit && (
+        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-dashed border-gray-100">
+          {onMoveToParcel && order.status === 'paid' && (
+            <button onClick={onMoveToParcel}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-[#1a1d2e] text-white hover:bg-black transition-all active:scale-95">
+              <Package size={12} /> Move to Parcel
+            </button>
+          )}
+          {onSendQR && order.status === 'pending' && (
             <button onClick={onSendQR}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-violet-500 hover:bg-violet-600 text-white transition-all active:scale-95">
-              <QrCode size={10} /> Send QR
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-all active:scale-95 ${
+                order.paymentQrSent 
+                  ? 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100' 
+                  : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
+              }`}>
+              <QrCode size={12} /> {order.paymentQrSent ? 'Resend QR' : 'Send QR'}
             </button>
           )}
           {onMarkPaid && order.status === 'pending' && (
             <button onClick={onMarkPaid}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all active:scale-95">
-              <CheckCircle size={10} /> Mark Paid
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-[#00b900] text-white hover:opacity-90 transition-all active:scale-95 shadow-sm shadow-[#00b900]/20">
+              <CheckCircle size={12} /> Mark Paid
             </button>
           )}
         </div>
@@ -875,224 +1204,190 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onSendQR, onMarkPaid, onM
 }
 
 // ── Parcel Card ───────────────────────────────────────────────────────────────
-function ParcelCard({ order, isDark, k, onPatch, onDelete, onMarkShipped, onAddItem }: {
-  order: Order; isDark: boolean; k: typeof DK;
-  onPatch: (patch: object) => void; onDelete: () => void; onMarkShipped: () => void;
+function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, onAddItem, merchantSettings }: {
+  orders: Order[]; isDark: boolean; k: typeof DK;
+  onPatch: (id: string, patch: object) => void;
+  onCancelParcel: (id: string) => void;
+  onShip: (tracking: string, courier: string) => void;
   onAddItem?: () => void;
+  merchantSettings?: any;
 }) {
-  const sc = order.soldCurrency || 'THB';
-  const cc = order.costCurrency || 'KRW';
-  const parcelId = order._id.slice(-4).toUpperCase();
+  const [tracking, setTracking] = useState('');
+  const [courier, setCourier] = useState('');
+  const [shipping, setShipping] = useState(false);
 
-  // Editable item fields
-  const [productName, setProductName] = useState(order.product);
-  const [qty, setQty] = useState(order.quantity || 1);
-  const [sold, setSold] = useState(order.soldTHB || 0);
-  const [cost, setCost] = useState(order.costKRW || 0);
-  const [tracking, setTracking] = useState(order.tracking || '');
-  const [courier, setCourier] = useState(order.courier || '');
-  const [saving, setSaving] = useState(false);
-
-  const profit = sold - (order.costTHB || 0);
-
-  async function ship() {
-    setSaving(true);
-    await onPatch({ product: productName, quantity: qty, soldTHB: sold, costKRW: cost, tracking, courier });
-    onMarkShipped();
-    setSaving(false);
-  }
-
+  const parcelId = orders[0]?._id.slice(-4).toUpperCase() || 'NEW';
   const inner = isDark ? 'bg-[#1a1d2e] border-[#2a3050]' : 'bg-white border-[#e2e5ef]';
   const outer = isDark ? 'border-[#2a3050]' : 'border-[#e2e5ef]';
 
+  async function handleShip() {
+    if (!tracking || !courier) return;
+    setShipping(true);
+    await onShip(tracking, courier);
+    setShipping(false);
+  }
+
   return (
     <article className={`rounded-3xl border-2 border-dashed ${outer} ${isDark ? 'bg-[#161925]' : 'bg-[#f8f9fc]'} p-5 space-y-4`}>
-
-      {/* Header row */}
       <div className="flex items-center justify-between">
         <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl ${isDark ? 'bg-white/10 text-white' : 'bg-[#1a1d2e] text-white'}`}>
           Parcel ID: {parcelId}
         </span>
         <div className="flex items-center gap-3">
-          <button
-            onClick={onAddItem}
-            className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-[#00b900] hover:opacity-90 text-white transition-all active:scale-95"
-          >
+          <button onClick={onAddItem} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-[#00b900] hover:opacity-90 text-white transition-all active:scale-95">
             <Plus size={11} /> Add Item
           </button>
-          <button
-            onClick={onDelete}
-            aria-label="Delete parcel"
-            className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
-          >
-            Delete Parcel
-          </button>
         </div>
       </div>
 
-      {/* Item details card */}
-      <div className={`border rounded-2xl p-5 ${inner}`}>
-        <p className={`text-[9px] font-black uppercase tracking-widest mb-4 ${k.muted}`}>Item Details</p>
-
-        {/* Product name + qty row */}
-        <div className="flex gap-3 mb-3">
-          <div className="flex-1">
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Product Name</label>
-            <input
-              value={productName}
-              onChange={e => setProductName(e.target.value)}
-              className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`}
-            />
-          </div>
-          <div className="flex-shrink-0">
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>QTY</label>
-            <div className="flex items-center gap-0">
-              <input
-                type="number"
-                value={qty}
-                onChange={e => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-                className={`w-16 text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] transition-all text-center ${k.input}`}
-              />
-              <button onClick={onDelete} aria-label="Remove item" className={`ml-2 p-2 rounded-xl ${k.muted} hover:text-red-500 transition-colors`}>
-                <Trash2 size={13} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Sold + Cost row */}
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Sold ({sc})</label>
-            <input
-              type="number"
-              value={sold}
-              onChange={e => setSold(parseFloat(e.target.value) || 0)}
-              className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`}
-            />
-          </div>
-          <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Cost ({cc})</label>
-            <input
-              type="number"
-              value={cost}
-              onChange={e => setCost(parseFloat(e.target.value) || 0)}
-              className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`}
-            />
-          </div>
-        </div>
-
-        {/* Live profit */}
-        <p className={`text-base font-black ${profit >= 0 ? 'text-[#00b900]' : 'text-red-500'}`}>
-          Profit: {sc} {fmt(profit)}
-        </p>
+      <div className="space-y-3">
+        {orders.map(order => (
+          <ActiveOrderCard
+            key={order._id}
+            order={order}
+            isDark={isDark}
+            k={k}
+            editable={true}
+            onDelete={() => onCancelParcel(order._id)}
+            onPatch={(patch) => onPatch(order._id, patch)}
+          />
+        ))}
       </div>
 
-      {/* Courier + Tracking */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Courier</label>
-          <div className="relative">
+      <div className={`border rounded-2xl p-5 ${inner} space-y-4`}>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Courier</label>
             <select
               value={courier}
               onChange={e => setCourier(e.target.value)}
-              aria-label="Select courier"
-              className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] transition-all appearance-none ${k.input}`}
+              className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`}
             >
               <option value="">-- Select --</option>
-              {COURIERS.map(c => <option key={c} value={c}>{c}</option>)}
+              {merchantSettings?.shippingCompanies?.map((c: string) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
             </select>
-            <ChevronDown size={13} className={`absolute right-3 top-1/2 -translate-y-1/2 ${k.muted} pointer-events-none`} />
+          </div>
+          <div>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Tracking Number</label>
+            <input
+              placeholder="Ex: TH12345678"
+              value={tracking}
+              onChange={e => setTracking(e.target.value)}
+              className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`}
+            />
           </div>
         </div>
-        <div>
-          <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Tracking Number</label>
-          <input
-            value={tracking}
-            onChange={e => setTracking(e.target.value)}
-            placeholder="Ex: TH12345678"
-            className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`}
-          />
-        </div>
-      </div>
 
-      {/* Ship button */}
-      <button
-        onClick={ship}
-        disabled={saving}
-        className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl text-sm font-black bg-[#1a1d2e] hover:bg-black text-white transition-all active:scale-[0.98] disabled:opacity-40 shadow-md"
-      >
-        <Printer size={16} />
-        {saving ? 'Shipping...' : 'Ship + Print Label'}
-      </button>
+        <button
+          onClick={handleShip}
+          disabled={shipping || orders.length === 0}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#1a1d2e] hover:bg-black text-white font-black text-sm shadow-xl shadow-black/10 transition-all active:scale-95 disabled:opacity-40"
+        >
+          <Printer size={16} /> {shipping ? 'Shipping...' : 'Ship • Print Label'}
+        </button>
+      </div>
     </article>
   );
 }
 
 // ── Address Section ───────────────────────────────────────────────────────────
-function AddressSection({ customer, isDark, k, onAdd, onRemove }: {
+// ── Address Section ───────────────────────────────────────────────────────────
+function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onRemove }: {
   customer: Customer; isDark: boolean; k: typeof DK;
+  selectedIdx: number; onSelect: (idx: number) => void;
   onAdd: (addr: string) => void; onRemove: (idx: number) => void;
 }) {
   const [newAddr, setNewAddr] = useState('');
+
   return (
-    <div className={`mt-3 ${k.surface} rounded-2xl border ${k.border} p-4`}>
-      <div className="space-y-2">
-        {(customer.addresses || []).length === 0 && (
-          <p className={`text-xs ${k.muted} pb-1`}>No saved addresses</p>
-        )}
-        {(customer.addresses || []).map((addr, i) => (
-          <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${k.border} ${isDark ? 'bg-[#1a1d2e]' : 'bg-[#f8f9fc]'}`}>
-            <MapPin size={13} className={`flex-shrink-0 ${i === 0 ? 'text-[#00b900]' : k.muted}`} />
-            <span className={`text-xs flex-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{addr}</span>
-            {i === 0 && <span className="text-[9px] font-bold text-[#00b900] bg-[#00b900]/10 px-1.5 py-0.5 rounded-full">DEFAULT</span>}
+    <div className="space-y-2 mt-3">
+      {(customer?.addresses || []).length === 0 ? (
+        <div className={`p-6 border border-dashed ${isDark ? 'border-white/10' : 'border-gray-200'} rounded-3xl text-center`}>
+          <MapPin size={16} className={`mx-auto mb-2 ${k.muted}`} />
+          <p className={`text-[10px] font-bold uppercase tracking-widest ${k.muted}`}>No addresses saved</p>
+        </div>
+      ) : (
+        (customer?.addresses || []).map((addr, i) => (
+          <div 
+            key={i} 
+            onClick={() => onSelect(i)}
+            className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
+              selectedIdx === i 
+                ? (isDark ? 'bg-[#00b900]/5 border-[#00b900]/30 shadow-[0_0_15px_rgba(0,185,0,0.1)]' : 'bg-[#00b900]/5 border-[#00b900]/30 shadow-sm')
+                : (isDark ? 'bg-white/5 border-white/5 opacity-60' : 'bg-white border-gray-100 opacity-70')
+            } hover:opacity-100 group`}
+          >
+            <div className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+              selectedIdx === i ? 'border-[#00b900] bg-[#00b900]' : (isDark ? 'border-white/20' : 'border-gray-300')
+            }`}>
+              {selectedIdx === i && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </div>
+            <span className={`text-xs flex-1 font-medium leading-relaxed ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{addr}</span>
             <button
-              onClick={() => onRemove(i)}
+              onClick={(e) => { e.stopPropagation(); onRemove(i); }}
               aria-label={`Remove address: ${addr}`}
-              className={`text-xs ${k.muted} hover:text-red-500 transition-colors p-0.5`}
+              className={`text-xs ${k.muted} hover:text-red-500 transition-colors p-0.5 opacity-0 group-hover:opacity-100`}
             >
-              <X size={13} />
+              <Trash2 size={13} />
             </button>
           </div>
-        ))}
-        <div className="flex gap-2 pt-1">
-          <input
-            value={newAddr}
-            onChange={e => setNewAddr(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
-            placeholder="Add new delivery address..."
-            aria-label="New address"
-            className={`flex-1 text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`}
-          />
-          <button
-            onClick={() => { if (newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
-            className="px-4 py-2 bg-[#00b900] hover:opacity-90 text-white rounded-xl text-sm font-bold whitespace-nowrap transition-all active:scale-95"
-          >
-            + Add
-          </button>
-        </div>
+        ))
+      )}
+      <div className="flex gap-2 pt-1">
+        <input
+          value={newAddr}
+          onChange={e => setNewAddr(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
+          placeholder="Add new delivery address..."
+          className={`flex-1 text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`}
+        />
+        <button
+          onClick={() => { if (newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
+          className="p-2 bg-[#00b900] text-white rounded-xl hover:opacity-90 transition-all active:scale-95"
+        >
+          <Plus size={16} />
+        </button>
       </div>
     </div>
   );
 }
 
 // ── History Row ───────────────────────────────────────────────────────────────
-function HistoryRow({ order, isDark, k, isLast, onPatch }: {
+function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, onPrint }: {
   order: Order; isDark: boolean; k: typeof DK; isLast: boolean;
   onPatch: (patch: object) => void;
+  onDelete: () => void;
+  onPrint: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [sold, setSold] = useState(String(order.soldTHB || ''));
   const [cost, setCost] = useState(String(order.costKRW || ''));
-  const [rate, setRate] = useState(String(order.profit || ''));
+  // Use rateUsed or fallback to calculated rate
+  const initialRate = order.rateUsed || (order.costKRW ? (order.costTHB / order.costKRW) : 0);
+  const [rate, setRate] = useState(String(initialRate || ''));
   const [saving, setSaving] = useState(false);
+  
   const sc = order.soldCurrency || 'THB';
   const cc = order.costCurrency || 'KRW';
-  const profit = order.profit || 0;
+
+  // Derived values for dynamic UI
+  const currentSold = parseFloat(sold) || 0;
+  const currentCostKRW = parseFloat(cost) || 0;
+  const currentRate = parseFloat(rate) || 0;
+  const currentCostTHB = currentCostKRW * currentRate;
+  const currentProfit = currentSold - currentCostTHB - (order.shipCostTHB || 0);
 
   async function saveUpdate() {
     setSaving(true);
-    await onPatch({ soldTHB: parseFloat(sold), costKRW: parseFloat(cost) });
+    await onPatch({ 
+      soldTHB: currentSold, 
+      costKRW: currentCostKRW, 
+      costTHB: currentCostTHB,
+      profit: currentProfit,
+      rateUsed: currentRate 
+    });
     setSaving(false);
     setOpen(false);
   }
@@ -1122,37 +1417,55 @@ function HistoryRow({ order, isDark, k, isLast, onPatch }: {
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className={`text-sm font-black ${profit >= 0 ? 'text-[#00b900]' : 'text-red-500'}`}>
-            {sc} {fmt(profit)}
+          <p className={`text-sm font-black ${currentProfit >= 0 ? 'text-[#00b900]' : 'text-red-500'}`}>
+            {sc} {fmt(currentProfit)}
           </p>
-          <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(order.soldTHB)}</p>
+          <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(currentSold)}</p>
         </div>
-        <ChevronDown size={13} className={`flex-shrink-0 ${k.muted} transition-transform ${open ? 'rotate-180' : ''}`} />
+        <div className="flex items-center gap-4 ml-4 flex-shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onPrint(); }}
+            className={`p-2.5 rounded-xl border transition-all active:scale-90 ${
+              isDark 
+                ? 'border-white/10 text-white hover:bg-white/5' 
+                : 'border-gray-100 text-gray-400 hover:bg-gray-50 hover:text-[#00b900]'
+            }`}
+          >
+            <Printer size={14} />
+          </button>
+          <ChevronDown size={14} className={`${k.muted} transition-transform ${open ? 'rotate-180' : ''}`} />
+        </div>
       </button>
 
       {open && (
         <div className={`px-5 pb-4 ${isDark ? 'bg-[#1a1d2e]' : 'bg-[#f8f9fc]'}`}>
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div>
-              <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Sold ({sc})</label>
-              <input type="number" value={sold} onChange={e => setSold(e.target.value)}
-                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
-            </div>
-            <div>
               <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Cost ({cc})</label>
-              <input type="number" value={cost} onChange={e => setCost(e.target.value)}
+              <input type="number" step="any" value={cost} onChange={e => setCost(e.target.value)}
                 className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
             </div>
             <div>
-              <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Rate</label>
-              <input type="number" value={rate} onChange={e => setRate(e.target.value)}
+              <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Sold ({sc})</label>
+              <input type="number" step="any" value={sold} onChange={e => setSold(e.target.value)}
+                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+            </div>
+            <div>
+              <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Rate ({cc} → {sc})</label>
+              <input type="number" step="any" value={rate} onChange={e => setRate(e.target.value)}
                 className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
             </div>
           </div>
-          <button onClick={saveUpdate} disabled={saving}
-            className="w-full py-2 rounded-xl text-xs font-black bg-[#1a1d2e] hover:bg-black text-white transition-all active:scale-95 disabled:opacity-40">
-            {saving ? 'Saving...' : 'Update Prices'}
-          </button>
+          <div className="flex gap-2">
+            <button onClick={saveUpdate} disabled={saving}
+              className="flex-1 py-3 rounded-xl text-xs font-black bg-[#1a1d2e] hover:bg-black text-white transition-all active:scale-95 disabled:opacity-40">
+              {saving ? 'Saving...' : 'Update Prices'}
+            </button>
+            <button onClick={onDelete}
+              className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+              <Trash2 size={14} />
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -1,0 +1,328 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                   LINEOA PERSONAL → LINEOA SAAS                           ║
+║                        Transformation Summary                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+
+BEFORE: Single-Tenant Personal Project
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌─────────────────────────────────────────┐
+  │     One Website For One Shop Owner       │
+  └─────────────────────────────────────────┘
+
+  Database:
+  ┌──────────────────┐
+  │ Settings         │  ← Singleton (ONE only)
+  │  └─ shopName     │
+  │  └─ liffId       │
+  │  └─ promptPayId  │
+  └──────────────────┘
+
+  │
+  │ All queries here (no owner identifier)
+  │
+  ├─ Product.find({})           → Returns ALL products
+  ├─ Order.find({})             → Returns ALL orders
+  └─ Customer.find({})          → Returns ALL customers
+
+  Routes:
+  ├─ /                          → Admin (hardcoded)
+  └─ /shop                       → Storefront (hardcoded)
+
+
+AFTER: Multi-Tenant SaaS Platform
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌─────────────────────────────────────────────────────────┐
+  │    Unlimited Storefronts For Unlimited Shop Owners       │
+  └─────────────────────────────────────────────────────────┘
+
+  Database:
+  ┌────────────────────────────────────────┐
+  │ Merchant (NEW)                         │  ← Many documents
+  │  ├─ _id: "shop1"                       │
+  │  ├─ email: "owner1@shop1.com"          │
+  │  ├─ shopName: "My Shop"                │
+  │  ├─ liffId: "liff_shop1"               │
+  │  └─ promptPayId: "123456_shop1"        │
+  │                                        │
+  │ Merchant (NEW)                         │
+  │  ├─ _id: "shop2"                       │
+  │  ├─ email: "owner2@shop2.com"          │
+  │  ├─ shopName: "Another Shop"           │
+  │  ├─ liffId: "liff_shop2"               │
+  │  └─ promptPayId: "123456_shop2"        │
+  └────────────────────────────────────────┘
+
+  All data now filtered by merchantId:
+
+  ├─ Product.find({ merchantId: "shop1" })       → Only shop1's products
+  ├─ Order.find({ merchantId: "shop1" })         → Only shop1's orders
+  ├─ Customer.find({ merchantId: "shop1" })      → Only shop1's customers
+  │
+  ├─ Product.find({ merchantId: "shop2" })       → Only shop2's products
+  ├─ Order.find({ merchantId: "shop2" })         → Only shop2's orders
+  └─ Customer.find({ merchantId: "shop2" })      → Only shop2's customers
+
+  Routes:
+  ├─ /dashboard                                   → Admin (multi-tenant)
+  ├─ /merchant/shop1                              → Shop1 storefront
+  ├─ /merchant/shop2                              → Shop2 storefront
+  └─ /merchant/[id]                               → Dynamic per merchant
+
+
+THE TRANSFORMATION IN 3 STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Step 1: Add Merchant Model
+  ┌────────────────────────────┐
+  │  Create Merchant schema    │
+  │  Store shop owner details  │
+  │  Email, password, LIFF ID  │
+  └────────────────────────────┘
+
+  Step 2: Add merchantId Everywhere
+  ┌────────────────────────────┐
+  │ Product + merchantId        │
+  │ Order + merchantId          │
+  │ Customer + merchantId       │
+  │ Message + merchantId        │
+  │ etc.                        │
+  └────────────────────────────┘
+
+  Step 3: Filter All Queries
+  ┌────────────────────────────┐
+  │ Product.find({             │
+  │   merchantId: req.user.id   │
+  │ })                          │
+  │                            │
+  │ Order.find({               │
+  │   merchantId: req.user.id   │
+  │ })                          │
+  │ etc.                        │
+  └────────────────────────────┘
+
+
+HOW URL ROUTING WORKS (Path-Based)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+                    lineoa.com
+                         │
+         ┌───────────────┴───────────────┐
+         │                               │
+    /dashboard                    /merchant/[id]
+         │                               │
+    Admin Panel                  Public Storefront
+  (requires login)              (no auth needed)
+         │
+    ┌────┴────┐
+    │          │
+  owner1     owner2
+  email1     email2
+  JWT1       JWT2
+    │          │
+ Products1   Products2
+  (filtered) (filtered)
+
+
+DATA ISOLATION: THE SECURITY MODEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ CORRECT (Owner 1 can only see Owner 1's data)
+  ─────────────────────────────────────────────
+
+  Owner 1 logs in with JWT:
+    { merchantId: "shop1", email: "owner1@shop1.com" }
+
+  Requests products:
+    GET /api/merchant/products
+    ↓
+    Query: Product.find({ merchantId: "shop1" })
+    ↓
+    Returns: [Product A, Product B] (shop1 only)
+
+
+  ❌ WRONG (Security Hole - returns all data)
+  ───────────────────────────────────────────
+
+  Owner 1 logs in with JWT:
+    { merchantId: "shop1", email: "owner1@shop1.com" }
+
+  Requests products:
+    GET /api/merchant/products
+    ↓
+    Query: Product.find({})  ← NO FILTER!
+    ↓
+    Returns: [All products from ALL shops] ← LEAKED!
+
+
+MERCHANT LIFECYCLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Signup
+     POST /api/merchant/auth/signup
+     { email, password, shopName }
+          ↓
+     Create Merchant document
+     Generate merchantId
+
+  2. Login
+     POST /api/merchant/auth/login
+     { email, password }
+          ↓
+     Generate JWT with merchantId
+     Store in localStorage
+
+  3. Access Dashboard
+     GET /dashboard
+     (uses JWT from localStorage)
+          ↓
+     Middleware extracts merchantId from JWT
+          ↓
+     Only show THIS merchant's data
+
+  4. Setup Configuration
+     POST /api/merchant/settings
+     { liffId, promptPayId, ... }
+          ↓
+     Update Merchant document
+          ↓
+     Store is LIVE at: /merchant/[merchantId]
+
+
+DOCUMENTATION MAP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  📄 00_START_HERE.md
+     Conceptual overview
+     Problem ↔ Solution
+     5 minutes
+
+  📄 QUICK_REFERENCE.md
+     Path-based routing explained
+     Code examples
+     Visual comparisons
+     10 minutes
+
+  📄 ARCHITECTURE.md
+     Database schemas
+     Request flows
+     State diagrams
+     API flows
+     20 minutes
+
+  📄 ROADMAP_SAAS.md
+     Phase 1-6 breakdown
+     What to implement
+     File modifications
+     30 minutes
+
+  📄 CLAUDE.md
+     Dev guidelines
+     Constraints
+     Testing instructions
+     10 minutes
+
+  📄 README_SAAS.md
+     Project structure
+     Getting started
+     5 minutes
+
+  📄 DOCS_INDEX.md
+     Navigation guide
+     Quick answers
+     5 minutes
+
+
+TESTING MULTI-TENANCY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Create 2 merchants:
+
+    Merchant 1              Merchant 2
+    ──────────────────      ──────────────────
+    email: owner1@x.com     email: owner2@y.com
+    merchantId: shop1       merchantId: shop2
+    products: [A, B, C]     products: [X, Y, Z]
+    JWT: jwt1               JWT: jwt2
+
+  Test isolation:
+
+    As Merchant 1:          As Merchant 2:
+    ──────────────          ──────────────
+    GET /api/merchant/      GET /api/merchant/
+      products              products
+    ↓                       ↓
+    [A, B, C] ✓            [X, Y, Z] ✓
+    (correct)              (correct)
+
+    Merchant 1 CANNOT see [X, Y, Z]
+    Merchant 2 CANNOT see [A, B, C]
+
+  ✅ Multi-tenancy is working!
+
+
+DEPLOYMENT READINESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Phase 1: Foundation (Data)
+    ✓ Merchant model
+    ✓ merchantId in all schemas
+    ✓ Database indexes
+    → Ready for Phase 2
+
+  Phase 2: Authentication
+    ✓ Signup/login endpoints
+    ✓ JWT generation
+    ✓ Middleware
+    → Ready for Phase 3
+
+  Phase 3: API Refactoring
+    ✓ All queries filter by merchantId
+    ✓ Separate admin vs public routes
+    → Ready for Phase 4
+
+  Phase 4: Admin Dashboard
+    ✓ /dashboard created
+    ✓ Merchant context added
+    ✓ Components refactored
+    → Ready for Phase 5
+
+  Phase 5: Storefront
+    ✓ /merchant/[id] paths created
+    ✓ Merchant-specific config loaded
+    ✓ Multi-store functionality verified
+    → Ready for Phase 6
+
+  Phase 6: Testing & Deployment
+    ✓ Data isolation tested (2+ merchants)
+    ✓ Full customer order flow tested
+    ✓ Performance benchmarked
+    → READY TO DEPLOY
+
+
+FUTURE: PATH-BASED → SUBDOMAIN-BASED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  When you're ready to scale:
+
+  Current (Path-Based):           Future (Subdomain-Based):
+  ──────────────────────          ────────────────────────
+  lineoa.com/merchant/shop1       shop1.lineoa.com
+  lineoa.com/merchant/shop2       shop2.lineoa.com
+  lineoa.com/dashboard            admin.lineoa.com
+
+  Implementation change:
+    Only middleware needs to change
+    Database & logic stay the same
+    All existing functionality preserved
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 THE CORE IDEA:
+
+  Add ONE field (merchantId) + filter ALL queries by it = Multi-tenant SaaS
+
+═══════════════════════════════════════════════════════════════════════════════
