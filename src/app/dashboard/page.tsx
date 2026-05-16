@@ -69,74 +69,85 @@ export default function DashboardPage() {
   if (loading) return <LoadingView />;
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'customers', label: 'Customers', icon: <MessageCircle size={14} /> },
-    { id: 'orders',    label: 'Orders',    icon: <ShoppingCart size={14} /> },
-    { id: 'products',  label: 'Products',  icon: <Package size={14} /> },
-    { id: 'reports',   label: 'Reports',   icon: <BarChart3 size={14} /> },
-    { id: 'storefront',label: 'Storefront',icon: <Store size={14} /> },
-    { id: 'settings',  label: 'Settings',  icon: <SettingsIcon size={14} /> },
+    { id: 'customers', label: 'Customers', icon: <MessageCircle size={15} /> },
+    { id: 'orders',    label: 'Orders',    icon: <ShoppingCart size={15} /> },
+    { id: 'products',  label: 'Products',  icon: <Package size={15} /> },
+    { id: 'reports',   label: 'Reports',   icon: <BarChart3 size={15} /> },
+    { id: 'storefront',label: 'Storefront',icon: <Store size={15} /> },
+    { id: 'settings',  label: 'Settings',  icon: <SettingsIcon size={15} /> },
   ];
 
   const theme = settings?.theme || 'light';
   const isDark = theme === 'dark';
-  const nb = isDark ? 'glass-dark border-white/5' : 'bg-white border-gray-200 shadow-sm';
+  const shopInitial = (settings?.shopName || merchant?.email || 'S')[0].toUpperCase();
 
   return (
-    <div className={`h-screen flex flex-col ${isDark ? 'premium-gradient text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-500`}>
+    <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`}>
 
       {/* ── Top navbar ── */}
-      <header className={`flex items-center gap-2 px-3 h-11 border-b flex-shrink-0 ${nb}`}>
+      <header className={`flex items-center h-14 border-b flex-shrink-0 ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-white border-gray-200'} transition-colors duration-300`}>
 
         {/* Brand */}
-        <div className="flex items-center gap-2 mr-3 flex-shrink-0">
-          <div className="w-6 h-6 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0">
-            <MessageCircle size={11} className="text-white" />
+        <div className={`flex items-center gap-3 px-5 h-full flex-shrink-0 border-r ${isDark ? 'border-[#1f2335]' : 'border-gray-200'}`}>
+          <div className="w-8 h-8 rounded-xl bg-[#00b900] flex items-center justify-center flex-shrink-0 shadow-sm">
+            <MessageCircle size={16} className="text-white" />
           </div>
-          <span className={`font-bold text-sm hidden sm:block truncate max-w-[130px] ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            {settings?.shopName || 'My Shop'}
-          </span>
+          <div className="hidden sm:block">
+            <p className={`text-sm font-semibold leading-tight truncate max-w-[140px] ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {settings?.shopName || 'My Shop'}
+            </p>
+            <p className={`text-[10px] font-medium ${isDark ? 'text-[#8b92ad]' : 'text-gray-400'}`}>Dashboard</p>
+          </div>
         </div>
 
-        {/* Tab pills */}
-        <nav className="flex items-center gap-0.5 flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        {/* Tab navigation — underline style */}
+        <nav className="flex items-stretch h-full flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+              className={`relative flex items-center gap-2 px-4 h-full text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
-                  ? 'bg-green-500 text-white shadow-sm'
-                  : isDark
-                    ? 'text-gray-400 hover:bg-white/5 hover:text-white'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+                  ? `border-[#00b900] ${isDark ? 'text-white' : 'text-gray-900'}`
+                  : `border-transparent ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
               }`}
             >
               {tab.icon}
-              <span className="hidden sm:inline">{tab.label}</span>
+              {tab.label}
             </button>
           ))}
         </nav>
 
-        {/* Right: storefront link + sign out */}
-        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+        {/* Right: view store + user section */}
+        <div className="flex items-center gap-3 px-4 flex-shrink-0">
           {merchant && (
             <a
               href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors text-green-500 ${isDark ? 'hover:bg-white/5' : 'hover:bg-green-50'}`}
+              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                isDark
+                  ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#2d3555]'
+                  : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
             >
               <ExternalLink size={12} />
-              <span className="hidden md:inline">Store</span>
+              View Store
             </a>
           )}
-          <button
-            onClick={handleLogout}
-            title="Sign out"
-            className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:bg-white/10' : 'text-gray-400 hover:bg-gray-100'}`}
-          >
-            <LogOut size={15} />
-          </button>
+
+          <div className={`flex items-center gap-2 pl-3 border-l ${isDark ? 'border-[#1f2335]' : 'border-gray-200'}`}>
+            <div className="w-8 h-8 rounded-full bg-[#00b900]/10 border border-[#00b900]/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-[#00b900] text-xs font-bold">{shopInitial}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
         </div>
       </header>
 
