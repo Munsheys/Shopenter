@@ -61,14 +61,24 @@ function fmt(n: number) { return (n || 0).toLocaleString('en', { maximumFraction
 
 // Design tokens — mirrors lineoa-personal
 const DK = {
-  bg: 'bg-[#0f1117]', surface: 'bg-[#161925]', surfaceDeep: 'bg-[#1a1d2e]',
-  border: 'border-[#1f2335]', text: 'text-white', muted: 'text-[#8b92ad]',
-  hover: 'hover:bg-white/5', input: 'bg-[#1a1d2e] border-[#2a3050] text-white placeholder-[#8b92ad]',
+  bg: 'premium-gradient', 
+  surface: 'glass-dark', 
+  surfaceDeep: 'bg-[#0f172a]/60',
+  border: 'border-white/10', 
+  text: 'text-slate-50', 
+  muted: 'text-slate-400',
+  hover: 'hover:bg-white/5 transition-all duration-300', 
+  input: 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500/50',
 };
 const LK = {
-  bg: 'bg-[#f8f9fc]', surface: 'bg-white', surfaceDeep: 'bg-[#f8f9fc]',
-  border: 'border-[#e2e5ef]', text: 'text-[#1a1d2e]', muted: 'text-[#8b92ad]',
-  hover: 'hover:bg-[#f8f9fc]', input: 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] placeholder-[#8b92ad]',
+  bg: 'bg-slate-50', 
+  surface: 'bg-white shadow-sm border-slate-200/60', 
+  surfaceDeep: 'bg-slate-100/50',
+  border: 'border-slate-200', 
+  text: 'text-slate-900', 
+  muted: 'text-slate-500',
+  hover: 'hover:bg-slate-50 transition-all duration-300', 
+  input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#00b900]',
 };
 
 export default function CustomersView({ theme }: { theme: string }) {
@@ -405,10 +415,10 @@ export default function CustomersView({ theme }: { theme: string }) {
   const totalUnread = customers.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   return (
-    <div className={`flex h-full overflow-hidden ${k.bg}`}>
+    <div className={`flex h-screen overflow-hidden ${k.bg} font-sans antialiased text-slate-100`}>
 
       {/* ── Customer list panel ── */}
-      <aside className={`flex-shrink-0 flex flex-col border-r ${k.border} ${k.surface} transition-all duration-200 ${listOpen ? 'w-64' : 'w-12'}`}>
+      <aside className={`flex-shrink-0 flex flex-col border-r ${k.border} ${isDark ? 'glass-dark' : 'bg-white shadow-xl'} transition-all duration-300 z-30 ${listOpen ? 'w-80' : 'w-20'}`}>
         {listOpen ? (
           <>
             <div className={`flex items-center gap-2 px-4 py-3 border-b ${k.border} flex-shrink-0`}>
@@ -560,9 +570,9 @@ export default function CustomersView({ theme }: { theme: string }) {
         </div>
       ) : (
         <>
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
             {/* Customer header */}
-            <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border} ${k.surface} flex-shrink-0`}>
+            <div className={`flex items-center justify-between px-8 py-5 border-b ${k.border} ${isDark ? 'glass' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
               <div className="flex items-center gap-3 min-w-0">
                 {selectedCustomer.pictureUrl ? (
                   <img src={selectedCustomer.pictureUrl} className="w-10 h-10 rounded-full ring-2 ring-[#00b900]/30 flex-shrink-0" alt="" />
@@ -610,8 +620,8 @@ export default function CustomersView({ theme }: { theme: string }) {
             </div>
 
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-6 max-w-4xl">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div className="p-10 space-y-10 max-w-5xl mx-auto">
 
                 {/* Active Orders */}
                 {activeOrders.length > 0 && (
@@ -943,29 +953,29 @@ function ConfirmModal({ config, onClose, isDark, k }: { config: any, onClose: ()
   if (!config.open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className={`w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#1a1d2e] border border-white/10' : 'bg-white'}`}>
-        <div className="p-8 text-center">
-          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6 ${config.danger ? 'bg-red-500/10 text-red-500' : 'bg-[#00b900]/10 text-[#00b900]'}`}>
-            <AlertTriangle size={32} />
+      <div className={`w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'glass-dark' : 'bg-white'}`}>
+        <div className="p-10 text-center">
+          <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 ${config.danger ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+            <AlertTriangle size={36} />
           </div>
-          <h3 className={`text-xl font-black mb-3 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{config.title}</h3>
-          <p className={`text-sm leading-relaxed mb-8 ${k.muted}`}>{config.message}</p>
-          <div className="flex flex-col gap-3">
+          <h3 className={`text-2xl font-black mb-4 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{config.title}</h3>
+          <p className={`text-sm leading-relaxed mb-10 ${k.muted}`}>{config.message}</p>
+          <div className="flex flex-col gap-4">
             <button
               onClick={() => { config.onConfirm(); onClose(); }}
-              className={`w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-lg ${
+              className={`w-full py-4.5 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-xl ${
                 config.danger 
                   ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20' 
-                  : 'bg-[#00b900] hover:opacity-90 text-white shadow-[#00b900]/20'
+                  : 'bg-emerald-500 hover:opacity-90 text-white shadow-emerald-500/20'
               }`}
             >
-              Confirm
+              Confirm Action
             </button>
             <button
               onClick={onClose}
-              className={`w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-[#f8f9fc] hover:bg-[#f1f3f9] text-[#8b92ad]'}`}
+              className={`w-full py-4.5 rounded-2xl font-black text-sm transition-all active:scale-95 ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
             >
-              Cancel
+              Go Back
             </button>
           </div>
         </div>
@@ -977,35 +987,41 @@ function ConfirmModal({ config, onClose, isDark, k }: { config: any, onClose: ()
 // ── Shared label ─────────────────────────────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-black uppercase tracking-widest text-[#8b92ad]">{children}</p>
+    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+      <span className="w-1 h-3 bg-emerald-500 rounded-full" />
+      {children}
+    </p>
   );
 }
 
 // ── Active Order Card ─────────────────────────────────────────────────────────
-const STATUS_COLORS: Record<string, { bg: string; text: string; border: string; lightBg: string }> = {
+const STATUS_COLORS: Record<string, any> = {
   pending: {
     bg: 'bg-amber-500',
-    text: 'text-amber-700',
-    border: 'border-amber-200',
-    lightBg: 'bg-amber-50/50',
+    text: 'text-amber-500',
+    border: 'border-amber-500/30',
+    lightBg: 'bg-amber-500/10',
+    glow: 'glow-amber',
   },
   paid: {
     bg: 'bg-blue-500',
-    text: 'text-blue-700',
-    border: 'border-blue-200',
-    lightBg: 'bg-blue-50/50',
+    text: 'text-blue-500',
+    border: 'border-blue-500/30',
+    lightBg: 'bg-blue-500/10',
+    glow: 'box-shadow: 0 0 20px rgba(59, 130, 246, 0.15)',
   },
   preparing: {
-    bg: 'bg-[#00b900]',
-    text: 'text-[#00b900]',
-    border: 'border-[#00b900]/20',
-    lightBg: 'bg-[#00b900]/5',
+    bg: 'bg-emerald-500',
+    text: 'text-emerald-500',
+    border: 'border-emerald-500/30',
+    lightBg: 'bg-emerald-500/10',
+    glow: 'glow-emerald',
   },
   shipped: {
     bg: 'bg-slate-500',
-    text: 'text-slate-600',
-    border: 'border-slate-200',
-    lightBg: 'bg-slate-50/50',
+    text: 'text-slate-500',
+    border: 'border-slate-500/30',
+    lightBg: 'bg-slate-500/10',
   },
 };
 
@@ -1073,11 +1089,11 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
   };
 
   const cardClasses = isDark
-    ? 'bg-[#161925] border-[#1f2335]'
-    : `bg-white ${status.border} shadow-sm hover:shadow-md transition-all`;
+    ? `glass-dark hover:bg-white/10 ${status.glow || ''}`
+    : `bg-white ${status.border} shadow-sm hover:shadow-md transition-all ${status.glow || ''}`;
 
   return (
-    <article className={`relative overflow-hidden rounded-2xl border-l-4 p-4 ${cardClasses} ${!isDark ? `border-l-${order.status === 'pending' ? 'amber-400' : order.status === 'paid' ? 'blue-400' : 'green-400'}` : 'border-l-transparent'} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/40' : ''}`}>
+    <article className={`relative overflow-hidden rounded-2xl border-l-4 p-5 transition-all duration-300 ${cardClasses} ${!isDark ? `border-l-${order.status === 'pending' ? 'amber-400' : order.status === 'paid' ? 'blue-400' : 'emerald-400'}` : 'border-l-transparent'} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/40' : ''}`}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           {onToggleSelect && (
@@ -1228,16 +1244,20 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
   }
 
   return (
-    <article className={`rounded-3xl border-2 border-dashed ${outer} ${isDark ? 'bg-[#161925]' : 'bg-[#f8f9fc]'} p-5 space-y-4`}>
+    <article className={`rounded-[32px] border-2 border-dashed ${outer} ${isDark ? 'glass-dark' : 'bg-white shadow-xl'} p-8 space-y-6 transition-all duration-300`}>
       <div className="flex items-center justify-between">
-        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl ${isDark ? 'bg-white/10 text-white' : 'bg-[#1a1d2e] text-white'}`}>
-          Parcel ID: {parcelId}
-        </span>
         <div className="flex items-center gap-3">
-          <button onClick={onAddItem} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-[#00b900] hover:opacity-90 text-white transition-all active:scale-95">
-            <Plus size={11} /> Add Item
-          </button>
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+            <Package size={20} className="text-emerald-500" />
+          </div>
+          <div>
+            <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Parcel Identity</p>
+            <p className={`text-sm font-black ${k.text}`}>{parcelId}</p>
+          </div>
         </div>
+        <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl bg-emerald-500 hover:opacity-90 text-white transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
+          <Plus size={14} /> Add Product
+        </button>
       </div>
 
       <div className="space-y-3">
@@ -1254,28 +1274,28 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
         ))}
       </div>
 
-      <div className={`border rounded-2xl p-5 ${inner} space-y-4`}>
-        <div className="grid grid-cols-2 gap-4">
+      <div className={`border rounded-[24px] p-8 ${isDark ? 'glass' : 'bg-slate-50'} space-y-6`}>
+        <div className="grid grid-cols-2 gap-6">
           <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Courier</label>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Courier Service</label>
             <select
               value={courier}
               onChange={e => setCourier(e.target.value)}
-              className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`}
+              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-emerald-500 transition-all ${k.input}`}
             >
-              <option value="">-- Select --</option>
+              <option value="">Choose a courier</option>
               {merchantSettings?.shippingCompanies?.map((c: string) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Tracking Number</label>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Tracking Reference</label>
             <input
-              placeholder="Ex: TH12345678"
+              placeholder="e.g. TH12345678"
               value={tracking}
               onChange={e => setTracking(e.target.value)}
-              className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`}
+              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-emerald-500 transition-all ${k.input}`}
             />
           </div>
         </div>
@@ -1283,9 +1303,9 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
         <button
           onClick={handleShip}
           disabled={shipping || orders.length === 0}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#1a1d2e] hover:bg-black text-white font-black text-sm shadow-xl shadow-black/10 transition-all active:scale-95 disabled:opacity-40"
+          className="w-full flex items-center justify-center gap-3 py-5 rounded-[20px] bg-[#020617] hover:bg-black text-white font-black text-sm shadow-2xl transition-all active:scale-95 disabled:opacity-40"
         >
-          <Printer size={16} /> {shipping ? 'Shipping...' : 'Ship • Print Label'}
+          <Printer size={18} /> {shipping ? 'Processing...' : 'Complete Shipment & Print'}
         </button>
       </div>
     </article>
@@ -1393,14 +1413,14 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, onPrint }: {
   }
 
   return (
-    <div className={`${!isLast ? `border-b ${k.border}` : ''}`}>
+    <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''}`}>
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
-        className={`w-full flex items-center gap-3 px-5 py-4 text-left transition-colors ${k.hover} outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00b900]/30`}
+        className={`w-full flex items-center gap-4 px-6 py-5 text-left transition-all ${k.hover} outline-none`}
       >
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/10'}`}>
-          <Package size={14} className="text-[#00b900]" />
+        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-500/10'}`}>
+          <Package size={16} className="text-emerald-500" />
         </div>
         <div className="flex-1 min-w-0">
           <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
