@@ -4,8 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   MessageCircle, ShoppingCart, Send, Search, X, Plus, Minus, Trash2,
   Package, CheckCircle, QrCode, ChevronRight, ChevronLeft, MapPin,
-  Clock, Printer, History, ChevronDown, TrendingUp, AlertTriangle, Pencil,
-  Circle, Check,
+  Clock, Printer, History, ChevronDown, AlertTriangle, Pencil, Check,
 } from 'lucide-react';
 import { ProductModal, type ProductForm } from './ProductManagement';
 
@@ -35,7 +34,6 @@ type Product = {
 };
 
 const COST_CURRENCIES = ['THB', 'KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'];
-const COURIERS = ['Flash Express', 'Kerry Express', 'J&T Express', 'Thai Post', 'DHL Express', 'Ninja Van', 'Best Express', 'Alpha Fast'];
 
 const AVATAR_COLORS = [
   'bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-orange-500',
@@ -98,13 +96,12 @@ export default function CustomersView({ theme }: { theme: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [merchantSettings, setMerchantSettings] = useState<any>(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [actingOrderIds, setActingOrderIds] = useState<Set<string>>(new Set());
+  const [batchActing, setBatchActing] = useState(false);
 
   const [qoMode, setQoMode] = useState<'existing' | 'new'>('existing');
   const [qoSearch, setQoSearch] = useState('');
   const [qoSelected, setQoSelected] = useState<Product | null>(null);
-  const [qoName, setQoName] = useState('');
-  const [qoBrand, setQoBrand] = useState('');
-  const [qoSaveToCatalog, setQoSaveToCatalog] = useState(false);
   const [qoNewProduct, setQoNewProduct] = useState<Product | null>(null);
   const [showNewProductModal, setShowNewProductModal] = useState(false);
   const [newProductSaving, setNewProductSaving] = useState(false);
@@ -226,13 +223,25 @@ export default function CustomersView({ theme }: { theme: string }) {
   }
 
   async function sendQR(id: string) {
-    await fetch(`/api/orders/${id}/send-qr`, { method: 'POST' });
-    setAllOrders(prev => prev.map(o => o._id === id ? { ...o, paymentQrSent: true } : o));
+    setActingOrderIds(prev => new Set(prev).add(id));
+    try {
+      await fetch(`/api/orders/${id}/send-qr`, { method: 'POST' });
+      setAllOrders(prev => prev.map(o => o._id === id ? { ...o, paymentQrSent: true } : o));
+      if (selectedCustomer) loadMessages(selectedCustomer.userId);
+    } finally {
+      setActingOrderIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
   }
 
   async function markPaid(id: string) {
-    await fetch(`/api/orders/${id}/mark-paid`, { method: 'POST' });
-    setAllOrders(prev => prev.map(o => o._id === id ? { ...o, status: 'paid' } : o));
+    setActingOrderIds(prev => new Set(prev).add(id));
+    try {
+      await fetch(`/api/orders/${id}/mark-paid`, { method: 'POST' });
+      setAllOrders(prev => prev.map(o => o._id === id ? { ...o, status: 'paid' } : o));
+      if (selectedCustomer) loadMessages(selectedCustomer.userId);
+    } finally {
+      setActingOrderIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
   }
 
   function toggleOrderSelect(id: string) {
@@ -244,23 +253,35 @@ export default function CustomersView({ theme }: { theme: string }) {
   }
 
   async function sendBatchQR(ids: string[]) {
-    await fetch('/api/orders/batch/send-qr', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderIds: ids }),
-    });
-    setAllOrders(prev => prev.map(o => ids.includes(o._id) ? { ...o, paymentQrSent: true } : o));
-    setSelectedOrderIds(new Set());
+    setBatchActing(true);
+    try {
+      await fetch('/api/orders/batch/send-qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: ids }),
+      });
+      setAllOrders(prev => prev.map(o => ids.includes(o._id) ? { ...o, paymentQrSent: true } : o));
+      if (selectedCustomer) loadMessages(selectedCustomer.userId);
+      setSelectedOrderIds(new Set());
+    } finally {
+      setBatchActing(false);
+    }
   }
 
   async function markBatchPaid(ids: string[]) {
-    await fetch('/api/orders/batch/mark-paid', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderIds: ids }),
-    });
-    setAllOrders(prev => prev.map(o => ids.includes(o._id) ? { ...o, status: 'paid' } : o));
-    setSelectedOrderIds(new Set());
+    setBatchActing(true);
+    try {
+      await fetch('/api/orders/batch/mark-paid', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: ids }),
+      });
+      setAllOrders(prev => prev.map(o => ids.includes(o._id) ? { ...o, status: 'paid' } : o));
+      if (selectedCustomer) loadMessages(selectedCustomer.userId);
+      setSelectedOrderIds(new Set());
+    } finally {
+      setBatchActing(false);
+    }
   }
 
   async function submitQuickOrder() {
@@ -407,6 +428,14 @@ export default function CustomersView({ theme }: { theme: string }) {
     const q = qoSearch.toLowerCase();
     return !q || p.name.toLowerCase().includes(q) || (p.brand?.toLowerCase().includes(q) ?? false);
   });
+
+  const existingProductOptions = useMemo(() => ({
+    brands: [...new Set(products.map(p => p.brand).filter((b): b is string => !!b))].sort(),
+    modelLines: [] as string[],
+    categories: [] as string[],
+    colors: [] as string[],
+    thicknesses: [] as string[],
+  }), [products]);
 
   const visibleCustomers = customers.filter(c =>
     !customerSearch || c.displayName.toLowerCase().includes(customerSearch.toLowerCase())
@@ -606,15 +635,9 @@ export default function CustomersView({ theme }: { theme: string }) {
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => setShowModal(true)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${k.border} ${k.text} ${k.hover} active:scale-95`}
-                >
-                  <ShoppingCart size={12} /> New Order
-                </button>
-                <button
-                  onClick={() => setShowModal(true)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-[#00b900] hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-[#00b900]/20 active:scale-95"
                 >
-                  <Plus size={12} /> Add Parcel
+                  <ShoppingCart size={12} /> New Order
                 </button>
               </div>
             </div>
@@ -648,19 +671,22 @@ export default function CustomersView({ theme }: { theme: string }) {
                         </span>
                         <button
                           onClick={() => sendBatchQR([...selectedOrderIds])}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold hover:bg-amber-500 transition-all active:scale-95"
+                          disabled={batchActing}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold hover:bg-amber-500 transition-all active:scale-95 disabled:opacity-50"
                         >
-                          <QrCode size={11} /> Combined QR
+                          <QrCode size={11} /> {batchActing ? 'Sending...' : 'Combined QR'}
                         </button>
                         <button
                           onClick={() => markBatchPaid([...selectedOrderIds])}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#00b900] text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95"
+                          disabled={batchActing}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#00b900] text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
                         >
-                          <CheckCircle size={11} /> Mark All Paid
+                          <CheckCircle size={11} /> {batchActing ? 'Processing...' : 'Mark All Paid'}
                         </button>
                         <button
                           onClick={() => setSelectedOrderIds(new Set())}
-                          className={`p-1.5 rounded-lg ${k.muted} ${k.hover} transition-colors`}
+                          disabled={batchActing}
+                          className={`p-1.5 rounded-lg ${k.muted} ${k.hover} transition-colors disabled:opacity-40`}
                         >
                           <X size={12} />
                         </button>
@@ -674,7 +700,8 @@ export default function CustomersView({ theme }: { theme: string }) {
                           onMarkPaid={() => markPaid(order._id)}
                           onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
                           selected={selectedOrderIds.has(order._id)}
-                          onToggleSelect={order.status === 'pending' ? () => toggleOrderSelect(order._id) : undefined} />
+                          onToggleSelect={order.status === 'pending' ? () => toggleOrderSelect(order._id) : undefined}
+                          isActing={actingOrderIds.has(order._id)} />
                       ))}
                     </div>
                   </section>
@@ -742,7 +769,6 @@ export default function CustomersView({ theme }: { theme: string }) {
                           isLast={i === shippedOrders.length - 1}
                           onPatch={(patch) => patchOrder(order._id, patch)}
                           onDelete={() => confirmDeleteOrder(order._id)}
-                          onPrint={() => window.print()}
                         />
                       ))}
                     </div>
@@ -836,7 +862,7 @@ export default function CustomersView({ theme }: { theme: string }) {
                 <h3 className={`font-black text-sm ${k.text}`}>Quick Chat Order</h3>
                 <p className={`text-[10px] mt-0.5 ${k.muted}`}>{selectedCustomer.displayName}</p>
               </div>
-              <button onClick={() => setShowModal(false)} aria-label="Close" className={`p-1.5 rounded-xl ${k.muted} ${k.hover} transition-colors`}>
+              <button onClick={() => { setShowModal(false); setQoMode('existing'); setQoNewProduct(null); setQoSelected(null); setQoSearch(''); setQoPrice(''); setQoCostPrice(''); setQoQty(1); }} aria-label="Close" className={`p-1.5 rounded-xl ${k.muted} ${k.hover} transition-colors`}>
                 <X size={16} />
               </button>
             </div>
@@ -872,23 +898,32 @@ export default function CustomersView({ theme }: { theme: string }) {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div>
-                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Product Name *</label>
-                    <input value={qoName} onChange={e => setQoName(e.target.value)}
-                      placeholder="e.g. Boheme Hobo Bag"
-                      className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`} />
-                  </div>
-                  <div>
-                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Brand</label>
-                    <input value={qoBrand} onChange={e => setQoBrand(e.target.value)}
-                      placeholder="e.g. Goyard"
-                      className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`} />
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={qoSaveToCatalog} onChange={e => setQoSaveToCatalog(e.target.checked)}
-                      className="w-3.5 h-3.5 accent-[#00b900]" />
-                    <span className={`text-xs ${k.muted}`}>Save to product catalog</span>
-                  </label>
+                  {!qoNewProduct ? (
+                    <button
+                      onClick={() => setShowNewProductModal(true)}
+                      className={`w-full border-2 border-dashed rounded-2xl py-8 flex flex-col items-center gap-2 text-[#00b900] hover:bg-[#00b900]/5 transition-all ${isDark ? 'border-[#00b900]/20' : 'border-[#00b900]/30'}`}
+                    >
+                      <Plus size={20} />
+                      <span className="text-sm font-bold">Create New Product</span>
+                      <span className={`text-[10px] ${k.muted}`}>Opens the full catalog form</span>
+                    </button>
+                  ) : (
+                    <div className={`flex items-center gap-3 p-3 rounded-xl border ${k.border} ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
+                      {qoNewProduct.imageUrl && (
+                        <img src={qoNewProduct.imageUrl} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" alt="" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold truncate ${k.text}`}>{qoNewProduct.name}</p>
+                        {qoNewProduct.brand && <p className={`text-[10px] ${k.muted}`}>{qoNewProduct.brand}</p>}
+                      </div>
+                      <button
+                        onClick={() => setShowNewProductModal(true)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${k.border} ${k.muted} ${k.hover} transition-colors`}
+                      >
+                        Change
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -934,7 +969,7 @@ export default function CustomersView({ theme }: { theme: string }) {
               )}
 
               <button
-                disabled={qoSubmitting || (qoMode === 'existing' ? !qoSelected : !qoName.trim())}
+                disabled={qoSubmitting || (qoMode === 'existing' ? !qoSelected : !qoNewProduct)}
                 onClick={submitQuickOrder}
                 className="w-full bg-[#00b900] hover:opacity-90 disabled:opacity-40 text-white rounded-2xl py-3 font-black text-sm shadow-sm shadow-[#00b900]/20 transition-all active:scale-95"
               >
@@ -944,6 +979,20 @@ export default function CustomersView({ theme }: { theme: string }) {
           </div>
         </div>
       )}
+
+      {showNewProductModal && (
+        <ProductModal
+          isOpen={showNewProductModal}
+          initialData={null}
+          onSave={handleNewProductSave}
+          onClose={() => setShowNewProductModal(false)}
+          isSaving={newProductSaving}
+          existingOptions={existingProductOptions}
+          theme={isDark ? 'dark' : 'light'}
+          quickOrderMode={true}
+        />
+      )}
+
       <ConfirmModal config={confirm} onClose={() => setConfirm(v => ({ ...v, open: false }))} isDark={isDark} k={k} />
     </div>
   );
@@ -997,31 +1046,35 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ── Active Order Card ─────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, any> = {
   pending: {
-    bg: 'bg-amber-500',
-    text: 'text-amber-500',
-    border: 'border-amber-500/30',
-    lightBg: 'bg-amber-500/10',
-    glow: 'glow-amber',
+    bg: 'bg-[#fbbf24]',
+    text: 'text-[#fbbf24]',
+    border: 'border-[#fbbf24]/20',
+    lightBg: 'bg-[#fbbf24]/10',
+    glow: 'shadow-[0_0_30px_-5px_rgba(251,191,36,0.15)]',
+    dot: 'bg-[#fbbf24]'
   },
   paid: {
-    bg: 'bg-blue-500',
-    text: 'text-blue-500',
-    border: 'border-blue-500/30',
-    lightBg: 'bg-blue-500/10',
-    glow: 'box-shadow: 0 0 20px rgba(59, 130, 246, 0.15)',
+    bg: 'bg-[#10b981]',
+    text: 'text-[#10b981]',
+    border: 'border-[#10b981]/20',
+    lightBg: 'bg-[#10b981]/10',
+    glow: 'shadow-[0_0_30px_-5px_rgba(16,185,129,0.15)]',
+    dot: 'bg-[#10b981]'
   },
   preparing: {
-    bg: 'bg-emerald-500',
-    text: 'text-emerald-500',
-    border: 'border-emerald-500/30',
-    lightBg: 'bg-emerald-500/10',
-    glow: 'glow-emerald',
+    bg: 'bg-[#3b82f6]',
+    text: 'text-[#3b82f6]',
+    border: 'border-[#3b82f6]/20',
+    lightBg: 'bg-[#3b82f6]/10',
+    glow: 'shadow-[0_0_30px_-5px_rgba(59,130,246,0.15)]',
+    dot: 'bg-[#3b82f6]'
   },
   shipped: {
-    bg: 'bg-slate-500',
-    text: 'text-slate-500',
-    border: 'border-slate-500/30',
-    lightBg: 'bg-slate-500/10',
+    bg: 'bg-slate-400',
+    text: 'text-slate-400',
+    border: 'border-slate-400/20',
+    lightBg: 'bg-slate-400/10',
+    dot: 'bg-slate-400'
   },
 };
 
@@ -1029,7 +1082,7 @@ const STATUS_LABEL: Record<string, string> = {
   pending: 'New Order', paid: 'Paid', preparing: 'In Parcel', shipped: 'Shipped',
 };
 
-function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSendQR, onMarkPaid, onMoveToParcel, selected, onToggleSelect }: {
+function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSendQR, onMarkPaid, onMoveToParcel, selected, onToggleSelect, isActing }: {
   order: Order; isDark: boolean; k: typeof DK;
   editable?: boolean;
   onDelete: () => void;
@@ -1039,6 +1092,7 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
   onMoveToParcel?: () => void;
   selected?: boolean;
   onToggleSelect?: () => void;
+  isActing?: boolean;
 }) {
   const sc = order.soldCurrency || 'THB';
   const cc = order.costCurrency || 'KRW';
@@ -1089,12 +1143,15 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
   };
 
   const cardClasses = isDark
-    ? `glass-dark hover:bg-white/10 ${status.glow || ''}`
-    : `bg-white ${status.border} shadow-sm hover:shadow-md transition-all ${status.glow || ''}`;
+    ? `glass-dark hover:border-white/20 hover:shadow-2xl hover:shadow-black/40 ${status.glow || ''}`
+    : `bg-white border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all ${status.glow || ''}`;
 
   return (
-    <article className={`relative overflow-hidden rounded-2xl border-l-4 p-5 transition-all duration-300 ${cardClasses} ${!isDark ? `border-l-${order.status === 'pending' ? 'amber-400' : order.status === 'paid' ? 'blue-400' : 'emerald-400'}` : 'border-l-transparent'} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/40' : ''}`}>
-      <div className="flex items-start justify-between gap-2 mb-3">
+    <article className={`relative overflow-hidden rounded-[32px] border p-6 transition-all duration-500 group ${cardClasses} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/40' : ''}`}>
+      {/* Background Glow */}
+      <div className={`absolute -top-12 -right-12 w-24 h-24 blur-[60px] opacity-20 rounded-full ${status.bg}`} />
+      
+      <div className="flex items-start justify-between gap-4 mb-5">
         <div className="flex items-center gap-2">
           {onToggleSelect && (
             <button
@@ -1109,13 +1166,14 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
               {selected && <Check size={10} className="text-white" strokeWidth={3} />}
             </button>
           )}
-          <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider ${
-            isDark ? 'bg-white/5 text-white/70 border-white/10' : `${status.lightBg} ${status.text} ${status.border}`
-          }`}>
-            {label}
-          </span>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${isDark ? 'bg-white/5 border-white/10' : `${status.lightBg} ${status.border}`}`}>
+            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${status.dot}`} />
+            <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-white/80' : status.text}`}>
+              {label}
+            </span>
+          </div>
           {order.paymentQrSent && order.status === 'pending' && (
-            <span className="text-[9px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-md border border-violet-100">QR SENT</span>
+            <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100 uppercase tracking-widest">QR SENT</span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -1131,21 +1189,27 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
       </div>
 
       {!showEdit ? (
-        <>
-          <p className={`font-bold text-sm leading-snug mb-3 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
-          <div className="flex items-center justify-between mt-auto">
-            <div className="flex items-center gap-2">
-              <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+        <div className="flex flex-col h-full">
+          <h3 className={`font-black text-base leading-tight mb-4 group-hover:text-[#00b900] transition-colors ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</h3>
+          
+          <div className="flex items-end justify-between mt-auto">
+            <div className="flex flex-col gap-1">
+              <span className={`text-[9px] font-black uppercase tracking-widest ${k.muted}`}>Amount Due</span>
+              <p className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
                 ฿{fmt(order.soldTHB)}
               </p>
-              {(order.profit || 0) > 0 && (
-                <span className={`text-[10px] font-bold ${isDark ? 'text-[#00b900]' : 'text-[#00b900] bg-[#00b900]/5 px-1.5 py-0.5 rounded-md'}`}>
+            </div>
+            
+            {(order.profit || 0) > 0 && (
+              <div className="flex flex-col items-end gap-1">
+                <span className={`text-[9px] font-black uppercase tracking-widest ${k.muted}`}>Est. Profit</span>
+                <span className={`text-xs font-black px-2.5 py-1 rounded-xl shadow-sm ${isDark ? 'bg-[#10b981]/10 text-[#10b981]' : 'bg-[#10b981] text-white'}`}>
                   +฿{fmt(order.profit)}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-        </>
+        </div>
       ) : (
         <div className="space-y-3">
           <div className="flex gap-2">
@@ -1190,7 +1254,7 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
       )}
 
       {order.status !== 'preparing' && !showEdit && (
-        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-dashed border-gray-100">
+        <div className={`flex flex-wrap gap-2 mt-4 pt-3 border-t border-dashed ${k.border}`}>
           {onMoveToParcel && order.status === 'paid' && (
             <button onClick={onMoveToParcel}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-[#1a1d2e] text-white hover:bg-black transition-all active:scale-95">
@@ -1198,19 +1262,19 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
             </button>
           )}
           {onSendQR && order.status === 'pending' && (
-            <button onClick={onSendQR}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-all active:scale-95 ${
-                order.paymentQrSent 
-                  ? 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100' 
+            <button onClick={onSendQR} disabled={isActing}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-all active:scale-95 disabled:opacity-50 ${
+                order.paymentQrSent
+                  ? 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100'
                   : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
               }`}>
-              <QrCode size={12} /> {order.paymentQrSent ? 'Resend QR' : 'Send QR'}
+              <QrCode size={12} /> {isActing ? 'Sending...' : order.paymentQrSent ? 'Resend QR' : 'Send QR'}
             </button>
           )}
           {onMarkPaid && order.status === 'pending' && (
-            <button onClick={onMarkPaid}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-[#00b900] text-white hover:opacity-90 transition-all active:scale-95 shadow-sm shadow-[#00b900]/20">
-              <CheckCircle size={12} /> Mark Paid
+            <button onClick={onMarkPaid} disabled={isActing}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-[#00b900] text-white hover:opacity-90 transition-all active:scale-95 shadow-sm shadow-[#00b900]/20 disabled:opacity-50">
+              <CheckCircle size={12} /> {isActing ? 'Processing...' : 'Mark Paid'}
             </button>
           )}
         </div>
@@ -1233,8 +1297,7 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
   const [shipping, setShipping] = useState(false);
 
   const parcelId = orders[0]?._id.slice(-4).toUpperCase() || 'NEW';
-  const inner = isDark ? 'bg-[#1a1d2e] border-[#2a3050]' : 'bg-white border-[#e2e5ef]';
-  const outer = isDark ? 'border-[#2a3050]' : 'border-[#e2e5ef]';
+  const outer = isDark ? 'border-white/5' : 'border-slate-100 shadow-2xl shadow-slate-200/40';
 
   async function handleShip() {
     if (!tracking || !courier) return;
@@ -1244,23 +1307,26 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
   }
 
   return (
-    <article className={`rounded-[32px] border-2 border-dashed ${outer} ${isDark ? 'glass-dark' : 'bg-white shadow-xl'} p-8 space-y-6 transition-all duration-300`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
-            <Package size={20} className="text-emerald-500" />
+    <article className={`rounded-[40px] border ${outer} ${isDark ? 'glass-dark' : 'bg-white'} p-10 space-y-8 transition-all duration-500 overflow-hidden relative`}>
+      {/* Background Decor */}
+      <div className="absolute top-0 right-0 w-64 h-64 bg-[#3b82f6]/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2" />
+      
+      <div className="flex items-center justify-between relative z-10">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-[22px] bg-[#3b82f6] flex items-center justify-center shadow-lg shadow-[#3b82f6]/30">
+            <Package size={28} className="text-white" />
           </div>
           <div>
-            <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Parcel Identity</p>
-            <p className={`text-sm font-black ${k.text}`}>{parcelId}</p>
+            <p className={`text-[11px] font-black uppercase tracking-[0.2em] ${k.muted}`}>Parcel Workstation</p>
+            <p className={`text-xl font-black ${k.text}`}>ID: <span className="text-[#3b82f6]">{parcelId}</span></p>
           </div>
         </div>
-        <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl bg-emerald-500 hover:opacity-90 text-white transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
-          <Plus size={14} /> Add Product
+        <button onClick={onAddItem} className="flex items-center gap-2.5 text-[11px] font-black uppercase tracking-widest px-6 py-3 rounded-2xl bg-[#10b981] hover:opacity-90 text-white transition-all active:scale-95 shadow-xl shadow-[#10b981]/20">
+          <Plus size={16} /> Add Product
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4 relative z-10">
         {orders.map(order => (
           <ActiveOrderCard
             key={order._id}
@@ -1274,28 +1340,28 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
         ))}
       </div>
 
-      <div className={`border rounded-[24px] p-8 ${isDark ? 'glass' : 'bg-slate-50'} space-y-6`}>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Courier Service</label>
+      <div className={`rounded-[32px] p-10 ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'} space-y-8 border ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-3">
+            <label className={`block text-[10px] font-black uppercase tracking-[0.15em] ${k.muted}`}>Logistics Partner</label>
             <select
               value={courier}
               onChange={e => setCourier(e.target.value)}
-              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-emerald-500 transition-all ${k.input}`}
+              className={`w-full text-sm font-bold rounded-[20px] px-5 py-4 border outline-none focus:border-[#3b82f6] transition-all shadow-sm ${k.input}`}
             >
-              <option value="">Choose a courier</option>
+              <option value="">Select a partner</option>
               {merchantSettings?.shippingCompanies?.map((c: string) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
-          <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Tracking Reference</label>
+          <div className="space-y-3">
+            <label className={`block text-[10px] font-black uppercase tracking-[0.15em] ${k.muted}`}>Waybill / Tracking</label>
             <input
-              placeholder="e.g. TH12345678"
+              placeholder="Enter tracking number"
               value={tracking}
               onChange={e => setTracking(e.target.value)}
-              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-emerald-500 transition-all ${k.input}`}
+              className={`w-full text-sm font-bold rounded-[20px] px-5 py-4 border outline-none focus:border-[#3b82f6] transition-all shadow-sm ${k.input}`}
             />
           </div>
         </div>
@@ -1303,9 +1369,9 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
         <button
           onClick={handleShip}
           disabled={shipping || orders.length === 0}
-          className="w-full flex items-center justify-center gap-3 py-5 rounded-[20px] bg-[#020617] hover:bg-black text-white font-black text-sm shadow-2xl transition-all active:scale-95 disabled:opacity-40"
+          className="w-full flex items-center justify-center gap-4 py-5 rounded-[24px] bg-[#0f172a] hover:bg-black text-white font-black text-sm shadow-2xl shadow-black/20 transition-all active:scale-[0.98] disabled:opacity-40"
         >
-          <Printer size={18} /> {shipping ? 'Processing...' : 'Complete Shipment & Print'}
+          <Printer size={20} /> {shipping ? 'PREPARING SHIPMENT...' : 'SHIP PARCEL & GENERATE LABEL'}
         </button>
       </div>
     </article>
@@ -1322,52 +1388,58 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
   const [newAddr, setNewAddr] = useState('');
 
   return (
-    <div className="space-y-2 mt-3">
+    <div className="space-y-4 mt-4">
       {(customer?.addresses || []).length === 0 ? (
-        <div className={`p-6 border border-dashed ${isDark ? 'border-white/10' : 'border-gray-200'} rounded-3xl text-center`}>
-          <MapPin size={16} className={`mx-auto mb-2 ${k.muted}`} />
-          <p className={`text-[10px] font-bold uppercase tracking-widest ${k.muted}`}>No addresses saved</p>
+        <div className={`p-10 border-2 border-dashed ${isDark ? 'border-white/10' : 'border-slate-100'} rounded-[32px] text-center`}>
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
+            <MapPin size={20} className={k.muted} />
+          </div>
+          <p className={`text-[11px] font-black uppercase tracking-[0.2em] ${k.muted}`}>No Delivery Destinations</p>
         </div>
       ) : (
-        (customer?.addresses || []).map((addr, i) => (
-          <div 
-            key={i} 
-            onClick={() => onSelect(i)}
-            className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
-              selectedIdx === i 
-                ? (isDark ? 'bg-[#00b900]/5 border-[#00b900]/30 shadow-[0_0_15px_rgba(0,185,0,0.1)]' : 'bg-[#00b900]/5 border-[#00b900]/30 shadow-sm')
-                : (isDark ? 'bg-white/5 border-white/5 opacity-60' : 'bg-white border-gray-100 opacity-70')
-            } hover:opacity-100 group`}
-          >
-            <div className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-              selectedIdx === i ? 'border-[#00b900] bg-[#00b900]' : (isDark ? 'border-white/20' : 'border-gray-300')
-            }`}>
-              {selectedIdx === i && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-            </div>
-            <span className={`text-xs flex-1 font-medium leading-relaxed ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{addr}</span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onRemove(i); }}
-              aria-label={`Remove address: ${addr}`}
-              className={`text-xs ${k.muted} hover:text-red-500 transition-colors p-0.5 opacity-0 group-hover:opacity-100`}
+        <div className="grid grid-cols-1 gap-3">
+          {(customer?.addresses || []).map((addr, i) => (
+            <div 
+              key={i} 
+              onClick={() => onSelect(i)}
+              className={`flex items-start gap-4 p-5 rounded-[24px] border cursor-pointer transition-all duration-300 relative group ${
+                selectedIdx === i 
+                  ? (isDark ? 'bg-[#10b981]/10 border-[#10b981]/40 shadow-lg shadow-[#10b981]/10' : 'bg-[#10b981]/5 border-[#10b981]/30 shadow-md')
+                  : (isDark ? 'glass-dark opacity-50' : 'bg-white border-slate-100 hover:border-slate-300 opacity-80')
+              } hover:opacity-100 hover:scale-[1.02]`}
             >
-              <Trash2 size={13} />
-            </button>
-          </div>
-        ))
+              <div className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                selectedIdx === i ? 'border-[#10b981] bg-[#10b981]' : (isDark ? 'border-white/20' : 'border-slate-200')
+              }`}>
+                {selectedIdx === i && <Check size={12} className="text-white" strokeWidth={3} />}
+              </div>
+              <div className="flex-1">
+                <p className={`text-xs font-bold leading-relaxed ${isDark ? 'text-white' : 'text-slate-900'}`}>{addr}</p>
+                {i === 0 && <span className="text-[8px] font-black uppercase tracking-widest text-[#10b981] mt-1 inline-block">Primary Address</span>}
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); onRemove(i); }}
+                className={`text-slate-400 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100`}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
-      <div className="flex gap-2 pt-1">
+      <div className="flex gap-3 pt-2">
         <input
           value={newAddr}
           onChange={e => setNewAddr(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
-          placeholder="Add new delivery address..."
-          className={`flex-1 text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`}
+          placeholder="Enter a new shipping address..."
+          className={`flex-1 text-sm font-bold rounded-[20px] px-5 py-4 border outline-none focus:border-[#10b981] transition-all shadow-sm ${k.input}`}
         />
         <button
           onClick={() => { if (newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
-          className="p-2 bg-[#00b900] text-white rounded-xl hover:opacity-90 transition-all active:scale-95"
+          className="w-14 h-14 bg-[#10b981] text-white rounded-[20px] hover:opacity-90 transition-all active:scale-90 flex items-center justify-center shadow-lg shadow-[#10b981]/20 flex-shrink-0"
         >
-          <Plus size={16} />
+          <Plus size={20} />
         </button>
       </div>
     </div>
@@ -1375,11 +1447,10 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
 }
 
 // ── History Row ───────────────────────────────────────────────────────────────
-function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, onPrint }: {
+function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
   order: Order; isDark: boolean; k: typeof DK; isLast: boolean;
   onPatch: (patch: object) => void;
   onDelete: () => void;
-  onPrint: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [sold, setSold] = useState(String(order.soldTHB || ''));
@@ -1419,8 +1490,8 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, onPrint }: {
         aria-expanded={open}
         className={`w-full flex items-center gap-4 px-6 py-5 text-left transition-all ${k.hover} outline-none`}
       >
-        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-500/10'}`}>
-          <Package size={16} className="text-emerald-500" />
+        <div className={`w-12 h-12 rounded-[20px] flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-[#10b981]/10' : 'bg-[#f0fdf4]'}`}>
+          <Package size={18} className="text-[#10b981]" />
         </div>
         <div className="flex-1 min-w-0">
           <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
@@ -1436,24 +1507,21 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, onPrint }: {
             )}
           </div>
         </div>
-        <div className="text-right flex-shrink-0">
-          <p className={`text-sm font-black ${currentProfit >= 0 ? 'text-[#00b900]' : 'text-red-500'}`}>
+        <div className="text-right flex-shrink-0 mr-4">
+          <p className={`text-sm font-black tracking-tight ${currentProfit >= 0 ? 'text-[#10b981]' : 'text-red-500'}`}>
             {sc} {fmt(currentProfit)}
           </p>
-          <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(currentSold)}</p>
+          <p className={`text-[9px] font-black uppercase tracking-widest opacity-40`}>Net Profit</p>
         </div>
-        <div className="flex items-center gap-4 ml-4 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
-            onClick={(e) => { e.stopPropagation(); onPrint(); }}
-            className={`p-2.5 rounded-xl border transition-all active:scale-90 ${
-              isDark 
-                ? 'border-white/10 text-white hover:bg-white/5' 
-                : 'border-gray-100 text-gray-400 hover:bg-gray-50 hover:text-[#00b900]'
-            }`}
+            onClick={(e) => { e.stopPropagation(); window.open(`/api/orders/print?ids=${order._id}`, '_blank'); }}
+            className={`p-2.5 rounded-xl transition-all ${isDark ? 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-900'}`}
           >
-            <Printer size={14} />
+            <Printer size={15} />
           </button>
-          <ChevronDown size={14} className={`${k.muted} transition-transform ${open ? 'rotate-180' : ''}`} />
+          <div className="w-px h-4 bg-slate-200 dark:bg-white/10" />
+          <ChevronDown size={14} className={`${k.muted} transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
         </div>
       </button>
 
