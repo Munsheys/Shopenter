@@ -59,14 +59,14 @@ function fmt(n: number) { return (n || 0).toLocaleString('en', { maximumFraction
 
 // Design tokens — mirrors lineoa-personal
 const DK = {
-  bg: 'premium-gradient', 
-  surface: 'glass-dark', 
-  surfaceDeep: 'bg-[#0f172a]/60',
-  border: 'border-white/10', 
-  text: 'text-slate-50', 
-  muted: 'text-slate-400',
-  hover: 'hover:bg-white/5 transition-all duration-300', 
-  input: 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500/50',
+  bg: 'bg-[#0f1117]',
+  surface: 'bg-[#161925] border border-[#1f2335]',
+  surfaceDeep: 'bg-[#1a1d2e]',
+  border: 'border-[#1f2335]',
+  text: 'text-white',
+  muted: 'text-[#8b92ad]',
+  hover: 'hover:bg-white/5 transition-all duration-300',
+  input: 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-[#00b900]',
 };
 const LK = {
   bg: 'bg-slate-50', 
@@ -447,7 +447,7 @@ export default function CustomersView({ theme }: { theme: string }) {
     <div className={`flex h-screen overflow-hidden ${k.bg} font-sans antialiased text-slate-100`}>
 
       {/* ── Customer list panel ── */}
-      <aside className={`flex-shrink-0 flex flex-col border-r ${k.border} ${isDark ? 'glass-dark' : 'bg-white shadow-xl'} transition-all duration-300 z-30 ${listOpen ? 'w-80' : 'w-20'}`}>
+      <aside className={`flex-shrink-0 flex flex-col border-r ${k.border} ${isDark ? 'bg-[#161925]' : 'bg-white shadow-xl'} transition-all duration-300 z-30 ${listOpen ? 'w-80' : 'w-20'}`}>
         {listOpen ? (
           <>
             <div className={`flex items-center gap-2 px-4 py-3 border-b ${k.border} flex-shrink-0`}>
@@ -601,7 +601,7 @@ export default function CustomersView({ theme }: { theme: string }) {
         <>
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
             {/* Customer header */}
-            <div className={`flex items-center justify-between px-8 py-5 border-b ${k.border} ${isDark ? 'glass' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
+            <div className={`flex items-center justify-between px-8 py-5 border-b ${k.border} ${isDark ? 'bg-[#1a1d2e]' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
               <div className="flex items-center gap-3 min-w-0">
                 {selectedCustomer.pictureUrl ? (
                   <img src={selectedCustomer.pictureUrl} className="w-10 h-10 rounded-full ring-2 ring-[#00b900]/30 flex-shrink-0" alt="" />
@@ -643,7 +643,7 @@ export default function CustomersView({ theme }: { theme: string }) {
             </div>
 
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-auto">
               <div className="p-10 space-y-10 max-w-5xl mx-auto">
 
                 {/* Active Orders */}
@@ -1002,7 +1002,7 @@ function ConfirmModal({ config, onClose, isDark, k }: { config: any, onClose: ()
   if (!config.open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className={`w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'glass-dark' : 'bg-white'}`}>
+      <div className={`w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
         <div className="p-10 text-center">
           <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 ${config.danger ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
             <AlertTriangle size={36} />
@@ -1046,35 +1046,31 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ── Active Order Card ─────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, any> = {
   pending: {
-    bg: 'bg-[#fbbf24]',
-    text: 'text-[#fbbf24]',
-    border: 'border-[#fbbf24]/20',
-    lightBg: 'bg-[#fbbf24]/10',
-    glow: 'shadow-[0_0_30px_-5px_rgba(251,191,36,0.15)]',
-    dot: 'bg-[#fbbf24]'
+    bg: 'bg-amber-500',
+    text: 'text-amber-500',
+    border: 'border-amber-500/30',
+    lightBg: 'bg-amber-500/10',
+    glow: 'glow-amber',
   },
   paid: {
-    bg: 'bg-[#10b981]',
-    text: 'text-[#10b981]',
-    border: 'border-[#10b981]/20',
-    lightBg: 'bg-[#10b981]/10',
-    glow: 'shadow-[0_0_30px_-5px_rgba(16,185,129,0.15)]',
-    dot: 'bg-[#10b981]'
+    bg: 'bg-blue-500',
+    text: 'text-blue-500',
+    border: 'border-blue-500/30',
+    lightBg: 'bg-blue-500/10',
+    glow: 'box-shadow: 0 0 20px rgba(59, 130, 246, 0.15)',
   },
   preparing: {
-    bg: 'bg-[#3b82f6]',
-    text: 'text-[#3b82f6]',
-    border: 'border-[#3b82f6]/20',
-    lightBg: 'bg-[#3b82f6]/10',
-    glow: 'shadow-[0_0_30px_-5px_rgba(59,130,246,0.15)]',
-    dot: 'bg-[#3b82f6]'
+    bg: 'bg-emerald-500',
+    text: 'text-emerald-500',
+    border: 'border-emerald-500/30',
+    lightBg: 'bg-emerald-500/10',
+    glow: 'glow-emerald',
   },
   shipped: {
-    bg: 'bg-slate-400',
-    text: 'text-slate-400',
-    border: 'border-slate-400/20',
-    lightBg: 'bg-slate-400/10',
-    dot: 'bg-slate-400'
+    bg: 'bg-slate-500',
+    text: 'text-slate-500',
+    border: 'border-slate-500/30',
+    lightBg: 'bg-slate-500/10',
   },
 };
 
@@ -1143,15 +1139,12 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
   };
 
   const cardClasses = isDark
-    ? `glass-dark hover:border-white/20 hover:shadow-2xl hover:shadow-black/40 ${status.glow || ''}`
-    : `bg-white border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all ${status.glow || ''}`;
+    ? `bg-[#161925] border border-[#1f2335] hover:bg-white/10 ${status.glow || ''}`
+    : `bg-white ${status.border} shadow-sm hover:shadow-md transition-all ${status.glow || ''}`;
 
   return (
-    <article className={`relative overflow-hidden rounded-[32px] border p-6 transition-all duration-500 group ${cardClasses} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/40' : ''}`}>
-      {/* Background Glow */}
-      <div className={`absolute -top-12 -right-12 w-24 h-24 blur-[60px] opacity-20 rounded-full ${status.bg}`} />
-      
-      <div className="flex items-start justify-between gap-4 mb-5">
+    <article className={`relative overflow-hidden rounded-2xl border-l-4 p-5 transition-all duration-300 ${cardClasses} ${!isDark ? `border-l-${order.status === 'pending' ? 'amber-400' : order.status === 'paid' ? 'blue-400' : 'emerald-400'}` : 'border-l-transparent'} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/40' : ''}`}>
+      <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           {onToggleSelect && (
             <button
@@ -1166,14 +1159,13 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
               {selected && <Check size={10} className="text-white" strokeWidth={3} />}
             </button>
           )}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${isDark ? 'bg-white/5 border-white/10' : `${status.lightBg} ${status.border}`}`}>
-            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${status.dot}`} />
-            <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-white/80' : status.text}`}>
-              {label}
-            </span>
-          </div>
+          <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider ${
+            isDark ? 'bg-white/5 text-white/70 border-white/10' : `${status.lightBg} ${status.text} ${status.border}`
+          }`}>
+            {label}
+          </span>
           {order.paymentQrSent && order.status === 'pending' && (
-            <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100 uppercase tracking-widest">QR SENT</span>
+            <span className="text-[9px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-md border border-violet-100">QR SENT</span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -1189,27 +1181,21 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
       </div>
 
       {!showEdit ? (
-        <div className="flex flex-col h-full">
-          <h3 className={`font-black text-base leading-tight mb-4 group-hover:text-[#00b900] transition-colors ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</h3>
-          
-          <div className="flex items-end justify-between mt-auto">
-            <div className="flex flex-col gap-1">
-              <span className={`text-[9px] font-black uppercase tracking-widest ${k.muted}`}>Amount Due</span>
-              <p className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+        <>
+          <p className={`font-bold text-sm leading-snug mb-3 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
+          <div className="flex items-center justify-between mt-auto">
+            <div className="flex items-center gap-2">
+              <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
                 ฿{fmt(order.soldTHB)}
               </p>
-            </div>
-            
-            {(order.profit || 0) > 0 && (
-              <div className="flex flex-col items-end gap-1">
-                <span className={`text-[9px] font-black uppercase tracking-widest ${k.muted}`}>Est. Profit</span>
-                <span className={`text-xs font-black px-2.5 py-1 rounded-xl shadow-sm ${isDark ? 'bg-[#10b981]/10 text-[#10b981]' : 'bg-[#10b981] text-white'}`}>
+              {(order.profit || 0) > 0 && (
+                <span className={`text-[10px] font-bold ${isDark ? 'text-[#00b900]' : 'text-[#00b900] bg-[#00b900]/5 px-1.5 py-0.5 rounded-md'}`}>
                   +฿{fmt(order.profit)}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        </>
       ) : (
         <div className="space-y-3">
           <div className="flex gap-2">
@@ -1297,7 +1283,8 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
   const [shipping, setShipping] = useState(false);
 
   const parcelId = orders[0]?._id.slice(-4).toUpperCase() || 'NEW';
-  const outer = isDark ? 'border-white/5' : 'border-slate-100 shadow-2xl shadow-slate-200/40';
+  const inner = isDark ? 'bg-[#1a1d2e] border-[#2a3050]' : 'bg-white border-[#e2e5ef]';
+  const outer = isDark ? 'border-[#2a3050]' : 'border-[#e2e5ef]';
 
   async function handleShip() {
     if (!tracking || !courier) return;
@@ -1307,26 +1294,23 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
   }
 
   return (
-    <article className={`rounded-[40px] border ${outer} ${isDark ? 'glass-dark' : 'bg-white'} p-10 space-y-8 transition-all duration-500 overflow-hidden relative`}>
-      {/* Background Decor */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-[#3b82f6]/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2" />
-      
-      <div className="flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-[22px] bg-[#3b82f6] flex items-center justify-center shadow-lg shadow-[#3b82f6]/30">
-            <Package size={28} className="text-white" />
+    <article className={`rounded-[32px] border-2 border-dashed ${outer} ${isDark ? 'bg-[#161925]' : 'bg-white shadow-xl'} p-8 space-y-6 transition-all duration-300`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+            <Package size={20} className="text-emerald-500" />
           </div>
           <div>
-            <p className={`text-[11px] font-black uppercase tracking-[0.2em] ${k.muted}`}>Parcel Workstation</p>
-            <p className={`text-xl font-black ${k.text}`}>ID: <span className="text-[#3b82f6]">{parcelId}</span></p>
+            <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Parcel Identity</p>
+            <p className={`text-sm font-black ${k.text}`}>{parcelId}</p>
           </div>
         </div>
-        <button onClick={onAddItem} className="flex items-center gap-2.5 text-[11px] font-black uppercase tracking-widest px-6 py-3 rounded-2xl bg-[#10b981] hover:opacity-90 text-white transition-all active:scale-95 shadow-xl shadow-[#10b981]/20">
-          <Plus size={16} /> Add Product
+        <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl bg-emerald-500 hover:opacity-90 text-white transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
+          <Plus size={14} /> Add Product
         </button>
       </div>
 
-      <div className="space-y-4 relative z-10">
+      <div className="space-y-3">
         {orders.map(order => (
           <ActiveOrderCard
             key={order._id}
@@ -1340,28 +1324,28 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
         ))}
       </div>
 
-      <div className={`rounded-[32px] p-10 ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'} space-y-8 border ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-3">
-            <label className={`block text-[10px] font-black uppercase tracking-[0.15em] ${k.muted}`}>Logistics Partner</label>
+      <div className={`border rounded-[24px] p-8 ${isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-slate-50'} space-y-6`}>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Courier Service</label>
             <select
               value={courier}
               onChange={e => setCourier(e.target.value)}
-              className={`w-full text-sm font-bold rounded-[20px] px-5 py-4 border outline-none focus:border-[#3b82f6] transition-all shadow-sm ${k.input}`}
+              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-emerald-500 transition-all ${k.input}`}
             >
-              <option value="">Select a partner</option>
+              <option value="">Choose a courier</option>
               {merchantSettings?.shippingCompanies?.map((c: string) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
-          <div className="space-y-3">
-            <label className={`block text-[10px] font-black uppercase tracking-[0.15em] ${k.muted}`}>Waybill / Tracking</label>
+          <div>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Tracking Reference</label>
             <input
-              placeholder="Enter tracking number"
+              placeholder="e.g. TH12345678"
               value={tracking}
               onChange={e => setTracking(e.target.value)}
-              className={`w-full text-sm font-bold rounded-[20px] px-5 py-4 border outline-none focus:border-[#3b82f6] transition-all shadow-sm ${k.input}`}
+              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-emerald-500 transition-all ${k.input}`}
             />
           </div>
         </div>
@@ -1369,9 +1353,9 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
         <button
           onClick={handleShip}
           disabled={shipping || orders.length === 0}
-          className="w-full flex items-center justify-center gap-4 py-5 rounded-[24px] bg-[#0f172a] hover:bg-black text-white font-black text-sm shadow-2xl shadow-black/20 transition-all active:scale-[0.98] disabled:opacity-40"
+          className="w-full flex items-center justify-center gap-3 py-5 rounded-[20px] bg-[#020617] hover:bg-black text-white font-black text-sm shadow-2xl transition-all active:scale-95 disabled:opacity-40"
         >
-          <Printer size={20} /> {shipping ? 'PREPARING SHIPMENT...' : 'SHIP PARCEL & GENERATE LABEL'}
+          <Printer size={18} /> {shipping ? 'Processing...' : 'Complete Shipment & Print'}
         </button>
       </div>
     </article>
@@ -1388,58 +1372,52 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
   const [newAddr, setNewAddr] = useState('');
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-2 mt-3">
       {(customer?.addresses || []).length === 0 ? (
-        <div className={`p-10 border-2 border-dashed ${isDark ? 'border-white/10' : 'border-slate-100'} rounded-[32px] text-center`}>
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
-            <MapPin size={20} className={k.muted} />
-          </div>
-          <p className={`text-[11px] font-black uppercase tracking-[0.2em] ${k.muted}`}>No Delivery Destinations</p>
+        <div className={`p-6 border border-dashed ${isDark ? 'border-white/10' : 'border-gray-200'} rounded-3xl text-center`}>
+          <MapPin size={16} className={`mx-auto mb-2 ${k.muted}`} />
+          <p className={`text-[10px] font-bold uppercase tracking-widest ${k.muted}`}>No addresses saved</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3">
-          {(customer?.addresses || []).map((addr, i) => (
-            <div 
-              key={i} 
-              onClick={() => onSelect(i)}
-              className={`flex items-start gap-4 p-5 rounded-[24px] border cursor-pointer transition-all duration-300 relative group ${
-                selectedIdx === i 
-                  ? (isDark ? 'bg-[#10b981]/10 border-[#10b981]/40 shadow-lg shadow-[#10b981]/10' : 'bg-[#10b981]/5 border-[#10b981]/30 shadow-md')
-                  : (isDark ? 'glass-dark opacity-50' : 'bg-white border-slate-100 hover:border-slate-300 opacity-80')
-              } hover:opacity-100 hover:scale-[1.02]`}
-            >
-              <div className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                selectedIdx === i ? 'border-[#10b981] bg-[#10b981]' : (isDark ? 'border-white/20' : 'border-slate-200')
-              }`}>
-                {selectedIdx === i && <Check size={12} className="text-white" strokeWidth={3} />}
-              </div>
-              <div className="flex-1">
-                <p className={`text-xs font-bold leading-relaxed ${isDark ? 'text-white' : 'text-slate-900'}`}>{addr}</p>
-                {i === 0 && <span className="text-[8px] font-black uppercase tracking-widest text-[#10b981] mt-1 inline-block">Primary Address</span>}
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); onRemove(i); }}
-                className={`text-slate-400 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100`}
-              >
-                <Trash2 size={14} />
-              </button>
+        (customer?.addresses || []).map((addr, i) => (
+          <div 
+            key={i} 
+            onClick={() => onSelect(i)}
+            className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
+              selectedIdx === i 
+                ? (isDark ? 'bg-[#00b900]/5 border-[#00b900]/30 shadow-[0_0_15px_rgba(0,185,0,0.1)]' : 'bg-[#00b900]/5 border-[#00b900]/30 shadow-sm')
+                : (isDark ? 'bg-white/5 border-white/5 opacity-60' : 'bg-white border-gray-100 opacity-70')
+            } hover:opacity-100 group`}
+          >
+            <div className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+              selectedIdx === i ? 'border-[#00b900] bg-[#00b900]' : (isDark ? 'border-white/20' : 'border-gray-300')
+            }`}>
+              {selectedIdx === i && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
             </div>
-          ))}
-        </div>
+            <span className={`text-xs flex-1 font-medium leading-relaxed ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{addr}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onRemove(i); }}
+              aria-label={`Remove address: ${addr}`}
+              className={`text-xs ${k.muted} hover:text-red-500 transition-colors p-0.5 opacity-0 group-hover:opacity-100`}
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        ))
       )}
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-2 pt-1">
         <input
           value={newAddr}
           onChange={e => setNewAddr(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
-          placeholder="Enter a new shipping address..."
-          className={`flex-1 text-sm font-bold rounded-[20px] px-5 py-4 border outline-none focus:border-[#10b981] transition-all shadow-sm ${k.input}`}
+          placeholder="Add new delivery address..."
+          className={`flex-1 text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`}
         />
         <button
           onClick={() => { if (newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
-          className="w-14 h-14 bg-[#10b981] text-white rounded-[20px] hover:opacity-90 transition-all active:scale-90 flex items-center justify-center shadow-lg shadow-[#10b981]/20 flex-shrink-0"
+          className="p-2 bg-[#00b900] text-white rounded-xl hover:opacity-90 transition-all active:scale-95"
         >
-          <Plus size={20} />
+          <Plus size={16} />
         </button>
       </div>
     </div>
@@ -1490,8 +1468,8 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
         aria-expanded={open}
         className={`w-full flex items-center gap-4 px-6 py-5 text-left transition-all ${k.hover} outline-none`}
       >
-        <div className={`w-12 h-12 rounded-[20px] flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-[#10b981]/10' : 'bg-[#f0fdf4]'}`}>
-          <Package size={18} className="text-[#10b981]" />
+        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-500/10'}`}>
+          <Package size={16} className="text-emerald-500" />
         </div>
         <div className="flex-1 min-w-0">
           <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
@@ -1507,21 +1485,14 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
             )}
           </div>
         </div>
-        <div className="text-right flex-shrink-0 mr-4">
-          <p className={`text-sm font-black tracking-tight ${currentProfit >= 0 ? 'text-[#10b981]' : 'text-red-500'}`}>
+        <div className="text-right flex-shrink-0">
+          <p className={`text-sm font-black ${currentProfit >= 0 ? 'text-[#00b900]' : 'text-red-500'}`}>
             {sc} {fmt(currentProfit)}
           </p>
-          <p className={`text-[9px] font-black uppercase tracking-widest opacity-40`}>Net Profit</p>
+          <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(currentSold)}</p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={(e) => { e.stopPropagation(); window.open(`/api/orders/print?ids=${order._id}`, '_blank'); }}
-            className={`p-2.5 rounded-xl transition-all ${isDark ? 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-900'}`}
-          >
-            <Printer size={15} />
-          </button>
-          <div className="w-px h-4 bg-slate-200 dark:bg-white/10" />
-          <ChevronDown size={14} className={`${k.muted} transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+        <div className="flex items-center ml-4 flex-shrink-0">
+          <ChevronDown size={14} className={`${k.muted} transition-transform ${open ? 'rotate-180' : ''}`} />
         </div>
       </button>
 

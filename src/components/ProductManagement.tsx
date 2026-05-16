@@ -714,17 +714,17 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
         <StatsCard 
-          icon={<BarChart2 size={24} />} 
-          label={t.total_catalog || "Total Inventory"} 
+          icon={<BarChart2 size={20} />} 
+          label={t.total_catalog || "Total Catalog"} 
           value={stats.total.toString()} 
           color="indigo" 
           theme={theme} 
         />
         <StatsCard 
-          icon={<Eye size={24} />} 
-          label={t.active_storefront || "Public Storefront"} 
+          icon={<Eye size={20} />} 
+          label={t.active_storefront || "Active Storefront"} 
           value={stats.active.toString()} 
           color="emerald" 
           theme={theme} 
@@ -733,19 +733,19 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
 
       {/* Discovery Ribbon */}
       <div className={cn(
-        "p-6 rounded-[40px] border mb-10 flex flex-col lg:flex-row gap-6 transition-all duration-500",
-        theme === 'dark' ? "glass-dark border-white/5" : "bg-white border-slate-100 shadow-2xl shadow-slate-200/40"
+        "p-4 rounded-3xl border mb-6 flex flex-col lg:flex-row gap-4 transition-colors",
+        theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
       )}>
-        <div className="relative flex-1 group">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#00b900] transition-colors" size={20} />
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
           <input 
             type="text"
-            placeholder={t.search_catalog || "Search catalog by name, brand, or family..."}
+            placeholder={t.search_catalog || "Search name, brand, or family..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
-              "w-full pl-14 pr-6 py-4 rounded-2xl text-sm font-bold outline-none border transition-all focus:ring-4 focus:ring-[#00b900]/10",
-              theme === 'dark' ? "bg-white/5 border-white/10 text-white focus:border-[#00b900]" : "bg-[#f8f9fc] border-slate-100 text-slate-900 focus:border-[#00b900]"
+              "w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2 focus:ring-[#00b900]/20",
+              theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-[#00b900]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-[#00b900]"
             )}
           />
         </div>
@@ -975,30 +975,24 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility }: a
 }
 
 function StatsCard({ icon, label, value, color, theme }: any) {
-  const isDark = theme === 'dark';
   const colorMap: any = {
-    emerald: "text-[#10b981] bg-[#10b981]/10 shadow-[#10b981]/10",
-    amber: "text-[#f59e0b] bg-[#f59e0b]/10 shadow-[#f59e0b]/10",
-    blue: "text-[#3b82f6] bg-[#3b82f6]/10 shadow-[#3b82f6]/10",
-    indigo: "text-[#6366f1] bg-[#6366f1]/10 shadow-[#6366f1]/10",
+    emerald: "text-emerald-500 bg-emerald-500/10",
+    amber: "text-amber-500 bg-amber-500/10",
+    blue: "text-blue-500 bg-blue-500/10",
+    indigo: "text-indigo-500 bg-indigo-500/10",
   };
 
   return (
     <div className={cn(
-      "p-8 rounded-[40px] border transition-all duration-500 relative overflow-hidden group",
-      isDark ? "glass-dark border-white/5" : "bg-white border-slate-100 shadow-2xl shadow-slate-200/40"
+      "p-5 rounded-3xl border transition-all shadow-sm flex flex-col gap-3",
+      theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
     )}>
-      {/* Decorative Glow */}
-      <div className={cn("absolute -top-12 -right-12 w-24 h-24 blur-[60px] opacity-20 rounded-full", colorMap[color].split(' ')[1])} />
-      
-      <div className="flex items-center gap-6 relative z-10">
-        <div className={cn("w-14 h-14 rounded-[22px] flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 duration-500", colorMap[color])}>
-          {icon}
-        </div>
-        <div>
-          <div className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1.5">{label}</div>
-          <div className={cn("text-3xl font-black tracking-tight", isDark ? "text-white" : "text-[#0f172a]")}>{value}</div>
-        </div>
+      <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", colorMap[color])}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
+        <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
       </div>
     </div>
   );

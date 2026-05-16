@@ -145,30 +145,30 @@ export default function ShopOrdersView({
       </div>
 
       {/* Stats Ribbon */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatsCard 
-          icon={<TrendingUp size={24} />} 
+          icon={<TrendingUp size={20} />} 
           label={t.total_revenue || "Total Revenue"} 
           value={`฿${stats.revenue.toLocaleString()}`} 
           color="emerald" 
           theme={theme} 
         />
         <StatsCard 
-          icon={<Clock size={24} />} 
+          icon={<Clock size={20} />} 
           label={t.pending_payments || "Pending Payments"} 
           value={stats.pending.toString()} 
           color="amber" 
           theme={theme} 
         />
         <StatsCard 
-          icon={<Package size={24} />} 
+          icon={<Package size={20} />} 
           label={t.awaiting_delivery || "Awaiting Delivery"} 
           value={stats.preparing.toString()} 
           color="blue" 
           theme={theme} 
         />
         <StatsCard 
-          icon={<CheckCircle2 size={24} />} 
+          icon={<CheckCircle2 size={20} />} 
           label="Items Volume" 
           value={stats.totalItems.toString()} 
           color="indigo" 
@@ -178,24 +178,24 @@ export default function ShopOrdersView({
 
       {/* Filter Toolbar */}
       <div className={cn(
-        "p-6 rounded-[40px] border mb-10 flex flex-col lg:flex-row gap-6 transition-all duration-500",
-        theme === 'dark' ? "glass-dark border-white/5" : "bg-white border-slate-100 shadow-2xl shadow-slate-200/40"
+        "p-4 rounded-3xl border mb-6 flex flex-col lg:flex-row gap-4 transition-colors",
+        theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
       )}>
-        <div className="relative flex-1 group">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#00b900] transition-colors" size={20} />
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
           <input 
             type="text"
-            placeholder="Search catalog by customer, tracking, or products..."
+            placeholder="Search customer, tracking, or products..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
-              "w-full pl-14 pr-12 py-4 rounded-2xl text-sm font-bold outline-none border transition-all focus:ring-4 focus:ring-[#00b900]/10",
-              theme === 'dark' ? "bg-white/5 border-white/10 text-white focus:border-[#00b900]" : "bg-[#f8f9fc] border-slate-100 text-slate-900 focus:border-[#00b900]"
+              "w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2 focus:ring-[#00b900]/20",
+              theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-[#00b900]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-[#00b900]"
             )}
           />
           {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors">
-              <X size={18} />
+            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-red-500">
+              <X size={14} />
             </button>
           )}
         </div>
@@ -362,30 +362,24 @@ export default function ShopOrdersView({
 }
 
 function StatsCard({ icon, label, value, color, theme }: any) {
-  const isDark = theme === 'dark';
   const colorMap: any = {
-    emerald: "text-[#10b981] bg-[#10b981]/10 shadow-[#10b981]/10",
-    amber: "text-[#f59e0b] bg-[#f59e0b]/10 shadow-[#f59e0b]/10",
-    blue: "text-[#3b82f6] bg-[#3b82f6]/10 shadow-[#3b82f6]/10",
-    indigo: "text-[#6366f1] bg-[#6366f1]/10 shadow-[#6366f1]/10",
+    emerald: "text-emerald-500 bg-emerald-500/10",
+    amber: "text-amber-500 bg-amber-500/10",
+    blue: "text-blue-500 bg-blue-500/10",
+    indigo: "text-indigo-500 bg-indigo-500/10",
   };
 
   return (
     <div className={cn(
-      "p-8 rounded-[40px] border transition-all duration-500 relative overflow-hidden group",
-      isDark ? "glass-dark border-white/5" : "bg-white border-slate-100 shadow-2xl shadow-slate-200/40"
+      "p-5 rounded-3xl border transition-all shadow-sm flex flex-col gap-3",
+      theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
     )}>
-      {/* Decorative Glow */}
-      <div className={cn("absolute -top-12 -right-12 w-24 h-24 blur-[60px] opacity-20 rounded-full", colorMap[color].split(' ')[1])} />
-      
-      <div className="flex items-center gap-6 relative z-10">
-        <div className={cn("w-14 h-14 rounded-[22px] flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 duration-500", colorMap[color])}>
-          {icon}
-        </div>
-        <div>
-          <div className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1.5">{label}</div>
-          <div className={cn("text-3xl font-black tracking-tight", isDark ? "text-white" : "text-[#0f172a]")}>{value}</div>
-        </div>
+      <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", colorMap[color])}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
+        <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
       </div>
     </div>
   );
@@ -393,16 +387,16 @@ function StatsCard({ icon, label, value, color, theme }: any) {
 
 function StatusPill({ status }: { status: string }) {
   const configs: any = {
-    pending: { label: 'PENDING', bg: 'bg-[#fbbf24]/10 text-[#fbbf24] border-[#fbbf24]/20' },
-    paid: { label: 'PAID', bg: 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20' },
-    preparing: { label: 'IN PARCEL', bg: 'bg-[#3b82f6]/10 text-[#3b82f6] border-[#3b82f6]/20' },
-    shipped: { label: 'SHIPPED', bg: 'bg-slate-400/10 text-slate-400 border-slate-400/20' },
+    pending: { label: 'PENDING', bg: 'bg-amber-100 text-amber-600 border-amber-200' },
+    paid: { label: 'PAID', bg: 'bg-emerald-100 text-emerald-600 border-emerald-200' },
+    preparing: { label: 'PREPARING', bg: 'bg-blue-100 text-blue-600 border-blue-200' },
+    shipped: { label: 'SHIPPED', bg: 'bg-slate-100 text-slate-600 border-slate-200' },
   };
 
   const config = configs[status] || configs.pending;
 
   return (
-    <span className={cn("px-4 py-1.5 rounded-full text-[9px] font-black border uppercase tracking-[0.2em] shadow-sm", config.bg)}>
+    <span className={cn("px-3 py-1 rounded-full text-[9px] font-black border uppercase tracking-wider", config.bg)}>
       {config.label}
     </span>
   );

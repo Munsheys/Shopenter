@@ -79,67 +79,63 @@ export default function DashboardPage() {
 
   const theme = settings?.theme || 'light';
   const isDark = theme === 'dark';
-  const nb = isDark ? 'glass-dark border-white/5' : 'bg-white border-gray-100 shadow-sm';
+  const nb = isDark ? 'glass-dark border-white/5' : 'bg-white border-gray-200 shadow-sm';
 
   return (
-    <div className={`h-screen flex flex-col ${isDark ? 'premium-gradient text-white' : 'bg-[#fcfdfe] text-slate-900'} transition-colors duration-700`}>
+    <div className={`h-screen flex flex-col ${isDark ? 'premium-gradient text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-500`}>
 
       {/* ── Top navbar ── */}
-      <header className={`flex items-center gap-6 px-6 h-16 border-b flex-shrink-0 ${nb} backdrop-blur-xl z-50 sticky top-0`}>
+      <header className={`flex items-center gap-2 px-3 h-11 border-b flex-shrink-0 ${nb}`}>
 
         {/* Brand */}
-        <div className="flex items-center gap-3 mr-4 flex-shrink-0">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#00b900] to-[#008a00] flex items-center justify-center flex-shrink-0 shadow-lg shadow-green-500/20">
-            <MessageCircle size={18} className="text-white" />
+        <div className="flex items-center gap-2 mr-3 flex-shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0">
+            <MessageCircle size={11} className="text-white" />
           </div>
-          <div className="flex flex-col">
-            <span className={`font-black text-sm tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              {settings?.shopName || 'Shopenter'}
-            </span>
-            <span className={`text-[10px] font-bold uppercase tracking-widest opacity-40`}>Management</span>
-          </div>
+          <span className={`font-bold text-sm hidden sm:block truncate max-w-[130px] ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            {settings?.shopName || 'My Shop'}
+          </span>
         </div>
 
         {/* Tab pills */}
-        <nav className="flex items-center gap-1.5 flex-1 overflow-x-auto no-scrollbar py-1" style={{ scrollbarWidth: 'none' }}>
+        <nav className="flex items-center gap-0.5 flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap flex-shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
-                  ? 'bg-[#00b900] text-white shadow-lg shadow-green-500/20 active:scale-95'
+                  ? 'bg-green-500 text-white shadow-sm'
                   : isDark
                     ? 'text-gray-400 hover:bg-white/5 hover:text-white'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >
-              <div className={activeTab === tab.id ? 'text-white' : 'opacity-70'}>{tab.icon}</div>
-              <span className="hidden sm:inline uppercase tracking-widest text-[10px]">{tab.label}</span>
+              {tab.icon}
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </nav>
 
         {/* Right: storefront link + sign out */}
-        <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
           {merchant && (
             <a
               href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all bg-slate-900 text-white hover:bg-black active:scale-95 shadow-lg shadow-black/10 ${isDark ? 'bg-white/5 hover:bg-white/10' : ''}`}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors text-green-500 ${isDark ? 'hover:bg-white/5' : 'hover:bg-green-50'}`}
             >
-              <ExternalLink size={13} />
-              <span className="hidden md:inline uppercase tracking-widest text-[10px]">View Store</span>
+              <ExternalLink size={12} />
+              <span className="hidden md:inline">Store</span>
             </a>
           )}
-          <div className={`w-px h-6 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
           <button
             onClick={handleLogout}
             title="Sign out"
-            className={`p-2.5 rounded-xl transition-all hover:bg-red-50 hover:text-red-500 active:scale-90 ${isDark ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-slate-400'}`}
+            className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:bg-white/10' : 'text-gray-400 hover:bg-gray-100'}`}
           >
-            <LogOut size={16} />
+            <LogOut size={15} />
           </button>
         </div>
       </header>

@@ -2,22 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #1a1d2e;
-  --card: #ffffff;
-  --border: #f1f3f7;
-  --primary: #1a1d2e;
-  --accent: #00b900;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0d1117;
-    --foreground: #f0f6fc;
-    --card: #161b22;
-    --border: #30363d;
-    --primary: #f0f6fc;
-    --accent: #00b900;
-  }
+  --foreground: #171717;
 }
 
 @theme inline {
@@ -27,50 +12,15 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Premium UI Utilities */
-@layer utilities {
-  .glass {
-    @apply bg-white/10 backdrop-blur-md border border-white/10;
-  }
-  
-  .glass-dark {
-    @apply bg-black/20 backdrop-blur-xl border border-white/5;
-  }
-
-  .premium-shadow {
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15);
-  }
-
-  .premium-gradient {
-    background: linear-gradient(135deg, #1a1d2e 0%, #0d1117 100%);
-  }
-
-  .text-glow {
-    text-shadow: 0 0 20px rgba(0, 185, 0, 0.3);
-  }
-}
-
-/* Smooth transitions */
-* {
-  @apply transition-colors duration-200;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-200/50 rounded-full hover:bg-gray-300/50 dark:bg-white/10 dark:hover:bg-white/20;
 }
