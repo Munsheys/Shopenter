@@ -93,11 +93,12 @@ export default function SettingsView({
     if (!container) return;
     const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
     function onScroll() {
-      const top = container!.scrollTop + 110;
+      const containerTop = container!.getBoundingClientRect().top;
+      const threshold = containerTop + 120;
       let active: SectionId = 'general';
       for (const id of ids) {
         const el = container!.querySelector<HTMLElement>(`#${id}`);
-        if (el && el.offsetTop <= top) active = id;
+        if (el && el.getBoundingClientRect().top <= threshold) active = id;
       }
       setActiveSection(active);
     }
@@ -109,7 +110,8 @@ export default function SettingsView({
     const container = containerRef.current;
     const el = container?.querySelector<HTMLElement>(`#${id}`);
     if (el && container) {
-      container.scrollTo({ top: el.offsetTop - 68, behavior: 'smooth' });
+      const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 72;
+      container.scrollTo({ top, behavior: 'smooth' });
       setActiveSection(id);
     }
   }
