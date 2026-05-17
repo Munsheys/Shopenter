@@ -51,11 +51,9 @@ export default function SettingsView({
   const [settings, setSettings]   = useState<any>(null);
   const [newCompany, setNewCompany] = useState('');
 
-  // Save state per section
-  const [isSaving, setIsSaving]       = useState<SectionId | null>(null);
-  const [savedSection, setSavedSection] = useState<SectionId | null>(null);
-  const [errorSection, setErrorSection] = useState<SectionId | null>(null);
-  const [saveError, setSaveError]       = useState('');
+  const [isSaving,   setIsSaving]   = useState(false);
+  const [saved,      setSaved]      = useState(false);
+  const [saveError,  setSaveError]  = useState('');
 
   // Visibility toggles
   const [showToken,       setShowToken]       = useState(false);
@@ -117,10 +115,9 @@ export default function SettingsView({
   }
 
   // ── Save ────────────────────────────────────────────────────────────────────
-  const handleSave = async (section: SectionId) => {
-    setIsSaving(section);
-    setSavedSection(null);
-    setErrorSection(null);
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaved(false);
     setSaveError('');
     try {
       const res = await fetch('/api/settings', {
@@ -130,17 +127,15 @@ export default function SettingsView({
       });
       if (res.ok) {
         onSave?.();
-        setSavedSection(section);
-        setTimeout(() => setSavedSection(null), 2500);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
       } else {
-        setErrorSection(section);
         setSaveError('Failed to save. Please try again.');
       }
     } catch {
-      setErrorSection(section);
       setSaveError('Network error. Please try again.');
     } finally {
-      setIsSaving(null);
+      setIsSaving(false);
     }
   };
 
@@ -186,29 +181,6 @@ export default function SettingsView({
   const lbl       = `block text-[10px] font-bold uppercase tracking-widest mb-2 ${K.muted}`;
   const hint      = `text-[10px] mt-1 ml-1 ${K.muted}`;
 
-  // Inline save button — shows saving / saved / error states
-  function SaveBtn({ id }: { id: SectionId }) {
-    const saving = isSaving === id;
-    const saved  = savedSection === id;
-    return (
-      <div className="space-y-2">
-        {errorSection === id && saveError && (
-          <p className="text-xs text-red-400">{saveError}</p>
-        )}
-        <button
-          onClick={() => handleSave(id)}
-          disabled={!!isSaving}
-          className={`w-full disabled:opacity-50 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition-all ${
-            saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#00b900] hover:bg-[#00a000]'
-          }`}
-        >
-          {saving ? <Loader2 size={16} className="animate-spin" /> : saved ? <Check size={16} /> : <Save size={16} />}
-          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
-        </button>
-      </div>
-    );
-  }
-
   const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
     { id: 'general',  label: 'General',  icon: <SettingsIcon  size={13} /> },
     { id: 'line',     label: 'LINE',     icon: <MessageSquare size={13} /> },
@@ -217,7 +189,8 @@ export default function SettingsView({
   ];
 
   return (
-    <div ref={containerRef} className={`flex-1 overflow-y-auto ${K.bg}`}>
+    <div className={`flex flex-col flex-1 min-h-0 ${K.bg}`}>
+    <div ref={containerRef} className="flex-1 overflow-y-auto">
 
       {/* ── Sticky scroll-nav ─────────────────────────────────────────────── */}
       <div className={`sticky top-0 z-10 px-6 pt-4 pb-3 ${K.bg}`}>
@@ -239,7 +212,7 @@ export default function SettingsView({
       </div>
 
       {/* ── All sections on one page ──────────────────────────────────────── */}
-      <div className="px-6 pb-24 max-w-3xl mx-auto space-y-16">
+      <div className="px-6 pb-10 max-w-3xl mx-auto space-y-16">
 
         {/* ══ GENERAL ══════════════════════════════════════════════════════ */}
         <div id="general" className="space-y-6 pt-2">
@@ -321,7 +294,6 @@ export default function SettingsView({
             {liveRateError && <p className="text-xs text-red-400">{liveRateError}</p>}
           </div>
 
-          <SaveBtn id="general" />
         </div>
 
         {/* ══ LINE ═════════════════════════════════════════════════════════ */}
@@ -458,7 +430,6 @@ export default function SettingsView({
             </div>
           </div>
 
-          <SaveBtn id="line" />
         </div>
 
         {/* ══ PAYMENT ══════════════════════════════════════════════════════ */}
@@ -511,7 +482,6 @@ export default function SettingsView({
             </div>
           </div>
 
-          <SaveBtn id="payment" />
         </div>
 
         {/* ══ SHIPPING ═════════════════════════════════════════════════════ */}
@@ -553,10 +523,27 @@ export default function SettingsView({
             <p className={`text-[10px] ${K.muted}`}>Placeholders: <code>{'{tracking}'}</code> <code>{'{courier}'}</code> <code>{'{product}'}</code> <code>{'{name}'}</code></p>
           </div>
 
-          <SaveBtn id="shipping" />
         </div>
 
       </div>
+    </div>
+
+    {/* ── Persistent save bar ──────────────────────────────────────────── */}
+    <div className={`flex-shrink-0 flex items-center justify-between gap-4 px-6 py-3 border-t ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-white border-slate-200'}`}>
+      <span className={`text-xs ${saveError ? 'text-red-400' : saved ? 'text-emerald-400' : K.muted}`}>
+        {saveError || (saved ? 'All changes saved.' : 'Changes save across all sections.')}
+      </span>
+      <button
+        onClick={handleSave}
+        disabled={isSaving}
+        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white disabled:opacity-50 active:scale-[0.99] transition-all flex-shrink-0 ${
+          saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#00b900] hover:bg-[#00a000]'
+        }`}
+      >
+        {isSaving ? <Loader2 size={15} className="animate-spin" /> : saved ? <Check size={15} /> : <Save size={15} />}
+        {isSaving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
+      </button>
+    </div>
     </div>
   );
 }
