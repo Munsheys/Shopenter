@@ -11,6 +11,7 @@ import StorefrontCustomizer from '@/components/StorefrontCustomizer';
 import CustomersView from '@/components/CustomersView';
 import BroadcastsView from '@/components/BroadcastsView';
 import LoadingView from '@/components/LoadingView';
+import FloatingGuide from '@/components/FloatingGuide';
 
 type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'settings';
 
@@ -160,7 +161,7 @@ export default function DashboardPage() {
         {activeTab === 'products'   && <div className="flex-1 overflow-auto"><ProductManagement theme={theme} t={{}} /></div>}
         {activeTab === 'reports'    && <div className="flex-1 overflow-auto pt-2"><ReportsView theme={theme} t={{}} /></div>}
         {activeTab === 'broadcasts' && <div className="flex-1 overflow-hidden flex flex-col"><BroadcastsView theme={theme} t={{}} /></div>}
-        {activeTab === 'settings'   && <div className="flex-1 overflow-auto"><SettingsView theme={theme} onSave={refreshSettings} onNavigate={setActiveTab} /></div>}
+        {activeTab === 'settings'   && <SettingsView theme={theme} onSave={refreshSettings} />}
         {activeTab === 'storefront' && (
           <div className="flex-1 overflow-auto p-6">
             <div className="mb-6">
@@ -185,6 +186,7 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+      <FloatingGuide theme={theme} onNavigate={setActiveTab} />
     </div>
   );
 }

@@ -1,17 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check,
-  ExternalLink, RefreshCw, BookOpen, MessageSquare, Hand, LayoutGrid,
-  Store, Package, ArrowRight, Loader2, AlertTriangle, Megaphone, Zap,
-  Globe,
+  ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle,
 } from 'lucide-react';
 import LoadingView from './LoadingView';
 
-// ── Style helpers ─────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function CopyButton({ value, isDark }: { value: string; isDark: boolean }) {
+function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -24,24 +22,7 @@ function CopyButton({ value, isDark }: { value: string; isDark: boolean }) {
   );
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type SectionId = 'guide' | 'general' | 'line' | 'payment' | 'shipping';
-type DashTab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'settings';
-
-type GuideAction =
-  | { kind: 'href';    label: string; href: string }
-  | { kind: 'section'; label: string; tab: SectionId }
-  | { kind: 'nav';     label: string; tab: DashTab };
-
-interface GuideStep {
-  n: number;
-  done: boolean;
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-  action: GuideAction | null;
-}
+type SectionId = 'general' | 'line' | 'payment' | 'shipping';
 
 interface LineStatus {
   configured: boolean;
@@ -51,42 +32,46 @@ interface LineStatus {
   tier?: 'unverified' | 'verified' | 'premium';
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SettingsView({
-  theme, onSave, onNavigate,
+  theme,
+  onSave,
 }: {
   theme?: 'light' | 'dark';
   onSave?: () => void;
-  onNavigate?: (tab: DashTab) => void;
 }) {
   const isDark = theme === 'dark';
 
-  const [settings, setSettings] = useState<any>(null);
-  const [section, setSection] = useState<SectionId>('guide');
-  const [newCompany, setNewCompany] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
+  // Scroll container + active-section tracking
+  const containerRef               = useRef<HTMLDivElement>(null);
+  const [activeSection, setActiveSection] = useState<SectionId>('general');
 
-  // visibility toggles
-  const [showToken, setShowToken] = useState(false);
-  const [showSecret, setShowSecret] = useState(false);
-  const [showLiff, setShowLiff] = useState(false);
-  const [showSlipKey, setShowSlipKey] = useState(false);
+  // Data
+  const [settings, setSettings]   = useState<any>(null);
+  const [newCompany, setNewCompany] = useState('');
+
+  // Save state per section
+  const [isSaving, setIsSaving]       = useState<SectionId | null>(null);
+  const [savedSection, setSavedSection] = useState<SectionId | null>(null);
+  const [errorSection, setErrorSection] = useState<SectionId | null>(null);
+  const [saveError, setSaveError]       = useState('');
+
+  // Visibility toggles
+  const [showToken,       setShowToken]       = useState(false);
+  const [showSecret,      setShowSecret]      = useState(false);
+  const [showLiff,        setShowLiff]        = useState(false);
+  const [showSlipKey,     setShowSlipKey]     = useState(false);
   const [showAdminSecret, setShowAdminSecret] = useState(false);
 
-  const [webhookUrl, setWebhookUrl] = useState('');
-  const [fetchingRate, setFetchingRate] = useState(false);
+  // Exchange rate
+  const [webhookUrl,    setWebhookUrl]    = useState('');
+  const [fetchingRate,  setFetchingRate]  = useState(false);
   const [liveRateError, setLiveRateError] = useState('');
 
   // LINE status
-  const [lineStatus, setLineStatus] = useState<LineStatus | null>(null);
+  const [lineStatus,   setLineStatus]   = useState<LineStatus | null>(null);
   const [checkingLine, setCheckingLine] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/settings').then(r => r.json()).then(setSettings).catch(() => {});
-    setWebhookUrl(`${window.location.origin}/api/webhook`);
-  }, []);
 
   const checkLine = useCallback(async () => {
     setCheckingLine(true);
@@ -99,27 +84,70 @@ export default function SettingsView({
   }, []);
 
   useEffect(() => {
-    if (section === 'guide' || section === 'line') checkLine();
-  }, [section, checkLine]);
+    fetch('/api/settings').then(r => r.json()).then(setSettings).catch(() => {});
+    setWebhookUrl(`${window.location.origin}/api/webhook`);
+    checkLine();
+  }, [checkLine]);
 
-  const handleSave = async () => {
-    setIsSaving(true); setSaveError('');
+  // Scroll → active section
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const ids: SectionId[] = ['general', 'line', 'payment', 'shipping'];
+    function onScroll() {
+      const top = container!.scrollTop + 110;
+      let active: SectionId = 'general';
+      for (const id of ids) {
+        const el = container!.querySelector<HTMLElement>(`#${id}`);
+        if (el && el.offsetTop <= top) active = id;
+      }
+      setActiveSection(active);
+    }
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => container.removeEventListener('scroll', onScroll);
+  }, []);
+
+  function scrollTo(id: SectionId) {
+    const container = containerRef.current;
+    const el = container?.querySelector<HTMLElement>(`#${id}`);
+    if (el && container) {
+      container.scrollTo({ top: el.offsetTop - 68, behavior: 'smooth' });
+      setActiveSection(id);
+    }
+  }
+
+  // ── Save ────────────────────────────────────────────────────────────────────
+  const handleSave = async (section: SectionId) => {
+    setIsSaving(section);
+    setSavedSection(null);
+    setErrorSection(null);
+    setSaveError('');
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       });
-      if (res.ok) { onSave?.(); }
-      else { setSaveError('Failed to save. Please try again.'); }
-    } catch { setSaveError('Network error. Please try again.'); }
-    finally { setIsSaving(false); }
+      if (res.ok) {
+        onSave?.();
+        setSavedSection(section);
+        setTimeout(() => setSavedSection(null), 2500);
+      } else {
+        setErrorSection(section);
+        setSaveError('Failed to save. Please try again.');
+      }
+    } catch {
+      setErrorSection(section);
+      setSaveError('Network error. Please try again.');
+    } finally {
+      setIsSaving(null);
+    }
   };
 
   const handleFetchLiveRate = async () => {
     setFetchingRate(true); setLiveRateError('');
     try {
-      const res = await fetch(`/api/rate?from=${settings.importCurrency || 'KRW'}&to=${settings.localCurrency || 'THB'}`);
+      const res  = await fetch(`/api/rate?from=${settings.importCurrency || 'KRW'}&to=${settings.localCurrency || 'THB'}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
       set('krwRate', data.rate);
@@ -127,8 +155,12 @@ export default function SettingsView({
     finally { setFetchingRate(false); }
   };
 
-  const set = (field: string, value: any) => setSettings((s: any) => ({ ...s, [field]: value }));
-  const removeCompany = (c: string) => set('shippingCompanies', settings.shippingCompanies.filter((x: string) => x !== c));
+  const set = (field: string, value: any) =>
+    setSettings((s: any) => ({ ...s, [field]: value }));
+
+  const removeCompany = (c: string) =>
+    set('shippingCompanies', settings.shippingCompanies.filter((x: string) => x !== c));
+
   const addCompany = () => {
     if (!newCompany.trim()) return;
     set('shippingCompanies', [...(settings.shippingCompanies || []), newCompany.trim()]);
@@ -137,14 +169,13 @@ export default function SettingsView({
 
   if (!settings) return <LoadingView theme={theme} message="Loading Settings…" />;
 
-  // ── Tokens ──────────────────────────────────────────────────────────────────
+  // ── Style tokens ─────────────────────────────────────────────────────────────
   const K = {
-    bg:      isDark ? 'bg-[#0f1117]'                           : 'bg-slate-50',
-    surface: isDark ? 'bg-[#161925] border border-[#1f2335]'  : 'bg-white border border-slate-200',
-    deep:    isDark ? 'bg-[#1a1d2e] border border-[#1f2335]'  : 'bg-slate-50 border border-slate-200',
-    text:    isDark ? 'text-white'                             : 'text-slate-900',
-    muted:   isDark ? 'text-[#8b92ad]'                        : 'text-slate-500',
-    border:  isDark ? 'border-[#1f2335]'                      : 'border-slate-200',
+    bg:      isDark ? 'bg-[#0f1117]'                          : 'bg-slate-50',
+    surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200',
+    text:    isDark ? 'text-white'                            : 'text-slate-900',
+    muted:   isDark ? 'text-[#8b92ad]'                       : 'text-slate-500',
+    border:  isDark ? 'border-[#1f2335]'                     : 'border-slate-200',
     inp:     isDark
       ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-[#00b900] focus:outline-none'
       : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#00b900] focus:outline-none',
@@ -155,203 +186,68 @@ export default function SettingsView({
   const lbl       = `block text-[10px] font-bold uppercase tracking-widest mb-2 ${K.muted}`;
   const hint      = `text-[10px] mt-1 ml-1 ${K.muted}`;
 
-  const SaveBtn = () => (
-    <button onClick={handleSave} disabled={isSaving}
-      className="w-full bg-[#00b900] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#00a000] active:scale-[0.99] transition-all">
-      {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-      {isSaving ? 'Saving…' : 'Save Changes'}
-    </button>
-  );
+  // Inline save button — shows saving / saved / error states
+  function SaveBtn({ id }: { id: SectionId }) {
+    const saving = isSaving === id;
+    const saved  = savedSection === id;
+    return (
+      <div className="space-y-2">
+        {errorSection === id && saveError && (
+          <p className="text-xs text-red-400">{saveError}</p>
+        )}
+        <button
+          onClick={() => handleSave(id)}
+          disabled={!!isSaving}
+          className={`w-full disabled:opacity-50 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition-all ${
+            saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#00b900] hover:bg-[#00a000]'
+          }`}
+        >
+          {saving ? <Loader2 size={16} className="animate-spin" /> : saved ? <Check size={16} /> : <Save size={16} />}
+          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
+        </button>
+      </div>
+    );
+  }
 
-  // ── Guide step completion ────────────────────────────────────────────────────
-  const lineOk = lineStatus?.configured && lineStatus?.valid;
-  const steps: GuideStep[] = [
-    {
-      n: 1, done: true, icon: <Check size={15} />,
-      title: 'Account created',
-      desc:  'Your shop account is set up and ready to use.',
-      action: null,
-    },
-    {
-      n: 2, done: !!(settings.shopName && settings.shopName !== 'My Shop'),
-      icon: <Store size={15} />,
-      title: 'Set your shop name & theme',
-      desc:  'Give your store a recognizable name. It appears on your storefront and in messages.',
-      action: { kind: 'section', label: 'Go to General', tab: 'general' },
-    },
-    {
-      n: 3, done: !!lineOk, icon: <MessageSquare size={15} />,
-      title: 'Connect your LINE Official Account',
-      desc:  'Add your Channel Access Token and Channel Secret so the dashboard can send messages.',
-      action: { kind: 'section', label: 'Go to LINE', tab: 'line' },
-    },
-    {
-      n: 4, done: false, icon: <Globe size={15} />,
-      title: 'Set the webhook URL in LINE Console',
-      desc:  'Paste your webhook URL into Messaging API → Webhook settings so customer messages arrive.',
-      action: { kind: 'href', label: 'Open LINE Console', href: 'https://developers.line.biz/' },
-    },
-    {
-      n: 5, done: !!settings.promptPayId, icon: <Zap size={15} />,
-      title: 'Add your PromptPay ID',
-      desc:  'Lets customers scan a QR code to pay. Required for the "Send QR" order action.',
-      action: { kind: 'section', label: 'Go to Payment', tab: 'payment' },
-    },
-    {
-      n: 6, done: false, icon: <Package size={15} />,
-      title: 'Add your first product',
-      desc:  'Go to the Products tab and add at least one item to your catalog.',
-      action: { kind: 'nav', label: 'Go to Products', tab: 'products' },
-    },
-    {
-      n: 7, done: false, icon: <Store size={15} />,
-      title: 'Customize your storefront',
-      desc:  'Pick a theme, upload a banner & logo so customers see a branded shop page.',
-      action: { kind: 'nav', label: 'Go to Storefront', tab: 'storefront' },
-    },
-    {
-      n: 8, done: !!settings.greetingEnabled, icon: <Hand size={15} />,
-      title: 'Set a greeting message',
-      desc:  'Automatically welcome new followers when they add your LINE OA — sent free via reply token.',
-      action: { kind: 'nav', label: 'Go to Broadcasts', tab: 'broadcasts' },
-    },
-    {
-      n: 9, done: false, icon: <MessageSquare size={15} />,
-      title: 'Create keyword auto-reply rules',
-      desc:  'Instant, free replies triggered by customer keywords — no quota used.',
-      action: { kind: 'nav', label: 'Go to Broadcasts', tab: 'broadcasts' },
-    },
-    {
-      n: 10, done: false, icon: <LayoutGrid size={15} />,
-      title: 'Design a Rich Menu',
-      desc:  'A persistent tap menu at the bottom of the LINE chat — great for product links and CTAs.',
-      action: { kind: 'nav', label: 'Go to Broadcasts', tab: 'broadcasts' },
-    },
-    {
-      n: 11, done: false, icon: <Megaphone size={15} />,
-      title: 'Run your first broadcast',
-      desc:  'Send a message to all customers at once — or queue one for free delivery via reply tokens.',
-      action: { kind: 'nav', label: 'Go to Broadcasts', tab: 'broadcasts' },
-    },
-  ];
-
-  const doneCount = steps.filter(s => s.done).length;
-
-  // ── Section tabs ─────────────────────────────────────────────────────────────
   const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
-    { id: 'guide',    label: 'Setup Guide', icon: <BookOpen size={14} /> },
-    { id: 'general',  label: 'General',     icon: <SettingsIcon size={14} /> },
-    { id: 'line',     label: 'LINE',        icon: <MessageSquare size={14} /> },
-    { id: 'payment',  label: 'Payment',     icon: <Zap size={14} /> },
-    { id: 'shipping', label: 'Shipping',    icon: <Package size={14} /> },
+    { id: 'general',  label: 'General',  icon: <SettingsIcon  size={13} /> },
+    { id: 'line',     label: 'LINE',     icon: <MessageSquare size={13} /> },
+    { id: 'payment',  label: 'Payment',  icon: <Zap           size={13} /> },
+    { id: 'shipping', label: 'Shipping', icon: <Package       size={13} /> },
   ];
 
   return (
-    <div className={`flex-1 overflow-y-auto ${K.bg} p-6 space-y-6`}>
+    <div ref={containerRef} className={`flex-1 overflow-y-auto ${K.bg}`}>
 
-      {/* ── Tabs ── */}
-      <div className={`flex items-center gap-1 p-1 rounded-xl flex-wrap ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
-        {SECTIONS.map(s => (
-          <button key={s.id} onClick={() => setSection(s.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center min-w-[90px] ${
-              section === s.id
-                ? 'bg-[#00b900] text-white shadow-sm'
-                : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
-            }`}>
-            {s.icon}{s.label}
-          </button>
-        ))}
+      {/* ── Sticky scroll-nav ─────────────────────────────────────────────── */}
+      <div className={`sticky top-0 z-10 px-6 pt-4 pb-3 ${K.bg}`}>
+        <div className={`flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
+          {SECTIONS.map(s => (
+            <button
+              key={s.id}
+              onClick={() => scrollTo(s.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
+                activeSection === s.id
+                  ? 'bg-[#00b900] text-white shadow-sm'
+                  : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {s.icon}{s.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* ══ GUIDE ══════════════════════════════════════════════════════════════ */}
-      {section === 'guide' && (
-        <div className="max-w-3xl space-y-4">
-          {/* Header + progress */}
-          <div className={`rounded-2xl p-5 ${K.surface}`}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className={`text-sm font-semibold ${K.text}`}>Getting Started</p>
-                <p className={`text-xs mt-0.5 ${K.muted}`}>Complete these steps to get your shop fully operational.</p>
-              </div>
-              <span className={`text-xs font-bold px-3 py-1 rounded-full ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'} ${K.muted}`}>
-                {doneCount}/{steps.length} done
-              </span>
-            </div>
-            <div className={`h-2 rounded-full ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'}`}>
-              <div
-                className="h-2 rounded-full bg-[#00b900] transition-all"
-                style={{ width: `${(doneCount / steps.length) * 100}%` }}
-              />
-            </div>
+      {/* ── All sections on one page ──────────────────────────────────────── */}
+      <div className="px-6 pb-24 max-w-3xl mx-auto space-y-16">
+
+        {/* ══ GENERAL ══════════════════════════════════════════════════════ */}
+        <div id="general" className="space-y-6 pt-2">
+          <div className="flex items-center gap-2 pb-1">
+            <SettingsIcon size={15} className="text-[#00b900]" />
+            <h2 className={`text-base font-bold ${K.text}`}>General</h2>
           </div>
 
-          {/* Steps */}
-          <div className="space-y-2">
-            {steps.map(step => (
-              <div key={step.n} className={`rounded-2xl px-5 py-4 flex items-center gap-4 transition-all ${K.surface} ${step.done ? 'opacity-60' : ''}`}>
-                {/* Number / check */}
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
-                  step.done
-                    ? 'bg-[#00b900]/10 text-[#00b900]'
-                    : isDark ? 'bg-[#1a1d2e] text-[#8b92ad]' : 'bg-slate-100 text-slate-500'
-                }`}>
-                  {step.done ? <Check size={14} /> : step.n}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${K.text} ${step.done ? 'line-through opacity-60' : ''}`}>{step.title}</p>
-                  <p className={`text-xs mt-0.5 ${K.muted}`}>{step.desc}</p>
-                </div>
-
-                {/* Action */}
-                {!step.done && step.action && (() => {
-                  const a = step.action!;
-                  const cls = `flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-[#00b900]/30 text-[#00b900] hover:bg-[#00b900]/10 transition-colors flex-shrink-0 whitespace-nowrap`;
-                  if (a.kind === 'href') return (
-                    <a href={a.href} target="_blank" rel="noopener noreferrer" className={cls}>
-                      {a.label} <ExternalLink size={10} />
-                    </a>
-                  );
-                  if (a.kind === 'nav') return (
-                    <button onClick={() => onNavigate?.(a.tab)} className={cls}>
-                      {a.label} <ArrowRight size={10} />
-                    </button>
-                  );
-                  return (
-                    <button onClick={() => setSection(a.tab)} className={cls}>
-                      {a.label} <ArrowRight size={10} />
-                    </button>
-                  );
-                })()}
-              </div>
-            ))}
-          </div>
-
-          {/* Helpful links */}
-          <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${K.muted}`}>Helpful links</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {[
-                { label: 'LINE Developer Console', href: 'https://developers.line.biz/' },
-                { label: 'LINE OA Manager',         href: 'https://manager.line.biz' },
-                { label: 'LINE Sticker List',        href: 'https://developers.line.biz/en/docs/messaging-api/sticker-list/' },
-                { label: 'Messaging API Reference',  href: 'https://developers.line.biz/en/docs/messaging-api/' },
-              ].map(link => (
-                <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer"
-                  className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#2d3555]' : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300'}`}>
-                  {link.label}
-                  <ExternalLink size={10} />
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══ GENERAL ════════════════════════════════════════════════════════════ */}
-      {section === 'general' && (
-        <div className="max-w-3xl space-y-6">
           {/* Shop identity */}
           <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
             <p className={`text-sm font-semibold ${K.text}`}>Shop Identity</p>
@@ -359,7 +255,7 @@ export default function SettingsView({
               <div>
                 <label className={lbl}>Shop Name</label>
                 <input type="text" value={settings.shopName || ''} onChange={e => set('shopName', e.target.value)} placeholder="My Awesome Shop" className={inputCls} autoComplete="off" />
-                <p className={hint}>Shown on your storefront header and all outgoing messages</p>
+                <p className={hint}>Shown on storefront and all outgoing messages</p>
               </div>
               <div>
                 <label className={lbl}>Theme</label>
@@ -379,22 +275,22 @@ export default function SettingsView({
           <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
             <div>
               <p className={`text-sm font-semibold ${K.text}`}>Currency & Exchange Rate</p>
-              <p className={`text-xs mt-1 ${K.muted}`}>Set default currencies for cost and selling price. Override cost currency per order.</p>
+              <p className={`text-xs mt-1 ${K.muted}`}>Set defaults for cost and selling price. Override cost currency per order.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className={lbl}>Cost Currency</label>
                 <select value={settings.importCurrency || 'KRW'} onChange={e => set('importCurrency', e.target.value)} className={inputCls}>
-                  {['THB', 'KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'].map(c => <option key={c} value={c}>{c}</option>)}
+                  {['THB','KRW','USD','EUR','JPY','CNY','GBP','HKD','SGD','TWD'].map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <p className={hint}>Currency you pay when sourcing products</p>
+                <p className={hint}>Currency you pay when sourcing</p>
               </div>
               <div>
                 <label className={lbl}>Selling Currency</label>
                 <select value={settings.localCurrency || 'THB'} onChange={e => set('localCurrency', e.target.value)} className={inputCls}>
-                  {['THB', 'USD', 'EUR', 'GBP', 'JPY', 'SGD', 'MYR', 'PHP', 'IDR', 'VND'].map(c => <option key={c} value={c}>{c}</option>)}
+                  {['THB','USD','EUR','GBP','JPY','SGD','MYR','PHP','IDR','VND'].map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <p className={hint}>Currency your customers pay in</p>
+                <p className={hint}>Currency customers pay in</p>
               </div>
             </div>
 
@@ -408,13 +304,13 @@ export default function SettingsView({
                   </button>
                 ))}
               </div>
-              <p className={hint}>{settings.useAutoRate ? 'Fetched automatically on each profit calculation' : 'Uses your fixed rate below'}</p>
+              <p className={hint}>{settings.useAutoRate ? 'Fetched automatically each calculation' : 'Uses your fixed rate below'}</p>
             </div>
 
             <div className="flex items-end gap-3">
               <div className="flex-1 md:max-w-xs">
                 <label className={lbl}>1 {settings.importCurrency || 'KRW'} = ? {settings.localCurrency || 'THB'}</label>
-                <input type="number" step="0.0001" min="0" value={settings.krwRate ?? 0.026} onChange={e => set('krwRate', parseFloat(e.target.value) || 0)} className={inputCls} autoComplete="off" disabled={settings.useAutoRate} />
+                <input type="number" step="0.0001" min="0" value={settings.krwRate ?? 0.026} onChange={e => set('krwRate', parseFloat(e.target.value) || 0)} className={inputCls} disabled={settings.useAutoRate} />
               </div>
               <button type="button" onClick={handleFetchLiveRate} disabled={fetchingRate}
                 className={`px-4 py-3 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 flex-shrink-0 disabled:opacity-50 ${isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white hover:border-[#00b900]' : 'bg-slate-50 border-slate-200 text-slate-900 hover:border-[#00b900]'}`}>
@@ -425,14 +321,15 @@ export default function SettingsView({
             {liveRateError && <p className="text-xs text-red-400">{liveRateError}</p>}
           </div>
 
-          {saveError && <p className="text-sm text-red-400">{saveError}</p>}
-          <SaveBtn />
+          <SaveBtn id="general" />
         </div>
-      )}
 
-      {/* ══ LINE ═══════════════════════════════════════════════════════════════ */}
-      {section === 'line' && (
-        <div className="max-w-3xl space-y-6">
+        {/* ══ LINE ═════════════════════════════════════════════════════════ */}
+        <div id="line" className="space-y-6">
+          <div className="flex items-center gap-2 pb-1">
+            <MessageSquare size={15} className="text-[#00b900]" />
+            <h2 className={`text-base font-bold ${K.text}`}>LINE Integration</h2>
+          </div>
 
           {/* Connection status */}
           <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
@@ -443,28 +340,29 @@ export default function SettingsView({
                 <RefreshCw size={11} className={checkingLine ? 'animate-spin' : ''} /> Test Connection
               </button>
             </div>
-
             {checkingLine && (
               <div className="flex items-center gap-2">
                 <Loader2 size={14} className="animate-spin text-[#00b900]" />
                 <span className={`text-sm ${K.muted}`}>Checking…</span>
               </div>
             )}
-
             {!checkingLine && lineStatus && (
               lineStatus.configured && lineStatus.valid ? (
                 <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-emerald-50 border border-emerald-200'}`}>
                   <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
                     <Check size={14} className="text-emerald-400" />
                   </div>
-                  <div className="min-w-0">
+                  <div>
                     <p className="text-sm font-semibold text-emerald-400">{lineStatus.bot?.displayName}</p>
-                    <p className={`text-xs ${K.muted}`}>{lineStatus.bot?.basicId} · {lineStatus.tier ?? 'unverified'}{lineStatus.bot?.chatMode === 'chat' ? ' · Chat mode (auto-reply paused)' : ''}</p>
+                    <p className={`text-xs ${K.muted}`}>
+                      {lineStatus.bot?.basicId} · {lineStatus.tier ?? 'unverified'}
+                      {lineStatus.bot?.chatMode === 'chat' && ' · Chat mode (auto-reply paused)'}
+                    </p>
                   </div>
                 </div>
               ) : (
                 <div className={`flex items-start gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-red-500/10 border border-red-500/20' : 'bg-red-50 border border-red-200'}`}>
-                  <AlertTriangle size={15} className="text-red-400 mt-0.5 flex-shrink-0" />
+                  <AlertTriangle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-red-400">
                       {!lineStatus.configured ? 'Token not configured' : 'Invalid credentials'}
@@ -474,13 +372,12 @@ export default function SettingsView({
                 </div>
               )
             )}
-
             {!checkingLine && !lineStatus && (
-              <p className={`text-xs ${K.muted}`}>Press "Test Connection" to verify your LINE channel credentials.</p>
+              <p className={`text-xs ${K.muted}`}>Press "Test Connection" to verify your LINE channel.</p>
             )}
           </div>
 
-          {/* Webhook */}
+          {/* Webhook URL */}
           <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
             <div>
               <p className={`text-sm font-semibold ${K.text}`}>Webhook URL</p>
@@ -488,7 +385,7 @@ export default function SettingsView({
             </div>
             <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
               <code className={`flex-1 text-xs font-mono truncate ${isDark ? 'text-[#00b900]' : 'text-green-700'}`}>{webhookUrl}</code>
-              <CopyButton value={webhookUrl} isDark={isDark} />
+              <CopyButton value={webhookUrl} />
               <a href="https://developers.line.biz/" target="_blank" rel="noopener noreferrer"
                 className={`flex items-center gap-1 text-[10px] ${K.muted} hover:text-[#00b900] transition-colors flex-shrink-0`}>
                 Console <ExternalLink size={10} />
@@ -500,34 +397,32 @@ export default function SettingsView({
           <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
             <div>
               <p className={`text-sm font-semibold ${K.text}`}>Messaging API Credentials</p>
-              <p className={`text-xs mt-1 ${K.muted}`}>Use credentials from your <strong>Messaging API</strong> channel — not a LINE Login channel.</p>
+              <p className={`text-xs mt-1 ${K.muted}`}>Use credentials from your <strong>Messaging API</strong> channel only — not a LINE Login channel.</p>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className={lbl}>Channel Secret <span className={K.muted}>(Basic Settings tab)</span></label>
+                <label className={lbl}>Channel Secret <span className={`normal-case font-normal ${K.muted}`}>(Basic Settings tab)</span></label>
                 <div className="relative">
-                  <input type={showSecret ? 'text' : 'password'} value={settings.lineChannelSecret || ''} onChange={e => set('lineChannelSecret', e.target.value)} placeholder="32-character hex string" className={inputMono} autoComplete="new-password" name="line-channel-secret" />
+                  <input type={showSecret ? 'text' : 'password'} value={settings.lineChannelSecret || ''} onChange={e => set('lineChannelSecret', e.target.value)} placeholder="32-character hex string" className={inputMono} autoComplete="new-password" name="line-secret" />
                   <button type="button" onClick={() => setShowSecret(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${K.muted} hover:text-white transition-colors`}>
                     {showSecret ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
-                <p className={hint}>Verifies that webhook requests genuinely come from LINE</p>
+                <p className={hint}>Verifies webhook requests from LINE</p>
               </div>
               <div>
-                <label className={lbl}>Channel Access Token <span className={K.muted}>(Messaging API tab)</span></label>
+                <label className={lbl}>Channel Access Token <span className={`normal-case font-normal ${K.muted}`}>(Messaging API tab)</span></label>
                 <div className="relative">
-                  <input type={showToken ? 'text' : 'password'} value={settings.lineChannelAccessToken || ''} onChange={e => set('lineChannelAccessToken', e.target.value)} placeholder="Long-lived access token" className={inputMono} autoComplete="new-password" name="line-access-token" />
+                  <input type={showToken ? 'text' : 'password'} value={settings.lineChannelAccessToken || ''} onChange={e => set('lineChannelAccessToken', e.target.value)} placeholder="Long-lived access token" className={inputMono} autoComplete="new-password" name="line-token" />
                   <button type="button" onClick={() => setShowToken(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${K.muted} hover:text-white transition-colors`}>
                     {showToken ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
-                <p className={hint}>Authorises outgoing messages, QR codes, broadcasts, and Rich Menu</p>
+                <p className={hint}>Authorises messages, QR codes, broadcasts, Rich Menu</p>
               </div>
             </div>
-
             <div className={`px-4 py-3 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-              <strong>Note:</strong> Credential fields appear empty for security — saved values are never returned to the browser. Leave a field blank to keep the current saved value; only type to update it.
+              <strong>Note:</strong> Fields appear empty for security — saved values are never returned. Leave blank to keep current value; type to update.
             </div>
           </div>
 
@@ -543,15 +438,14 @@ export default function SettingsView({
                     {showLiff ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
-                <p className={hint}>Allows customers to log in with LINE on your storefront to place orders</p>
+                <p className={hint}>Lets customers log in with LINE on your storefront</p>
               </div>
               <div>
                 <label className={lbl}>Admin LINE User ID</label>
                 <input type="text" value={settings.adminLineId || ''} onChange={e => set('adminLineId', e.target.value)} placeholder="U1234567890abcdef…" className={`${inputCls} font-mono text-xs`} autoComplete="off" name="admin-line-id" />
-                <p className={hint}>Your personal LINE user ID — receives order alerts and notifications</p>
+                <p className={hint}>Receives order alerts and notifications</p>
               </div>
             </div>
-
             <div className="md:w-1/2">
               <label className={lbl}>Admin Secret</label>
               <div className="relative">
@@ -564,39 +458,40 @@ export default function SettingsView({
             </div>
           </div>
 
-          {saveError && <p className="text-sm text-red-400">{saveError}</p>}
-          <SaveBtn />
+          <SaveBtn id="line" />
         </div>
-      )}
 
-      {/* ══ PAYMENT ════════════════════════════════════════════════════════════ */}
-      {section === 'payment' && (
-        <div className="max-w-3xl space-y-6">
+        {/* ══ PAYMENT ══════════════════════════════════════════════════════ */}
+        <div id="payment" className="space-y-6">
+          <div className="flex items-center gap-2 pb-1">
+            <Zap size={15} className="text-[#00b900]" />
+            <h2 className={`text-base font-bold ${K.text}`}>Payment</h2>
+          </div>
+
           <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
             <p className={`text-sm font-semibold ${K.text}`}>PromptPay</p>
             <div className="md:w-1/2">
-              <label className={lbl}>PromptPay ID (phone number or national ID)</label>
+              <label className={lbl}>PromptPay ID (phone or national ID)</label>
               <input type="text" value={settings.promptPayId || ''} onChange={e => set('promptPayId', e.target.value)} placeholder="e.g. 0812345678" className={inputCls} autoComplete="off" />
-              <p className={hint}>Used to generate the payment QR code sent to customers</p>
+              <p className={hint}>Used to generate payment QR codes sent to customers</p>
             </div>
           </div>
 
           <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
             <div>
               <p className={`text-sm font-semibold ${K.text}`}>Payment Confirmation Message</p>
-              <p className={`text-xs mt-1 ${K.muted}`}>Sent to customers automatically after a slip is verified.</p>
+              <p className={`text-xs mt-1 ${K.muted}`}>Sent automatically after a slip is verified.</p>
             </div>
             <textarea rows={5} value={settings.paymentTemplate || ''} onChange={e => set('paymentTemplate', e.target.value)} className={`${inputCls} resize-none leading-relaxed`} autoComplete="off" />
             <p className={`text-[10px] ${K.muted}`}>Placeholders: <code>{'{product}'}</code> <code>{'{amount}'}</code> <code>{'{name}'}</code></p>
           </div>
 
-          {/* SlipOK */}
           <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
               <div>
-                <p className={`text-sm font-semibold ${K.text}`}>SlipOK — Automatic Slip Verification</p>
-                <p className={`text-xs mt-0.5 ${K.muted}`}>Automatically verifies bank transfer slips customers upload. Leave blank to skip.</p>
+                <p className={`text-sm font-semibold ${K.text}`}>SlipOK — Slip Verification</p>
+                <p className={`text-xs mt-0.5 ${K.muted}`}>Automatically verifies bank transfer slips. Leave blank to skip.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -616,14 +511,16 @@ export default function SettingsView({
             </div>
           </div>
 
-          {saveError && <p className="text-sm text-red-400">{saveError}</p>}
-          <SaveBtn />
+          <SaveBtn id="payment" />
         </div>
-      )}
 
-      {/* ══ SHIPPING ═══════════════════════════════════════════════════════════ */}
-      {section === 'shipping' && (
-        <div className="max-w-3xl space-y-6">
+        {/* ══ SHIPPING ═════════════════════════════════════════════════════ */}
+        <div id="shipping" className="space-y-6">
+          <div className="flex items-center gap-2 pb-1">
+            <Package size={15} className="text-[#00b900]" />
+            <h2 className={`text-base font-bold ${K.text}`}>Shipping</h2>
+          </div>
+
           <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
             <p className={`text-sm font-semibold ${K.text}`}>Shipping Companies</p>
             <div className="flex flex-wrap gap-2">
@@ -650,16 +547,16 @@ export default function SettingsView({
           <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
             <div>
               <p className={`text-sm font-semibold ${K.text}`}>Shipping Notification Message</p>
-              <p className={`text-xs mt-1 ${K.muted}`}>Sent to customers when you mark an order as shipped.</p>
+              <p className={`text-xs mt-1 ${K.muted}`}>Sent when you mark an order as shipped.</p>
             </div>
             <textarea rows={6} value={settings.trackingTemplate || ''} onChange={e => set('trackingTemplate', e.target.value)} className={`${inputCls} resize-none leading-relaxed`} autoComplete="off" />
             <p className={`text-[10px] ${K.muted}`}>Placeholders: <code>{'{tracking}'}</code> <code>{'{courier}'}</code> <code>{'{product}'}</code> <code>{'{name}'}</code></p>
           </div>
 
-          {saveError && <p className="text-sm text-red-400">{saveError}</p>}
-          <SaveBtn />
+          <SaveBtn id="shipping" />
         </div>
-      )}
+
+      </div>
     </div>
   );
 }
