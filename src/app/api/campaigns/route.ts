@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMerchantFromRequest } from '@/lib/auth';
 import dbConnect from '@/lib/db';
-import { Campaign, Customer } from '@/models';
+import { Campaign, Customer, Order } from '@/models';
+import mongoose from 'mongoose';
 
 export const runtime = 'nodejs';
 
@@ -14,7 +15,18 @@ export async function GET(req: NextRequest) {
     .sort({ createdAt: -1 })
     .lean();
 
-  return NextResponse.json(campaigns);
+  const campaignIds = campaigns.map((c: any) => c._id);
+  const stats = await Order.aggregate([
+    { $match: { merchantId: new mongoose.Types.ObjectId(merchant.merchantId), attributedCampaignId: { $in: campaignIds } } },
+    { $group: { _id: '$attributedCampaignId', orderCount: { $sum: 1 }, revenue: { $sum: '$soldTHB' } } },
+  ]);
+  const statsMap = new Map(stats.map((s: any) => [String(s._id), s]));
+
+  return NextResponse.json(campaigns.map((c: any) => ({
+    ...c,
+    attributedOrders: statsMap.get(String(c._id))?.orderCount ?? 0,
+    attributedRevenue: statsMap.get(String(c._id))?.revenue ?? 0,
+  })));
 }
 
 export async function POST(req: NextRequest) {

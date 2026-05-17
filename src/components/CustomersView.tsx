@@ -30,7 +30,7 @@ type Message = {
 };
 type Product = {
   _id: string; name: string; brand?: string; price: number; imageUrl?: string;
-  variants?: { thickness?: string; colors?: string[]; price?: number }[];
+  variants?: { variantName?: string; colors?: string[]; price?: number }[];
 };
 
 const COST_CURRENCIES = ['THB', 'KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'];
@@ -434,7 +434,7 @@ export default function CustomersView({ theme }: { theme: string }) {
     modelLines: [] as string[],
     categories: [] as string[],
     colors: [] as string[],
-    thicknesses: [] as string[],
+    variantNames: [] as string[],
   }), [products]);
 
   const visibleCustomers = customers.filter(c =>

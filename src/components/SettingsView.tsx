@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check,
-  ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle,
+  ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle, Bell,
 } from 'lucide-react';
 import LoadingView from './LoadingView';
 
@@ -22,7 +22,7 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-type SectionId = 'general' | 'line' | 'payment' | 'shipping';
+type SectionId = 'general' | 'line' | 'payment' | 'shipping' | 'notifications';
 
 interface LineStatus {
   configured: boolean;
@@ -91,7 +91,7 @@ export default function SettingsView({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const ids: SectionId[] = ['general', 'line', 'payment', 'shipping'];
+    const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
     function onScroll() {
       const top = container!.scrollTop + 110;
       let active: SectionId = 'general';
@@ -182,10 +182,11 @@ export default function SettingsView({
   const hint      = `text-[10px] mt-1 ml-1 ${K.muted}`;
 
   const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
-    { id: 'general',  label: 'General',  icon: <SettingsIcon  size={13} /> },
-    { id: 'line',     label: 'LINE',     icon: <MessageSquare size={13} /> },
-    { id: 'payment',  label: 'Payment',  icon: <Zap           size={13} /> },
-    { id: 'shipping', label: 'Shipping', icon: <Package       size={13} /> },
+    { id: 'general',       label: 'General',       icon: <SettingsIcon  size={13} /> },
+    { id: 'line',          label: 'LINE',          icon: <MessageSquare size={13} /> },
+    { id: 'payment',       label: 'Payment',       icon: <Zap           size={13} /> },
+    { id: 'shipping',      label: 'Shipping',      icon: <Package       size={13} /> },
+    { id: 'notifications', label: 'Notifications', icon: <Bell          size={13} /> },
   ];
 
   return (
@@ -523,6 +524,62 @@ export default function SettingsView({
             <p className={`text-[10px] ${K.muted}`}>Placeholders: <code>{'{tracking}'}</code> <code>{'{courier}'}</code> <code>{'{product}'}</code> <code>{'{name}'}</code></p>
           </div>
 
+        </div>
+
+        {/* ══ NOTIFICATIONS ════════════════════════════════════════════════ */}
+        <div id="notifications" className="space-y-6">
+          <div className="flex items-center gap-2 pb-1">
+            <Bell size={15} className="text-[#00b900]" />
+            <h2 className={`text-base font-bold ${K.text}`}>Notifications</h2>
+          </div>
+
+          <div className={`rounded-2xl p-6 space-y-2 ${K.surface}`}>
+            <div className="mb-4">
+              <p className={`text-sm font-semibold ${K.text}`}>Order Status Notifications</p>
+              <p className={`text-xs mt-1 ${K.muted}`}>Automatically send a LINE message when an order moves to each stage. Uses placeholders: <code>{'{product}'}</code> <code>{'{amount}'}</code> <code>{'{tracking}'}</code> <code>{'{courier}'}</code> <code>{'{name}'}</code></p>
+            </div>
+
+            {([
+              { key: 'paid',      label: 'Order Confirmed',   sub: 'When payment is received' },
+              { key: 'preparing', label: 'Being Prepared',    sub: 'When order moves to preparing' },
+              { key: 'shipped',   label: 'Shipped',           sub: 'When tracking number is entered' },
+              { key: 'delivered', label: 'Delivered',         sub: 'When marked as delivered' },
+            ] as const).map(({ key, label, sub }) => {
+              const stage = settings.orderNotifications?.[key] ?? {};
+              return (
+                <div key={key} className={`rounded-xl border p-4 space-y-3 ${K.border}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${K.text}`}>{label}</p>
+                      <p className={`text-xs ${K.muted}`}>{sub}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => set('orderNotifications', {
+                        ...settings.orderNotifications,
+                        [key]: { ...stage, enabled: !stage.enabled },
+                      })}
+                      className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${stage.enabled ? 'bg-[#00b900]' : isDark ? 'bg-[#1a1d2e]' : 'bg-slate-200'}`}
+                    >
+                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${stage.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                  {stage.enabled && (
+                    <textarea
+                      rows={4}
+                      value={stage.template ?? ''}
+                      onChange={e => set('orderNotifications', {
+                        ...settings.orderNotifications,
+                        [key]: { ...stage, template: e.target.value },
+                      })}
+                      className={`${inputCls} resize-none leading-relaxed text-xs`}
+                      autoComplete="off"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
       </div>

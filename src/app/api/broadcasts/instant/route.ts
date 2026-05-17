@@ -3,6 +3,7 @@ import { getMerchantFromRequest } from '@/lib/auth';
 import dbConnect from '@/lib/db';
 import { Settings, Customer, Order, Campaign } from '@/models';
 import { randomUUID } from 'crypto';
+import mongoose from 'mongoose';
 
 export const runtime = 'nodejs';
 
@@ -16,6 +17,19 @@ async function resolveAudience(merchantId: string, audience: string): Promise<st
   if (audience === 'ordered') {
     const ids = await Order.find({ merchantId }).distinct('lineUserId');
     return (ids as string[]).filter(Boolean);
+  }
+  if (audience === 'never_ordered') {
+    const orderedIds = new Set((await Order.find({ merchantId }).distinct('lineUserId') as string[]).filter(Boolean));
+    const customers = await Customer.find({ merchantId, status: { $ne: 'blocked' } }).select('userId').lean() as any[];
+    return customers.map((c: any) => c.userId).filter((uid: string) => uid && !orderedIds.has(uid));
+  }
+  if (audience === 'high_value') {
+    const result = await Order.aggregate([
+      { $match: { merchantId: new mongoose.Types.ObjectId(merchantId) } },
+      { $group: { _id: '$lineUserId', total: { $sum: '$soldTHB' } } },
+      { $match: { total: { $gte: 5000 }, _id: { $ne: null } } },
+    ]);
+    return result.map((r: any) => r._id).filter(Boolean);
   }
   // 'all' — every non-blocked customer
   const customers = await Customer.find({ merchantId, status: { $ne: 'blocked' } }).select('userId').lean() as any[];
@@ -69,7 +83,6 @@ export async function POST(req: NextRequest) {
       failed += chunk.length;
       console.error('[multicast error]', err);
     }
-    // Throttle between chunks
     if (i + CHUNK < userIds.length) await new Promise(r => setTimeout(r, 200));
   }
 

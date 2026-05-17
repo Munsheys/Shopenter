@@ -18,7 +18,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeBrand, setActiveBrand] = useState('All');
-  const [selThickness, setSelThickness] = useState('');
+  const [selVariant, setSelVariant] = useState('');
   const [selColor, setSelColor] = useState('');
   const [customer, setCustomer] = useState<any>(null);
   const [isOrdering, setIsOrdering] = useState(false);
@@ -88,7 +88,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   function addToCart() {
     if (!selectedProduct) return;
     const variantLabel = selectedVariant
-      ? `${selThickness || ''}${selThickness && selColor ? ' / ' : ''}${selColor || ''}`.trim()
+      ? `${selVariant || ''}${selVariant && selColor ? ' / ' : ''}${selColor || ''}`.trim()
       : '';
     const price = selectedVariant?.price ?? selectedProduct.price;
     const key = `${selectedProduct._id}-${variantLabel}`;
@@ -157,7 +157,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   );
 
   if (view === 'detail' && selectedProduct) {
-    const thicknesses = [...new Set((selectedProduct.variants ?? []).map((v: any) => v.thickness).filter(Boolean))] as string[];
+    const variantNames = [...new Set((selectedProduct.variants ?? []).map((v: any) => v.variantName).filter(Boolean))] as string[];
     const colors: string[] = selectedVariant?.colors ?? [];
     return (
       <div style={style.page}>
@@ -176,13 +176,13 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
             <p className="text-xl font-bold mt-1" style={{ color: p.accent }}>฿{(selectedVariant?.price ?? selectedProduct.price).toLocaleString()}</p>
             {selectedProduct.description && <p className="text-sm mt-2" style={style.sub}>{selectedProduct.description}</p>}
           </div>
-          {thicknesses.length > 0 && (
+          {variantNames.length > 0 && (
             <div>
-              <p className="text-sm font-medium mb-2">Size / Thickness</p>
+              <p className="text-sm font-medium mb-2">Variant</p>
               <div className="flex flex-wrap gap-2">
-                {thicknesses.map(t => (
-                  <button key={t} onClick={() => { setSelThickness(t); setSelColor(''); setSelectedVariant(selectedProduct.variants?.find((v: any) => v.thickness === t)); }}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium" style={style.pill(selThickness === t)}>{t}</button>
+                {variantNames.map(t => (
+                  <button key={t} onClick={() => { setSelVariant(t); setSelColor(''); setSelectedVariant(selectedProduct.variants?.find((v: any) => v.variantName === t)); }}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium" style={style.pill(selVariant === t)}>{t}</button>
                 ))}
               </div>
             </div>
@@ -278,7 +278,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       <div className={`p-4 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}`}>
         {filtered.map(pr => (
           <button key={pr._id}
-            onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelThickness(''); setSelColor(''); setQty(1); setView('detail'); }}
+            onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelVariant(''); setSelColor(''); setQty(1); setView('detail'); }}
             className={`rounded-2xl overflow-hidden text-left transition-all active:scale-95 ${cardLayout === 'list' ? 'flex gap-3 p-3' : ''}`}
             style={style.card}
           >

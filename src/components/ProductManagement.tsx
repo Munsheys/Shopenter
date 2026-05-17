@@ -30,7 +30,7 @@ function cn(...inputs: ClassValue[]) {
 
 // --- Interfaces ---
 interface ProductVariant {
-  thickness: string;
+  variantName: string;
   colors: string[];
   price: string;
   cost: string;
@@ -65,7 +65,7 @@ export interface ProductForm {
 // --- Components ---
 
 const EMPTY_VARIANT: ProductVariant = {
-  thickness: '',
+  variantName: '',
   colors: [],
   price: '',
   cost: '',
@@ -79,10 +79,7 @@ const EMPTY_FORM: ProductForm = {
   description: '',
   price: '',
   categories: [],
-  variants: [
-    { ...EMPTY_VARIANT, thickness: '1.2mm' },
-    { ...EMPTY_VARIANT, thickness: '2mm' }
-  ],
+  variants: [],
   imageUrl: '',
   isActive: true,
 };
@@ -369,17 +366,19 @@ export function ProductModal({
   onSave: (data: ProductForm) => void;
   onClose: () => void;
   isSaving: boolean;
-  existingOptions: { brands: string[], modelLines: string[], categories: string[], colors: string[], thicknesses: string[] };
+  existingOptions: { brands: string[], modelLines: string[], categories: string[], colors: string[], variantNames: string[] };
   theme?: 'light' | 'dark';
   quickOrderMode?: boolean;
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
+  const [defaultPrice, setDefaultPrice] = useState('');
   const prevId = useRef<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       if (!initialData) {
-        setForm(quickOrderMode ? { ...EMPTY_FORM, variants: [] } : EMPTY_FORM);
+        setForm(EMPTY_FORM);
+        setDefaultPrice('');
         prevId.current = null;
       } else {
         const currentId = (initialData as any)?._id;
@@ -397,7 +396,7 @@ export function ProductModal({
 
   const updateForm = (updates: Partial<ProductForm>) => setForm(prev => ({ ...prev, ...updates }));
 
-  const addVariant = () => updateForm({ variants: [...form.variants, { ...EMPTY_VARIANT }] });
+  const addVariant = () => updateForm({ variants: [...form.variants, { ...EMPTY_VARIANT, price: defaultPrice }] });
   const removeVariant = (index: number) => updateForm({ variants: form.variants.filter((_, i) => i !== index) });
   const updateVariant = (index: number, updates: Partial<ProductVariant>) => {
     const next = [...form.variants];
@@ -407,7 +406,7 @@ export function ProductModal({
 
   const isValid = quickOrderMode
     ? form.name.trim() !== ''
-    : form.name.trim() !== '' && form.brand.trim() !== '' && form.variants.length > 0 && form.variants.every(v => v.thickness.trim() !== '' && v.price.trim() !== '');
+    : form.name.trim() !== '' && form.brand.trim() !== '' && form.variants.length > 0 && form.variants.every(v => v.variantName.trim() !== '' && v.price.trim() !== '');
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -495,10 +494,26 @@ export function ProductModal({
           {/* Right Column: Variant Matrix */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Thickness & Color Variants</label>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Variants & Colors</label>
               <button onClick={addVariant} className="text-[#00b900] text-[10px] font-bold flex items-center gap-1 hover:underline">
-                <Plus size={14} /> Add Thickness
+                <Plus size={14} /> Add Variant
               </button>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">
+                Default Price (THB)
+              </label>
+              <input
+                type="number"
+                value={defaultPrice}
+                onChange={e => setDefaultPrice(e.target.value)}
+                placeholder="Inherited by new variants"
+                className={cn(
+                  "w-full border rounded-xl px-3 py-2 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900] transition-colors",
+                  theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+                )}
+              />
             </div>
 
             <div className="space-y-4">
@@ -507,19 +522,17 @@ export function ProductModal({
                   "border rounded-2xl p-4 relative group animate-in slide-in-from-right-4 transition-colors",
                   theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]"
                 )} style={{ zIndex: (form.variants.length - idx) * 10 }}>
-                  {form.variants.length > 1 && (
-                    <button onClick={() => removeVariant(idx)} className={cn("absolute -top-2 -right-2 border text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-50 transition-colors", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
-                      <Trash2 size={12} />
-                    </button>
-                  )}
+                  <button onClick={() => removeVariant(idx)} className={cn("absolute -top-2 -right-2 border text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-50 transition-colors", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+                    <Trash2 size={12} />
+                  </button>
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <div className="relative z-[20]">
-                      <CreatableDropdown 
-                        label="Thickness" 
-                        value={v.thickness} 
-                        onChange={val => updateVariant(idx, { thickness: val })} 
-                        options={existingOptions.thicknesses} 
-                        placeholder="1.2 mm" 
+                      <CreatableDropdown
+                        label="Variant"
+                        value={v.variantName}
+                        onChange={val => updateVariant(idx, { variantName: val })}
+                        options={existingOptions.variantNames}
+                        placeholder="e.g. Size, Color, Type"
                         theme={theme}
                         required={true}
                       />
@@ -528,9 +541,9 @@ export function ProductModal({
                       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">
                         Price (THB) <span className="text-red-500">*</span>
                       </label>
-                      <input 
-                        type="number" 
-                        value={v.price} 
+                      <input
+                        type="number"
+                        value={v.price}
                         onChange={e => updateVariant(idx, { price: e.target.value })}
                         className={cn(
                           "w-full border rounded-xl px-3 py-2 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900] transition-colors",
@@ -539,9 +552,9 @@ export function ProductModal({
                       />
                     </div>
                   </div>
-                  
-                  <TagSelector 
-                    label={`Available Colors for ${v.thickness || '?'}`}
+
+                  <TagSelector
+                    label={`Available Colors for ${v.variantName || '?'}`}
                     selected={v.colors}
                     onAdd={c => !v.colors.includes(c) && updateVariant(idx, { colors: [...v.colors, c] })}
                     onRemove={c => updateVariant(idx, { colors: v.colors.filter(x => x !== c) })}
@@ -604,7 +617,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
     const vals = new Set<string>();
     products.forEach(p => {
       if (path === 'category') p.categories?.forEach((c: string) => vals.add(c));
-      else if (path === 'thickness') p.variants?.forEach((v: any) => vals.add(v.thickness));
+      else if (path === 'variantName') p.variants?.forEach((v: any) => vals.add(v.variantName));
       else if (path === 'color') p.variants?.forEach((v: any) => v.colors?.forEach((c: string) => vals.add(c)));
       else if ((p as any)[path]) vals.add((p as any)[path]);
     });
@@ -616,7 +629,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
     modelLines: unique('modelLine'),
     categories: unique('category'),
     colors: unique('color'),
-    thicknesses: unique('thickness'),
+    variantNames: unique('variantName'),
   }), [products]);
 
   const filteredProducts = useMemo(() => {

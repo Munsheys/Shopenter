@@ -28,7 +28,7 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState<SortOption>('featured');
   
   // 2-Tier Selection States
-  const [selThickness, setSelThickness] = useState<string>('');
+  const [selVariant, setSelVariant] = useState<string>('');
   const [selColor, setSelColor] = useState<string>('');
 
   const [customer, setCustomer] = useState<any>(null);
@@ -146,27 +146,27 @@ export default function Shop() {
   }, [products, activeBrand, activeCategory, searchQuery, sortBy]);
 
   // Derived Variant Selection
-  const availableThicknesses = useMemo<string[]>(() => {
+  const availableVariants = useMemo<string[]>(() => {
     if (!selectedProduct?.variants) return [];
-    return Array.from(new Set(selectedProduct.variants.map((v: any) => String(v.thickness)))).filter(Boolean) as string[];
+    return Array.from(new Set(selectedProduct.variants.map((v: any) => String(v.variantName)))).filter(Boolean) as string[];
   }, [selectedProduct]);
 
   const availableColors = useMemo<string[]>(() => {
-    if (!selectedProduct?.variants || !selThickness) return [];
-    const matching = selectedProduct.variants.filter((v: any) => v.thickness === selThickness);
+    if (!selectedProduct?.variants || !selVariant) return [];
+    const matching = selectedProduct.variants.filter((v: any) => v.variantName === selVariant);
     const colors = new Set<string>();
     matching.forEach((v: any) => v.colors?.forEach((c: any) => colors.add(String(c))));
     return Array.from(colors) as string[];
-  }, [selectedProduct, selThickness]);
+  }, [selectedProduct, selVariant]);
 
-  // Update selected variant when thickness/color changes
+  // Update selected variant when variant/color changes
   useEffect(() => {
     if (!selectedProduct?.variants) return;
-    const match = selectedProduct.variants.find((v: any) => 
-      v.thickness === selThickness && v.colors?.includes(selColor)
+    const match = selectedProduct.variants.find((v: any) =>
+      v.variantName === selVariant && v.colors?.includes(selColor)
     );
     setSelectedVariant(match || null);
-  }, [selThickness, selColor, selectedProduct]);
+  }, [selVariant, selColor, selectedProduct]);
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
@@ -174,7 +174,7 @@ export default function Shop() {
   const addToCart = useCallback(() => {
     if (!selectedProduct) return;
     const price = selectedVariant?.price ?? selectedProduct.price;
-    const variantLabel = selectedVariant ? [selectedVariant.thickness, selColor].filter(Boolean).join(' · ') : undefined;
+    const variantLabel = selectedVariant ? [selectedVariant.variantName, selColor].filter(Boolean).join(' · ') : undefined;
     const key = selectedProduct._id + (variantLabel || '');
     setCart(prev => {
       const existing = prev.find(i => i.productId + (i.variantLabel || '') === key);
@@ -183,7 +183,7 @@ export default function Shop() {
     });
     setView('home');
     setIsCartOpen(true);
-    setSelThickness('');
+    setSelVariant('');
     setSelColor('');
     setSelectedVariant(null);
     setQty(1);
@@ -364,7 +364,7 @@ export default function Shop() {
               {filteredAndSorted.map((p: Product) => (
                 <button
                   key={p._id}
-                  onClick={() => { setSelectedProduct(p); setSelThickness(''); setSelColor(''); setQty(1); setView('detail'); }}
+                  onClick={() => { setSelectedProduct(p); setSelVariant(''); setSelColor(''); setQty(1); setView('detail'); }}
                   className="group text-left active:scale-[0.98] transition-all"
                 >
                   <div className="aspect-square w-full rounded-[32px] overflow-hidden bg-[#1a1d2e]/5 mb-4 relative shadow-sm group-hover:shadow-2xl transition-all border border-transparent group-hover:border-[#d4af37]/20">
@@ -402,15 +402,15 @@ export default function Shop() {
               <div className="flex items-end gap-3 mb-10 lg:mb-16"><span className="text-4xl sm:text-6xl font-black text-[#1a1d2e]">฿{(selectedVariant?.price ?? selectedProduct.price)?.toLocaleString()}</span><span className="text-xs font-bold text-[#8b92ad] mb-2 uppercase tracking-widest">Investment</span></div>
               
               {/* 2-TIER VARIANT SELECTOR */}
-              {availableThicknesses.length > 0 && (
+              {availableVariants.length > 0 && (
                 <div className="mb-8 text-left">
-                  <p className="text-[10px] font-black text-[#1a1d2e]/30 uppercase tracking-[0.2em] mb-4">1. Choose Thickness</p>
+                  <p className="text-[10px] font-black text-[#1a1d2e]/30 uppercase tracking-[0.2em] mb-4">1. Choose Variant</p>
                   <div className="flex flex-wrap gap-3">
-                    {availableThicknesses.map(t => (
-                      <button 
-                        key={t} 
-                        onClick={() => { setSelThickness(t); setSelColor(''); }} 
-                        className={cn("px-6 py-3 rounded-2xl text-[10px] sm:text-xs font-black border transition-all uppercase tracking-widest", selThickness === t ? "bg-[#1a1d2e] border-[#1a1d2e] text-white shadow-xl" : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/40 hover:border-[#d4af37]/40")}
+                    {availableVariants.map(t => (
+                      <button
+                        key={t}
+                        onClick={() => { setSelVariant(t); setSelColor(''); }}
+                        className={cn("px-6 py-3 rounded-2xl text-[10px] sm:text-xs font-black border transition-all uppercase tracking-widest", selVariant === t ? "bg-[#1a1d2e] border-[#1a1d2e] text-white shadow-xl" : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/40 hover:border-[#d4af37]/40")}
                       >
                         {t}
                       </button>
@@ -419,7 +419,7 @@ export default function Shop() {
                 </div>
               )}
 
-              {selThickness && availableColors.length > 0 && (
+              {selVariant && availableColors.length > 0 && (
                 <div className="mb-10 lg:mb-14 animate-in fade-in slide-in-from-top-2 duration-500 text-left">
                   <p className="text-[10px] font-black text-[#1a1d2e]/30 uppercase tracking-[0.2em] mb-4">2. Choose Color</p>
                   <div className="flex flex-wrap gap-3">
@@ -437,11 +437,11 @@ export default function Shop() {
               )}
 
               <div className="flex items-center justify-between bg-[#1a1d2e]/5 rounded-3xl p-4 lg:p-6 mb-10 lg:mb-16 lg:max-w-md"><span className="text-[10px] font-black uppercase tracking-widest text-[#1a1d2e]/40">Quantity</span><div className="flex items-center gap-6 sm:gap-10"><button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-8 h-8 sm:w-12 sm:h-12 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e] hover:bg-white transition-all"><Minus size={14} /></button><span className="font-black text-lg sm:text-2xl text-[#1a1d2e]">{qty}</span><button onClick={() => setQty(q => q + 1)} className="w-8 h-8 sm:w-12 sm:h-12 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e] hover:bg-white transition-all"><Plus size={14} /></button></div></div>
-              <div className="hidden lg:block lg:max-w-md"><button onClick={addToCart} disabled={(availableThicknesses.length > 0 && !selThickness) || (availableColors.length > 0 && !selColor)} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-6 rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4"><ShoppingBag size={24} className="text-[#d4af37]" />ADD TO BAG</button></div>
+              <div className="hidden lg:block lg:max-w-md"><button onClick={addToCart} disabled={(availableVariants.length > 0 && !selVariant) || (availableColors.length > 0 && !selColor)} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-6 rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4"><ShoppingBag size={24} className="text-[#d4af37]" />ADD TO BAG</button></div>
             </div>
           </div>
           <div className="lg:hidden fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#fdfbf7] via-[#fdfbf7] to-transparent z-40">
-            <div className="max-w-lg mx-auto"><button onClick={addToCart} disabled={(availableThicknesses.length > 0 && !selThickness) || (availableColors.length > 0 && !selColor)} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-5 rounded-[24px] font-black text-base shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"><ShoppingBag size={20} className="text-[#d4af37]" />{(availableThicknesses.length > 0 && !selThickness) || (availableColors.length > 0 && !selColor) ? 'COMPLETE SELECTION' : `ADD TO BAG · ฿${((selectedVariant?.price ?? selectedProduct.price) * qty).toLocaleString()}`}</button></div>
+            <div className="max-w-lg mx-auto"><button onClick={addToCart} disabled={(availableVariants.length > 0 && !selVariant) || (availableColors.length > 0 && !selColor)} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-5 rounded-[24px] font-black text-base shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"><ShoppingBag size={20} className="text-[#d4af37]" />{(availableVariants.length > 0 && !selVariant) || (availableColors.length > 0 && !selColor) ? 'COMPLETE SELECTION' : `ADD TO BAG · ฿${((selectedVariant?.price ?? selectedProduct.price) * qty).toLocaleString()}`}</button></div>
           </div>
         </div>
       )}

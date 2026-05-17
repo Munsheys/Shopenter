@@ -28,6 +28,12 @@ const SettingsSchema = new mongoose.Schema({
   paymentTemplate: { type: String, default: "✅ ยืนยันการชำระเงินแล้วครับ!\n\nรายการ: {product}\nจำนวน: ฿{amount}\n\nขอบคุณที่ใช้บริการครับ 🙏" },
   slipokBranchId: { type: String, default: "" },
   slipokApiKey: { type: String, default: "" },
+  orderNotifications: {
+    paid:      { enabled: { type: Boolean, default: false }, template: { type: String, default: "✅ รับออเดอร์แล้วครับ!\n\nรายการ: {product}\nยอด: ฿{amount}\n\nกำลังดำเนินการครับ 🙏" } },
+    preparing: { enabled: { type: Boolean, default: false }, template: { type: String, default: "📦 กำลังเตรียมสินค้าแล้วครับ!\n\nรายการ: {product}\n\nจะแจ้งเลขพัสดุให้เร็วๆ นี้ครับ 🙏" } },
+    shipped:   { enabled: { type: Boolean, default: false }, template: { type: String, default: "🚚 ส่งสินค้าแล้วครับ!\n\nรายการ: {product}\nขนส่ง: {courier}\nเลขพัสดุ: {tracking}\n\nขอบคุณครับ 🙏" } },
+    delivered: { enabled: { type: Boolean, default: false }, template: { type: String, default: "✅ สินค้าถึงแล้วนะครับ!\n\nรายการ: {product}\n\nขอบคุณที่ใช้บริการครับ 🙏" } },
+  },
   // Greeting message sent on follow event
   greetingEnabled: { type: Boolean, default: false },
   greetingMessages: { type: Array, default: [] },
@@ -56,7 +62,7 @@ const ProductSchema = new mongoose.Schema({
   imageUrl: String,
   categories: { type: [String], default: [] },
   variants: [{
-    thickness: String,
+    variantName: String,
     colors: { type: [String], default: [] },
     price: Number,
     cost: Number,
@@ -104,10 +110,15 @@ const OrderSchema = new mongoose.Schema({
   shipCostTHB: { type: Number, default: 0 },
   tracking: String,
   courier: String,
-  status: { type: String, enum: ['pending', 'paid', 'preparing', 'shipped'], default: 'pending' },
+  status: { type: String, enum: ['pending', 'paid', 'preparing', 'shipped', 'delivered'], default: 'pending' },
   statusBeforeParcel: { type: String, enum: ['pending', 'paid'], default: 'pending' },
   paymentQrSent: { type: Boolean, default: false },
   trackingSent: { type: Boolean, default: false },
+  notifPaid: { type: Boolean, default: false },
+  notifPreparing: { type: Boolean, default: false },
+  notifShipped: { type: Boolean, default: false },
+  notifDelivered: { type: Boolean, default: false },
+  attributedCampaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', default: null },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -147,7 +158,7 @@ const CampaignSchema = new mongoose.Schema({
   messages: { type: [LineMessageBlockSchema], default: [] },
   status: { type: String, enum: ['active', 'paused', 'completed', 'cancelled'], default: 'active' },
   // Instant-specific
-  audience: { type: String, enum: ['all', 'active_30d', 'active_60d', 'ordered'], default: 'all' },
+  audience: { type: String, enum: ['all', 'active_30d', 'active_60d', 'ordered', 'never_ordered', 'high_value'], default: 'all' },
   recipientCount: { type: Number, default: 0 },
   sentAt: Date,
   retryKey: String,

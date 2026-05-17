@@ -490,14 +490,14 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
   const [selBrand, setSelBrand] = useState('');
   const [selModelLine, setSelModelLine] = useState('');
   const [selProduct, setSelProduct] = useState<any>(null);
-  const [selThickness, setSelThickness] = useState('');
+  const [selVariant, setSelVariant] = useState('');
   const [selColor, setSelColor] = useState('');
-  
+
   // NEW Manual State
   const [manualName, setManualName] = useState('');
   const [manualBrand, setManualBrand] = useState('');
   const [manualModelLine, setManualModelLine] = useState('');
-  const [manualThickness, setManualThickness] = useState('');
+  const [manualVariant, setManualVariant] = useState('');
   const [manualColor, setManualColor] = useState('');
   const [manualCategories, setManualCategories] = useState<string[]>([]);
   const [manualImageUrl, setManualImageUrl] = useState('');
@@ -523,8 +523,8 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
 
   const filteredProducts = products.filter((p: any) => p.brand === selBrand && (!selModelLine || p.modelLine === selModelLine));
   
-  const currentVariant = selProduct?.variants?.find((v: any) => v.thickness === selThickness);
-  const thicknessOptions = selProduct?.variants?.map((v: any) => v.thickness) || [];
+  const currentVariant = selProduct?.variants?.find((v: any) => v.variantName === selVariant);
+  const variantOptions = selProduct?.variants?.map((v: any) => v.variantName) || [];
   const colorOptions = currentVariant?.colors || [];
 
   useEffect(() => {
@@ -532,12 +532,12 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
       setSelBrand('');
       setSelModelLine('');
       setSelProduct(null);
-      setSelThickness('');
+      setSelVariant('');
       setSelColor('');
       setManualName('');
       setManualBrand('');
       setManualModelLine('');
-      setManualThickness('');
+      setManualVariant('');
       setManualColor('');
       setManualCategories([]);
       setManualImageUrl('');
@@ -573,11 +573,11 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
   const handleConfirm = () => {
     const finalPrice = parseFloat(price) || 0;
     if (isManual) {
-      onConfirm({ 
-        name: manualName, 
-        brand: manualBrand, 
+      onConfirm({
+        name: manualName,
+        brand: manualBrand,
         modelLine: manualModelLine,
-        thickness: manualThickness,
+        variantName: manualVariant,
         color: manualColor,
         categories: manualCategories, 
         imageUrl: manualImageUrl,
@@ -588,15 +588,15 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
     } else {
       onConfirm({
         ...selProduct,
-        selectedThickness: selThickness,
+        selectedVariant: selVariant,
         selectedColor: selColor
       }, finalPrice, quantity);
     }
   };
 
   const canConfirm = isManual 
-    ? (manualName.trim() !== '' && manualBrand.trim() !== '' && price.trim() !== '' && manualThickness.trim() !== '' && manualColor.trim() !== '') 
-    : (selProduct && selThickness && selColor && price.trim() !== '');
+    ? (manualName.trim() !== '' && manualBrand.trim() !== '' && price.trim() !== '' && manualVariant.trim() !== '' && manualColor.trim() !== '')
+    : (selProduct && selVariant && selColor && price.trim() !== '');
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -635,7 +635,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
           </div>
           <p className="text-[10px] text-[#8b92ad] font-bold uppercase tracking-widest truncate">
             {!isManual 
-              ? `PATH: ${selBrand || '?'} ${selModelLine ? `> ${selModelLine}` : ''} > ${selProduct?.name || '?'} > ${selThickness || '?'} > ${selColor || '?'}`
+              ? `PATH: ${selBrand || '?'} ${selModelLine ? `> ${selModelLine}` : ''} > ${selProduct?.name || '?'} > ${selVariant || '?'} > ${selColor || '?'}`
               : 'Creating New Product Catalog Entry'
             }
           </p>
@@ -691,7 +691,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                   {brands.map(b => (
                     <button 
                       key={b} 
-                      onClick={() => { setSelBrand(b); setSelModelLine(''); setSelProduct(null); setSelThickness(''); setSelColor(''); }}
+                      onClick={() => { setSelBrand(b); setSelModelLine(''); setSelProduct(null); setSelVariant(''); setSelColor(''); }}
                       className={cn(
                         "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
                         selBrand === b 
@@ -716,8 +716,8 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                         onClick={() => { 
                           if (selModelLine === ml) setSelModelLine(''); // Toggle off
                           else setSelModelLine(ml);
-                          setSelProduct(null); 
-                          setSelThickness(''); 
+                          setSelProduct(null);
+                          setSelVariant('');
                           setSelColor(''); 
                         }}
                         className={cn(
@@ -742,7 +742,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                     {filteredProducts.map((p: any) => (
                       <button 
                         key={p._id} 
-                        onClick={() => { setSelProduct(p); setSelThickness(''); setSelColor(''); }}
+                        onClick={() => { setSelProduct(p); setSelVariant(''); setSelColor(''); }}
                         className={cn(
                           "px-4 py-3 rounded-xl text-xs font-bold text-left transition-all border",
                           selProduct?._id === p._id 
@@ -757,20 +757,20 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                 </div>
               )}
 
-              {/* STEP 4: THICKNESS */}
+              {/* STEP 4: VARIANT */}
               {selProduct && (
                 <div className="animate-in slide-in-from-top-2">
                   <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">
-                    4. Thickness <span className="text-red-500">*</span>
+                    4. Variant <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
-                    {thicknessOptions.map((t: string) => (
-                      <button 
-                        key={t} 
-                        onClick={() => { setSelThickness(t); setSelColor(''); }}
+                    {variantOptions.map((t: string) => (
+                      <button
+                        key={t}
+                        onClick={() => { setSelVariant(t); setSelColor(''); }}
                         className={cn(
                           "flex-1 py-2 rounded-xl text-xs font-bold transition-all border",
-                          selThickness === t 
+                          selVariant === t
                             ? (theme === 'dark' ? "bg-white text-[#161925] border-white" : "bg-[#1a1d2e] text-white border-[#1a1d2e]") 
                             : (theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-[#8b92ad]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#8b92ad]")
                         )}
@@ -783,7 +783,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
               )}
 
               {/* STEP 5: COLOR */}
-              {selThickness && (
+              {selVariant && (
                 <div className="animate-in slide-in-from-top-2">
                   <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">
                     5. Color Swatch <span className="text-red-500">*</span>
@@ -881,17 +881,17 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
               {/* Right Column: Specific Variant */}
               <div className="space-y-6">
                 <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SPECIFIC THICKNESS & COLOR</label>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">SPECIFIC VARIANT & COLOR</label>
                   <div className={cn("border rounded-2xl p-4 transition-colors", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]")}>
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="relative z-[80]">
-                        <CreatableDropdown 
-                          label="THICKNESS" 
-                          value={manualThickness} 
-                          onChange={setManualThickness}
+                        <CreatableDropdown
+                          label="VARIANT"
+                          value={manualVariant}
+                          onChange={setManualVariant}
                           theme={theme}
-                          options={Array.from(new Set(products.flatMap((p: any) => p.variants?.map((v: any) => v.thickness) || []))).filter(Boolean) as string[]} 
-                          placeholder="e.g. 1.2 mm" 
+                          options={Array.from(new Set(products.flatMap((p: any) => p.variants?.map((v: any) => v.variantName) || []))).filter(Boolean) as string[]}
+                          placeholder="e.g. Size, Color, Type"
                           required={true}
                         />
                       </div>
@@ -2511,11 +2511,11 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t, theme }: 
               description: product.description || '',
               price: finalPrice,
               cost: 0,
-              variants: [{ 
-                thickness: product.thickness || 'Standard', 
-                colors: [product.color || 'Default'], 
-                price: finalPrice, 
-                cost: 0 
+              variants: [{
+                variantName: product.variantName || 'Standard',
+                colors: [product.color || 'Default'],
+                price: finalPrice,
+                cost: 0
               }]
             })
           });
@@ -2524,9 +2524,9 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t, theme }: 
         }
       }
 
-      const thickness = product.selectedThickness || product.thickness;
+      const variantName = product.selectedVariant || product.variantName;
       const color = product.selectedColor || product.color;
-      const fullProductName = `${product.brand ? `[${product.brand}] ` : ''}${product.modelLine ? `${product.modelLine} - ` : ''}${product.name}${thickness ? ` (${thickness})` : ''}${color ? ` - ${color}` : ''}`;
+      const fullProductName = `${product.brand ? `[${product.brand}] ` : ''}${product.modelLine ? `${product.modelLine} - ` : ''}${product.name}${variantName ? ` (${variantName})` : ''}${color ? ` - ${color}` : ''}`;
 
       const orderData = {
         lineUserId: customerId,

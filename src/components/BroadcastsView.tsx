@@ -35,6 +35,8 @@ interface Campaign {
   validUntil?: string;
   deliveredTo?: string[];
   totalTargeted?: number;
+  attributedOrders?: number;
+  attributedRevenue?: number;
   createdAt: string;
 }
 
@@ -92,10 +94,12 @@ const TIER_BADGE: Record<string, { label: string; color: string }> = {
 };
 
 const AUDIENCE_LABELS: Record<string, string> = {
-  all: 'All customers',
-  active_30d: 'Active last 30 days',
-  active_60d: 'Active last 60 days',
-  ordered: 'Ordered at least once',
+  all:           'All customers',
+  active_30d:    'Active last 30 days',
+  active_60d:    'Active last 60 days',
+  ordered:       'Ordered at least once',
+  never_ordered: 'Never ordered',
+  high_value:    'High value (฿5,000+ spent)',
 };
 
 // ── Upload zone (drag-and-drop + click) ──────────────────────────────────────
@@ -1012,7 +1016,13 @@ export default function BroadcastsView({ theme }: BroadcastsViewProps) {
                     <div key={c._id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
                       <div className="min-w-0">
                         <p className={`text-xs font-medium truncate ${k.text}`}>{c.name || 'Untitled'}</p>
-                        <p className={`text-[10px] ${k.muted}`}>{c.deliveryMode === 'instant' ? `Sent to ${c.recipientCount ?? 0}` : `${c.deliveredTo?.length ?? 0}/${c.totalTargeted ?? 0} delivered`} · {new Date(c.createdAt).toLocaleDateString()}</p>
+                        <p className={`text-[10px] ${k.muted}`}>
+                          {c.deliveryMode === 'instant' ? `Sent to ${c.recipientCount ?? 0}` : `${c.deliveredTo?.length ?? 0}/${c.totalTargeted ?? 0} delivered`}
+                          {c.deliveryMode === 'instant' && (c.attributedOrders ?? 0) > 0 && (
+                            <span className="text-emerald-400"> · {c.attributedOrders} orders · ฿{(c.attributedRevenue ?? 0).toLocaleString()}</span>
+                          )}
+                          {' '}· {new Date(c.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0 ${c.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : c.status === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>{c.status}</span>
                     </div>
