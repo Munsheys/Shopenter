@@ -172,6 +172,15 @@ const AutoReplySchema = new mongoose.Schema({
 });
 AutoReplySchema.index({ merchantId: 1, isActive: 1, priority: 1 });
 
+// Uploaded media files — served via /api/media/[id], TTL 30 days
+const MediaFileSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  contentType: { type: String, required: true },
+  filename: { type: String, default: '' },
+  data: { type: Buffer, required: true },
+  createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 30 },
+});
+
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
@@ -181,3 +190,4 @@ export const Message = mongoose.models.Message || mongoose.model('Message', Mess
 export const ProcessedEvent = mongoose.models.ProcessedEvent || mongoose.model('ProcessedEvent', ProcessedEventSchema);
 export const Campaign = mongoose.models.Campaign || mongoose.model('Campaign', CampaignSchema);
 export const AutoReply = mongoose.models.AutoReply || mongoose.model('AutoReply', AutoReplySchema);
+export const MediaFile = mongoose.models.MediaFile || mongoose.model('MediaFile', MediaFileSchema);

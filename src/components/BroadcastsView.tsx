@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Megaphone, Zap, Clock, MessageSquare, Hand, LayoutGrid,
-  Plus, Trash2, Edit2, Check, X, ChevronDown, AlertTriangle,
+  Plus, Trash2, Edit2, Check, X, AlertTriangle,
   RefreshCw, Send, Pause, Play, Ban, Loader2, ExternalLink,
-  Image as ImageIcon, Video, Music, Smile, Type, Info,
+  Image as ImageIcon, Video, Music, Smile, Type, Info, Upload, Link,
 } from 'lucide-react';
 
 interface BroadcastsViewProps {
@@ -98,16 +98,110 @@ const AUDIENCE_LABELS: Record<string, string> = {
   ordered: 'Ordered at least once',
 };
 
+// ── Upload zone (drag-and-drop + click) ──────────────────────────────────────
+
+function UploadZone({
+  accept, maxMB, value, onUploaded, isDark, previewType = 'image',
+}: {
+  accept: string; maxMB: number; value?: string;
+  onUploaded: (url: string, duration?: number) => void;
+  isDark: boolean; previewType?: 'image' | 'audio';
+}) {
+  const k = isDark ? DK : LK;
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState('');
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function upload(file: File) {
+    if (file.size > maxMB * 1024 * 1024) { setErr(`Max ${maxMB} MB allowed.`); return; }
+    setUploading(true); setErr('');
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok) {
+        // For audio, estimate duration from file size (rough: ~128kbps)
+        const duration = previewType === 'audio' ? Math.round((file.size / 16000) * 1000) : undefined;
+        onUploaded(data.url, duration);
+      } else {
+        setErr(data.error ?? 'Upload failed');
+      }
+    } catch { setErr('Upload failed. Check your connection.'); }
+    setUploading(false);
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) upload(file);
+  }
+
+  if (value) {
+    return (
+      <div className="space-y-2">
+        {previewType === 'image' && (
+          <img src={value} alt="" className="w-full max-h-48 object-cover rounded-xl border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />
+        )}
+        {previewType === 'audio' && (
+          <audio src={value} controls className="w-full h-10" />
+        )}
+        <button
+          onClick={() => onUploaded('')}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}
+        >
+          <Upload size={11} /> Replace file
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        onClick={() => inputRef.current?.click()}
+        className={`relative flex flex-col items-center justify-center gap-2 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none ${
+          dragging
+            ? 'border-[#00b900] bg-[#00b900]/5'
+            : isDark ? 'border-[#1f2335] hover:border-[#00b900]/50 hover:bg-[#00b900]/5' : 'border-slate-200 hover:border-[#00b900]/50 hover:bg-green-50'
+        }`}
+      >
+        {uploading ? (
+          <Loader2 size={24} className="animate-spin text-[#00b900]" />
+        ) : (
+          <>
+            <Upload size={22} className={isDark ? 'text-[#8b92ad]' : 'text-slate-400'} />
+            <div className="text-center">
+              <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Drop file here or <span className="text-[#00b900]">browse</span></p>
+              <p className={`text-xs mt-0.5 ${k.muted}`}>Max {maxMB} MB</p>
+            </div>
+          </>
+        )}
+        <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ''; }} />
+      </div>
+      {err && <p className="text-xs text-red-400 mt-1.5">{err}</p>}
+    </div>
+  );
+}
+
 // ── Message block composer ────────────────────────────────────────────────────
 
 function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onChange: (b: LineBlock[]) => void; isDark: boolean }) {
   const k = isDark ? DK : LK;
+  // Per-block: track whether user wants to paste a URL instead of uploading
+  const [urlMode, setUrlMode] = useState<Record<number, boolean>>({});
 
   function update(i: number, patch: Partial<LineBlock>) {
-    const next = blocks.map((b, idx) => idx === i ? { ...b, ...patch } : b);
-    onChange(next);
+    onChange(blocks.map((b, idx) => idx === i ? { ...b, ...patch } : b));
   }
-  function remove(i: number) { onChange(blocks.filter((_, idx) => idx !== i)); }
+  function remove(i: number) {
+    onChange(blocks.filter((_, idx) => idx !== i));
+    setUrlMode(m => { const n = { ...m }; delete n[i]; return n; });
+  }
   function add(type: LineBlock['type']) {
     if (blocks.length >= 5) return;
     onChange([...blocks, { type }]);
@@ -116,82 +210,87 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
   return (
     <div className="space-y-3">
       {blocks.map((block, i) => (
-        <div key={i} className={`rounded-xl p-3 ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
-          <div className="flex items-center justify-between mb-2">
-            <span className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>{block.type}</span>
-            <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 transition-colors"><X size={14} /></button>
+        <div key={i} className={`rounded-xl p-4 ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+          {/* Block header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className={`text-[11px] font-bold uppercase tracking-widest ${k.muted}`}>{block.type}</span>
+              {(block.type === 'image' || block.type === 'audio') && (
+                <button
+                  onClick={() => setUrlMode(m => ({ ...m, [i]: !m[i] }))}
+                  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${urlMode[i] ? 'border-[#00b900]/40 text-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'}`}
+                >
+                  <Link size={9} /> {urlMode[i] ? 'Using URL' : 'Paste URL instead'}
+                </button>
+              )}
+            </div>
+            <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 transition-colors p-0.5"><X size={14} /></button>
           </div>
+
+          {/* Text */}
           {block.type === 'text' && (
             <textarea
               value={block.text ?? ''}
               onChange={e => update(i, { text: e.target.value })}
-              placeholder="Enter your message…"
+              placeholder="Type your message here…"
               rows={3}
               className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`}
             />
           )}
-          {(block.type === 'image' || block.type === 'video') && (
+
+          {/* Image */}
+          {block.type === 'image' && (
+            urlMode[i] ? (
+              <div className="space-y-2">
+                <input type="url" value={block.originalContentUrl ?? ''} onChange={e => update(i, { originalContentUrl: e.target.value, previewImageUrl: e.target.value })} placeholder="https://example.com/image.jpg" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+                {block.originalContentUrl && <img src={block.originalContentUrl} alt="" className="w-full max-h-40 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = 'none')} />}
+              </div>
+            ) : (
+              <UploadZone accept="image/jpeg,image/png,image/gif,image/webp" maxMB={1} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url, previewImageUrl: url })} isDark={isDark} previewType="image" />
+            )
+          )}
+
+          {/* Video — URL only (200 MB limit makes browser upload impractical) */}
+          {block.type === 'video' && (
             <div className="space-y-2">
-              <input
-                type="url"
-                value={block.originalContentUrl ?? ''}
-                onChange={e => update(i, { originalContentUrl: e.target.value })}
-                placeholder={`${block.type === 'image' ? 'Image' : 'Video'} URL (must be https://)`}
-                className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}
-              />
-              <input
-                type="url"
-                value={block.previewImageUrl ?? ''}
-                onChange={e => update(i, { previewImageUrl: e.target.value })}
-                placeholder="Preview image URL (thumbnail)"
-                className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}
-              />
-              {block.originalContentUrl && block.type === 'image' && (
-                <img src={block.originalContentUrl} alt="" className="h-24 w-auto rounded-lg object-cover border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />
-              )}
+              <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
+                <Info size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                <p className={`text-xs ${k.muted}`}>Video must be self-hosted (max 200 MB, MP4 only). Paste the direct HTTPS URL to your video file.</p>
+              </div>
+              <input type="url" value={block.originalContentUrl ?? ''} onChange={e => update(i, { originalContentUrl: e.target.value })} placeholder="https://example.com/video.mp4" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+              <input type="url" value={block.previewImageUrl ?? ''} onChange={e => update(i, { previewImageUrl: e.target.value })} placeholder="Thumbnail image URL (required by LINE)" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
             </div>
           )}
+
+          {/* Audio */}
           {block.type === 'audio' && (
-            <div className="space-y-2">
-              <input
-                type="url"
-                value={block.originalContentUrl ?? ''}
-                onChange={e => update(i, { originalContentUrl: e.target.value })}
-                placeholder="Audio URL (must be https://)"
-                className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}
-              />
-              <input
-                type="number"
-                value={block.duration ?? 60000}
-                onChange={e => update(i, { duration: Number(e.target.value) })}
-                placeholder="Duration (ms)"
-                className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}
-              />
-            </div>
+            urlMode[i] ? (
+              <div className="space-y-2">
+                <input type="url" value={block.originalContentUrl ?? ''} onChange={e => update(i, { originalContentUrl: e.target.value })} placeholder="https://example.com/audio.m4a" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+              </div>
+            ) : (
+              <UploadZone accept="audio/mpeg,audio/mp4,audio/m4a,audio/aac,audio/wav,audio/ogg" maxMB={1} value={block.originalContentUrl} onUploaded={(url, dur) => update(i, { originalContentUrl: url, duration: dur })} isDark={isDark} previewType="audio" />
+            )
           )}
+
+          {/* Sticker */}
           {block.type === 'sticker' && (
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                value={block.packageId ?? ''}
-                onChange={e => update(i, { packageId: e.target.value })}
-                placeholder="Package ID"
-                className={`rounded-lg px-3 py-2 text-sm border ${k.input}`}
-              />
-              <input
-                type="text"
-                value={block.stickerId ?? ''}
-                onChange={e => update(i, { stickerId: e.target.value })}
-                placeholder="Sticker ID"
-                className={`rounded-lg px-3 py-2 text-sm border ${k.input}`}
-              />
+            <div className="space-y-2">
+              <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
+                <Info size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                <p className={`text-xs ${k.muted}`}>Find Package ID and Sticker ID at <a href="https://developers.line.biz/en/docs/messaging-api/sticker-list/" target="_blank" rel="noopener noreferrer" className="text-[#00b900] hover:underline">LINE sticker list ↗</a></p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" value={block.packageId ?? ''} onChange={e => update(i, { packageId: e.target.value })} placeholder="Package ID e.g. 1" className={`rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+                <input type="text" value={block.stickerId ?? ''} onChange={e => update(i, { stickerId: e.target.value })} placeholder="Sticker ID e.g. 1" className={`rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+              </div>
             </div>
           )}
         </div>
       ))}
 
       {blocks.length < 5 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           {[
             { type: 'text' as const, icon: <Type size={12} />, label: 'Text' },
             { type: 'image' as const, icon: <ImageIcon size={12} />, label: 'Image' },
@@ -207,7 +306,7 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
               {icon} + {label}
             </button>
           ))}
-          <span className={`text-xs self-center ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>{blocks.length}/5 blocks</span>
+          <span className={`text-xs ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>{blocks.length}/5 blocks</span>
         </div>
       )}
     </div>
