@@ -105,7 +105,7 @@ function UploadZone({
 }: {
   accept: string; maxMB: number; value?: string;
   onUploaded: (url: string, duration?: number) => void;
-  isDark: boolean; previewType?: 'image' | 'audio';
+  isDark: boolean; previewType?: 'image' | 'audio' | 'video';
 }) {
   const k = isDark ? DK : LK;
   const [uploading, setUploading] = useState(false);
@@ -146,6 +146,9 @@ function UploadZone({
         )}
         {previewType === 'audio' && (
           <audio src={value} controls className="w-full h-10" />
+        )}
+        {previewType === 'video' && (
+          <video src={value} controls className="w-full max-h-48 rounded-xl border border-white/10" />
         )}
         <button
           onClick={() => onUploaded('')}
@@ -215,7 +218,7 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className={`text-[11px] font-bold uppercase tracking-widest ${k.muted}`}>{block.type}</span>
-              {(block.type === 'image' || block.type === 'audio') && (
+              {(block.type === 'image' || block.type === 'audio' || block.type === 'video') && (
                 <button
                   onClick={() => setUrlMode(m => ({ ...m, [i]: !m[i] }))}
                   className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${urlMode[i] ? 'border-[#00b900]/40 text-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'}`}
@@ -250,16 +253,22 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
             )
           )}
 
-          {/* Video — URL only (200 MB limit makes browser upload impractical) */}
+          {/* Video — drag-and-drop or URL */}
           {block.type === 'video' && (
-            <div className="space-y-2">
-              <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
-                <Info size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
-                <p className={`text-xs ${k.muted}`}>Video must be self-hosted (max 200 MB, MP4 only). Paste the direct HTTPS URL to your video file.</p>
+            urlMode[i] ? (
+              <div className="space-y-2">
+                <input type="url" value={block.originalContentUrl ?? ''} onChange={e => update(i, { originalContentUrl: e.target.value })} placeholder="https://example.com/video.mp4" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+                <input type="url" value={block.previewImageUrl ?? ''} onChange={e => update(i, { previewImageUrl: e.target.value })} placeholder="Thumbnail image URL (required by LINE)" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
               </div>
-              <input type="url" value={block.originalContentUrl ?? ''} onChange={e => update(i, { originalContentUrl: e.target.value })} placeholder="https://example.com/video.mp4" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
-              <input type="url" value={block.previewImageUrl ?? ''} onChange={e => update(i, { previewImageUrl: e.target.value })} placeholder="Thumbnail image URL (required by LINE)" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
-            </div>
+            ) : (
+              <div className="space-y-3">
+                <UploadZone accept="video/mp4,video/quicktime" maxMB={200} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url })} isDark={isDark} previewType="video" />
+                <div>
+                  <p className={`text-[11px] font-semibold uppercase tracking-widest mb-1.5 ${k.muted}`}>Thumbnail (required by LINE)</p>
+                  <UploadZone accept="image/jpeg,image/png,image/webp" maxMB={1} value={block.previewImageUrl} onUploaded={url => update(i, { previewImageUrl: url })} isDark={isDark} previewType="image" />
+                </div>
+              </div>
+            )
           )}
 
           {/* Audio */}
@@ -427,6 +436,132 @@ function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSy
   );
 }
 
+// ── Rich Menu helpers ─────────────────────────────────────────────────────────
+
+interface RmButton {
+  label: string;
+  action: {
+    type: string;
+    uri?: string;
+    text?: string;
+    data?: string;
+    displayText?: string;
+    mode?: string;
+    richMenuAliasId?: string;
+    clipboardText?: string;
+  };
+}
+
+const RM_TEMPLATES: Record<'large' | 'compact', { id: string; label: string; count: number }[]> = {
+  large: [
+    { id: '2col', label: '2 Wide', count: 2 },
+    { id: '3col', label: '3 Wide', count: 3 },
+    { id: '6grid', label: '6 Grid', count: 6 },
+    { id: '1big+2', label: '1 + 2', count: 3 },
+    { id: '2row', label: '2 Tall', count: 2 },
+  ],
+  compact: [
+    { id: '2col', label: '2 Wide', count: 2 },
+    { id: '3col', label: '3 Wide', count: 3 },
+    { id: '6grid', label: '6 Grid', count: 6 },
+  ],
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  uri: 'Open URL',
+  message: 'Send Text',
+  postback: 'Postback',
+  datetimepicker: 'Date/Time Picker',
+  richmenuswitch: 'Switch Tab',
+  clipboard: 'Copy Text',
+  location: 'Open Location',
+  camera: 'Open Camera',
+  cameraRoll: 'Camera Roll',
+};
+
+function defaultRmButtons(count: number): RmButton[] {
+  return Array.from({ length: count }, (_, i) => ({
+    label: `Button ${i + 1}`,
+    action: { type: 'uri', uri: 'https://' },
+  }));
+}
+
+function LayoutPreview({ template, size, active, isDark }: { template: string; size: 'large' | 'compact'; active: boolean; isDark: boolean }) {
+  const W = 60, H = size === 'large' ? 36 : 22;
+  const cellFill = active ? 'rgba(0,185,0,0.18)' : isDark ? 'rgba(26,29,46,0.9)' : 'rgba(241,245,249,1)';
+  const strokeCol = active ? '#00b900' : isDark ? '#2d3555' : '#cbd5e1';
+  const hw2 = Math.floor(W / 2), tw = Math.floor(W / 3), hh = Math.floor(H / 2);
+
+  let rects: [number, number, number, number][] = [];
+  switch (template) {
+    case '2col':   rects = [[0,0,hw2-1,H],[hw2,0,W-hw2,H]]; break;
+    case '3col':   rects = [[0,0,tw-1,H],[tw,0,tw-1,H],[tw*2,0,W-tw*2,H]]; break;
+    case '6grid':  rects = [[0,0,tw-1,hh-1],[tw,0,tw-1,hh-1],[tw*2,0,W-tw*2,hh-1],[0,hh,tw-1,H-hh],[tw,hh,tw-1,H-hh],[tw*2,hh,W-tw*2,H-hh]]; break;
+    case '1big+2': rects = [[0,0,hw2-1,H],[hw2,0,W-hw2,hh-1],[hw2,hh,W-hw2,H-hh]]; break;
+    case '2row':   rects = [[0,0,W,hh-1],[0,hh,W,H-hh]]; break;
+  }
+
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      {rects.map(([x, y, w, h], i) => (
+        <rect key={i} x={x} y={y} width={w} height={h} fill={cellFill} stroke={strokeCol} strokeWidth="1.5" rx="2" />
+      ))}
+    </svg>
+  );
+}
+
+function RmButtonEditor({ index, btn, onChange, isDark, k }: {
+  index: number; btn: RmButton;
+  onChange: (b: RmButton) => void;
+  isDark: boolean; k: typeof DK;
+}) {
+  function setAction(patch: Partial<RmButton['action']>) {
+    onChange({ ...btn, action: { ...btn.action, ...patch } });
+  }
+  function setType(type: string) {
+    onChange({ ...btn, action: { type } });
+  }
+  return (
+    <div className={`rounded-xl p-3 space-y-2 ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+      <p className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Button {index + 1}</p>
+      <select value={btn.action.type} onChange={e => setType(e.target.value)} className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}>
+        {Object.entries(ACTION_LABELS).map(([val, lbl]) => <option key={val} value={val}>{lbl}</option>)}
+      </select>
+      {btn.action.type === 'uri' && (
+        <input type="url" value={btn.action.uri ?? ''} onChange={e => setAction({ uri: e.target.value })} placeholder="https://your-url.com" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+      )}
+      {btn.action.type === 'message' && (
+        <input type="text" value={btn.action.text ?? ''} onChange={e => setAction({ text: e.target.value })} placeholder="Message text" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+      )}
+      {btn.action.type === 'postback' && (
+        <div className="space-y-2">
+          <input type="text" value={btn.action.data ?? ''} onChange={e => setAction({ data: e.target.value })} placeholder="Postback data (e.g. action=order)" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+          <input type="text" value={btn.action.displayText ?? ''} onChange={e => setAction({ displayText: e.target.value })} placeholder="Display text in chat (optional)" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+        </div>
+      )}
+      {btn.action.type === 'datetimepicker' && (
+        <div className="space-y-2">
+          <input type="text" value={btn.action.data ?? ''} onChange={e => setAction({ data: e.target.value })} placeholder="Postback data" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+          <select value={btn.action.mode ?? 'date'} onChange={e => setAction({ mode: e.target.value })} className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}>
+            <option value="date">Date only</option>
+            <option value="time">Time only</option>
+            <option value="datetime">Date &amp; Time</option>
+          </select>
+        </div>
+      )}
+      {btn.action.type === 'richmenuswitch' && (
+        <input type="text" value={btn.action.richMenuAliasId ?? ''} onChange={e => setAction({ richMenuAliasId: e.target.value })} placeholder="Rich menu alias ID" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+      )}
+      {btn.action.type === 'clipboard' && (
+        <input type="text" value={btn.action.clipboardText ?? ''} onChange={e => setAction({ clipboardText: e.target.value })} placeholder="Text to copy to clipboard" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+      )}
+      {['location', 'camera', 'cameraRoll'].includes(btn.action.type) && (
+        <p className={`text-xs px-2 py-1.5 rounded-lg ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'} ${k.muted}`}>No additional setup needed.</p>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function BroadcastsView({ theme }: BroadcastsViewProps) {
@@ -464,14 +599,13 @@ export default function BroadcastsView({ theme }: BroadcastsViewProps) {
   const [rSaving, setRSaving] = useState(false);
 
   // Rich menu form
-  const [rmLayout, setRmLayout] = useState<'2col' | '3col' | '6grid'>('3col');
+  const [rmSize, setRmSize] = useState<'large' | 'compact'>('large');
+  const [rmTemplate, setRmTemplate] = useState('3col');
   const [rmChatBarText, setRmChatBarText] = useState('Menu');
+  const [rmShowChatBar, setRmShowChatBar] = useState(true);
+  const [rmSelected, setRmSelected] = useState(false);
   const [rmImageUrl, setRmImageUrl] = useState('');
-  const [rmButtons, setRmButtons] = useState([
-    { label: 'Button 1', action: { type: 'uri', uri: 'https://' } },
-    { label: 'Button 2', action: { type: 'uri', uri: 'https://' } },
-    { label: 'Button 3', action: { type: 'uri', uri: 'https://' } },
-  ]);
+  const [rmButtons, setRmButtons] = useState<RmButton[]>(defaultRmButtons(3));
   const [rmSaving, setRmSaving] = useState(false);
 
   // Sync state
@@ -647,15 +781,16 @@ export default function BroadcastsView({ theme }: BroadcastsViewProps) {
   async function handlePublishRichMenu() {
     setRmSaving(true);
     try {
-      const buttonCount = rmLayout === '2col' ? 2 : rmLayout === '3col' ? 3 : 6;
       await fetch('/api/rich-menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          layout: rmLayout,
-          chatBarText: rmChatBarText,
+          size: rmSize,
+          template: rmTemplate,
+          chatBarText: rmShowChatBar ? rmChatBarText : '',
           imageUrl: rmImageUrl,
-          buttons: rmButtons.slice(0, buttonCount),
+          buttons: rmButtons,
+          selected: rmSelected,
           setAsDefault: true,
         }),
       });
@@ -968,8 +1103,8 @@ export default function BroadcastsView({ theme }: BroadcastsViewProps) {
 
       {/* ── Rich Menu ── */}
       {section === 'rich-menu' && (
-        <div className="space-y-6 max-w-2xl">
-          {/* Current menus */}
+        <div className="space-y-6">
+          {/* Published menus */}
           {richMenus.length > 0 && (
             <div className={`rounded-2xl p-6 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
               <p className={`text-sm font-semibold ${k.text}`}>Published Menus</p>
@@ -977,7 +1112,7 @@ export default function BroadcastsView({ theme }: BroadcastsViewProps) {
                 <div key={menu.richMenuId} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
                   <div>
                     <p className={`text-sm font-medium ${k.text}`}>{menu.chatBarText || menu.name}</p>
-                    <p className={`text-xs ${k.muted}`}>{menu.richMenuId} {menu.richMenuId === defaultRichMenuId && <span className="text-emerald-400 ml-1">· Default</span>}</p>
+                    <p className={`text-xs ${k.muted}`}>{menu.richMenuId}{menu.richMenuId === defaultRichMenuId && <span className="text-emerald-400 ml-1"> · Default</span>}</p>
                   </div>
                   <button onClick={() => handleDeleteRichMenu(menu.richMenuId)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"><Trash2 size={14} /></button>
                 </div>
@@ -985,62 +1120,103 @@ export default function BroadcastsView({ theme }: BroadcastsViewProps) {
             </div>
           )}
 
-          {/* Create new */}
-          <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-            <p className={`text-sm font-semibold ${k.text}`}>Create Rich Menu</p>
+          {/* Create new — 2-col layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            <div>
-              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Layout</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[{ v: '2col', label: '2 Columns' }, { v: '3col', label: '3 Columns' }, { v: '6grid', label: '6 Grid' }].map(({ v, label }) => {
-                  const count = v === '2col' ? 2 : v === '3col' ? 3 : 6;
-                  const btnCls = `py-3 rounded-xl text-sm font-medium border transition-colors ${rmLayout === v ? 'bg-[#00b900] text-white border-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`;
-                  return (
-                    <button key={v} onClick={() => { setRmLayout(v as any); setRmButtons(Array.from({ length: count }, (_, i) => ({ label: 'Button ' + (i + 1), action: { type: 'uri', uri: 'https://' } }))); }} className={btnCls}>
-                      {label}
+            {/* Left: configuration */}
+            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+              <p className={`text-sm font-semibold ${k.text}`}>Create Rich Menu</p>
+
+              {/* Size */}
+              <div>
+                <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Menu Size</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([['large', 'Large', '2500 × 1686 px'], ['compact', 'Compact', '2500 × 843 px']] as const).map(([val, label, sub]) => (
+                    <button key={val}
+                      onClick={() => { setRmSize(val); setRmTemplate('3col'); setRmButtons(defaultRmButtons(3)); }}
+                      className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${rmSize === val ? 'bg-[#00b900] text-white border-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>
+                      <p>{label}</p>
+                      <p className={`text-[10px] mt-0.5 ${rmSize === val ? 'text-white/70' : k.muted}`}>{sub}</p>
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Background Image URL</label>
-              <input type="url" value={rmImageUrl} onChange={e => setRmImageUrl(e.target.value)} placeholder="https://example.com/menu.jpg (2500×1686px recommended)" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
-              {rmImageUrl && <img src={rmImageUrl} alt="" className="mt-2 w-full max-h-40 object-cover rounded-xl border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />}
-            </div>
+              {/* Layout template gallery */}
+              <div>
+                <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Layout Template</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {RM_TEMPLATES[rmSize].map(tpl => (
+                    <button key={tpl.id}
+                      onClick={() => { setRmTemplate(tpl.id); setRmButtons(defaultRmButtons(tpl.count)); }}
+                      className={`py-2 px-2 rounded-xl text-[11px] font-medium border transition-colors flex flex-col items-center gap-2 ${rmTemplate === tpl.id ? 'border-[#00b900] bg-[#00b900]/10 text-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#2d3555]' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                      <LayoutPreview template={tpl.id} size={rmSize} active={rmTemplate === tpl.id} isDark={isDark} />
+                      <span>{tpl.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            <div>
-              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Chat Bar Text</label>
-              <input type="text" value={rmChatBarText} onChange={e => setRmChatBarText(e.target.value)} placeholder="Open Menu" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
-            </div>
-
-            <div>
-              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-3 ${k.muted}`}>Button Actions</label>
-              <div className="space-y-3">
-                {rmButtons.map((btn, i) => (
-                  <div key={i} className={`rounded-xl p-3 space-y-2 ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
-                    <p className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Button {i + 1}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <select value={btn.action.type} onChange={e => setRmButtons(bs => bs.map((b, idx) => idx === i ? { ...b, action: { ...b.action, type: e.target.value } } : b))}
-                        className={`rounded-lg px-3 py-2 text-sm border ${k.input}`}>
-                        <option value="uri">Open URL</option>
-                        <option value="message">Send Text</option>
-                      </select>
-                      <input type="text" value={btn.action.type === 'uri' ? btn.action.uri ?? '' : (btn.action as any).text ?? ''}
-                        onChange={e => setRmButtons(bs => bs.map((b, idx) => idx === i ? { ...b, action: b.action.type === 'uri' ? { ...b.action, uri: e.target.value } : { ...b.action, text: e.target.value } } : b))}
-                        placeholder={btn.action.type === 'uri' ? 'https://' : 'Message text'}
-                        className={`rounded-lg px-3 py-2 text-sm border ${k.input}`} />
-                    </div>
+              {/* Chat bar text */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Chat Bar Text</label>
+                  <button
+                    onClick={() => setRmShowChatBar(v => !v)}
+                    className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmShowChatBar ? 'bg-[#00b900]' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rmShowChatBar ? 'left-4' : 'left-0.5'}`} />
+                  </button>
+                </div>
+                {rmShowChatBar && (
+                  <div className="relative">
+                    <input type="text" value={rmChatBarText} onChange={e => setRmChatBarText(e.target.value.slice(0, 14))} placeholder="Open Menu" className={`w-full rounded-lg px-3 py-2 text-sm border pr-14 ${k.input}`} />
+                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] tabular-nums ${rmChatBarText.length >= 14 ? 'text-red-400' : k.muted}`}>{rmChatBarText.length}/14</span>
                   </div>
-                ))}
+                )}
+              </div>
+
+              {/* Auto-open */}
+              <div className={`flex items-center justify-between py-3 border-t ${k.border}`}>
+                <div>
+                  <p className={`text-sm font-medium ${k.text}`}>Auto-open menu</p>
+                  <p className={`text-xs ${k.muted}`}>Menu expands when user opens chat</p>
+                </div>
+                <button
+                  onClick={() => setRmSelected(v => !v)}
+                  className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmSelected ? 'bg-[#00b900]' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rmSelected ? 'left-4' : 'left-0.5'}`} />
+                </button>
               </div>
             </div>
 
-            <button onClick={handlePublishRichMenu} disabled={rmSaving || !rmImageUrl} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-              {rmSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-              {rmSaving ? 'Publishing…' : 'Publish Rich Menu'}
-            </button>
+            {/* Right: image + buttons + publish */}
+            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+
+              {/* Background image */}
+              <div>
+                <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-1 ${k.muted}`}>Background Image</label>
+                <p className={`text-xs ${k.muted} mb-3`}>JPEG or PNG · max 1 MB · {rmSize === 'large' ? '2500×1686' : '2500×843'} px recommended</p>
+                <UploadZone accept="image/jpeg,image/png" maxMB={1} value={rmImageUrl} onUploaded={url => setRmImageUrl(url)} isDark={isDark} previewType="image" />
+              </div>
+
+              {/* Button action editors */}
+              <div>
+                <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-3 ${k.muted}`}>Button Actions · {rmButtons.length} area{rmButtons.length !== 1 ? 's' : ''}</label>
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {rmButtons.map((btn, i) => (
+                    <RmButtonEditor key={i} index={i} btn={btn} onChange={updated => setRmButtons(bs => bs.map((b, idx) => idx === i ? updated : b))} isDark={isDark} k={isDark ? DK : LK} />
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={handlePublishRichMenu}
+                disabled={rmSaving || !rmImageUrl}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                {rmSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                {rmSaving ? 'Publishing…' : 'Publish Rich Menu'}
+              </button>
+            </div>
           </div>
         </div>
       )}

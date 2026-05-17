@@ -5,30 +5,64 @@ import { Settings } from '@/models';
 
 export const runtime = 'nodejs';
 
-// Preset layout generators — coordinates for standard LINE rich menu sizes (2500×1686)
-function buildAreas(layout: '2col' | '3col' | '6grid', actions: { label: string; action: { type: string; uri?: string; text?: string } }[]) {
-  const areas: any[] = [];
-  const h = 1686;
-  const w = 2500;
-
-  if (layout === '2col') {
-    [[0, 0, w / 2, h], [w / 2, 0, w / 2, h]].forEach(([x, y, bw, bh], i) => {
-      if (actions[i]) areas.push({ bounds: { x, y, width: bw, height: bh }, action: actions[i].action });
-    });
-  } else if (layout === '3col') {
-    const bw = Math.floor(w / 3);
-    [0, 1, 2].forEach(i => {
-      if (actions[i]) areas.push({ bounds: { x: i * bw, y: 0, width: bw, height: h }, action: actions[i].action });
-    });
-  } else if (layout === '6grid') {
-    const bw = Math.floor(w / 3);
-    const bh = Math.floor(h / 2);
-    [0, 1, 2, 3, 4, 5].forEach(i => {
-      const col = i % 3;
-      const row = Math.floor(i / 3);
-      if (actions[i]) areas.push({ bounds: { x: col * bw, y: row * bh, width: bw, height: bh }, action: actions[i].action });
-    });
+function buildAction(action: any) {
+  const { type } = action;
+  switch (type) {
+    case 'message':       return { type: 'message', text: action.text ?? '' };
+    case 'postback':      return { type: 'postback', data: action.data ?? '', displayText: action.displayText ?? undefined };
+    case 'datetimepicker':return { type: 'datetimepicker', data: action.data ?? '', mode: action.mode ?? 'date' };
+    case 'richmenuswitch':return { type: 'richmenuswitch', richMenuAliasId: action.richMenuAliasId ?? '', data: action.data ?? '' };
+    case 'clipboard':     return { type: 'clipboard', clipboardText: action.clipboardText ?? '' };
+    case 'location':      return { type: 'location' };
+    case 'camera':        return { type: 'camera' };
+    case 'cameraRoll':    return { type: 'cameraRoll' };
+    default:              return { type: 'uri', uri: action.uri ?? '#' };
   }
+}
+
+function buildAreas(template: string, W: number, H: number, buttons: any[]) {
+  const areas: any[] = [];
+  const hw2 = Math.floor(W / 2);
+  const tw  = Math.floor(W / 3);
+  const hh  = Math.floor(H / 2);
+
+  const push = (x: number, y: number, w: number, h: number, i: number) => {
+    if (buttons[i]) areas.push({ bounds: { x, y, width: w, height: h }, action: buildAction(buttons[i].action) });
+  };
+
+  switch (template) {
+    case '2col':
+      push(0, 0, hw2, H, 0);
+      push(hw2, 0, W - hw2, H, 1);
+      break;
+    case '3col':
+      push(0, 0, tw, H, 0);
+      push(tw, 0, tw, H, 1);
+      push(tw * 2, 0, W - tw * 2, H, 2);
+      break;
+    case '6grid':
+      for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+        const x = c * tw, y = r === 0 ? 0 : hh;
+        const w = c === 2 ? W - tw * 2 : tw;
+        const h = r === 0 ? hh : H - hh;
+        push(x, y, w, h, r * 3 + c);
+      }
+      break;
+    case '1big+2':
+      push(0, 0, hw2, H, 0);
+      push(hw2, 0, W - hw2, hh, 1);
+      push(hw2, hh, W - hw2, H - hh, 2);
+      break;
+    case '2row':
+      push(0, 0, W, hh, 0);
+      push(0, hh, W, H - hh, 1);
+      break;
+    default:
+      // fallback: equal columns
+      const bw = Math.floor(W / Math.max(buttons.length, 1));
+      buttons.forEach((_, i) => push(i * bw, 0, i === buttons.length - 1 ? W - i * bw : bw, H, i));
+  }
+
   return areas;
 }
 
@@ -63,11 +97,16 @@ export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { layout, chatBarText = 'Menu', imageUrl, buttons = [], setAsDefault = true } = await req.json();
+  const {
+    size = 'large',
+    template = '3col',
+    chatBarText = 'Menu',
+    imageUrl,
+    buttons = [],
+    selected = false,
+    setAsDefault = true,
+  } = await req.json();
 
-  if (!['2col', '3col', '6grid'].includes(layout)) {
-    return NextResponse.json({ error: 'Layout must be 2col, 3col, or 6grid' }, { status: 400 });
-  }
   if (!imageUrl) return NextResponse.json({ error: 'imageUrl is required' }, { status: 400 });
 
   await dbConnect();
@@ -75,52 +114,50 @@ export async function POST(req: NextRequest) {
   const token = settings?.lineChannelAccessToken?.trim();
   if (!token) return NextResponse.json({ error: 'LINE token not configured' }, { status: 400 });
 
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const authHeaders: Record<string, string> = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  const W = 2500;
+  const H = size === 'large' ? 1686 : 843;
 
   try {
-    // 1. Create the rich menu layout
-    const areas = buildAreas(layout as any, buttons);
+    const areas = buildAreas(template, W, H, buttons);
+
     const menuPayload = {
-      size: { width: 2500, height: layout === '6grid' ? 1686 : 843 },
-      selected: true,
-      name: `shopenter-${layout}-${Date.now()}`,
-      chatBarText,
+      size: { width: W, height: H },
+      selected,
+      name: `shopenter-${template}-${Date.now()}`,
+      chatBarText: chatBarText || 'Menu',
       areas,
     };
 
     const createRes = await fetch('https://api.line.me/v2/bot/richmenu', {
       method: 'POST',
-      headers,
+      headers: authHeaders,
       body: JSON.stringify(menuPayload),
     });
 
     if (!createRes.ok) {
-      const err = await createRes.text();
-      console.error('[rich-menu create]', err);
+      console.error('[rich-menu create]', await createRes.text());
       return NextResponse.json({ error: 'Failed to create rich menu layout' }, { status: 500 });
     }
 
     const { richMenuId } = await createRes.json();
 
-    // 2. Fetch the image and upload to LINE's CDN
+    // Fetch image and upload to LINE CDN
     const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) return NextResponse.json({ error: 'Could not fetch image from provided URL' }, { status: 400 });
-
-    const imgBuffer = await imgRes.arrayBuffer();
-    const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-
-    const uploadRes = await fetch(`https://api-data.line.me/v2/bot/richmenu/${richMenuId}/content`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
-      body: imgBuffer,
-    });
-
-    if (!uploadRes.ok) {
-      console.error('[rich-menu upload]', await uploadRes.text());
-      // Don't fail hard — menu exists but without image
+    if (imgRes.ok) {
+      const imgBuffer = await imgRes.arrayBuffer();
+      const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+      const uploadRes = await fetch(`https://api-data.line.me/v2/bot/richmenu/${richMenuId}/content`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
+        body: imgBuffer,
+      });
+      if (!uploadRes.ok) console.error('[rich-menu image upload]', await uploadRes.text());
+    } else {
+      console.error('[rich-menu image fetch] could not fetch:', imageUrl);
     }
 
-    // 3. Set as default if requested
     if (setAsDefault) {
       await fetch(`https://api.line.me/v2/bot/user/all/richmenu/${richMenuId}`, {
         method: 'POST',
@@ -149,8 +186,7 @@ export async function DELETE(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'LINE token not configured' }, { status: 400 });
 
   try {
-    // Unlink from all users first, then delete
-    await fetch(`https://api.line.me/v2/bot/user/all/richmenu`, {
+    await fetch('https://api.line.me/v2/bot/user/all/richmenu', {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -160,9 +196,7 @@ export async function DELETE(req: NextRequest) {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    if (!deleteRes.ok) {
-      return NextResponse.json({ error: 'Failed to delete rich menu' }, { status: 500 });
-    }
+    if (!deleteRes.ok) return NextResponse.json({ error: 'Failed to delete rich menu' }, { status: 500 });
 
     return NextResponse.json({ success: true });
   } catch (err) {
