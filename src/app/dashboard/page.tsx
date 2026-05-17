@@ -160,7 +160,7 @@ export default function DashboardPage() {
         {activeTab === 'products'   && <div className="flex-1 overflow-auto"><ProductManagement theme={theme} t={{}} /></div>}
         {activeTab === 'reports'    && <div className="flex-1 overflow-auto pt-2"><ReportsView theme={theme} t={{}} /></div>}
         {activeTab === 'broadcasts' && <div className="flex-1 overflow-hidden flex flex-col"><BroadcastsView theme={theme} t={{}} /></div>}
-        {activeTab === 'settings'   && <div className="flex-1 overflow-auto"><SettingsView theme={theme} onSave={refreshSettings} /></div>}
+        {activeTab === 'settings'   && <div className="flex-1 overflow-auto"><SettingsView theme={theme} onSave={refreshSettings} onNavigate={setActiveTab} /></div>}
         {activeTab === 'storefront' && (
           <div className="flex-1 overflow-auto p-6">
             <div className="mb-6">
