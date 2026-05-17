@@ -533,23 +533,25 @@ export default function SettingsView({
             <h2 className={`text-base font-bold ${K.text}`}>Notifications</h2>
           </div>
 
-          <div className={`rounded-2xl p-6 space-y-2 ${K.surface}`}>
-            <div className="mb-4">
+          <div className={`rounded-2xl overflow-hidden ${K.surface}`}>
+            <div className={`px-6 py-4 border-b ${K.border}`}>
               <p className={`text-sm font-semibold ${K.text}`}>Order Status Notifications</p>
-              <p className={`text-xs mt-1 ${K.muted}`}>Automatically send a LINE message when an order moves to each stage. Uses placeholders: <code>{'{product}'}</code> <code>{'{amount}'}</code> <code>{'{tracking}'}</code> <code>{'{courier}'}</code> <code>{'{name}'}</code></p>
+              <p className={`text-xs mt-0.5 ${K.muted}`}>
+                Auto-send a LINE message when status changes. Placeholders: <code className="font-mono">{'{product}'}</code> <code className="font-mono">{'{amount}'}</code> <code className="font-mono">{'{tracking}'}</code> <code className="font-mono">{'{courier}'}</code> <code className="font-mono">{'{name}'}</code>
+              </p>
             </div>
 
             {([
-              { key: 'paid',      label: 'Order Confirmed',   sub: 'When payment is received' },
-              { key: 'preparing', label: 'Being Prepared',    sub: 'When order moves to preparing' },
-              { key: 'shipped',   label: 'Shipped',           sub: 'When tracking number is entered' },
-              { key: 'delivered', label: 'Delivered',         sub: 'When marked as delivered' },
-            ] as const).map(({ key, label, sub }) => {
+              { key: 'paid',      label: 'Order Confirmed', sub: 'When payment is received' },
+              { key: 'preparing', label: 'Being Prepared',  sub: 'When moved to preparing' },
+              { key: 'shipped',   label: 'Shipped',         sub: 'When tracking is entered' },
+              { key: 'delivered', label: 'Delivered',       sub: 'When marked as delivered' },
+            ] as const).map(({ key, label, sub }, i, arr) => {
               const stage = settings.orderNotifications?.[key] ?? {};
               return (
-                <div key={key} className={`rounded-xl border p-4 space-y-3 ${K.border}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
+                <div key={key} className={i < arr.length - 1 ? `border-b ${K.border}` : ''}>
+                  <div className="flex items-center gap-4 px-6 py-4">
+                    <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium ${K.text}`}>{label}</p>
                       <p className={`text-xs ${K.muted}`}>{sub}</p>
                     </div>
@@ -559,22 +561,24 @@ export default function SettingsView({
                         ...settings.orderNotifications,
                         [key]: { ...stage, enabled: !stage.enabled },
                       })}
-                      className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${stage.enabled ? 'bg-[#00b900]' : isDark ? 'bg-[#1a1d2e]' : 'bg-slate-200'}`}
+                      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${stage.enabled ? 'bg-[#00b900]' : isDark ? 'bg-[#2a2f45]' : 'bg-slate-200'}`}
                     >
-                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${stage.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${stage.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                     </button>
                   </div>
                   {stage.enabled && (
-                    <textarea
-                      rows={4}
-                      value={stage.template ?? ''}
-                      onChange={e => set('orderNotifications', {
-                        ...settings.orderNotifications,
-                        [key]: { ...stage, template: e.target.value },
-                      })}
-                      className={`${inputCls} resize-none leading-relaxed text-xs`}
-                      autoComplete="off"
-                    />
+                    <div className={`px-6 pb-5 pt-0 ${isDark ? 'bg-[#1a1d2e]/50' : 'bg-slate-50/70'}`}>
+                      <textarea
+                        rows={4}
+                        value={stage.template ?? ''}
+                        onChange={e => set('orderNotifications', {
+                          ...settings.orderNotifications,
+                          [key]: { ...stage, template: e.target.value },
+                        })}
+                        className={`w-full rounded-xl px-4 py-3 text-xs border font-mono leading-relaxed resize-none transition-colors ${K.inp}`}
+                        autoComplete="off"
+                      />
+                    </div>
                   )}
                 </div>
               );
