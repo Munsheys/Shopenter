@@ -23,9 +23,11 @@ interface Step {
 export default function FloatingGuide({
   theme,
   onNavigate,
+  nudgeUp = false,
 }: {
   theme?: 'light' | 'dark';
   onNavigate: (tab: DashTab) => void;
+  nudgeUp?: boolean;
 }) {
   const isDark = theme === 'dark';
 
@@ -139,7 +141,7 @@ export default function FloatingGuide({
   const border = isDark ? 'border-[#1f2335]' : 'border-slate-200';
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2 pointer-events-none">
+    <div className={`fixed right-5 z-50 flex flex-col items-end gap-2 pointer-events-none transition-all duration-300 ${nudgeUp ? 'bottom-20' : 'bottom-5'}`}>
 
       {/* ── Expanded panel ── */}
       {open && (

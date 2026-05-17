@@ -186,7 +186,7 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
-      <FloatingGuide theme={theme} onNavigate={setActiveTab} />
+      <FloatingGuide theme={theme} onNavigate={setActiveTab} nudgeUp={activeTab === 'settings'} />
     </div>
   );
 }
