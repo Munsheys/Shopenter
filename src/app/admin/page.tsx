@@ -490,8 +490,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
   const [selBrand, setSelBrand] = useState('');
   const [selModelLine, setSelModelLine] = useState('');
   const [selProduct, setSelProduct] = useState<any>(null);
-  const [selVariant, setSelVariant] = useState('');
-  const [selColor, setSelColor] = useState('');
+  const [selections, setSelections] = useState<Record<string, string>>({});
 
   // NEW Manual State
   const [manualName, setManualName] = useState('');
@@ -522,18 +521,38 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
     : [];
 
   const filteredProducts = products.filter((p: any) => p.brand === selBrand && (!selModelLine || p.modelLine === selModelLine));
-  
-  const currentVariant = selProduct?.variants?.find((v: any) => v.variantName === selVariant);
-  const variantOptions = selProduct?.variants?.map((v: any) => v.variantName) || [];
-  const colorOptions = currentVariant?.colors || [];
+
+  function getSelProductOptions(product: any): Array<{ name: string; values: string[] }> {
+    if (product?.options?.length) return product.options;
+    const opts: Array<{ name: string; values: string[] }> = [];
+    const variantNames = [...new Set((product?.variants || []).map((v: any) => v.variantName).filter(Boolean))] as string[];
+    if (variantNames.length) opts.push({ name: 'Variant', values: variantNames });
+    const colors = [...new Set((product?.variants || []).flatMap((v: any) => v.colors || []).filter(Boolean))] as string[];
+    if (colors.length) opts.push({ name: 'Color', values: colors });
+    return opts;
+  }
+
+  function findSelVariant(product: any, sels: Record<string, string>): any {
+    if (!product?.variants?.length) return null;
+    if (product.options?.length) {
+      return product.variants.find((v: any) => Object.keys(sels).every(k => v.combination?.[k] === sels[k])) ?? null;
+    }
+    const variantName = sels['Variant'];
+    const color = sels['Color'];
+    return product.variants.find((v: any) =>
+      (!variantName || v.variantName === variantName) && (!color || v.colors?.includes(color))
+    ) ?? null;
+  }
+
+  const productOptions = getSelProductOptions(selProduct);
+  const matchedVariant = selProduct ? findSelVariant(selProduct, selections) : null;
 
   useEffect(() => {
     if (!isOpen) {
       setSelBrand('');
       setSelModelLine('');
       setSelProduct(null);
-      setSelVariant('');
-      setSelColor('');
+      setSelections({});
       setManualName('');
       setManualBrand('');
       setManualModelLine('');
@@ -562,11 +581,19 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
     }
   }, [selModelLine, filteredProducts]);
 
+  // Reset selections when product changes
   useEffect(() => {
-    if (currentVariant) {
-      setPrice(currentVariant.price?.toString() || '');
+    setSelections({});
+  }, [selProduct]);
+
+  // Auto-fill price from matched variant
+  useEffect(() => {
+    if (matchedVariant?.price != null) {
+      setPrice(matchedVariant.price.toString());
+    } else if (selProduct && productOptions.length === 0 && selProduct.price) {
+      setPrice(selProduct.price.toString());
     }
-  }, [currentVariant]);
+  }, [matchedVariant, selProduct]);
 
   if (!isOpen) return null;
 
@@ -579,24 +606,26 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
         modelLine: manualModelLine,
         variantName: manualVariant,
         color: manualColor,
-        categories: manualCategories, 
+        categories: manualCategories,
         imageUrl: manualImageUrl,
         description: manualDescription,
         cost: 0,
-        autoCatalog 
+        autoCatalog
       }, finalPrice, quantity);
     } else {
+      const variantLabel = Object.values(selections).filter(Boolean).join(' / ');
       onConfirm({
         ...selProduct,
-        selectedVariant: selVariant,
-        selectedColor: selColor
+        selectedVariant: variantLabel,
+        selectedColor: ''
       }, finalPrice, quantity);
     }
   };
 
-  const canConfirm = isManual 
-    ? (manualName.trim() !== '' && manualBrand.trim() !== '' && price.trim() !== '' && manualVariant.trim() !== '' && manualColor.trim() !== '')
-    : (selProduct && selVariant && selColor && price.trim() !== '');
+  const allOptionsSelected = productOptions.every(o => selections[o.name]);
+  const canConfirm = isManual
+    ? (manualName.trim() !== '' && manualBrand.trim() !== '' && price.trim() !== '')
+    : (selProduct && allOptionsSelected && price.trim() !== '');
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -635,7 +664,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
           </div>
           <p className="text-[10px] text-[#8b92ad] font-bold uppercase tracking-widest truncate">
             {!isManual 
-              ? `PATH: ${selBrand || '?'} ${selModelLine ? `> ${selModelLine}` : ''} > ${selProduct?.name || '?'} > ${selVariant || '?'} > ${selColor || '?'}`
+              ? `PATH: ${selBrand || '?'} ${selModelLine ? `> ${selModelLine}` : ''} > ${selProduct?.name || '?'}${Object.values(selections).filter(Boolean).map(v => ` > ${v}`).join('')}`
               : 'Creating New Product Catalog Entry'
             }
           </p>
@@ -665,6 +694,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                           setSelBrand(p.brand);
                           setSelModelLine(p.modelLine);
                           setSelProduct(p);
+                          setSelections({});
                           setSearchTerm('');
                         }}
                         className={cn(
@@ -691,7 +721,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                   {brands.map(b => (
                     <button 
                       key={b} 
-                      onClick={() => { setSelBrand(b); setSelModelLine(''); setSelProduct(null); setSelVariant(''); setSelColor(''); }}
+                      onClick={() => { setSelBrand(b); setSelModelLine(''); setSelProduct(null); setSelections({}); }}
                       className={cn(
                         "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
                         selBrand === b 
@@ -717,8 +747,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                           if (selModelLine === ml) setSelModelLine(''); // Toggle off
                           else setSelModelLine(ml);
                           setSelProduct(null);
-                          setSelVariant('');
-                          setSelColor(''); 
+                          setSelections({}); 
                         }}
                         className={cn(
                           "px-4 py-2 rounded-xl text-xs font-bold transition-all border",
@@ -742,7 +771,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                     {filteredProducts.map((p: any) => (
                       <button 
                         key={p._id} 
-                        onClick={() => { setSelProduct(p); setSelVariant(''); setSelColor(''); }}
+                        onClick={() => { setSelProduct(p); setSelections({}); }}
                         className={cn(
                           "px-4 py-3 rounded-xl text-xs font-bold text-left transition-all border",
                           selProduct?._id === p._id 
@@ -757,59 +786,41 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                 </div>
               )}
 
-              {/* STEP 4: VARIANT */}
-              {selProduct && (
+              {/* STEP 4+: DYNAMIC OPTIONS */}
+              {selProduct && productOptions.length === 0 && (
                 <div className="animate-in slide-in-from-top-2">
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">
-                    4. Variant <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-2">
-                    {variantOptions.map((t: string) => (
-                      <button
-                        key={t}
-                        onClick={() => { setSelVariant(t); setSelColor(''); }}
-                        className={cn(
-                          "flex-1 py-2 rounded-xl text-xs font-bold transition-all border",
-                          selVariant === t
-                            ? (theme === 'dark' ? "bg-white text-[#161925] border-white" : "bg-[#1a1d2e] text-white border-[#1a1d2e]") 
-                            : (theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-[#8b92ad]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#8b92ad]")
-                        )}
-                      >
-                        {t}
-                      </button>
-                    ))}
+                  <div className={cn("rounded-xl px-4 py-3 text-xs text-[#8b92ad]", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}>
+                    Simple product — no options to select.
                   </div>
                 </div>
               )}
-
-              {/* STEP 5: COLOR */}
-              {selVariant && (
-                <div className="animate-in slide-in-from-top-2">
+              {selProduct && productOptions.map((opt, i) => (
+                <div key={opt.name} className="animate-in slide-in-from-top-2">
                   <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">
-                    5. Color Swatch <span className="text-red-500">*</span>
+                    {i + 4}. {opt.name} <span className="text-red-500">*</span>
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {colorOptions.map((c: string) => {
-                      const isHex = c.startsWith('#');
+                    {opt.values.map((val: string) => {
+                      const isHex = val.startsWith('#');
                       return (
-                        <button 
-                          key={c} 
-                          onClick={() => setSelColor(c)}
+                        <button
+                          key={val}
+                          onClick={() => setSelections(prev => ({ ...prev, [opt.name]: val }))}
                           className={cn(
-                            "flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all border",
-                            selColor === c 
-                              ? "bg-[#00b900] text-white border-[#00b900] shadow-md" 
+                            "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border",
+                            selections[opt.name] === val
+                              ? "bg-[#00b900] text-white border-[#00b900] shadow-md"
                               : (theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")
                           )}
                         >
-                          {isHex && <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: c }} />}
-                          {c}
+                          {isHex && <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: val }} />}
+                          {val}
                         </button>
                       );
                     })}
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           ) : (
             <div className="animate-in slide-in-from-left-4 duration-300 grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -966,7 +977,7 @@ function QuickOrderModal({ isOpen, products, onConfirm, onCancel, theme = 'light
                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">
                   Final Price (Editable) <span className="text-red-500">*</span>
                 </label>
-                {currentVariant && price !== currentVariant.price.toString() && (
+                {matchedVariant && price !== (matchedVariant.price ?? '').toString() && (
                   <span className="text-[9px] font-black text-[#00b900] bg-[#00b90008] px-2 py-0.5 rounded-full">Discount Applied</span>
                 )}
               </div>
@@ -2524,14 +2535,13 @@ const OrdersView = React.memo(({ customerId, customerName, krwRate, t, theme }: 
         }
       }
 
-      const variantName = product.selectedVariant || product.variantName;
-      const color = product.selectedColor || product.color;
-      const fullProductName = `${product.brand ? `[${product.brand}] ` : ''}${product.modelLine ? `${product.modelLine} - ` : ''}${product.name}${variantName ? ` (${variantName})` : ''}${color ? ` - ${color}` : ''}`;
+      const variantLabel = product.selectedVariant || [product.variantName, product.color].filter(Boolean).join(' / ');
+      const fullProductName = `${product.brand ? `[${product.brand}] ` : ''}${product.modelLine ? `${product.modelLine} - ` : ''}${product.name}${variantLabel ? ` (${variantLabel})` : ''}`;
 
       const orderData = {
         lineUserId: customerId,
         displayName: customerName,
-        product: fullProductName,
+        product: fullProductName,  // legacy text summary field
         quantity: quantity,
         soldTHB: finalPrice * quantity,
         costKRW: product.cost || 0,

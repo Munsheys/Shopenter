@@ -30,7 +30,8 @@ type Message = {
 };
 type Product = {
   _id: string; name: string; brand?: string; price: number; imageUrl?: string;
-  variants?: { variantName?: string; colors?: string[]; price?: number }[];
+  options?: { name: string; values: string[] }[];
+  variants?: { combination?: Record<string, string>; variantName?: string; colors?: string[]; price?: number }[];
 };
 
 const COST_CURRENCIES = ['THB', 'KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'];
@@ -429,13 +430,21 @@ export default function CustomersView({ theme }: { theme: string }) {
     return !q || p.name.toLowerCase().includes(q) || (p.brand?.toLowerCase().includes(q) ?? false);
   });
 
-  const existingProductOptions = useMemo(() => ({
-    brands: [...new Set(products.map(p => p.brand).filter((b): b is string => !!b))].sort(),
-    modelLines: [] as string[],
-    categories: [] as string[],
-    colors: [] as string[],
-    variantNames: [] as string[],
-  }), [products]);
+  const existingProductOptions = useMemo(() => {
+    const optionNames = new Set<string>();
+    const optionValues = new Set<string>();
+    products.forEach(p => {
+      p.options?.forEach((o: any) => { if (o.name) optionNames.add(o.name); o.values?.forEach((v: string) => optionValues.add(v)); });
+      p.variants?.forEach((v: any) => { if (v.variantName) { optionNames.add('Variant'); optionValues.add(v.variantName); } v.colors?.forEach((c: string) => { optionNames.add('Color'); optionValues.add(c); }); });
+    });
+    return {
+      brands: [...new Set(products.map(p => p.brand).filter((b): b is string => !!b))].sort(),
+      modelLines: [] as string[],
+      categories: [] as string[],
+      optionNames: Array.from(optionNames).sort(),
+      optionValues: Array.from(optionValues).sort(),
+    };
+  }, [products]);
 
   const visibleCustomers = customers.filter(c =>
     !customerSearch || c.displayName.toLowerCase().includes(customerSearch.toLowerCase())

@@ -1,24 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { 
-  Package, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  X, 
-  ImageIcon, 
-  Search, 
-  ChevronDown, 
-  Layers, 
-  Palette, 
-  Ruler,
+import {
+  Package,
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  ImageIcon,
+  Search,
+  ChevronDown,
+  Layers,
   Filter,
   ArrowUpDown,
   Eye,
   EyeOff,
-  AlertCircle,
-  BarChart2,
-  Check,
-  RefreshCw
+  BarChart2
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -29,9 +24,14 @@ function cn(...inputs: ClassValue[]) {
 }
 
 // --- Interfaces ---
+
+interface ProductOption {
+  name: string;
+  values: string[];
+}
+
 interface ProductVariant {
-  variantName: string;
-  colors: string[];
+  combination: Record<string, string>;
   price: string;
   cost: string;
   stock: string;
@@ -46,7 +46,8 @@ interface Product {
   price: number;
   categories: string[];
   imageUrl?: string;
-  variants: ProductVariant[];
+  options?: ProductOption[];
+  variants: any[];
   isActive: boolean;
 }
 
@@ -57,32 +58,87 @@ export interface ProductForm {
   description: string;
   price: string;
   categories: string[];
+  options: ProductOption[];
   variants: ProductVariant[];
   imageUrl: string;
   isActive: boolean;
 }
 
-// --- Components ---
+// --- Helpers ---
 
-const EMPTY_VARIANT: ProductVariant = {
-  variantName: '',
-  colors: [],
-  price: '',
-  cost: '',
-  stock: '0',
-};
+function cartesian(options: ProductOption[]): Record<string, string>[] {
+  const active = options.filter(o => o.name && o.values.length > 0);
+  if (!active.length) return [];
+  return active.reduce<Record<string, string>[]>((acc, opt) => {
+    if (!acc.length) return opt.values.map(v => ({ [opt.name]: v }));
+    return acc.flatMap(combo => opt.values.map(v => ({ ...combo, [opt.name]: v })));
+  }, []);
+}
+
+export function normalizeToForm(raw: any): ProductForm {
+  if (raw.options?.length) {
+    return {
+      name: raw.name || '', brand: raw.brand || '', modelLine: raw.modelLine || '',
+      description: raw.description || '', price: String(raw.price || ''),
+      categories: raw.categories || [],
+      options: raw.options,
+      variants: (raw.variants || []).map((v: any) => ({
+        combination: v.combination || {},
+        price: v.price != null ? String(v.price) : '',
+        cost: String(v.cost ?? ''),
+        stock: String(v.stock ?? 0),
+      })),
+      imageUrl: raw.imageUrl || '', isActive: raw.isActive !== false,
+    };
+  }
+  // Legacy variantName/colors → convert to option groups
+  const oldVariants = raw.variants || [];
+  const optGroups: ProductOption[] = [];
+  const variantNames = [...new Set(oldVariants.map((v: any) => v.variantName).filter(Boolean))] as string[];
+  if (variantNames.length) optGroups.push({ name: 'Variant', values: variantNames });
+  const allColors = [...new Set(oldVariants.flatMap((v: any) => v.colors || []).filter(Boolean))] as string[];
+  if (allColors.length) optGroups.push({ name: 'Color', values: allColors });
+
+  const newVariants: ProductVariant[] = [];
+  if (optGroups.length === 2) {
+    oldVariants.forEach((v: any) => {
+      if (!v.variantName) return;
+      (v.colors?.length ? v.colors : ['']).forEach((c: string) => {
+        newVariants.push({
+          combination: { Variant: v.variantName, ...(c ? { Color: c } : {}) },
+          price: v.price != null ? String(v.price) : '',
+          cost: String(v.cost ?? ''),
+          stock: String(v.stock ?? 0),
+        });
+      });
+    });
+  } else if (optGroups.length === 1) {
+    variantNames.forEach(vn => {
+      const m = oldVariants.find((v: any) => v.variantName === vn);
+      newVariants.push({
+        combination: { Variant: vn },
+        price: m?.price != null ? String(m.price) : '',
+        cost: String(m?.cost ?? ''),
+        stock: String(m?.stock ?? 0),
+      });
+    });
+  }
+
+  return {
+    name: raw.name || '', brand: raw.brand || '', modelLine: raw.modelLine || '',
+    description: raw.description || '', price: String(raw.price || ''),
+    categories: raw.categories || [], options: optGroups, variants: newVariants,
+    imageUrl: raw.imageUrl || '', isActive: raw.isActive !== false,
+  };
+}
 
 const EMPTY_FORM: ProductForm = {
-  name: '',
-  brand: '',
-  modelLine: '',
-  description: '',
-  price: '',
-  categories: [],
-  variants: [],
-  imageUrl: '',
-  isActive: true,
+  name: '', brand: '', modelLine: '', description: '',
+  price: '', categories: [], options: [], variants: [],
+  imageUrl: '', isActive: true,
 };
+
+// --- Reusable Components ---
 
 export function CreatableDropdown({
   label,
@@ -134,7 +190,7 @@ export function CreatableDropdown({
       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-      <div 
+      <div
         className={cn(
           "w-full border rounded-xl px-4 py-2.5 text-sm cursor-pointer transition-all flex items-center justify-between",
           theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]",
@@ -199,20 +255,20 @@ export function CreatableDropdown({
   );
 }
 
-export function TagSelector({ 
+export function TagSelector({
   label,
-  selected, 
-  onAdd, 
-  onRemove, 
+  selected,
+  onAdd,
+  onRemove,
   options,
   placeholder = "Type to search or add...",
   isColorMode = false,
   theme = 'light',
   required = false
-}: { 
+}: {
   label?: string,
-  selected: string[], 
-  onAdd: (c: string) => void, 
+  selected: string[],
+  onAdd: (c: string) => void,
   onRemove: (c: string) => void,
   options: string[],
   placeholder?: string,
@@ -260,11 +316,18 @@ export function TagSelector({
           </div>
         ))}
         <div className="relative flex-1 min-w-[150px]">
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             onFocus={() => setIsOpen(true)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && search.trim()) {
+                e.preventDefault();
+                if (!selected.includes(search.trim())) onAdd(search.trim());
+                setSearch(''); setIsOpen(false);
+              }
+            }}
             placeholder={placeholder}
             className={cn("w-full bg-transparent border-none outline-none px-2 py-1.5 text-sm", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}
           />
@@ -291,7 +354,7 @@ export function TagSelector({
         </div>
       </div>
       {isColorMode && (
-        <input 
+        <input
           ref={colorInputRef}
           type="color"
           className="sr-only"
@@ -306,8 +369,6 @@ export function TagSelector({
 }
 
 export function ImageUploader({ value, onChange, theme = 'light' }: { value: string, onChange: (v: string) => void, theme?: 'light' | 'dark' }) {
-  const [isUploading, setIsUploading] = useState(false);
-
   const processFile = (file: File) => {
     if (!file.type.startsWith('image/')) return;
     const reader = new FileReader();
@@ -351,6 +412,52 @@ export function ImageUploader({ value, onChange, theme = 'light' }: { value: str
   );
 }
 
+// --- OptionCard ---
+
+function OptionCard({ option, index, existingOptions, onUpdate, onRemove, theme }: {
+  option: ProductOption;
+  index: number;
+  existingOptions: { optionNames: string[]; optionValues: string[] };
+  onUpdate: (updates: Partial<ProductOption>) => void;
+  onRemove: () => void;
+  theme: 'light' | 'dark';
+}) {
+  return (
+    <div className={cn(
+      "border rounded-2xl p-4 relative animate-in slide-in-from-right-4 transition-colors",
+      theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]"
+    )}>
+      <button onClick={onRemove} className={cn(
+        "absolute -top-2 -right-2 border text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-50 transition-colors",
+        theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+      )}>
+        <Trash2 size={12} />
+      </button>
+      <div className="mb-3 relative z-[20]">
+        <CreatableDropdown
+          label={`Option ${index + 1}`}
+          value={option.name}
+          onChange={name => onUpdate({ name })}
+          options={existingOptions.optionNames}
+          placeholder="e.g. Color, Size, Material"
+          theme={theme}
+        />
+      </div>
+      <TagSelector
+        label="Values"
+        selected={option.values}
+        onAdd={v => !option.values.includes(v) && onUpdate({ values: [...option.values, v] })}
+        onRemove={v => onUpdate({ values: option.values.filter(x => x !== v) })}
+        options={existingOptions.optionValues.filter(v => !option.values.includes(v))}
+        placeholder="Add value..."
+        theme={theme}
+      />
+    </div>
+  );
+}
+
+// --- ProductModal ---
+
 export function ProductModal({
   isOpen,
   initialData,
@@ -358,6 +465,7 @@ export function ProductModal({
   onClose,
   isSaving,
   existingOptions,
+  suggestedOptions,
   theme = 'light',
   quickOrderMode = false,
 }: {
@@ -366,47 +474,89 @@ export function ProductModal({
   onSave: (data: ProductForm) => void;
   onClose: () => void;
   isSaving: boolean;
-  existingOptions: { brands: string[], modelLines: string[], categories: string[], colors: string[], variantNames: string[] };
+  existingOptions: { brands: string[], modelLines: string[], categories: string[], optionNames: string[], optionValues: string[] };
+  suggestedOptions?: ProductOption[];
   theme?: 'light' | 'dark';
   quickOrderMode?: boolean;
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const [defaultPrice, setDefaultPrice] = useState('');
-  const prevId = useRef<string | null>(null);
+  const prevIdRef = useRef<string | null>(null);
+  const prevOptionsRef = useRef<string>('');
 
+  // Init form when modal opens
   useEffect(() => {
     if (isOpen) {
       if (!initialData) {
-        setForm(EMPTY_FORM);
+        const initOpts = suggestedOptions ?? [];
+        const initVariants = cartesian(initOpts).map(combo => ({
+          combination: combo, price: '', cost: '', stock: '0',
+        }));
+        setForm({ ...EMPTY_FORM, options: initOpts, variants: initVariants });
+        prevOptionsRef.current = JSON.stringify(initOpts);
+        prevIdRef.current = null;
         setDefaultPrice('');
-        prevId.current = null;
       } else {
         const currentId = (initialData as any)?._id;
-        if (currentId !== prevId.current) {
+        if (currentId !== prevIdRef.current) {
           setForm(initialData);
-          prevId.current = currentId;
+          prevOptionsRef.current = JSON.stringify(initialData.options || []);
+          prevIdRef.current = currentId;
         }
       }
     } else {
-      prevId.current = null;
+      prevIdRef.current = null;
+      prevOptionsRef.current = '';
     }
   }, [isOpen, initialData]);
+
+  // Sync variants whenever options change
+  useEffect(() => {
+    const json = JSON.stringify(form.options);
+    if (json === prevOptionsRef.current) return;
+    prevOptionsRef.current = json;
+
+    const combinations = cartesian(form.options);
+    const existingMap = new Map<string, ProductVariant>();
+    form.variants.forEach(v => existingMap.set(JSON.stringify(v.combination), v));
+
+    const newVariants = combinations.map(combo => {
+      const key = JSON.stringify(combo);
+      return existingMap.get(key) || { combination: combo, price: defaultPrice, cost: '', stock: '0' };
+    });
+
+    setForm(prev => ({ ...prev, variants: newVariants }));
+  }, [form.options]);
 
   if (!isOpen) return null;
 
   const updateForm = (updates: Partial<ProductForm>) => setForm(prev => ({ ...prev, ...updates }));
 
-  const addVariant = () => updateForm({ variants: [...form.variants, { ...EMPTY_VARIANT, price: defaultPrice }] });
-  const removeVariant = (index: number) => updateForm({ variants: form.variants.filter((_, i) => i !== index) });
-  const updateVariant = (index: number, updates: Partial<ProductVariant>) => {
-    const next = [...form.variants];
+  const addOption = () => {
+    if (form.options.length >= 3) return;
+    updateForm({ options: [...form.options, { name: '', values: [] }] });
+  };
+
+  const removeOption = (index: number) => {
+    updateForm({ options: form.options.filter((_, i) => i !== index) });
+  };
+
+  const updateOption = (index: number, updates: Partial<ProductOption>) => {
+    const next = [...form.options];
     next[index] = { ...next[index], ...updates };
+    updateForm({ options: next });
+  };
+
+  const updateVariant = (index: number, field: keyof ProductVariant, value: string) => {
+    const next = [...form.variants];
+    next[index] = { ...next[index], [field]: value };
     updateForm({ variants: next });
   };
 
+  const activeOptions = form.options.filter(o => o.name && o.values.length > 0);
   const isValid = quickOrderMode
     ? form.name.trim() !== ''
-    : form.name.trim() !== '' && form.brand.trim() !== '' && form.variants.length > 0 && form.variants.every(v => v.variantName.trim() !== '' && v.price.trim() !== '');
+    : form.name.trim() !== '' && form.brand.trim() !== '';
 
   return (
     <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -414,10 +564,11 @@ export function ProductModal({
         "w-full max-w-4xl transition-all rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col",
         theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white"
       )}>
+        {/* Header */}
         <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <div>
             <h3 className={cn("text-xl font-bold transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
-            <p className="text-xs text-[#8b92ad]">{quickOrderMode ? 'Fill what you need now — complete the rest later from Products page' : 'Luxury Hierarchy Management (Brand > Model Line > Product Name)'}</p>
+            <p className="text-xs text-[#8b92ad]">{quickOrderMode ? 'Fill what you need now — complete the rest later from Products page' : 'Add options to generate variant combinations automatically'}</p>
           </div>
           <button onClick={onClose} className={cn("w-8 h-8 flex items-center justify-center rounded-full transition-colors", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
         </div>
@@ -426,26 +577,26 @@ export function ProductModal({
           {/* Left Column: Core Info */}
           <div className="space-y-6">
             <ImageUploader value={form.imageUrl} onChange={v => updateForm({ imageUrl: v })} theme={theme} />
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="relative z-[100]">
-                <CreatableDropdown 
-                  label="Brand" 
-                  value={form.brand} 
-                  onChange={v => updateForm({ brand: v })} 
-                  options={existingOptions.brands} 
-                  placeholder="e.g. Celine" 
+                <CreatableDropdown
+                  label="Brand"
+                  value={form.brand}
+                  onChange={v => updateForm({ brand: v })}
+                  options={existingOptions.brands}
+                  placeholder="e.g. Nike"
                   theme={theme}
                   required={true}
                 />
               </div>
               <div className="relative z-[90]">
-                <CreatableDropdown 
-                  label="Model Line / Family" 
-                  value={form.modelLine} 
-                  onChange={v => updateForm({ modelLine: v })} 
-                  options={existingOptions.modelLines} 
-                  placeholder="e.g. Boston Bag" 
+                <CreatableDropdown
+                  label="Model Line / Family"
+                  value={form.modelLine}
+                  onChange={v => updateForm({ modelLine: v })}
+                  options={existingOptions.modelLines}
+                  placeholder="e.g. Air Max"
                   theme={theme}
                 />
               </div>
@@ -455,11 +606,11 @@ export function ProductModal({
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">
                 Display Product Name <span className="text-red-500">*</span>
               </label>
-              <input 
-                type="text" 
-                value={form.name} 
+              <input
+                type="text"
+                value={form.name}
                 onChange={e => updateForm({ name: e.target.value })}
-                placeholder="e.g. Kunka"
+                placeholder="e.g. Classic Tee"
                 className={cn(
                   "w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900] transition-colors",
                   theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
@@ -467,9 +618,25 @@ export function ProductModal({
               />
             </div>
 
-            <TagSelector 
+            <div>
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">
+                Base Price (THB)
+              </label>
+              <input
+                type="number"
+                value={defaultPrice}
+                onChange={e => setDefaultPrice(e.target.value)}
+                placeholder="Default price for new variants"
+                className={cn(
+                  "w-full border rounded-xl px-3 py-2.5 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900] transition-colors",
+                  theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+                )}
+              />
+            </div>
+
+            <TagSelector
               label="Categories"
-              selected={form.categories} 
+              selected={form.categories}
               onAdd={c => !form.categories.includes(c) && updateForm({ categories: [...form.categories, c] })}
               onRemove={c => updateForm({ categories: form.categories.filter(x => x !== c) })}
               options={existingOptions.categories}
@@ -479,7 +646,7 @@ export function ProductModal({
 
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">Description</label>
-              <textarea 
+              <textarea
                 value={form.description}
                 onChange={e => updateForm({ description: e.target.value })}
                 rows={3}
@@ -491,87 +658,153 @@ export function ProductModal({
             </div>
           </div>
 
-          {/* Right Column: Variant Matrix */}
-          <div className="space-y-4">
+          {/* Right Column: Options & Variants */}
+          <div className="space-y-5">
+            {/* Options Header */}
             <div className="flex justify-between items-center">
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Variants & Colors</label>
-              <button onClick={addVariant} className="text-[#00b900] text-[10px] font-bold flex items-center gap-1 hover:underline">
-                <Plus size={14} /> Add Variant
+              <div>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Product Options</label>
+                <p className="text-[9px] text-[#8b92ad] mt-0.5">Max 3 options · variants auto-generated</p>
+              </div>
+              <button
+                onClick={addOption}
+                disabled={form.options.length >= 3}
+                className="text-[#00b900] text-[10px] font-bold flex items-center gap-1 hover:underline disabled:opacity-30 disabled:no-underline"
+              >
+                <Plus size={14} /> Add Option
               </button>
             </div>
 
-            <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block transition-colors">
-                Default Price (THB)
-              </label>
-              <input
-                type="number"
-                value={defaultPrice}
-                onChange={e => setDefaultPrice(e.target.value)}
-                placeholder="Inherited by new variants"
-                className={cn(
-                  "w-full border rounded-xl px-3 py-2 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900] transition-colors",
-                  theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
-                )}
-              />
-            </div>
+            {/* Option Cards */}
+            {form.options.length === 0 && (
+              <div className={cn(
+                "rounded-2xl border-2 border-dashed p-6 text-center cursor-pointer transition-colors",
+                theme === 'dark' ? "border-[#1f2335] hover:border-[#00b900]/40" : "border-[#e2e5ef] hover:border-[#00b900]/40"
+              )} onClick={addOption}>
+                <div className="text-[#8b92ad]">
+                  <Plus size={20} className="mx-auto mb-2 opacity-40" />
+                  <p className="text-xs font-bold">Add an option</p>
+                  <p className="text-[10px] mt-0.5">e.g. Color, Size, Material, Thickness</p>
+                </div>
+              </div>
+            )}
 
-            <div className="space-y-4">
-              {form.variants.map((v, idx) => (
-                <div key={idx} className={cn(
-                  "border rounded-2xl p-4 relative group animate-in slide-in-from-right-4 transition-colors",
-                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]"
-                )} style={{ zIndex: (form.variants.length - idx) * 10 }}>
-                  <button onClick={() => removeVariant(idx)} className={cn("absolute -top-2 -right-2 border text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-50 transition-colors", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
-                    <Trash2 size={12} />
-                  </button>
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div className="relative z-[20]">
-                      <CreatableDropdown
-                        label="Variant"
-                        value={v.variantName}
-                        onChange={val => updateVariant(idx, { variantName: val })}
-                        options={existingOptions.variantNames}
-                        placeholder="e.g. Size, Color, Type"
-                        theme={theme}
-                        required={true}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">
-                        Price (THB) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={v.price}
-                        onChange={e => updateVariant(idx, { price: e.target.value })}
-                        className={cn(
-                          "w-full border rounded-xl px-3 py-2 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900] transition-colors",
-                          theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
-                        )}
-                      />
-                    </div>
-                  </div>
-
-                  <TagSelector
-                    label={`Available Colors for ${v.variantName || '?'}`}
-                    selected={v.colors}
-                    onAdd={c => !v.colors.includes(c) && updateVariant(idx, { colors: [...v.colors, c] })}
-                    onRemove={c => updateVariant(idx, { colors: v.colors.filter(x => x !== c) })}
-                    options={existingOptions.colors}
-                    placeholder="Search or add color..."
-                    isColorMode={true}
+            <div className="space-y-3" style={{ zIndex: 50 }}>
+              {form.options.map((opt, idx) => (
+                <div key={idx} style={{ zIndex: (form.options.length - idx) * 10 + 10, position: 'relative' }}>
+                  <OptionCard
+                    option={opt}
+                    index={idx}
+                    existingOptions={existingOptions}
+                    onUpdate={updates => updateOption(idx, updates)}
+                    onRemove={() => removeOption(idx)}
                     theme={theme}
                   />
                 </div>
               ))}
             </div>
+
+            {/* Variants Table */}
+            {activeOptions.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">
+                    Variants ({form.variants.length})
+                  </label>
+                  {form.variants.length > 20 && (
+                    <span className="text-[9px] text-amber-500 font-bold">Scroll to see all</span>
+                  )}
+                </div>
+                <div className={cn("rounded-2xl border overflow-hidden", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
+                  <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                    <table className="w-full min-w-[360px]">
+                      <thead className="sticky top-0">
+                        <tr className={cn(
+                          "text-[9px] font-bold uppercase tracking-wider border-b",
+                          theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-[#8b92ad]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#8b92ad]"
+                        )}>
+                          {activeOptions.map(o => (
+                            <th key={o.name} className="px-3 py-2 text-left whitespace-nowrap">{o.name}</th>
+                          ))}
+                          <th className="px-2 py-2 text-left">Price</th>
+                          <th className="px-2 py-2 text-left">Cost</th>
+                          <th className="px-2 py-2 text-left">Stock</th>
+                        </tr>
+                      </thead>
+                      <tbody className={cn("divide-y", theme === 'dark' ? "divide-[#1f2335]" : "divide-[#f4f6f9]")}>
+                        {form.variants.map((v, idx) => (
+                          <tr key={idx} className={cn("transition-colors", theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#fafbfc]")}>
+                            {activeOptions.map(o => (
+                              <td key={o.name} className={cn(
+                                "px-3 py-1.5 text-xs font-bold whitespace-nowrap",
+                                theme === 'dark' ? "text-white" : "text-[#1a1d2e]"
+                              )}>
+                                {v.combination[o.name] || '—'}
+                              </td>
+                            ))}
+                            <td className="px-1.5 py-1">
+                              <input
+                                type="number"
+                                value={v.price}
+                                onChange={e => updateVariant(idx, 'price', e.target.value)}
+                                placeholder={defaultPrice || '—'}
+                                className={cn(
+                                  "w-20 border rounded-lg px-2 py-1 text-xs font-bold text-[#00b900] outline-none focus:border-[#00b900] transition-colors",
+                                  theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+                                )}
+                              />
+                            </td>
+                            <td className="px-1.5 py-1">
+                              <input
+                                type="number"
+                                value={v.cost}
+                                onChange={e => updateVariant(idx, 'cost', e.target.value)}
+                                className={cn(
+                                  "w-20 border rounded-lg px-2 py-1 text-xs outline-none focus:border-[#00b900] transition-colors",
+                                  theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                                )}
+                              />
+                            </td>
+                            <td className="px-1.5 py-1">
+                              <input
+                                type="number"
+                                value={v.stock}
+                                onChange={e => updateVariant(idx, 'stock', e.target.value)}
+                                className={cn(
+                                  "w-16 border rounded-lg px-2 py-1 text-xs outline-none focus:border-[#00b900] transition-colors",
+                                  theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+                                )}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Simple product message */}
+            {form.options.length > 0 && activeOptions.length === 0 && (
+              <div className={cn("rounded-2xl p-4 text-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}>
+                <p className="text-xs text-[#8b92ad]">Set a name and at least one value for each option to generate variants.</p>
+              </div>
+            )}
+
+            {form.options.length === 0 && (
+              <div className={cn("rounded-2xl p-4 text-center border border-dashed", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
+                <p className="text-xs text-[#8b92ad] font-medium">Simple product</p>
+                <p className="text-[10px] text-[#8b92ad] mt-0.5">Base price applies · no variant selection for customers</p>
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Footer */}
         <div className={cn("p-8 pt-4 border-t flex gap-3 transition-colors", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <button onClick={onClose} className={cn("flex-1 py-4 text-sm font-bold rounded-2xl transition-all", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#e2e5ef]")}>Cancel</button>
-          <button 
+          <button
             disabled={!isValid || isSaving}
             onClick={() => onSave(form)}
             className="flex-1 py-4 text-sm font-bold text-white bg-[#00b900] rounded-2xl shadow-lg shadow-[#00b90033] hover:opacity-90 disabled:opacity-40 transition-all"
@@ -594,7 +827,6 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
   const [isSaving, setIsSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // Filters & Sorting
   const [searchTerm, setSearchTerm] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -617,36 +849,83 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
     const vals = new Set<string>();
     products.forEach(p => {
       if (path === 'category') p.categories?.forEach((c: string) => vals.add(c));
-      else if (path === 'variantName') p.variants?.forEach((v: any) => vals.add(v.variantName));
-      else if (path === 'color') p.variants?.forEach((v: any) => v.colors?.forEach((c: string) => vals.add(c)));
       else if ((p as any)[path]) vals.add((p as any)[path]);
     });
     return Array.from(vals).sort();
   };
 
-  const existingOptions = useMemo(() => ({
-    brands: unique('brand'),
-    modelLines: unique('modelLine'),
-    categories: unique('category'),
-    colors: unique('color'),
-    variantNames: unique('variantName'),
-  }), [products]);
+  const existingOptions = useMemo(() => {
+    const optionNames = new Set<string>();
+    const optionValues = new Set<string>();
+    products.forEach(p => {
+      // New format
+      p.options?.forEach((o: any) => {
+        if (o.name) optionNames.add(o.name);
+        o.values?.forEach((v: string) => optionValues.add(v));
+      });
+      // Legacy compat
+      p.variants?.forEach((v: any) => {
+        if (v.variantName) { optionNames.add('Variant'); optionValues.add(v.variantName); }
+        v.colors?.forEach((c: string) => { optionNames.add('Color'); optionValues.add(c); });
+      });
+    });
+    return {
+      brands: unique('brand'),
+      modelLines: unique('modelLine'),
+      categories: unique('category'),
+      optionNames: Array.from(optionNames).sort(),
+      optionValues: Array.from(optionValues).sort(),
+    };
+  }, [products]);
+
+  const suggestedOptions = useMemo((): ProductOption[] => {
+    if (products.length < 2) return [];
+    const freq: Record<string, Record<string, number>> = {};
+    products.forEach(p => {
+      if (p.options?.length) {
+        p.options.forEach((o: any) => {
+          if (!o.name) return;
+          if (!freq[o.name]) freq[o.name] = {};
+          o.values?.forEach((v: string) => { freq[o.name][v] = (freq[o.name][v] || 0) + 1; });
+        });
+      } else {
+        p.variants?.forEach((v: any) => {
+          if (v.variantName) {
+            if (!freq['Variant']) freq['Variant'] = {};
+            freq['Variant'][v.variantName] = (freq['Variant'][v.variantName] || 0) + 1;
+          }
+          v.colors?.forEach((c: string) => {
+            if (!freq['Color']) freq['Color'] = {};
+            freq['Color'][c] = (freq['Color'][c] || 0) + 1;
+          });
+        });
+      }
+    });
+    const threshold = Math.max(2, Math.ceil(products.length * 0.5));
+    return Object.entries(freq)
+      .filter(([, vals]) => Object.values(vals).some(count => count >= threshold))
+      .map(([name, vals]) => ({
+        name,
+        values: Object.entries(vals)
+          .filter(([, count]) => count >= threshold)
+          .sort(([, a], [, b]) => b - a)
+          .map(([v]) => v),
+      }))
+      .filter(o => o.values.length > 0)
+      .slice(0, 3);
+  }, [products]);
 
   const filteredProducts = useMemo(() => {
     let result = products.filter(p => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.brand || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.modelLine || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.categories || []).some((c: string) => (c || '').toLowerCase().includes(searchTerm.toLowerCase()));
-      
       const matchesBrand = !brandFilter || p.brand === brandFilter;
       const matchesCategory = !categoryFilter || p.categories.includes(categoryFilter);
-
       return matchesSearch && matchesBrand && matchesCategory;
     });
-
-    // Sorting
     result.sort((a, b) => {
       if (sortOrder === 'newest') return -1;
       if (sortOrder === 'price-asc') return a.price - b.price;
@@ -654,27 +933,24 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
       if (sortOrder === 'name-az') return a.name.localeCompare(b.name);
       return 0;
     });
-
     return result;
   }, [products, searchTerm, brandFilter, categoryFilter, sortOrder]);
 
-  const stats = useMemo(() => {
-    const total = products.length;
-    const active = products.filter(p => p.isActive).length;
-
-    return { total, active };
-  }, [products]);
+  const stats = useMemo(() => ({
+    total: products.length,
+    active: products.filter(p => p.isActive).length,
+  }), [products]);
 
   const handleSave = async (form: ProductForm) => {
     setIsSaving(true);
     try {
-      // Coerce all numeric fields before sending to MongoDB
       const payload = {
         ...form,
         price: parseFloat(form.price as any) || 0,
+        options: form.options,
         variants: form.variants.map(v => ({
-          ...v,
-          price: parseFloat(v.price as any) || 0,
+          combination: v.combination,
+          price: v.price !== '' ? parseFloat(v.price) : null,
           cost: parseFloat(v.cost as any) || 0,
           stock: parseInt(v.stock as any) || 0,
         }))
@@ -707,7 +983,6 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
 
   return (
     <div className="max-w-7xl mx-auto px-4 pb-20">
-      {/* Header & Stats */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h2 className={cn("text-2xl font-black flex items-center gap-3", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
@@ -718,8 +993,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
           </h2>
           <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">{t.inventory_desc || 'Inventory & Product Lifecycle'}</p>
         </div>
-        
-        <button 
+        <button
           onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
           className="w-full md:w-auto bg-[#00b900] text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all"
         >
@@ -728,30 +1002,17 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
-        <StatsCard 
-          icon={<BarChart2 size={20} />} 
-          label={t.total_catalog || "Total Catalog"} 
-          value={stats.total.toString()} 
-          color="indigo" 
-          theme={theme} 
-        />
-        <StatsCard 
-          icon={<Eye size={20} />} 
-          label={t.active_storefront || "Active Storefront"} 
-          value={stats.active.toString()} 
-          color="emerald" 
-          theme={theme} 
-        />
+        <StatsCard icon={<BarChart2 size={20} />} label={t.total_catalog || "Total Catalog"} value={stats.total.toString()} color="indigo" theme={theme} />
+        <StatsCard icon={<Eye size={20} />} label={t.active_storefront || "Active Storefront"} value={stats.active.toString()} color="emerald" theme={theme} />
       </div>
 
-      {/* Discovery Ribbon */}
       <div className={cn(
         "p-4 rounded-3xl border mb-6 flex flex-col lg:flex-row gap-4 transition-colors",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
       )}>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
-          <input 
+          <input
             type="text"
             placeholder={t.search_catalog || "Search name, brand, or family..."}
             value={searchTerm}
@@ -762,50 +1023,26 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
             )}
           />
         </div>
-
         <div className="flex flex-wrap md:flex-nowrap gap-3">
           <div className="relative min-w-[140px]">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
-            <select 
-              value={brandFilter}
-              onChange={(e) => setBrandFilter(e.target.value)}
-              className={cn(
-                "w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border transition-all cursor-pointer",
-                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
-              )}
-            >
+            <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} className={cn("w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border transition-all cursor-pointer", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]")}>
               <option value="">{t.all_brands || 'All Brands'}</option>
               {existingOptions.brands.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
           </div>
-
           <div className="relative min-w-[140px]">
             <Layers className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
-            <select 
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className={cn(
-                "w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border transition-all cursor-pointer",
-                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
-              )}
-            >
+            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={cn("w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border transition-all cursor-pointer", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]")}>
               <option value="">{t.all_categories || 'All Categories'}</option>
               {existingOptions.categories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
           </div>
-
           <div className="relative min-w-[140px]">
             <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
-            <select 
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              className={cn(
-                "w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border transition-all cursor-pointer",
-                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
-              )}
-            >
+            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className={cn("w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border transition-all cursor-pointer", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]")}>
               <option value="newest">{t.sort_newest || 'Sort: Newest'}</option>
               <option value="name-az">{t.sort_az || 'Sort: A-Z'}</option>
               <option value="price-asc">{t.sort_price_asc || 'Sort: Price Low'}</option>
@@ -816,22 +1053,20 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
         </div>
       </div>
 
-      {/* Main Grid Content */}
       {isLoading ? (
         <LoadingView theme={theme} message="Loading Product Catalog..." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map(p => (
-            <ProductCard 
-              key={p._id} 
-              product={p} 
-              theme={theme} 
+            <ProductCard
+              key={p._id}
+              product={p}
+              theme={theme}
               onEdit={() => { setEditingProduct(p); setIsModalOpen(true); }}
               onDelete={() => setDeleteConfirm(p._id)}
               onToggleVisibility={() => toggleVisibility(p)}
             />
           ))}
-          
           {filteredProducts.length === 0 && (
             <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
               <div className="w-16 h-16 bg-[#f8f9fc] dark:bg-[#1a1d2e] rounded-3xl flex items-center justify-center">
@@ -841,10 +1076,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
                 <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No products found</p>
                 <p className="text-xs mt-1">Try adjusting your filters or search terms</p>
               </div>
-              <button 
-                onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setSortOrder('newest'); }}
-                className="text-[#00b900] text-xs font-bold hover:underline"
-              >
+              <button onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setSortOrder('newest'); }} className="text-[#00b900] text-xs font-bold hover:underline">
                 Clear all filters
               </button>
             </div>
@@ -852,19 +1084,15 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
         </div>
       )}
 
-      {/* Modals */}
-      <ProductModal 
+      <ProductModal
         theme={theme}
-        isOpen={isModalOpen} 
-        initialData={useMemo(() => editingProduct ? {
-          ...editingProduct,
-          price: String(editingProduct.price),
-          variants: editingProduct.variants?.map((v: any) => ({ ...v, price: String(v.price), cost: String(v.cost), stock: String(v.stock) })) || [{ ...EMPTY_VARIANT }]
-        } : null, [editingProduct])}
+        isOpen={isModalOpen}
+        initialData={useMemo(() => editingProduct ? normalizeToForm(editingProduct) : null, [editingProduct])}
         onSave={handleSave}
         onClose={() => setIsModalOpen(false)}
         isSaving={isSaving}
         existingOptions={existingOptions}
+        suggestedOptions={suggestedOptions}
       />
 
       {deleteConfirm && (
@@ -889,8 +1117,6 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
 });
 
 function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility }: any) {
-  const totalStock = product.variants.reduce((sum: number, v: any) => sum + (parseInt(v.stock) || 0), 0);
-  const isLowStock = product.variants.some((v: any) => (parseInt(v.stock) || 0) < 5);
 
   return (
     <div className={cn(
@@ -898,7 +1124,6 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility }: a
       theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]",
       !product.isActive && "opacity-60"
     )}>
-      {/* Visual Header */}
       <div className="relative aspect-[4/3] rounded-3xl overflow-hidden mb-5 bg-[#f4f6f9] dark:bg-[#1a1d2e] border border-[#e2e5ef] dark:border-[#1f2335]">
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
@@ -907,8 +1132,6 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility }: a
             <ImageIcon size={32} strokeWidth={1.5} />
           </div>
         )}
-        
-        {/* Quick Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-2">
           {!product.isActive && (
             <span className="bg-[#1a1d2e] text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
@@ -916,8 +1139,7 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility }: a
             </span>
           )}
         </div>
-
-        <button 
+        <button
           onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
           className={cn(
             "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-90",
@@ -928,58 +1150,37 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility }: a
         </button>
       </div>
 
-      {/* Content */}
       <div className="flex-1">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="text-[10px] font-black text-[#00b900] uppercase tracking-wider truncate">
-            {product.brand} {product.modelLine && `• ${product.modelLine}`}
-          </div>
+        <div className="text-[10px] font-black text-[#00b900] uppercase tracking-wider truncate mb-1">
+          {product.brand} {product.modelLine && `• ${product.modelLine}`}
         </div>
-        
         <h3 className={cn("font-bold text-base mb-1 transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
           {product.name}
         </h3>
-
-        <div className="flex flex-wrap gap-1.5 mb-4">
+        <div className="flex flex-wrap gap-1.5 mb-3">
           {product.categories?.slice(0, 2).map((c: string) => (
-            <span key={c} className={cn(
-              "px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-wider",
-              theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]"
-            )}>
-              {c}
-            </span>
+            <span key={c} className={cn("px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-wider", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>{c}</span>
           ))}
           {product.categories?.length > 2 && <span className="text-[8px] font-bold text-[#8b92ad]">+{product.categories.length - 2}</span>}
         </div>
-
         <div className="flex items-center justify-between">
           <div className={cn("text-lg font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
             ฿{product.price?.toLocaleString()}
           </div>
+          {product.variants?.length > 0 && (
+            <span className="text-[9px] font-bold text-[#8b92ad]">{product.variants.length} variant{product.variants.length !== 1 ? 's' : ''}</span>
+          )}
         </div>
       </div>
 
-      {/* Actions */}
       <div className={cn(
         "flex gap-2 mt-6 pt-5 border-t opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0",
         theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]"
       )}>
-        <button 
-          onClick={onEdit} 
-          className={cn(
-            "flex-1 py-3 rounded-2xl text-[10px] font-black transition-all active:scale-95 flex items-center justify-center gap-2",
-            theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]"
-          )}
-        >
+        <button onClick={onEdit} className={cn("flex-1 py-3 rounded-2xl text-[10px] font-black transition-all active:scale-95 flex items-center justify-center gap-2", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>
           <Edit2 size={12} /> EDIT CATALOG
         </button>
-        <button 
-          onClick={onDelete} 
-          className={cn(
-            "p-3 rounded-2xl transition-all active:scale-95 flex items-center justify-center",
-            theme === 'dark' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100"
-          )}
-        >
+        <button onClick={onDelete} className={cn("p-3 rounded-2xl transition-all active:scale-95 flex items-center justify-center", theme === 'dark' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100")}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -994,15 +1195,9 @@ function StatsCard({ icon, label, value, color, theme }: any) {
     blue: "text-blue-500 bg-blue-500/10",
     indigo: "text-indigo-500 bg-indigo-500/10",
   };
-
   return (
-    <div className={cn(
-      "p-5 rounded-3xl border transition-all shadow-sm flex flex-col gap-3",
-      theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
-    )}>
-      <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", colorMap[color])}>
-        {icon}
-      </div>
+    <div className={cn("p-5 rounded-3xl border transition-all shadow-sm flex flex-col gap-3", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+      <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", colorMap[color])}>{icon}</div>
       <div>
         <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
         <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>

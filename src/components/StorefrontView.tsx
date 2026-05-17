@@ -8,6 +8,31 @@ import { resolvePreset, type StorefrontPreset } from '@/lib/storefrontPresets';
 type CartItem = { productId: string; name: string; price: number; variantLabel?: string; qty: number; imageUrl?: string };
 type View = 'home' | 'detail' | 'cart' | 'payment';
 
+function getProductOptions(product: any): Array<{ name: string; values: string[] }> {
+  if (product?.options?.length) return product.options;
+  const opts: Array<{ name: string; values: string[] }> = [];
+  const variantNames = [...new Set((product?.variants || []).map((v: any) => v.variantName).filter(Boolean))] as string[];
+  if (variantNames.length) opts.push({ name: 'Variant', values: variantNames });
+  const colors = [...new Set((product?.variants || []).flatMap((v: any) => v.colors || []).filter(Boolean))] as string[];
+  if (colors.length) opts.push({ name: 'Color', values: colors });
+  return opts;
+}
+
+function findMatchingVariant(product: any, selections: Record<string, string>): any {
+  if (!product?.variants?.length) return null;
+  if (product.options?.length) {
+    return product.variants.find((v: any) =>
+      Object.keys(selections).every(k => v.combination?.[k] === selections[k])
+    ) ?? null;
+  }
+  const variantName = selections['Variant'];
+  const color = selections['Color'];
+  return product.variants.find((v: any) =>
+    (!variantName || v.variantName === variantName) &&
+    (!color || v.colors?.includes(color))
+  ) ?? null;
+}
+
 export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [shopInfo, setShopInfo] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -18,8 +43,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeBrand, setActiveBrand] = useState('All');
-  const [selVariant, setSelVariant] = useState('');
-  const [selColor, setSelColor] = useState('');
+  const [selections, setSelections] = useState<Record<string, string>>({});
   const [customer, setCustomer] = useState<any>(null);
   const [isOrdering, setIsOrdering] = useState(false);
   const [qty, setQty] = useState(1);
@@ -87,9 +111,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
   function addToCart() {
     if (!selectedProduct) return;
-    const variantLabel = selectedVariant
-      ? `${selVariant || ''}${selVariant && selColor ? ' / ' : ''}${selColor || ''}`.trim()
-      : '';
+    const variantLabel = Object.values(selections).filter(Boolean).join(' / ');
     const price = selectedVariant?.price ?? selectedProduct.price;
     const key = `${selectedProduct._id}-${variantLabel}`;
     setCart(prev => {
@@ -157,8 +179,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   );
 
   if (view === 'detail' && selectedProduct) {
-    const variantNames = [...new Set((selectedProduct.variants ?? []).map((v: any) => v.variantName).filter(Boolean))] as string[];
-    const colors: string[] = selectedVariant?.colors ?? [];
+    const productOptions = getProductOptions(selectedProduct);
+    const allSelected = productOptions.every(o => selections[o.name]);
     return (
       <div style={style.page}>
         <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
@@ -176,27 +198,22 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
             <p className="text-xl font-bold mt-1" style={{ color: p.accent }}>฿{(selectedVariant?.price ?? selectedProduct.price).toLocaleString()}</p>
             {selectedProduct.description && <p className="text-sm mt-2" style={style.sub}>{selectedProduct.description}</p>}
           </div>
-          {variantNames.length > 0 && (
-            <div>
-              <p className="text-sm font-medium mb-2">Variant</p>
+          {productOptions.map(option => (
+            <div key={option.name}>
+              <p className="text-sm font-medium mb-2">{option.name}</p>
               <div className="flex flex-wrap gap-2">
-                {variantNames.map(t => (
-                  <button key={t} onClick={() => { setSelVariant(t); setSelColor(''); setSelectedVariant(selectedProduct.variants?.find((v: any) => v.variantName === t)); }}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium" style={style.pill(selVariant === t)}>{t}</button>
+                {option.values.map(val => (
+                  <button key={val}
+                    onClick={() => {
+                      const next = { ...selections, [option.name]: val };
+                      setSelections(next);
+                      setSelectedVariant(findMatchingVariant(selectedProduct, next));
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium" style={style.pill(selections[option.name] === val)}>{val}</button>
                 ))}
               </div>
             </div>
-          )}
-          {colors.length > 0 && (
-            <div>
-              <p className="text-sm font-medium mb-2">Color</p>
-              <div className="flex flex-wrap gap-2">
-                {colors.map((c: string) => (
-                  <button key={c} onClick={() => setSelColor(c)} className="px-3 py-1.5 rounded-lg text-sm font-medium" style={style.pill(selColor === c)}>{c}</button>
-                ))}
-              </div>
-            </div>
-          )}
+          ))}
           <div className="flex items-center gap-3">
             <p className="text-sm font-medium">Qty</p>
             <div className="flex items-center gap-2">
@@ -205,8 +222,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
               <button onClick={() => setQty(q => q + 1)} style={style.card} className="w-8 h-8 rounded-lg flex items-center justify-center"><Plus size={14} /></button>
             </div>
           </div>
-          <button onClick={addToCart} style={style.accent} className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2">
-            <ShoppingBag size={16} /> Add to cart
+          <button onClick={addToCart} disabled={!allSelected} style={allSelected ? style.accent : { background: '#ccc', color: '#fff' }} className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+            <ShoppingBag size={16} /> {allSelected ? 'Add to cart' : 'Select options'}
           </button>
         </div>
       </div>
@@ -278,7 +295,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       <div className={`p-4 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}`}>
         {filtered.map(pr => (
           <button key={pr._id}
-            onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelVariant(''); setSelColor(''); setQty(1); setView('detail'); }}
+            onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelections({}); setQty(1); setView('detail'); }}
             className={`rounded-2xl overflow-hidden text-left transition-all active:scale-95 ${cardLayout === 'list' ? 'flex gap-3 p-3' : ''}`}
             style={style.card}
           >

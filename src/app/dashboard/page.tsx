@@ -27,6 +27,7 @@ export default function DashboardPage() {
   const [merchant, setMerchant] = useState<Merchant | null>(null);
   const [settings, setSettings] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<Tab>('customers');
+  const [settingsScroll, setSettingsScroll] = useState<{ section: string; id: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -161,7 +162,7 @@ export default function DashboardPage() {
         {activeTab === 'products'   && <div className="flex-1 overflow-auto"><ProductManagement theme={theme} t={{}} /></div>}
         {activeTab === 'reports'    && <div className="flex-1 overflow-auto pt-2"><ReportsView theme={theme} t={{}} /></div>}
         {activeTab === 'broadcasts' && <div className="flex-1 overflow-hidden flex flex-col"><BroadcastsView theme={theme} t={{}} /></div>}
-        {activeTab === 'settings'   && <SettingsView theme={theme} onSave={refreshSettings} />}
+        {activeTab === 'settings'   && <SettingsView theme={theme} onSave={refreshSettings} scrollTrigger={settingsScroll} />}
         {activeTab === 'storefront' && (
           <div className="flex-1 overflow-auto p-6">
             <div className="mb-6">
@@ -186,7 +187,14 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
-      <FloatingGuide theme={theme} onNavigate={setActiveTab} nudgeUp={activeTab === 'settings'} />
+      <FloatingGuide
+        theme={theme}
+        nudgeUp={activeTab === 'settings'}
+        onNavigate={(tab, section) => {
+          setActiveTab(tab);
+          if (section) setSettingsScroll({ section, id: Date.now() });
+        }}
+      />
     </div>
   );
 }

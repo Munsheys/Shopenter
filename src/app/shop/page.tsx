@@ -10,6 +10,31 @@ function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
 type CartItem = { productId: string; name: string; price: number; variantLabel?: string; qty: number; imageUrl?: string; };
 type Product = any;
+
+function getProductOptions(product: Product): Array<{ name: string; values: string[] }> {
+  if (product?.options?.length) return product.options;
+  const opts: Array<{ name: string; values: string[] }> = [];
+  const variantNames = [...new Set((product?.variants || []).map((v: any) => v.variantName).filter(Boolean))] as string[];
+  if (variantNames.length) opts.push({ name: 'Variant', values: variantNames });
+  const colors = [...new Set((product?.variants || []).flatMap((v: any) => v.colors || []).filter(Boolean))] as string[];
+  if (colors.length) opts.push({ name: 'Color', values: colors });
+  return opts;
+}
+
+function findMatchingVariant(product: Product, selections: Record<string, string>): any {
+  if (!product?.variants?.length) return null;
+  if (product.options?.length) {
+    return product.variants.find((v: any) =>
+      Object.keys(selections).every(k => v.combination?.[k] === selections[k])
+    ) ?? null;
+  }
+  const variantName = selections['Variant'];
+  const color = selections['Color'];
+  return product.variants.find((v: any) =>
+    (!variantName || v.variantName === variantName) &&
+    (!color || v.colors?.includes(color))
+  ) ?? null;
+}
 type View = 'home' | 'detail' | 'cart' | 'payment';
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'brand' | 'featured';
 
@@ -20,16 +45,15 @@ export default function Shop() {
   const [view, setView] = useState<View>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
-  
+
   // Filtering States
   const [searchQuery, setSearchQuery] = useState('');
   const [activeBrand, setActiveBrand] = useState('All');
   const [activeCategory, setActiveCategory] = useState('All');
   const [sortBy, setSortBy] = useState<SortOption>('featured');
-  
-  // 2-Tier Selection States
-  const [selVariant, setSelVariant] = useState<string>('');
-  const [selColor, setSelColor] = useState<string>('');
+
+  // N-Dimensional Option Selections
+  const [selections, setSelections] = useState<Record<string, string>>({});
 
   const [customer, setCustomer] = useState<any>(null);
   const [isOrdering, setIsOrdering] = useState(false);
@@ -145,28 +169,17 @@ export default function Shop() {
     return result;
   }, [products, activeBrand, activeCategory, searchQuery, sortBy]);
 
-  // Derived Variant Selection
-  const availableVariants = useMemo<string[]>(() => {
-    if (!selectedProduct?.variants) return [];
-    return Array.from(new Set(selectedProduct.variants.map((v: any) => String(v.variantName)))).filter(Boolean) as string[];
+  // Derived option groups for selected product
+  const productOptions = useMemo(() => {
+    return selectedProduct ? getProductOptions(selectedProduct) : [];
   }, [selectedProduct]);
 
-  const availableColors = useMemo<string[]>(() => {
-    if (!selectedProduct?.variants || !selVariant) return [];
-    const matching = selectedProduct.variants.filter((v: any) => v.variantName === selVariant);
-    const colors = new Set<string>();
-    matching.forEach((v: any) => v.colors?.forEach((c: any) => colors.add(String(c))));
-    return Array.from(colors) as string[];
-  }, [selectedProduct, selVariant]);
-
-  // Update selected variant when variant/color changes
+  // Update matched variant whenever selections change
   useEffect(() => {
-    if (!selectedProduct?.variants) return;
-    const match = selectedProduct.variants.find((v: any) =>
-      v.variantName === selVariant && v.colors?.includes(selColor)
-    );
+    if (!selectedProduct) return;
+    const match = findMatchingVariant(selectedProduct, selections);
     setSelectedVariant(match || null);
-  }, [selVariant, selColor, selectedProduct]);
+  }, [selections, selectedProduct]);
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
@@ -174,7 +187,7 @@ export default function Shop() {
   const addToCart = useCallback(() => {
     if (!selectedProduct) return;
     const price = selectedVariant?.price ?? selectedProduct.price;
-    const variantLabel = selectedVariant ? [selectedVariant.variantName, selColor].filter(Boolean).join(' · ') : undefined;
+    const variantLabel = Object.values(selections).filter(Boolean).join(' · ') || undefined;
     const key = selectedProduct._id + (variantLabel || '');
     setCart(prev => {
       const existing = prev.find(i => i.productId + (i.variantLabel || '') === key);
@@ -183,11 +196,10 @@ export default function Shop() {
     });
     setView('home');
     setIsCartOpen(true);
-    setSelVariant('');
-    setSelColor('');
+    setSelections({});
     setSelectedVariant(null);
     setQty(1);
-  }, [selectedProduct, selectedVariant, selColor, qty]);
+  }, [selectedProduct, selectedVariant, selections, qty]);
 
   const handleConfirmOrder = async () => {
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.origin + '/shop' }); return; }
@@ -364,7 +376,7 @@ export default function Shop() {
               {filteredAndSorted.map((p: Product) => (
                 <button
                   key={p._id}
-                  onClick={() => { setSelectedProduct(p); setSelVariant(''); setSelColor(''); setQty(1); setView('detail'); }}
+                  onClick={() => { setSelectedProduct(p); setSelections({}); setQty(1); setView('detail'); }}
                   className="group text-left active:scale-[0.98] transition-all"
                 >
                   <div className="aspect-square w-full rounded-[32px] overflow-hidden bg-[#1a1d2e]/5 mb-4 relative shadow-sm group-hover:shadow-2xl transition-all border border-transparent group-hover:border-[#d4af37]/20">
@@ -401,47 +413,30 @@ export default function Shop() {
               {selectedProduct.description && <p className="text-[#8b92ad] text-base sm:text-xl leading-relaxed mb-8 lg:mb-12 font-medium max-w-xl text-left">{selectedProduct.description}</p>}
               <div className="flex items-end gap-3 mb-10 lg:mb-16"><span className="text-4xl sm:text-6xl font-black text-[#1a1d2e]">฿{(selectedVariant?.price ?? selectedProduct.price)?.toLocaleString()}</span><span className="text-xs font-bold text-[#8b92ad] mb-2 uppercase tracking-widest">Investment</span></div>
               
-              {/* 2-TIER VARIANT SELECTOR */}
-              {availableVariants.length > 0 && (
-                <div className="mb-8 text-left">
-                  <p className="text-[10px] font-black text-[#1a1d2e]/30 uppercase tracking-[0.2em] mb-4">1. Choose Variant</p>
+              {/* N-DIMENSIONAL OPTION SELECTOR */}
+              {productOptions.map((option, i) => (
+                <div key={option.name} className="mb-8 text-left animate-in fade-in duration-300">
+                  <p className="text-[10px] font-black text-[#1a1d2e]/30 uppercase tracking-[0.2em] mb-4">{i + 1}. Choose {option.name}</p>
                   <div className="flex flex-wrap gap-3">
-                    {availableVariants.map(t => (
+                    {option.values.map(val => (
                       <button
-                        key={t}
-                        onClick={() => { setSelVariant(t); setSelColor(''); }}
-                        className={cn("px-6 py-3 rounded-2xl text-[10px] sm:text-xs font-black border transition-all uppercase tracking-widest", selVariant === t ? "bg-[#1a1d2e] border-[#1a1d2e] text-white shadow-xl" : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/40 hover:border-[#d4af37]/40")}
+                        key={val}
+                        onClick={() => setSelections(prev => ({ ...prev, [option.name]: val }))}
+                        className={cn("px-6 py-3 rounded-2xl text-[10px] sm:text-xs font-black border transition-all uppercase tracking-widest", selections[option.name] === val ? "bg-[#1a1d2e] border-[#1a1d2e] text-white shadow-xl" : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/40 hover:border-[#d4af37]/40")}
                       >
-                        {t}
+                        {val}
                       </button>
                     ))}
                   </div>
                 </div>
-              )}
-
-              {selVariant && availableColors.length > 0 && (
-                <div className="mb-10 lg:mb-14 animate-in fade-in slide-in-from-top-2 duration-500 text-left">
-                  <p className="text-[10px] font-black text-[#1a1d2e]/30 uppercase tracking-[0.2em] mb-4">2. Choose Color</p>
-                  <div className="flex flex-wrap gap-3">
-                    {availableColors.map(c => (
-                      <button 
-                        key={c} 
-                        onClick={() => setSelColor(c)} 
-                        className={cn("px-6 py-3 rounded-2xl text-[10px] sm:text-xs font-black border transition-all uppercase tracking-widest", selColor === c ? "bg-[#1a1d2e] border-[#1a1d2e] text-white shadow-xl" : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/40 hover:border-[#d4af37]/40")}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              ))}
 
               <div className="flex items-center justify-between bg-[#1a1d2e]/5 rounded-3xl p-4 lg:p-6 mb-10 lg:mb-16 lg:max-w-md"><span className="text-[10px] font-black uppercase tracking-widest text-[#1a1d2e]/40">Quantity</span><div className="flex items-center gap-6 sm:gap-10"><button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-8 h-8 sm:w-12 sm:h-12 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e] hover:bg-white transition-all"><Minus size={14} /></button><span className="font-black text-lg sm:text-2xl text-[#1a1d2e]">{qty}</span><button onClick={() => setQty(q => q + 1)} className="w-8 h-8 sm:w-12 sm:h-12 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e] hover:bg-white transition-all"><Plus size={14} /></button></div></div>
-              <div className="hidden lg:block lg:max-w-md"><button onClick={addToCart} disabled={(availableVariants.length > 0 && !selVariant) || (availableColors.length > 0 && !selColor)} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-6 rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4"><ShoppingBag size={24} className="text-[#d4af37]" />ADD TO BAG</button></div>
+              <div className="hidden lg:block lg:max-w-md"><button onClick={addToCart} disabled={productOptions.some(o => !selections[o.name])} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-6 rounded-[32px] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4"><ShoppingBag size={24} className="text-[#d4af37]" />ADD TO BAG</button></div>
             </div>
           </div>
           <div className="lg:hidden fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#fdfbf7] via-[#fdfbf7] to-transparent z-40">
-            <div className="max-w-lg mx-auto"><button onClick={addToCart} disabled={(availableVariants.length > 0 && !selVariant) || (availableColors.length > 0 && !selColor)} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-5 rounded-[24px] font-black text-base shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"><ShoppingBag size={20} className="text-[#d4af37]" />{(availableVariants.length > 0 && !selVariant) || (availableColors.length > 0 && !selColor) ? 'COMPLETE SELECTION' : `ADD TO BAG · ฿${((selectedVariant?.price ?? selectedProduct.price) * qty).toLocaleString()}`}</button></div>
+            <div className="max-w-lg mx-auto"><button onClick={addToCart} disabled={productOptions.some(o => !selections[o.name])} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-5 rounded-[24px] font-black text-base shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"><ShoppingBag size={20} className="text-[#d4af37]" />{productOptions.some(o => !selections[o.name]) ? 'COMPLETE SELECTION' : `ADD TO BAG · ฿${((selectedVariant?.price ?? selectedProduct.price) * qty).toLocaleString()}`}</button></div>
           </div>
         </div>
       )}

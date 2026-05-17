@@ -9,7 +9,7 @@ import {
 type DashTab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'settings';
 
 type StepAction =
-  | { kind: 'nav';  label: string; tab: DashTab }
+  | { kind: 'nav';  label: string; tab: DashTab; section?: string }
   | { kind: 'href'; label: string; href: string };
 
 interface Step {
@@ -26,7 +26,7 @@ export default function FloatingGuide({
   nudgeUp = false,
 }: {
   theme?: 'light' | 'dark';
-  onNavigate: (tab: DashTab) => void;
+  onNavigate: (tab: DashTab, section?: string) => void;
   nudgeUp?: boolean;
 }) {
   const isDark = theme === 'dark';
@@ -35,14 +35,35 @@ export default function FloatingGuide({
   const [dismissed, setDismissed] = useState(false);
   const [settings, setSettings]   = useState<any>(null);
   const [lineOk, setLineOk]       = useState(false);
+  const [hasProducts, setHasProducts]     = useState(false);
+  const [hasAutoReply, setHasAutoReply]   = useState(false);
+  const [hasRichMenu, setHasRichMenu]     = useState(false);
+  const [hasBroadcast, setHasBroadcast]   = useState(false);
 
   useEffect(() => {
     if (localStorage.getItem('sg-dismissed') === 'true') { setDismissed(true); return; }
     setOpen(localStorage.getItem('sg-open') === 'true');
+
     fetch('/api/settings').then(r => r.json()).then(setSettings).catch(() => {});
     fetch('/api/line-status')
       .then(r => r.json())
       .then(d => setLineOk(!!(d.configured && d.valid)))
+      .catch(() => {});
+    fetch('/api/products')
+      .then(r => r.json())
+      .then(d => setHasProducts(Array.isArray(d) && d.length > 0))
+      .catch(() => {});
+    fetch('/api/auto-reply')
+      .then(r => r.json())
+      .then(d => setHasAutoReply(Array.isArray(d) && d.some((r: any) => r.isActive)))
+      .catch(() => {});
+    fetch('/api/rich-menu')
+      .then(r => r.json())
+      .then(d => setHasRichMenu(Array.isArray(d.richmenus) && d.richmenus.length > 0))
+      .catch(() => {});
+    fetch('/api/campaigns')
+      .then(r => r.json())
+      .then(d => setHasBroadcast(Array.isArray(d) && d.some((c: any) => c.deliveryMode === 'instant' && c.status === 'completed')))
       .catch(() => {});
   }, []);
 
@@ -71,13 +92,13 @@ export default function FloatingGuide({
       n: 2, done: !!(settings.shopName && settings.shopName !== 'My Shop'),
       icon: <Store size={12} />,
       title: 'Set your shop name',
-      action: { kind: 'nav', label: 'Settings', tab: 'settings' },
+      action: { kind: 'nav', label: 'General', tab: 'settings', section: 'general' },
     },
     {
       n: 3, done: lineOk,
       icon: <MessageSquare size={12} />,
       title: 'Connect LINE OA',
-      action: { kind: 'nav', label: 'Settings → LINE', tab: 'settings' },
+      action: { kind: 'nav', label: 'LINE Settings', tab: 'settings', section: 'line' },
     },
     {
       n: 4, done: false,
@@ -89,10 +110,10 @@ export default function FloatingGuide({
       n: 5, done: !!settings.promptPayId,
       icon: <Zap size={12} />,
       title: 'Add PromptPay ID',
-      action: { kind: 'nav', label: 'Settings → Payment', tab: 'settings' },
+      action: { kind: 'nav', label: 'Payment Settings', tab: 'settings', section: 'payment' },
     },
     {
-      n: 6, done: false,
+      n: 6, done: hasProducts,
       icon: <Package size={12} />,
       title: 'Add your first product',
       action: { kind: 'nav', label: 'Products', tab: 'products' },
@@ -110,19 +131,19 @@ export default function FloatingGuide({
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
     },
     {
-      n: 9, done: false,
+      n: 9, done: hasAutoReply,
       icon: <MessageSquare size={12} />,
       title: 'Create auto-reply rules',
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
     },
     {
-      n: 10, done: false,
+      n: 10, done: hasRichMenu,
       icon: <LayoutGrid size={12} />,
       title: 'Design a Rich Menu',
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
     },
     {
-      n: 11, done: false,
+      n: 11, done: hasBroadcast,
       icon: <Megaphone size={12} />,
       title: 'Send first broadcast',
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
@@ -187,7 +208,6 @@ export default function FloatingGuide({
                     : isDark ? 'hover:bg-[#1a1d2e]' : 'hover:bg-slate-50'
                 }`}
               >
-                {/* Indicator */}
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold ${
                   step.done
                     ? 'bg-[#00b900]/15 text-[#00b900]'
@@ -196,12 +216,10 @@ export default function FloatingGuide({
                   {step.done ? <Check size={10} /> : step.n}
                 </div>
 
-                {/* Title */}
                 <p className={`flex-1 text-xs font-medium truncate ${text} ${step.done ? 'line-through' : ''}`}>
                   {step.title}
                 </p>
 
-                {/* Action */}
                 {!step.done && step.action && (() => {
                   const a = step.action!;
                   const cls = `text-[10px] font-semibold text-[#00b900] hover:text-[#00a000] transition-colors flex-shrink-0 flex items-center gap-0.5 whitespace-nowrap`;
@@ -212,7 +230,11 @@ export default function FloatingGuide({
                   );
                   return (
                     <button
-                      onClick={() => { onNavigate(a.tab); setOpen(false); localStorage.setItem('sg-open', 'false'); }}
+                      onClick={() => {
+                        onNavigate(a.tab, a.section);
+                        setOpen(false);
+                        localStorage.setItem('sg-open', 'false');
+                      }}
                       className={cls}
                     >
                       {a.label} <ArrowRight size={8} />

@@ -37,15 +37,18 @@ interface LineStatus {
 export default function SettingsView({
   theme,
   onSave,
+  scrollTrigger,
 }: {
   theme?: 'light' | 'dark';
   onSave?: () => void;
+  scrollTrigger?: { section: string; id: number } | null;
 }) {
   const isDark = theme === 'dark';
 
   // Scroll container + active-section tracking
   const containerRef               = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState<SectionId>('general');
+  const [highlighted, setHighlighted]     = useState<SectionId | null>(null);
 
   // Data
   const [settings, setSettings]   = useState<any>(null);
@@ -106,7 +109,7 @@ export default function SettingsView({
     return () => container.removeEventListener('scroll', onScroll);
   }, []);
 
-  function scrollTo(id: SectionId) {
+  const scrollTo = useCallback((id: SectionId) => {
     const container = containerRef.current;
     const el = container?.querySelector<HTMLElement>(`#${id}`);
     if (el && container) {
@@ -114,7 +117,20 @@ export default function SettingsView({
       container.scrollTo({ top, behavior: 'smooth' });
       setActiveSection(id);
     }
-  }
+  }, []);
+
+  // External scroll trigger from FloatingGuide navigation
+  useEffect(() => {
+    if (!scrollTrigger) return;
+    const id = scrollTrigger.section as SectionId;
+    const timer = setTimeout(() => {
+      scrollTo(id);
+      setHighlighted(id);
+      setTimeout(() => setHighlighted(null), 1800);
+    }, 80);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollTrigger?.id]);
 
   // ── Save ────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -219,7 +235,7 @@ export default function SettingsView({
 
         {/* ══ GENERAL ══════════════════════════════════════════════════════ */}
         <div id="general" className="space-y-6 pt-2">
-          <div className="flex items-center gap-2 pb-1">
+          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'general' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
             <SettingsIcon size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>General</h2>
           </div>
@@ -301,7 +317,7 @@ export default function SettingsView({
 
         {/* ══ LINE ═════════════════════════════════════════════════════════ */}
         <div id="line" className="space-y-6">
-          <div className="flex items-center gap-2 pb-1">
+          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'line' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
             <MessageSquare size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>LINE Integration</h2>
           </div>
@@ -437,7 +453,7 @@ export default function SettingsView({
 
         {/* ══ PAYMENT ══════════════════════════════════════════════════════ */}
         <div id="payment" className="space-y-6">
-          <div className="flex items-center gap-2 pb-1">
+          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'payment' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
             <Zap size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>Payment</h2>
           </div>
@@ -489,7 +505,7 @@ export default function SettingsView({
 
         {/* ══ SHIPPING ═════════════════════════════════════════════════════ */}
         <div id="shipping" className="space-y-6">
-          <div className="flex items-center gap-2 pb-1">
+          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'shipping' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
             <Package size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>Shipping</h2>
           </div>
@@ -530,7 +546,7 @@ export default function SettingsView({
 
         {/* ══ NOTIFICATIONS ════════════════════════════════════════════════ */}
         <div id="notifications" className="space-y-6">
-          <div className="flex items-center gap-2 pb-1">
+          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'notifications' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
             <Bell size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>Notifications</h2>
           </div>
