@@ -1,0 +1,989 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Megaphone, Zap, Clock, MessageSquare, Hand, LayoutGrid,
+  Plus, Trash2, Edit2, Check, X, ChevronDown, AlertTriangle,
+  RefreshCw, Send, Pause, Play, Ban, Loader2, ExternalLink,
+  Image as ImageIcon, Video, Music, Smile, Type, Info,
+} from 'lucide-react';
+
+interface BroadcastsViewProps {
+  theme?: 'light' | 'dark';
+  t: any;
+}
+
+interface LineBlock {
+  type: 'text' | 'image' | 'video' | 'audio' | 'sticker';
+  text?: string;
+  originalContentUrl?: string;
+  previewImageUrl?: string;
+  duration?: number;
+  packageId?: string;
+  stickerId?: string;
+}
+
+interface Campaign {
+  _id: string;
+  name: string;
+  deliveryMode: 'instant' | 'queued';
+  messages: LineBlock[];
+  status: 'active' | 'paused' | 'completed' | 'cancelled';
+  audience?: string;
+  recipientCount?: number;
+  sentAt?: string;
+  validUntil?: string;
+  deliveredTo?: string[];
+  totalTargeted?: number;
+  createdAt: string;
+}
+
+interface AutoReplyRule {
+  _id: string;
+  keyword: string;
+  matchType: 'exact' | 'contains' | 'starts_with' | 'default';
+  messages: LineBlock[];
+  isActive: boolean;
+  priority: number;
+  lastTriggeredAt?: string;
+}
+
+interface LineStatus {
+  configured: boolean;
+  valid?: boolean;
+  error?: string;
+  bot?: { displayName: string; basicId: string; pictureUrl?: string; chatMode: string };
+  tier?: 'unverified' | 'verified' | 'premium';
+  quota?: { type: string; value?: number };
+  consumption?: { totalUsage: number };
+  capabilities?: { followerSync: boolean; narrowcastAdvanced: boolean; unlimitedMessages: boolean };
+}
+
+interface RichMenu {
+  richMenuId: string;
+  name: string;
+  chatBarText: string;
+  size: { width: number; height: number };
+}
+
+const DK = {
+  bg: 'bg-[#0f1117]',
+  surface: 'bg-[#161925] border border-[#1f2335]',
+  surfaceDeep: 'bg-[#1a1d2e]',
+  border: 'border-[#1f2335]',
+  text: 'text-white',
+  muted: 'text-[#8b92ad]',
+  input: 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-[#00b900] focus:outline-none',
+};
+const LK = {
+  bg: 'bg-slate-50',
+  surface: 'bg-white border border-slate-200',
+  surfaceDeep: 'bg-slate-50',
+  border: 'border-slate-200',
+  text: 'text-slate-900',
+  muted: 'text-slate-500',
+  input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#00b900] focus:outline-none',
+};
+
+const TIER_BADGE: Record<string, { label: string; color: string }> = {
+  unverified: { label: 'Unverified', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
+  verified:   { label: 'Verified ✓', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  premium:    { label: 'Premium ✦', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+};
+
+const AUDIENCE_LABELS: Record<string, string> = {
+  all: 'All customers',
+  active_30d: 'Active last 30 days',
+  active_60d: 'Active last 60 days',
+  ordered: 'Ordered at least once',
+};
+
+// ── Message block composer ────────────────────────────────────────────────────
+
+function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onChange: (b: LineBlock[]) => void; isDark: boolean }) {
+  const k = isDark ? DK : LK;
+
+  function update(i: number, patch: Partial<LineBlock>) {
+    const next = blocks.map((b, idx) => idx === i ? { ...b, ...patch } : b);
+    onChange(next);
+  }
+  function remove(i: number) { onChange(blocks.filter((_, idx) => idx !== i)); }
+  function add(type: LineBlock['type']) {
+    if (blocks.length >= 5) return;
+    onChange([...blocks, { type }]);
+  }
+
+  return (
+    <div className="space-y-3">
+      {blocks.map((block, i) => (
+        <div key={i} className={`rounded-xl p-3 ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>{block.type}</span>
+            <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 transition-colors"><X size={14} /></button>
+          </div>
+          {block.type === 'text' && (
+            <textarea
+              value={block.text ?? ''}
+              onChange={e => update(i, { text: e.target.value })}
+              placeholder="Enter your message…"
+              rows={3}
+              className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`}
+            />
+          )}
+          {(block.type === 'image' || block.type === 'video') && (
+            <div className="space-y-2">
+              <input
+                type="url"
+                value={block.originalContentUrl ?? ''}
+                onChange={e => update(i, { originalContentUrl: e.target.value })}
+                placeholder={`${block.type === 'image' ? 'Image' : 'Video'} URL (must be https://)`}
+                className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}
+              />
+              <input
+                type="url"
+                value={block.previewImageUrl ?? ''}
+                onChange={e => update(i, { previewImageUrl: e.target.value })}
+                placeholder="Preview image URL (thumbnail)"
+                className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}
+              />
+              {block.originalContentUrl && block.type === 'image' && (
+                <img src={block.originalContentUrl} alt="" className="h-24 w-auto rounded-lg object-cover border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />
+              )}
+            </div>
+          )}
+          {block.type === 'audio' && (
+            <div className="space-y-2">
+              <input
+                type="url"
+                value={block.originalContentUrl ?? ''}
+                onChange={e => update(i, { originalContentUrl: e.target.value })}
+                placeholder="Audio URL (must be https://)"
+                className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}
+              />
+              <input
+                type="number"
+                value={block.duration ?? 60000}
+                onChange={e => update(i, { duration: Number(e.target.value) })}
+                placeholder="Duration (ms)"
+                className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}
+              />
+            </div>
+          )}
+          {block.type === 'sticker' && (
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={block.packageId ?? ''}
+                onChange={e => update(i, { packageId: e.target.value })}
+                placeholder="Package ID"
+                className={`rounded-lg px-3 py-2 text-sm border ${k.input}`}
+              />
+              <input
+                type="text"
+                value={block.stickerId ?? ''}
+                onChange={e => update(i, { stickerId: e.target.value })}
+                placeholder="Sticker ID"
+                className={`rounded-lg px-3 py-2 text-sm border ${k.input}`}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+
+      {blocks.length < 5 && (
+        <div className="flex flex-wrap gap-2">
+          {[
+            { type: 'text' as const, icon: <Type size={12} />, label: 'Text' },
+            { type: 'image' as const, icon: <ImageIcon size={12} />, label: 'Image' },
+            { type: 'video' as const, icon: <Video size={12} />, label: 'Video' },
+            { type: 'audio' as const, icon: <Music size={12} />, label: 'Audio' },
+            { type: 'sticker' as const, icon: <Smile size={12} />, label: 'Sticker' },
+          ].map(({ type, icon, label }) => (
+            <button
+              key={type}
+              onClick={() => add(type)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#00b900]/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-[#00b900]/50'}`}
+            >
+              {icon} + {label}
+            </button>
+          ))}
+          <span className={`text-xs self-center ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>{blocks.length}/5 blocks</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Capability chip ───────────────────────────────────────────────────────────
+
+function CapChip({ label, ok, lockedReason }: { label: string; ok: boolean; lockedReason?: string }) {
+  return (
+    <span title={ok ? undefined : lockedReason} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${ok ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-500/10 text-slate-500 border-slate-500/20'}`}>
+      {ok ? <Check size={10} /> : <X size={10} />} {label}
+    </span>
+  );
+}
+
+// ── Status bar ────────────────────────────────────────────────────────────────
+
+function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSync: () => void; isDark: boolean }) {
+  const k = isDark ? DK : LK;
+
+  if (!status) return (
+    <div className={`rounded-2xl p-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'} flex items-center gap-3`}>
+      <Loader2 size={18} className="animate-spin text-[#00b900]" />
+      <span className={`text-sm ${k.muted}`}>Checking LINE account status…</span>
+    </div>
+  );
+
+  if (!status.configured) return (
+    <div className={`rounded-2xl p-5 ${isDark ? 'bg-[#161925] border border-amber-500/20' : 'bg-amber-50 border border-amber-200'} flex items-start gap-3`}>
+      <AlertTriangle size={18} className="text-amber-400 flex-shrink-0 mt-0.5" />
+      <div>
+        <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>LINE channel not configured</p>
+        <p className={`text-xs mt-0.5 ${k.muted}`}>Add your LINE Channel Access Token in Settings to enable all broadcast features.</p>
+      </div>
+    </div>
+  );
+
+  if (!status.valid) return (
+    <div className={`rounded-2xl p-5 ${isDark ? 'bg-[#161925] border border-red-500/20' : 'bg-red-50 border border-red-200'} flex items-start gap-3`}>
+      <AlertTriangle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
+      <div>
+        <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Invalid LINE access token</p>
+        <p className={`text-xs mt-0.5 ${k.muted}`}>{status.error}</p>
+      </div>
+    </div>
+  );
+
+  const tier = status.tier ?? 'unverified';
+  const badge = TIER_BADGE[tier];
+  const used = status.consumption?.totalUsage ?? 0;
+  const limit = status.quota?.value ?? 0;
+  const unlimited = status.quota?.type === 'none';
+  const pct = unlimited ? 0 : limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+  const remaining = unlimited ? Infinity : limit - used;
+  const caps = status.capabilities;
+
+  return (
+    <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          {status.bot?.pictureUrl && <img src={status.bot.pictureUrl} className="w-9 h-9 rounded-full ring-2 ring-[#00b900]/30" alt="" />}
+          <div>
+            <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{status.bot?.displayName}</p>
+            <p className={`text-xs ${k.muted}`}>{status.bot?.basicId}</p>
+          </div>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${badge.color}`}>{badge.label}</span>
+          {status.bot?.chatMode === 'chat' && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">Chat mode — auto-reply paused</span>
+          )}
+        </div>
+        {caps?.followerSync && (
+          <button onClick={onSync} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#00b900]/30 text-[#00b900] hover:bg-[#00b900]/10 transition-colors">
+            <RefreshCw size={12} /> Sync Followers
+          </button>
+        )}
+      </div>
+
+      {!unlimited && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-xs font-medium ${k.muted}`}>Monthly messages</span>
+            <span className={`text-xs font-semibold ${pct > 85 ? 'text-red-400' : pct > 60 ? 'text-amber-400' : 'text-[#00b900]'}`}>
+              {used.toLocaleString()} / {limit.toLocaleString()} used · {remaining.toLocaleString()} remaining
+            </span>
+          </div>
+          <div className={`h-2 rounded-full ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'}`}>
+            <div
+              className={`h-2 rounded-full transition-all ${pct > 85 ? 'bg-red-500' : pct > 60 ? 'bg-amber-500' : 'bg-[#00b900]'}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {unlimited && (
+        <p className="text-xs text-emerald-400 font-medium">✦ Unlimited messages — Premium plan</p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <CapChip label="Broadcast" ok={true} />
+        <CapChip label="Queued Campaign" ok={true} />
+        <CapChip label="Auto-Reply" ok={true} />
+        <CapChip label="Rich Menu" ok={true} />
+        <CapChip label="Follower Sync" ok={caps?.followerSync ?? false} lockedReason="Requires Verified LINE OA (Blue Shield or above)" />
+        <CapChip label="Unlimited Messages" ok={caps?.unlimitedMessages ?? false} lockedReason="Requires Premium LINE OA plan" />
+      </div>
+
+      {tier === 'unverified' && (
+        <div className={`flex items-start gap-2 pt-2 border-t ${k.border}`}>
+          <Info size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
+          <p className={`text-xs ${k.muted}`}>
+            Some features are locked because your LINE OA is unverified. Apply for verification in the{' '}
+            <a href="https://manager.line.biz" target="_blank" rel="noopener noreferrer" className="text-[#00b900] hover:underline inline-flex items-center gap-0.5">LINE Official Account Manager <ExternalLink size={10} /></a>.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export default function BroadcastsView({ theme }: BroadcastsViewProps) {
+  const isDark = theme === 'dark';
+  const k = isDark ? DK : LK;
+
+  const [section, setSection] = useState<'campaigns' | 'auto-reply' | 'greeting' | 'rich-menu'>('campaigns');
+  const [lineStatus, setLineStatus] = useState<LineStatus | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [rules, setRules] = useState<AutoReplyRule[]>([]);
+  const [greeting, setGreeting] = useState<{ greetingEnabled: boolean; greetingMessages: LineBlock[] }>({ greetingEnabled: false, greetingMessages: [] });
+  const [richMenus, setRichMenus] = useState<RichMenu[]>([]);
+  const [defaultRichMenuId, setDefaultRichMenuId] = useState<string | null>(null);
+
+  // Broadcast form
+  const [bAudience, setBAudience] = useState('all');
+  const [bMessages, setBMessages] = useState<LineBlock[]>([{ type: 'text', text: '' }]);
+  const [bName, setBName] = useState('');
+  const [bSending, setBSending] = useState(false);
+  const [bResult, setBResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+
+  // Queued campaign form
+  const [qMessages, setQMessages] = useState<LineBlock[]>([{ type: 'text', text: '' }]);
+  const [qName, setQName] = useState('');
+  const [qDays, setQDays] = useState(7);
+  const [qCreating, setQCreating] = useState(false);
+  const [showQueuedForm, setShowQueuedForm] = useState(false);
+
+  // Auto-reply form
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [editingRule, setEditingRule] = useState<AutoReplyRule | null>(null);
+  const [rKeyword, setRKeyword] = useState('');
+  const [rMatchType, setRMatchType] = useState<AutoReplyRule['matchType']>('contains');
+  const [rMessages, setRMessages] = useState<LineBlock[]>([{ type: 'text', text: '' }]);
+  const [rSaving, setRSaving] = useState(false);
+
+  // Rich menu form
+  const [rmLayout, setRmLayout] = useState<'2col' | '3col' | '6grid'>('3col');
+  const [rmChatBarText, setRmChatBarText] = useState('Menu');
+  const [rmImageUrl, setRmImageUrl] = useState('');
+  const [rmButtons, setRmButtons] = useState([
+    { label: 'Button 1', action: { type: 'uri', uri: 'https://' } },
+    { label: 'Button 2', action: { type: 'uri', uri: 'https://' } },
+    { label: 'Button 3', action: { type: 'uri', uri: 'https://' } },
+  ]);
+  const [rmSaving, setRmSaving] = useState(false);
+
+  // Sync state
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ total: number; synced: number } | null>(null);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/line-status');
+      if (res.ok) setLineStatus(await res.json());
+    } catch { /* ignore */ }
+  }, []);
+
+  const loadCampaigns = useCallback(async () => {
+    try {
+      const res = await fetch('/api/campaigns');
+      if (res.ok) setCampaigns(await res.json());
+    } catch { /* ignore */ }
+  }, []);
+
+  const loadRules = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auto-reply');
+      if (res.ok) setRules(await res.json());
+    } catch { /* ignore */ }
+  }, []);
+
+  const loadGreeting = useCallback(async () => {
+    try {
+      const res = await fetch('/api/greeting');
+      if (res.ok) setGreeting(await res.json());
+    } catch { /* ignore */ }
+  }, []);
+
+  const loadRichMenus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/rich-menu');
+      if (res.ok) {
+        const data = await res.json();
+        setRichMenus(data.richmenus ?? []);
+        setDefaultRichMenuId(data.defaultRichMenuId ?? null);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    loadStatus();
+    loadCampaigns();
+    loadRules();
+    loadGreeting();
+    loadRichMenus();
+  }, [loadStatus, loadCampaigns, loadRules, loadGreeting, loadRichMenus]);
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch('/api/sync/followers', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) setSyncResult(data);
+    } catch { /* ignore */ }
+    finally { setSyncing(false); }
+  }
+
+  async function handleInstantSend() {
+    if (bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)) return;
+    setBSending(true);
+    setBResult(null);
+    try {
+      const res = await fetch('/api/broadcasts/instant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: bMessages, audience: bAudience, name: bName }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBResult(data);
+        await loadCampaigns();
+      }
+    } catch { /* ignore */ }
+    finally { setBSending(false); }
+  }
+
+  async function handleCreateQueued() {
+    if (qMessages.every(b => !b.text && !b.originalContentUrl)) return;
+    setQCreating(true);
+    try {
+      const res = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: qMessages, name: qName, durationDays: qDays }),
+      });
+      if (res.ok) {
+        setShowQueuedForm(false);
+        setQMessages([{ type: 'text', text: '' }]);
+        setQName('');
+        await loadCampaigns();
+      }
+    } catch { /* ignore */ }
+    finally { setQCreating(false); }
+  }
+
+  async function handleCampaignStatus(id: string, status: string) {
+    await fetch(`/api/campaigns/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    await loadCampaigns();
+  }
+
+  function openNewRule() {
+    setEditingRule(null);
+    setRKeyword('');
+    setRMatchType('contains');
+    setRMessages([{ type: 'text', text: '' }]);
+    setShowRuleModal(true);
+  }
+
+  function openEditRule(rule: AutoReplyRule) {
+    setEditingRule(rule);
+    setRKeyword(rule.keyword);
+    setRMatchType(rule.matchType);
+    setRMessages(rule.messages.length > 0 ? rule.messages : [{ type: 'text', text: '' }]);
+    setShowRuleModal(true);
+  }
+
+  async function handleSaveRule() {
+    if (!rKeyword.trim() || rMessages.every(b => !b.text && !b.originalContentUrl)) return;
+    setRSaving(true);
+    try {
+      if (editingRule) {
+        await fetch(`/api/auto-reply/${editingRule._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyword: rKeyword, matchType: rMatchType, messages: rMessages }),
+        });
+      } else {
+        await fetch('/api/auto-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyword: rKeyword, matchType: rMatchType, messages: rMessages }),
+        });
+      }
+      setShowRuleModal(false);
+      await loadRules();
+    } catch { /* ignore */ }
+    finally { setRSaving(false); }
+  }
+
+  async function handleToggleRule(rule: AutoReplyRule) {
+    await fetch(`/api/auto-reply/${rule._id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: !rule.isActive }),
+    });
+    await loadRules();
+  }
+
+  async function handleDeleteRule(id: string) {
+    await fetch(`/api/auto-reply/${id}`, { method: 'DELETE' });
+    await loadRules();
+  }
+
+  async function handleSaveGreeting() {
+    await fetch('/api/greeting', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(greeting),
+    });
+  }
+
+  async function handlePublishRichMenu() {
+    setRmSaving(true);
+    try {
+      const buttonCount = rmLayout === '2col' ? 2 : rmLayout === '3col' ? 3 : 6;
+      await fetch('/api/rich-menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          layout: rmLayout,
+          chatBarText: rmChatBarText,
+          imageUrl: rmImageUrl,
+          buttons: rmButtons.slice(0, buttonCount),
+          setAsDefault: true,
+        }),
+      });
+      await loadRichMenus();
+    } catch { /* ignore */ }
+    finally { setRmSaving(false); }
+  }
+
+  async function handleDeleteRichMenu(id: string) {
+    await fetch(`/api/rich-menu?id=${id}`, { method: 'DELETE' });
+    await loadRichMenus();
+  }
+
+  const activeCampaign = campaigns.find(c => c.deliveryMode === 'queued' && (c.status === 'active' || c.status === 'paused'));
+  const instantHistory = campaigns.filter(c => c.deliveryMode === 'instant');
+  const queuedHistory = campaigns.filter(c => c.deliveryMode === 'queued' && c.status !== 'active' && c.status !== 'paused');
+
+  const remaining = lineStatus?.quota?.type === 'none' ? Infinity : (lineStatus?.quota?.value ?? 0) - (lineStatus?.consumption?.totalUsage ?? 0);
+
+  const SECTIONS = [
+    { id: 'campaigns', label: 'Campaigns', icon: <Megaphone size={14} /> },
+    { id: 'auto-reply', label: 'Auto-Reply', icon: <MessageSquare size={14} /> },
+    { id: 'greeting', label: 'Greeting', icon: <Hand size={14} /> },
+    { id: 'rich-menu', label: 'Rich Menu', icon: <LayoutGrid size={14} /> },
+  ] as const;
+
+  return (
+    <div className={`flex-1 overflow-y-auto ${k.bg} p-6 space-y-6`}>
+      {/* Status bar */}
+      <StatusBar
+        status={lineStatus}
+        onSync={syncing ? () => {} : handleSync}
+        isDark={isDark}
+      />
+
+      {syncing && (
+        <div className={`rounded-xl px-4 py-3 flex items-center gap-2 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+          <Loader2 size={14} className="animate-spin text-[#00b900]" />
+          <span className={`text-sm ${k.muted}`}>Syncing followers from LINE…</span>
+        </div>
+      )}
+      {syncResult && (
+        <div className="rounded-xl px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+          <Check size={14} className="text-emerald-400" />
+          <span className="text-sm text-emerald-400">Synced {syncResult.synced} of {syncResult.total} followers into your customer list.</span>
+        </div>
+      )}
+
+      {/* Section tabs */}
+      <div className={`flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
+        {SECTIONS.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setSection(s.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
+              section === s.id
+                ? 'bg-[#00b900] text-white shadow-sm'
+                : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {s.icon}{s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Campaigns ── */}
+      {section === 'campaigns' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Instant broadcast */}
+          <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#00b900]/10 flex items-center justify-center flex-shrink-0">
+                <Zap size={16} className="text-[#00b900]" />
+              </div>
+              <div>
+                <p className={`text-sm font-semibold ${k.text}`}>Instant Broadcast</p>
+                <p className={`text-xs ${k.muted}`}>Sends immediately via multicast — uses your monthly quota</p>
+              </div>
+            </div>
+
+            <div>
+              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Audience</label>
+              <div className="space-y-1.5">
+                {Object.entries(AUDIENCE_LABELS).map(([val, label]) => (
+                  <label key={val} className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${bAudience === val ? 'bg-[#00b900]/10 border border-[#00b900]/30' : isDark ? 'border border-[#1f2335] hover:border-[#2d3555]' : 'border border-slate-200 hover:border-slate-300'}`}>
+                    <input type="radio" name="audience" value={val} checked={bAudience === val} onChange={() => setBAudience(val)} className="accent-[#00b900]" />
+                    <span className={`text-sm ${k.text}`}>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {remaining !== Infinity && remaining < 100 && (
+              <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-amber-400">Only {remaining} messages remaining this month. Consider using a Queued Campaign instead.</p>
+              </div>
+            )}
+
+            <div>
+              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Campaign Name (optional)</label>
+              <input type="text" value={bName} onChange={e => setBName(e.target.value)} placeholder="e.g. May Flash Sale" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+            </div>
+
+            <div>
+              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message Content</label>
+              <BlockComposer blocks={bMessages} onChange={setBMessages} isDark={isDark} />
+            </div>
+
+            {bResult && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <Check size={13} className="text-emerald-400" />
+                <span className="text-xs text-emerald-400">Sent to {bResult.sent} customers{bResult.failed > 0 ? `, ${bResult.failed} failed` : ''}.</span>
+              </div>
+            )}
+
+            <button
+              onClick={handleInstantSend}
+              disabled={bSending || bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {bSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+              {bSending ? 'Sending…' : 'Send Now'}
+            </button>
+          </div>
+
+          {/* Queued campaign */}
+          <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                <Clock size={16} className="text-blue-400" />
+              </div>
+              <div>
+                <p className={`text-sm font-semibold ${k.text}`}>Queued Campaign</p>
+                <p className={`text-xs ${k.muted}`}>Delivered free via reply tokens as customers message your bot</p>
+              </div>
+            </div>
+
+            {activeCampaign ? (
+              <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className={`text-sm font-semibold ${k.text}`}>{activeCampaign.name || 'Untitled Campaign'}</p>
+                    <p className={`text-xs ${k.muted}`}>
+                      Expires {activeCampaign.validUntil ? new Date(activeCampaign.validUntil).toLocaleDateString() : '—'}
+                    </p>
+                  </div>
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${activeCampaign.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                    {activeCampaign.status}
+                  </span>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className={k.muted}>Delivered</span>
+                    <span className={`font-medium ${k.text}`}>{activeCampaign.deliveredTo?.length ?? 0} / {activeCampaign.totalTargeted ?? '—'}</span>
+                  </div>
+                  <div className={`h-2 rounded-full ${isDark ? 'bg-[#0f1117]' : 'bg-slate-200'}`}>
+                    <div className="h-2 rounded-full bg-blue-500 transition-all" style={{ width: `${activeCampaign.totalTargeted ? Math.min(((activeCampaign.deliveredTo?.length ?? 0) / activeCampaign.totalTargeted) * 100, 100) : 0}%` }} />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleCampaignStatus(activeCampaign._id, activeCampaign.status === 'active' ? 'paused' : 'active')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-900'}`}
+                  >
+                    {activeCampaign.status === 'active' ? <Pause size={12} /> : <Play size={12} />}
+                    {activeCampaign.status === 'active' ? 'Pause' : 'Resume'}
+                  </button>
+                  <button
+                    onClick={() => handleCampaignStatus(activeCampaign._id, 'cancelled')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"
+                  >
+                    <Ban size={12} /> Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              !showQueuedForm && (
+                <button
+                  onClick={() => setShowQueuedForm(true)}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed text-sm font-medium transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-[#00b900]/40 hover:text-white' : 'border-slate-200 text-slate-500 hover:border-[#00b900]/40 hover:text-slate-900'}`}
+                >
+                  <Plus size={15} /> New Campaign
+                </button>
+              )
+            )}
+
+            {showQueuedForm && !activeCampaign && (
+              <div className="space-y-4">
+                <input type="text" value={qName} onChange={e => setQName(e.target.value)} placeholder="Campaign name (optional)" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+                <BlockComposer blocks={qMessages} onChange={setQMessages} isDark={isDark} />
+                <div>
+                  <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Valid for</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {[3, 7, 14, 30].map(d => (
+                      <button key={d} onClick={() => setQDays(d)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${qDays === d ? 'bg-[#00b900] text-white border-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>{d} days</button>
+                    ))}
+                  </div>
+                </div>
+                <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                  <Info size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                  <p className={`text-xs ${k.muted}`}>Delivery is gradual — customers receive this message the next time they message your bot (free via reply token). Not suitable for time-sensitive campaigns.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleCreateQueued} disabled={qCreating} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50">
+                    {qCreating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Launch
+                  </button>
+                  <button onClick={() => setShowQueuedForm(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* History */}
+            {[...instantHistory, ...queuedHistory].length > 0 && (
+              <div className={`pt-4 border-t ${k.border}`}>
+                <p className={`text-[11px] font-semibold uppercase tracking-widest mb-3 ${k.muted}`}>History</p>
+                <div className="space-y-2">
+                  {[...instantHistory, ...queuedHistory].slice(0, 5).map(c => (
+                    <div key={c._id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                      <div className="min-w-0">
+                        <p className={`text-xs font-medium truncate ${k.text}`}>{c.name || 'Untitled'}</p>
+                        <p className={`text-[10px] ${k.muted}`}>{c.deliveryMode === 'instant' ? `Sent to ${c.recipientCount ?? 0}` : `${c.deliveredTo?.length ?? 0}/${c.totalTargeted ?? 0} delivered`} · {new Date(c.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border flex-shrink-0 ${c.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : c.status === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>{c.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Auto-Reply ── */}
+      {section === 'auto-reply' && (
+        <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className={`text-sm font-semibold ${k.text}`}>Auto-Reply Rules</p>
+              <p className={`text-xs ${k.muted}`}>Keyword-triggered replies sent free via reply token. Checked in priority order.</p>
+            </div>
+            <button onClick={openNewRule} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#00b900] text-white text-sm font-medium hover:bg-[#00a000] transition-colors">
+              <Plus size={14} /> Add Rule
+            </button>
+          </div>
+
+          {lineStatus?.bot?.chatMode === 'chat' && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-400">Your LINE OA is in <strong>Chat mode</strong>. Auto-replies are suppressed while a human operator is responding. Switch to Bot mode in LINE OA Manager to enable them.</p>
+            </div>
+          )}
+
+          {rules.length === 0 ? (
+            <div className={`text-center py-12 ${k.muted}`}>
+              <MessageSquare size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No rules yet. Add your first keyword rule.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {rules.map(rule => (
+                <div key={rule._id} className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                  <button onClick={() => handleToggleRule(rule)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rule.isActive ? 'bg-[#00b900]' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rule.isActive ? 'left-4' : 'left-0.5'}`} />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-sm font-medium ${k.text}`}>{rule.matchType === 'default' ? '⚡ Default reply' : `"${rule.keyword}"`}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-slate-200 text-slate-400'}`}>{rule.matchType}</span>
+                      {rule.lastTriggeredAt && <span className={`text-[10px] ${k.muted}`}>Last triggered {new Date(rule.lastTriggeredAt).toLocaleDateString()}</span>}
+                    </div>
+                    <p className={`text-xs truncate mt-0.5 ${k.muted}`}>{rule.messages[0]?.text || rule.messages[0]?.type || '—'}</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => openEditRule(rule)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}><Edit2 size={14} /></button>
+                    <button onClick={() => handleDeleteRule(rule._id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Greeting ── */}
+      {section === 'greeting' && (
+        <div className={`rounded-2xl p-6 space-y-5 max-w-2xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className={`text-sm font-semibold ${k.text}`}>Greeting Message</p>
+              <p className={`text-xs ${k.muted}`}>Sent automatically when a new customer follows your LINE OA. Uses the reply token — free.</p>
+            </div>
+            <button
+              onClick={() => setGreeting(g => ({ ...g, greetingEnabled: !g.greetingEnabled }))}
+              className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${greeting.greetingEnabled ? 'bg-[#00b900]' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${greeting.greetingEnabled ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+
+          {greeting.greetingEnabled && (
+            <BlockComposer blocks={greeting.greetingMessages.length > 0 ? greeting.greetingMessages : [{ type: 'text', text: '' }]} onChange={msgs => setGreeting(g => ({ ...g, greetingMessages: msgs }))} isDark={isDark} />
+          )}
+
+          <button onClick={handleSaveGreeting} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors">
+            <Check size={14} /> Save Greeting
+          </button>
+        </div>
+      )}
+
+      {/* ── Rich Menu ── */}
+      {section === 'rich-menu' && (
+        <div className="space-y-6 max-w-2xl">
+          {/* Current menus */}
+          {richMenus.length > 0 && (
+            <div className={`rounded-2xl p-6 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+              <p className={`text-sm font-semibold ${k.text}`}>Published Menus</p>
+              {richMenus.map(menu => (
+                <div key={menu.richMenuId} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                  <div>
+                    <p className={`text-sm font-medium ${k.text}`}>{menu.chatBarText || menu.name}</p>
+                    <p className={`text-xs ${k.muted}`}>{menu.richMenuId} {menu.richMenuId === defaultRichMenuId && <span className="text-emerald-400 ml-1">· Default</span>}</p>
+                  </div>
+                  <button onClick={() => handleDeleteRichMenu(menu.richMenuId)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Create new */}
+          <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            <p className={`text-sm font-semibold ${k.text}`}>Create Rich Menu</p>
+
+            <div>
+              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Layout</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[{ v: '2col', label: '2 Columns' }, { v: '3col', label: '3 Columns' }, { v: '6grid', label: '6 Grid' }].map(({ v, label }) => {
+                  const count = v === '2col' ? 2 : v === '3col' ? 3 : 6;
+                  const btnCls = `py-3 rounded-xl text-sm font-medium border transition-colors ${rmLayout === v ? 'bg-[#00b900] text-white border-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`;
+                  return (
+                    <button key={v} onClick={() => { setRmLayout(v as any); setRmButtons(Array.from({ length: count }, (_, i) => ({ label: 'Button ' + (i + 1), action: { type: 'uri', uri: 'https://' } }))); }} className={btnCls}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Background Image URL</label>
+              <input type="url" value={rmImageUrl} onChange={e => setRmImageUrl(e.target.value)} placeholder="https://example.com/menu.jpg (2500×1686px recommended)" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+              {rmImageUrl && <img src={rmImageUrl} alt="" className="mt-2 w-full max-h-40 object-cover rounded-xl border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />}
+            </div>
+
+            <div>
+              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Chat Bar Text</label>
+              <input type="text" value={rmChatBarText} onChange={e => setRmChatBarText(e.target.value)} placeholder="Open Menu" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+            </div>
+
+            <div>
+              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-3 ${k.muted}`}>Button Actions</label>
+              <div className="space-y-3">
+                {rmButtons.map((btn, i) => (
+                  <div key={i} className={`rounded-xl p-3 space-y-2 ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                    <p className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Button {i + 1}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={btn.action.type} onChange={e => setRmButtons(bs => bs.map((b, idx) => idx === i ? { ...b, action: { ...b.action, type: e.target.value } } : b))}
+                        className={`rounded-lg px-3 py-2 text-sm border ${k.input}`}>
+                        <option value="uri">Open URL</option>
+                        <option value="message">Send Text</option>
+                      </select>
+                      <input type="text" value={btn.action.type === 'uri' ? btn.action.uri ?? '' : (btn.action as any).text ?? ''}
+                        onChange={e => setRmButtons(bs => bs.map((b, idx) => idx === i ? { ...b, action: b.action.type === 'uri' ? { ...b.action, uri: e.target.value } : { ...b.action, text: e.target.value } } : b))}
+                        placeholder={btn.action.type === 'uri' ? 'https://' : 'Message text'}
+                        className={`rounded-lg px-3 py-2 text-sm border ${k.input}`} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={handlePublishRichMenu} disabled={rmSaving || !rmImageUrl} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              {rmSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+              {rmSaving ? 'Publishing…' : 'Publish Rich Menu'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Auto-reply modal ── */}
+      {showRuleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border}`}>
+              <p className={`text-sm font-semibold ${k.text}`}>{editingRule ? 'Edit Rule' : 'New Auto-Reply Rule'}</p>
+              <button onClick={() => setShowRuleModal(false)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}><X size={16} /></button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-1.5 ${k.muted}`}>Match Type</label>
+                  <select value={rMatchType} onChange={e => setRMatchType(e.target.value as any)} className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`}>
+                    <option value="exact">Exact match</option>
+                    <option value="contains">Contains</option>
+                    <option value="starts_with">Starts with</option>
+                    <option value="default">Default (fallback)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-1.5 ${k.muted}`}>Keyword</label>
+                  <input type="text" value={rKeyword} onChange={e => setRKeyword(e.target.value)} disabled={rMatchType === 'default'} placeholder={rMatchType === 'default' ? '(matches anything)' : 'e.g. price, hello, order'} className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input} disabled:opacity-50`} />
+                </div>
+              </div>
+              <div>
+                <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Reply Messages</label>
+                <BlockComposer blocks={rMessages} onChange={setRMessages} isDark={isDark} />
+              </div>
+            </div>
+            <div className={`flex gap-2 px-6 py-4 border-t ${k.border}`}>
+              <button onClick={handleSaveRule} disabled={rSaving} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50">
+                {rSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save Rule
+              </button>
+              <button onClick={() => setShowRuleModal(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

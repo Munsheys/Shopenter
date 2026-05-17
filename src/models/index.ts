@@ -8,7 +8,6 @@ const MerchantSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Per-merchant shop config (replaces singleton Settings)
 const SettingsSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   shopName: { type: String, default: "My Shop" },
@@ -29,13 +28,15 @@ const SettingsSchema = new mongoose.Schema({
   paymentTemplate: { type: String, default: "✅ ยืนยันการชำระเงินแล้วครับ!\n\nรายการ: {product}\nจำนวน: ฿{amount}\n\nขอบคุณที่ใช้บริการครับ 🙏" },
   slipokBranchId: { type: String, default: "" },
   slipokApiKey: { type: String, default: "" },
-  // Storefront customization
+  // Greeting message sent on follow event
+  greetingEnabled: { type: Boolean, default: false },
+  greetingMessages: { type: Array, default: [] },
   storefront: {
     preset: { type: String, default: 'midnight' },
     shopTagline: { type: String, default: "" },
     logoUrl: { type: String, default: "" },
     bannerUrl: { type: String, default: "" },
-    accentColor: { type: String, default: "" }, // hex override, empty = use preset
+    accentColor: { type: String, default: "" },
     cardLayout: { type: String, enum: ['grid', 'list'], default: 'grid' },
     showBrandFilter: { type: Boolean, default: true },
     showCategoryFilter: { type: Boolean, default: true },
@@ -64,7 +65,6 @@ const ProductSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 });
 
-// Profile cache: only re-fetch from LINE if profileCachedAt is older than 24h
 const CustomerSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   userId: { type: String, required: true, index: true },
@@ -73,9 +73,10 @@ const CustomerSchema = new mongoose.Schema({
   addresses: [String],
   lastSeen: { type: Date, default: Date.now },
   profileCachedAt: { type: Date, default: null },
-  unreadCount: { type: Number, default: 0 }
+  unreadCount: { type: Number, default: 0 },
+  status: { type: String, enum: ['active', 'blocked'], default: 'active' },
+  followedAt: { type: Date, default: null },
 });
-// Compound unique: same LINE userId can follow multiple merchants
 CustomerSchema.index({ merchantId: 1, userId: 1 }, { unique: true });
 
 const OrderSchema = new mongoose.Schema({
@@ -121,13 +122,55 @@ const MessageSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Idempotency: prevents duplicate processing of the same LINE webhook event
-// TTL index auto-deletes after 24 hours — storage stays flat
 const ProcessedEventSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   webhookEventId: { type: String, required: true, unique: true },
   createdAt: { type: Date, default: Date.now, expires: 86400 }
 });
+
+// Shared message block sub-schema (used in Campaign and AutoReply)
+const LineMessageBlockSchema = new mongoose.Schema({
+  type: { type: String, required: true }, // text | image | video | audio | sticker
+  text: String,
+  originalContentUrl: String,
+  previewImageUrl: String,
+  duration: Number,
+  packageId: String,
+  stickerId: String,
+}, { _id: false });
+
+// Campaigns: instant (multicast) and queued (reply-token delivery)
+const CampaignSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  name: { type: String, default: '' },
+  deliveryMode: { type: String, enum: ['instant', 'queued'], required: true },
+  messages: { type: [LineMessageBlockSchema], default: [] },
+  status: { type: String, enum: ['active', 'paused', 'completed', 'cancelled'], default: 'active' },
+  // Instant-specific
+  audience: { type: String, enum: ['all', 'active_30d', 'active_60d', 'ordered'], default: 'all' },
+  recipientCount: { type: Number, default: 0 },
+  sentAt: Date,
+  retryKey: String,
+  // Queued-specific
+  validUntil: Date,
+  deliveredTo: { type: [String], default: [] },
+  totalTargeted: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now }
+});
+CampaignSchema.index({ merchantId: 1, status: 1 });
+
+// Auto-reply keyword rules (webhook-based, replaces LINE's native auto-reply)
+const AutoReplySchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  keyword: { type: String, required: true },
+  matchType: { type: String, enum: ['exact', 'contains', 'starts_with', 'default'], required: true },
+  messages: { type: [LineMessageBlockSchema], default: [] },
+  isActive: { type: Boolean, default: true },
+  priority: { type: Number, default: 0 },
+  lastTriggeredAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
+});
+AutoReplySchema.index({ merchantId: 1, isActive: 1, priority: 1 });
 
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
@@ -136,3 +179,5 @@ export const Customer = mongoose.models.Customer || mongoose.model('Customer', C
 export const Order = mongoose.models.Order || mongoose.model('Order', OrderSchema);
 export const Message = mongoose.models.Message || mongoose.model('Message', MessageSchema);
 export const ProcessedEvent = mongoose.models.ProcessedEvent || mongoose.model('ProcessedEvent', ProcessedEventSchema);
+export const Campaign = mongoose.models.Campaign || mongoose.model('Campaign', CampaignSchema);
+export const AutoReply = mongoose.models.AutoReply || mongoose.model('AutoReply', AutoReplySchema);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink } from 'lucide-react';
+import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ProductManagement from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
@@ -9,9 +9,10 @@ import ReportsView from '@/components/ReportsView';
 import ShopOrdersView from '@/components/ShopOrdersView';
 import StorefrontCustomizer from '@/components/StorefrontCustomizer';
 import CustomersView from '@/components/CustomersView';
+import BroadcastsView from '@/components/BroadcastsView';
 import LoadingView from '@/components/LoadingView';
 
-type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'storefront' | 'settings';
+type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'settings';
 
 interface Merchant {
   merchantId: string;
@@ -69,12 +70,13 @@ export default function DashboardPage() {
   if (loading) return <LoadingView />;
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'customers', label: 'Customers', icon: <MessageCircle size={15} /> },
-    { id: 'orders',    label: 'Orders',    icon: <ShoppingCart size={15} /> },
-    { id: 'products',  label: 'Products',  icon: <Package size={15} /> },
-    { id: 'reports',   label: 'Reports',   icon: <BarChart3 size={15} /> },
-    { id: 'storefront',label: 'Storefront',icon: <Store size={15} /> },
-    { id: 'settings',  label: 'Settings',  icon: <SettingsIcon size={15} /> },
+    { id: 'customers',  label: 'Customers',  icon: <MessageCircle size={15} /> },
+    { id: 'orders',     label: 'Orders',     icon: <ShoppingCart size={15} /> },
+    { id: 'products',   label: 'Products',   icon: <Package size={15} /> },
+    { id: 'reports',    label: 'Reports',    icon: <BarChart3 size={15} /> },
+    { id: 'broadcasts', label: 'Broadcasts', icon: <Megaphone size={15} /> },
+    { id: 'storefront', label: 'Storefront', icon: <Store size={15} /> },
+    { id: 'settings',   label: 'Settings',   icon: <SettingsIcon size={15} /> },
   ];
 
   const theme = settings?.theme || 'light';
@@ -157,6 +159,7 @@ export default function DashboardPage() {
         {activeTab === 'orders'     && <div className="flex-1 overflow-auto pt-2"><ShopOrdersView theme={theme} t={{}} /></div>}
         {activeTab === 'products'   && <div className="flex-1 overflow-auto"><ProductManagement theme={theme} t={{}} /></div>}
         {activeTab === 'reports'    && <div className="flex-1 overflow-auto pt-2"><ReportsView theme={theme} t={{}} /></div>}
+        {activeTab === 'broadcasts' && <div className="flex-1 overflow-hidden flex flex-col"><BroadcastsView theme={theme} t={{}} /></div>}
         {activeTab === 'settings'   && <div className="flex-1 overflow-auto"><SettingsView theme={theme} onSave={refreshSettings} /></div>}
         {activeTab === 'storefront' && (
           <div className="flex-1 overflow-auto p-6">
