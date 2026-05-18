@@ -23,7 +23,11 @@ interface MerchantItem {
   slug: string | null;
   tier: 'free' | 'pro' | 'enterprise';
   paymentStatus: 'paid' | 'trialing' | 'unpaid';
-  lineOAPlan: 'free' | 'light' | 'pro';
+  // Real-time LINE OA Sync stats
+  lineOAPlan: string;
+  lineQuotaValue: number;
+  lineQuotaUsage: number;
+  lineOASyncStatus: 'success' | 'expired' | 'unconfigured';
   // Integration diagnostics
   isLineConfigured: boolean;
   isLiffConfigured: boolean;
@@ -60,6 +64,9 @@ interface FeedbackItem {
     isSlipOkConfigured: boolean;
     productsCount: number;
     ordersCount: number;
+    lineOASyncStatus: 'success' | 'expired' | 'unconfigured';
+    lineQuotaValue: number;
+    lineQuotaUsage: number;
   }
 }
 
@@ -158,6 +165,7 @@ export default function AdminPage() {
         setMetrics(data.metrics);
         setMerchants(data.merchants);
         setFeedbacks(data.feedbacks);
+        showToast("Synchronized live system and LINE Messaging API diagnostics!");
       }
     } catch {}
     finally {
@@ -259,6 +267,11 @@ export default function AdminPage() {
     let issueContext = '';
     let interactionHistory = '';
 
+    // Automated API statistics properties
+    let syncStatus = 'UNCONFIGURED';
+    let quotaValue = 0;
+    let quotaUsage = 0;
+
     if (type === 'merchant') {
       const m = item as MerchantItem;
       shopName = m.shopName;
@@ -272,12 +285,15 @@ export default function AdminPage() {
       isSlipOk = m.isSlipOkConfigured;
       productsCount = m.productsCount;
       ordersCount = m.ordersCount;
+      syncStatus = m.lineOASyncStatus.toUpperCase();
+      quotaValue = m.lineQuotaValue;
+      quotaUsage = m.lineQuotaUsage;
       issueContext = 'General store diagnostics monitoring request (no open support tickets).';
     } else {
       const f = item as FeedbackItem;
       shopName = f.merchantShopName;
       email = f.merchantEmail;
-      slug = 'unknown'; // Will match from merchant profile if needed
+      slug = 'unknown';
       platformTier = f.merchantTier;
       lineOAPlan = f.merchantLineOAPlan;
       isLine = f.diagnostics.isLineConfigured;
@@ -286,6 +302,9 @@ export default function AdminPage() {
       isSlipOk = f.diagnostics.isSlipOkConfigured;
       productsCount = f.diagnostics.productsCount;
       ordersCount = f.diagnostics.ordersCount;
+      syncStatus = f.diagnostics.lineOASyncStatus.toUpperCase();
+      quotaValue = f.diagnostics.lineQuotaValue;
+      quotaUsage = f.diagnostics.lineQuotaUsage;
       issueContext = `Feedback Category: [${f.category.toUpperCase()}]\nMerchant's Report Content:\n"${f.content}"`;
 
       if (f.replies && f.replies.length > 0) {
@@ -296,6 +315,8 @@ export default function AdminPage() {
         interactionHistory = '  - (No conversation logs recorded yet)';
       }
     }
+
+    const consumptionPercent = quotaValue > 0 ? ((quotaUsage / quotaValue) * 100).toFixed(1) : '0';
 
     const markdownPrompt = `You are a senior system integration diagnostic expert and customer support specialist for Shopenter (a multi-tenant SaaS integration platform connecting storefronts to LINE Official Accounts).
 
@@ -318,6 +339,11 @@ We have extracted a diagnostic state for store: ${shopName}
 - [${isLiff ? 'x' : ' '}] LIFF (LINE Front-end Framework) ID -> ${isLiff ? 'CONFIGURED' : 'UNCONFIGURED'}
 - [${isPromptPay ? 'x' : ' '}] PromptPay QR payments template -> ${isPromptPay ? 'CONFIGURED' : 'MISSING'}
 - [${isSlipOk ? 'x' : ' '}] SlipOK automatic slip confirmation -> ${isSlipOk ? 'CONNECTED' : 'DISCONNECTED'}
+
+### Live LINE OA Messaging API Usage:
+- Connection Status: ${syncStatus}
+- Monthly Message Quota Limit: ${quotaValue > 0 ? quotaValue.toLocaleString() : 'N/A'}
+- Messages Sent This Month: ${quotaUsage.toLocaleString()} / ${quotaValue > 0 ? quotaValue.toLocaleString() : 'N/A'} (${consumptionPercent}% consumed)
 
 ### Active Client Issue:
 ${issueContext}
@@ -475,7 +501,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
         <div className="flex items-center gap-3">
           <button
             onClick={handleRefresh}
-            title="Refresh System Data"
+            title="Refresh System & Live LINE Usage"
             className="p-2 rounded-lg border border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e] transition-colors"
           >
             <RefreshCw size={14} />
@@ -592,12 +618,12 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
           </div>
         )}
 
-        {/* ── SUB-TAB: MERCHANTS DIRECTORY & ACTIVE DIAGNOSTICS ── */}
+        {/* ── SUB-TAB: MERCHANTS DIRECTORY & REAL-TIME DIAGNOSTICS ── */}
         {activeSubTab === 'merchants' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div>
-              <h2 className="text-xl font-bold tracking-tight">Registered Merchant Directory & Setup Diagnostics</h2>
-              <p className="text-xs text-[#8b92ad] mt-1">Registry directory of active stores on the platform. Individual webhook credentials remain private, while integration checkmarks and listed quantities allow quick support diagnostics.</p>
+              <h2 className="text-xl font-bold tracking-tight">Registered Merchant Directory & Real-Time LINE Usage</h2>
+              <p className="text-xs text-[#8b92ad] mt-1">Registry directory of active stores on the platform. Webhook credentials remain private, while live messaging quotas, consumption, and integration states pull automatically from the LINE API.</p>
             </div>
 
             <div className="rounded-2xl border border-[#1f2335] bg-[#161925] overflow-hidden shadow-xl">
@@ -607,7 +633,8 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                     <tr className="border-b border-[#1f2335] bg-[#0f1117]/50 text-[#8b92ad]">
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px]">Store Identity</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Shopenter Tier</th>
-                      <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">LINE OA Plan</th>
+                      <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">LINE OA Live Package</th>
+                      <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Monthly Message Consumption</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Diagnostics Status</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Listed Volume</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-right">Administrative Actions</th>
@@ -616,7 +643,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                   <tbody className="divide-y divide-[#1f2335]">
                     {merchants.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center text-[#8b92ad] font-bold">No registered merchants found.</td>
+                        <td colSpan={7} className="py-12 text-center text-[#8b92ad] font-bold">No registered merchants found.</td>
                       </tr>
                     ) : (
                       merchants.map(m => (
@@ -631,7 +658,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                             <div className="text-[9px] text-[#8b92ad] mt-0.5 font-mono">{m.email}</div>
                           </td>
 
-                          {/* 2. Platform Tier */}
+                          {/* 2. Shopenter subscription tier */}
                           <td className="py-4 px-6 text-center">
                             <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
                               m.tier === 'enterprise' 
@@ -644,22 +671,60 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                             </span>
                           </td>
 
-                          {/* 3. LINE OA PLAN COMPARISON */}
-                          <td className="py-4 px-6 text-center">
-                            <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                              m.lineOAPlan === 'pro' 
-                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                                : m.lineOAPlan === 'light'
-                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                  : 'bg-slate-600/15 text-slate-400 border border-slate-600/20'
-                            }`}>
-                              LINE {m.lineOAPlan}
-                            </span>
+                          {/* 3. Real-time LINE OA Package Badge */}
+                          <td className="py-4 px-6 text-center font-bold">
+                            {m.lineOASyncStatus === 'expired' ? (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-md animate-pulse">
+                                Invalid Token
+                              </span>
+                            ) : m.lineOASyncStatus === 'unconfigured' ? (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-slate-600/15 border border-slate-600/20 text-slate-400 rounded-md">
+                                Disconnected
+                              </span>
+                            ) : (
+                              <span className={`inline-flex items-center text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                                m.lineOAPlan === 'Pro' || m.lineOAPlan === 'Unlimited'
+                                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                                  : m.lineOAPlan === 'Basic'
+                                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                    : 'bg-slate-600/15 text-slate-400 border border-slate-600/20'
+                              }`}>
+                                LINE {m.lineOAPlan}
+                              </span>
+                            )}
                           </td>
 
-                          {/* 4. DIAGNOSTICS INDICATORS */}
+                          {/* 4. Monthly Messages Sent Consumption Progress */}
                           <td className="py-4 px-6">
-                            <div className="flex items-center justify-center gap-2">
+                            {m.lineOASyncStatus === 'success' && m.lineQuotaValue > 0 ? (
+                              <div className="w-full max-w-[130px] mx-auto space-y-1">
+                                <div className="flex items-center justify-between text-[9px] font-bold">
+                                  <span className="text-white">{m.lineQuotaUsage.toLocaleString()} / {m.lineQuotaValue.toLocaleString()}</span>
+                                  <span className="text-[#8b92ad] font-mono">{((m.lineQuotaUsage / m.lineQuotaValue) * 100).toFixed(0)}%</span>
+                                </div>
+                                <div className="w-full h-1 bg-[#1f2335] rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full rounded-full transition-all duration-500 ${
+                                      (m.lineQuotaUsage / m.lineQuotaValue) >= 0.8
+                                        ? 'bg-red-500'
+                                        : (m.lineQuotaUsage / m.lineQuotaValue) >= 0.5
+                                          ? 'bg-amber-500'
+                                          : 'bg-[#00b900]'
+                                    }`}
+                                    style={{ width: `${Math.min(100, (m.lineQuotaUsage / m.lineQuotaValue) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center text-[9px] text-[#8b92ad] font-semibold italic">
+                                {m.lineOASyncStatus === 'expired' ? 'Token verification failed' : 'Setup not integrated'}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 5. Integration flags */}
+                          <td className="py-4 px-6">
+                            <div className="flex items-center justify-center gap-1.5">
                               {[
                                 { key: 'LINE', active: m.isLineConfigured, label: 'LINE connection active' },
                                 { key: 'LIFF', active: m.isLiffConfigured, label: 'LIFF SDK configured' },
@@ -681,7 +746,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                             </div>
                           </td>
 
-                          {/* 5. Listed Item Volume */}
+                          {/* 6. Listed Item Volume */}
                           <td className="py-4 px-6 text-center">
                             <div className="flex flex-col gap-0.5 items-center">
                               <span className="text-[10px] font-bold text-white">{m.productsCount} products</span>
@@ -689,13 +754,13 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                             </div>
                           </td>
 
-                          {/* 6. Diagnostic Export Actions */}
+                          {/* 7. Diagnostic Exporters */}
                           <td className="py-4 px-6 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => handleExportAIPrompt('merchant', m)}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#1f2335] text-slate-300 hover:text-[#00b900] hover:border-[#00b900] transition-colors"
-                                title="Export Diagnostic for AI Session"
+                                title="Export Live Setup for AI Session"
                               >
                                 <Cpu size={12} />
                                 <span className="text-[9px] font-extrabold tracking-wide uppercase">AI Prompt</span>
@@ -729,7 +794,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
           <div className="space-y-6 animate-in fade-in duration-300 font-sans">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold tracking-tight">Merchant Communication & Diagnostics Console</h2>
+                <h2 className="text-xl font-bold tracking-tight">Merchant Communication & Real-Time Support Hub</h2>
                 <p className="text-xs text-[#8b92ad] mt-1">Oversee bugs, suggestions, and feedback submitted by merchants. Send interactive responses, diagnose connection status, and export prompts for AI diagnostics.</p>
               </div>
               <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#161925] border border-[#1f2335] text-[#00b900]">
@@ -776,7 +841,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                           value={fb.status}
                           disabled={updatingFeedbackId === fb._id}
                           onChange={(e) => handleUpdateStatus(fb._id, e.target.value)}
-                          className="bg-[#0f1117] border border-[#1f2335] text-[10px] font-extrabold text-white rounded-lg p-1.5 outline-none focus:border-[#00b900] transition-colors animate-pulse-slow"
+                          className="bg-[#0f1117] border border-[#1f2335] text-[10px] font-extrabold text-white rounded-lg p-1.5 outline-none focus:border-[#00b900] transition-colors"
                         >
                           <option value="new">New (Received)</option>
                           <option value="reviewing">In Review</option>
@@ -787,8 +852,8 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                         {/* Export to AI Button */}
                         <button
                           onClick={() => handleExportAIPrompt('feedback', fb)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#00b900]/30 hover:border-[#00b900] bg-[#00b900]/5 text-[#00b900] transition-colors"
-                          title="Export Diagnostic Prompt for AI Session"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#00b900]/30 hover:border-[#00b900] bg-[#00b900]/5 text-[#00b900] transition-colors animate-pulse-slow"
+                          title="Export Live Diagnostic Prompt for AI Session"
                         >
                           <Cpu size={12} />
                           <span className="text-[9px] font-extrabold tracking-wide uppercase">AI Prompt</span>
@@ -805,35 +870,52 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                       </div>
                     </div>
 
-                    {/* Diagnostics overview under the feedback header to inspect status right in context! */}
-                    <div className="flex flex-wrap items-center gap-4 bg-[#0f1117]/30 border border-[#1f2335]/30 px-4 py-2.5 rounded-xl text-[10px]">
-                      <span className="text-[#8b92ad] font-bold uppercase tracking-wide text-[8px]">Client Setup:</span>
+                    {/* Live integration indicators checklist inside context */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0f1117]/30 border border-[#1f2335]/30 px-4 py-3 rounded-xl text-[10px]">
                       
-                      <div className="flex items-center gap-2.5">
-                        <span className={`font-bold ${fb.diagnostics.isLineConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
-                          LINE: {fb.diagnostics.isLineConfigured ? 'ON' : 'OFF'}
-                        </span>
-                        <span className={`font-bold ${fb.diagnostics.isLiffConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
-                          LIFF: {fb.diagnostics.isLiffConfigured ? 'ON' : 'OFF'}
-                        </span>
-                        <span className={`font-bold ${fb.diagnostics.isPromptPayConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
-                          QR PAY: {fb.diagnostics.isPromptPayConfigured ? 'ON' : 'OFF'}
-                        </span>
-                        <span className={`font-bold ${fb.diagnostics.isSlipOkConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
-                          SLIP: {fb.diagnostics.isSlipOkConfigured ? 'ON' : 'OFF'}
-                        </span>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-[#8b92ad] font-bold uppercase tracking-wide text-[8px]">Client Setup:</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold ${fb.diagnostics.isLineConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                            LINE: {fb.diagnostics.isLineConfigured ? 'ON' : 'OFF'}
+                          </span>
+                          <span className={`font-bold ${fb.diagnostics.isLiffConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                            LIFF: {fb.diagnostics.isLiffConfigured ? 'ON' : 'OFF'}
+                          </span>
+                          <span className={`font-bold ${fb.diagnostics.isPromptPayConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                            QR PAY: {fb.diagnostics.isPromptPayConfigured ? 'ON' : 'OFF'}
+                          </span>
+                          <span className={`font-bold ${fb.diagnostics.isSlipOkConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                            SLIP: {fb.diagnostics.isSlipOkConfigured ? 'ON' : 'OFF'}
+                          </span>
+                        </div>
+                        <span className="text-[#8b92ad]">•</span>
+                        <div className="text-[#8b92ad]">
+                          {fb.diagnostics.productsCount} Products, {fb.diagnostics.ordersCount} Orders
+                        </div>
                       </div>
 
-                      <span className="text-[#8b92ad] hidden md:inline">•</span>
-
-                      <div className="text-[#8b92ad] font-medium">
-                        {fb.diagnostics.productsCount} Products listed, {fb.diagnostics.ordersCount} Orders transacted
+                      {/* Live LINE API Sync Indicators inside Opinions card! */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-[#8b92ad] font-bold uppercase tracking-wide text-[8px]">LINE API Quota:</span>
+                        {fb.diagnostics.lineOASyncStatus === 'success' && fb.diagnostics.lineQuotaValue > 0 ? (
+                          <div className="flex items-center gap-2 font-bold text-white">
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                              fb.merchantLineOAPlan === 'Pro' || fb.merchantLineOAPlan === 'Unlimited'
+                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                : 'bg-slate-600/10 text-slate-400 border border-slate-600/20'
+                            }`}>
+                              LINE {fb.merchantLineOAPlan}
+                            </span>
+                            <span>{fb.diagnostics.lineQuotaUsage.toLocaleString()} / {fb.diagnostics.lineQuotaValue.toLocaleString()} msgs ({((fb.diagnostics.lineQuotaUsage / fb.diagnostics.lineQuotaValue) * 100).toFixed(0)}%)</span>
+                          </div>
+                        ) : (
+                          <span className="text-[#8b92ad] font-semibold italic">
+                            {fb.diagnostics.lineOASyncStatus === 'expired' ? 'Invalid Token' : 'Disconnected'}
+                          </span>
+                        )}
                       </div>
 
-                      <span className="text-[#8b92ad]">•</span>
-                      <div className="text-[#8b92ad] font-bold">
-                        LINE Tier: <span className="text-blue-400 uppercase font-black">{fb.merchantLineOAPlan}</span>
-                      </div>
                     </div>
 
                     {/* Content Section */}

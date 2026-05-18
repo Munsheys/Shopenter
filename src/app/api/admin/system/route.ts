@@ -43,9 +43,56 @@ export async function GET(req: NextRequest) {
     const ordersCountMap = new Map();
     orderAgg.forEach(o => ordersCountMap.set(o._id?.toString(), o.count));
 
-    // Map merchants with complete, privacy-shielded diagnostics
-    const merchantsList = merchants.map(m => {
+    // 4. Map merchants with complete, privacy-shielded real-time LINE OA diagnostics
+    const merchantsList = await Promise.all(merchants.map(async (m) => {
       const s = settingsMap.get(m._id.toString());
+      
+      let lineOAPlan = 'Disconnected';
+      let lineQuotaValue = 0;
+      let lineQuotaUsage = 0;
+      let lineOASyncStatus = 'unconfigured';
+      
+      // Pull real-time details from LINE Messaging API if credentials are configured
+      if (s?.lineChannelAccessToken && s?.lineChannelSecret) {
+        try {
+          const headers = { 'Authorization': `Bearer ${s.lineChannelAccessToken}` };
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1800);
+          
+          const [quotaRes, consumptionRes] = await Promise.all([
+            fetch('https://api.line.me/v2/bot/message/quota', { headers, signal: controller.signal }).then(r => r.json()),
+            fetch('https://api.line.me/v2/bot/message/quota/consumption', { headers, signal: controller.signal }).then(r => r.json())
+          ]);
+          
+          clearTimeout(timeoutId);
+          
+          if (quotaRes && !quotaRes.message && consumptionRes && !consumptionRes.message) {
+            lineOASyncStatus = 'success';
+            lineQuotaUsage = consumptionRes.totalUsage || 0;
+            
+            const type = quotaRes.type;
+            const value = quotaRes.value || 0;
+            lineQuotaValue = value;
+            
+            if (type === 'unlimited') {
+              lineOAPlan = 'Unlimited';
+            } else if (value <= 1000) {
+              lineOAPlan = 'Free';
+            } else if (value <= 15000) {
+              lineOAPlan = 'Basic';
+            } else {
+              lineOAPlan = 'Pro';
+            }
+          } else {
+            lineOASyncStatus = 'expired';
+            lineOAPlan = 'Invalid Token';
+          }
+        } catch (err) {
+          lineOASyncStatus = 'expired';
+          lineOAPlan = 'Invalid Token';
+        }
+      }
+
       return {
         _id: m._id,
         email: m.email,
@@ -54,19 +101,20 @@ export async function GET(req: NextRequest) {
         tier: m.tier || 'free',
         paymentStatus: m.paymentStatus || 'trialing',
         createdAt: m.createdAt,
-        lineOAPlan: s?.lineOAPlan || 'free',
-        // Integration flags (safely compiled to booleans)
+        lineOAPlan,
+        lineQuotaValue,
+        lineQuotaUsage,
+        lineOASyncStatus,
         isLineConfigured: !!(s?.lineChannelAccessToken && s?.lineChannelSecret),
         isLiffConfigured: !!s?.liffId,
         isPromptPayConfigured: !!s?.promptPayId,
         isSlipOkConfigured: !!(s?.slipokApiKey && s?.slipokBranchId),
-        // Statistics counters
         productsCount: productsCountMap.get(m._id.toString()) || 0,
         ordersCount: ordersCountMap.get(m._id.toString()) || 0,
       };
-    });
+    }));
 
-    // 4. System-wide Aggregated Statistics (Keeps individual store statistics anonymous)
+    // 5. System-wide Aggregated Statistics (Keeps individual store statistics anonymous)
     const totalMerchants = merchants.length;
     const totalProducts = await Product.countDocuments({});
     
@@ -82,30 +130,32 @@ export async function GET(req: NextRequest) {
     const totalOrders = ordersAgg[0]?.count || 0;
     const totalRevenue = ordersAgg[0]?.totalRevenue || 0;
 
-    // 5. Fetch all feedbacks (including full conversation thread replies and store diagnostic summaries)
+    // 6. Fetch all feedbacks (including conversation logs and full live store diagnostic context)
     const feedbacks = await Feedback.find({}).sort({ createdAt: -1 });
     const feedbackList = feedbacks.map(f => {
-      const merchant = merchants.find(m => m._id.toString() === f.merchantId.toString());
-      const s = settingsMap.get(f.merchantId.toString());
+      const mInfo = merchantsList.find(m => m._id.toString() === f.merchantId.toString());
       return {
         _id: f._id,
         merchantId: f.merchantId,
-        merchantEmail: merchant?.email || 'Unknown Merchant',
-        merchantShopName: merchant?.shopName || 'Unknown Shop',
-        merchantTier: merchant?.tier || 'free',
-        merchantLineOAPlan: s?.lineOAPlan || 'free',
+        merchantEmail: f.merchantEmail || mInfo?.email || 'Unknown Merchant',
+        merchantShopName: f.merchantShopName || mInfo?.shopName || 'Unknown Shop',
+        merchantTier: mInfo?.tier || 'free',
+        merchantLineOAPlan: mInfo?.lineOAPlan || 'Disconnected',
         category: f.category,
         content: f.content,
         status: f.status,
         replies: f.replies || [],
         createdAt: f.createdAt,
         diagnostics: {
-          isLineConfigured: !!(s?.lineChannelAccessToken && s?.lineChannelSecret),
-          isLiffConfigured: !!s?.liffId,
-          isPromptPayConfigured: !!s?.promptPayId,
-          isSlipOkConfigured: !!(s?.slipokApiKey && s?.slipokBranchId),
-          productsCount: productsCountMap.get(f.merchantId.toString()) || 0,
-          ordersCount: ordersCountMap.get(f.merchantId.toString()) || 0,
+          isLineConfigured: mInfo?.isLineConfigured || false,
+          isLiffConfigured: mInfo?.isLiffConfigured || false,
+          isPromptPayConfigured: mInfo?.isPromptPayConfigured || false,
+          isSlipOkConfigured: mInfo?.isSlipOkConfigured || false,
+          productsCount: mInfo?.productsCount || 0,
+          ordersCount: mInfo?.ordersCount || 0,
+          lineOASyncStatus: mInfo?.lineOASyncStatus || 'unconfigured',
+          lineQuotaValue: mInfo?.lineQuotaValue || 0,
+          lineQuotaUsage: mInfo?.lineQuotaUsage || 0,
         }
       };
     });
