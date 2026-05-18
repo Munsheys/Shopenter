@@ -40,6 +40,12 @@ const SettingsSchema = new mongoose.Schema({
   // Greeting message sent on follow event
   greetingEnabled: { type: Boolean, default: false },
   greetingMessages: { type: Array, default: [] },
+  loyalty: {
+    enabled: { type: Boolean, default: false },
+    pointsPerBaht: { type: Number, default: 1 },
+    redeemRate: { type: Number, default: 100 },
+    minRedeemPoints: { type: Number, default: 100 },
+  },
   storefront: {
     preset: { type: String, default: 'midnight' },
     shopTagline: { type: String, default: "" },
@@ -92,6 +98,7 @@ const CustomerSchema = new mongoose.Schema({
   unreadCount: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'blocked'], default: 'active' },
   followedAt: { type: Date, default: null },
+  loyaltyPoints: { type: Number, default: 0 },
 });
 CustomerSchema.index({ merchantId: 1, userId: 1 }, { unique: true });
 
@@ -129,6 +136,9 @@ const OrderSchema = new mongoose.Schema({
   notifShipped: { type: Boolean, default: false },
   notifDelivered: { type: Boolean, default: false },
   attributedCampaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', default: null },
+  couponCode: { type: String, default: '' },
+  discountAmount: { type: Number, default: 0 },
+  redeemedPoints: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -216,6 +226,30 @@ const FeedbackSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const CouponSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  code: { type: String, required: true, uppercase: true, trim: true },
+  type: { type: String, enum: ['percent', 'fixed'], required: true },
+  value: { type: Number, required: true },
+  minOrderAmount: { type: Number, default: 0 },
+  maxUses: { type: Number, default: 0 },
+  usedCount: { type: Number, default: 0 },
+  expiresAt: { type: Date, default: null },
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
+});
+CouponSchema.index({ merchantId: 1, code: 1 }, { unique: true });
+
+const LoyaltyTransactionSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  lineUserId: { type: String, required: true, index: true },
+  orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
+  type: { type: String, enum: ['earn', 'redeem'], required: true },
+  points: { type: Number, required: true },
+  note: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now },
+});
+
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
@@ -227,3 +261,5 @@ export const Campaign = mongoose.models.Campaign || mongoose.model('Campaign', C
 export const AutoReply = mongoose.models.AutoReply || mongoose.model('AutoReply', AutoReplySchema);
 export const MediaFile = mongoose.models.MediaFile || mongoose.model('MediaFile', MediaFileSchema);
 export const Feedback = mongoose.models.Feedback || mongoose.model('Feedback', FeedbackSchema);
+export const Coupon = mongoose.models.Coupon || mongoose.model('Coupon', CouponSchema);
+export const LoyaltyTransaction = mongoose.models.LoyaltyTransaction || mongoose.model('LoyaltyTransaction', LoyaltyTransactionSchema);

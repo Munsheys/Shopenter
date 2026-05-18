@@ -13,7 +13,8 @@ import {
   ArrowUpDown,
   Eye,
   EyeOff,
-  BarChart2
+  BarChart2,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -771,7 +772,7 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
 
 // --- Main ProductManagement Hub ---
 
-const ProductManagement = React.memo(function ProductManagement({ theme, t }: { theme?: 'light' | 'dark', t: any }) {
+const ProductManagement = React.memo(function ProductManagement({ theme, t, onLimitHit }: { theme?: 'light' | 'dark', t: any, onLimitHit?: (feature: string, limit?: number, current?: number) => void }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -895,7 +896,14 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
         body: JSON.stringify(payload),
       });
       if (res.ok) { setIsModalOpen(false); loadProducts(); }
-      else { const err = await res.json().catch(() => ({})); alert(`Save failed: ${err?.error || res.status}`); }
+      else {
+        const err = await res.json().catch(() => ({}));
+        if (err?.error === 'TIER_LIMIT_REACHED') {
+          onLimitHit?.(err.feature, err.limit, err.current);
+        } else {
+          alert(`Save failed: ${err?.error || res.status}`);
+        }
+      }
     } catch (err) { console.error(err); } finally { setIsSaving(false); }
   };
 
@@ -930,10 +938,28 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
           </h2>
           <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">{t.inventory_desc || 'Inventory & Product Lifecycle'}</p>
         </div>
-        <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-          className="w-full md:w-auto bg-[#00b900] text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all">
-          <Plus size={18} /> {t.add_catalog || 'Add New Catalog'}
-        </button>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button
+            onClick={() => {
+              const bom = '﻿';
+              const header = 'Name,Brand,Category,Price (THB),Variants,Active\n';
+              const rows = filteredProducts.map(p =>
+                [p.name, p.brand, (p.categories || []).join(';'), p.price, p.variants?.length ?? 0, p.isActive ? 'Yes' : 'No'].join(',')
+              ).join('\n');
+              const blob = new Blob([bom + header + rows], { type: 'text/csv;charset=utf-8;' });
+              const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+              a.download = `products_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+            }}
+            className={cn("px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 border transition-all active:scale-95", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e]")}
+            title="Export products as CSV"
+          >
+            <FileSpreadsheet size={16} />
+          </button>
+          <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
+            className="flex-1 md:flex-none bg-[#00b900] text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all">
+            <Plus size={18} /> {t.add_catalog || 'Add New Catalog'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-8">
