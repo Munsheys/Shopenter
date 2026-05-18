@@ -60,6 +60,7 @@ export default function Shop() {
   const [currentOrder, setCurrentOrder] = useState<any>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [qty, setQty] = useState(1);
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [authStatus, setAuthStatus] = useState<'idle' | 'verifying' | 'logged_in' | 'guest'>('idle');
   const liffLock = useRef(false);
 
@@ -173,6 +174,16 @@ export default function Shop() {
   const productOptions = useMemo(() => {
     return selectedProduct ? getProductOptions(selectedProduct) : [];
   }, [selectedProduct]);
+
+  const productImages = useMemo(() => {
+    if (!selectedProduct) return [];
+    return selectedProduct.images?.length ? selectedProduct.images : (selectedProduct.imageUrl ? [selectedProduct.imageUrl] : []);
+  }, [selectedProduct]);
+
+  const displayImage = useMemo(() => {
+    if (selectedVariant?.imageUrl) return selectedVariant.imageUrl;
+    return productImages[activeImgIdx] ?? productImages[0] ?? null;
+  }, [selectedVariant, productImages, activeImgIdx]);
 
   // Update matched variant whenever selections change
   useEffect(() => {
@@ -376,7 +387,7 @@ export default function Shop() {
               {filteredAndSorted.map((p: Product) => (
                 <button
                   key={p._id}
-                  onClick={() => { setSelectedProduct(p); setSelections({}); setQty(1); setView('detail'); }}
+                  onClick={() => { setSelectedProduct(p); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
                   className="group text-left active:scale-[0.98] transition-all"
                 >
                   <div className="aspect-square w-full rounded-[32px] overflow-hidden bg-[#1a1d2e]/5 mb-4 relative shadow-sm group-hover:shadow-2xl transition-all border border-transparent group-hover:border-[#d4af37]/20">
@@ -402,10 +413,26 @@ export default function Shop() {
             <div className="w-10" />
           </div>
           <div className="lg:flex lg:gap-16 lg:px-8 lg:pt-8">
-            <div className="px-5 mb-10 lg:w-1/2 lg:flex lg:justify-end">
+            <div className="px-5 mb-10 lg:w-1/2 lg:flex lg:flex-col lg:items-end">
               <div className="rounded-[48px] overflow-hidden w-full aspect-square lg:w-[400px] lg:h-[400px] bg-[#1a1d2e]/5 shadow-2xl border border-[#1a1d2e]/5">
-                {selectedProduct.imageUrl ? <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10"><Package size={80} /></div>}
+                {displayImage ? <img src={displayImage} alt={selectedProduct.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10"><Package size={80} /></div>}
               </div>
+              {productImages.length > 1 && (
+                <div className="flex gap-2 mt-4 lg:w-[400px] overflow-x-auto pb-1">
+                  {productImages.map((img: string, i: number) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveImgIdx(i)}
+                      className={cn(
+                        "flex-shrink-0 w-14 h-14 rounded-2xl overflow-hidden border-2 transition-all",
+                        !selectedVariant?.imageUrl && activeImgIdx === i ? "border-[#d4af37]" : "border-transparent opacity-60 hover:opacity-100"
+                      )}
+                    >
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="px-8 lg:w-1/2 lg:flex lg:flex-col lg:justify-center">
               <div className="flex items-center gap-2 mb-3 lg:mb-6"><div className="h-[1px] w-8 bg-[#d4af37]" /><p className="text-[#d4af37] text-[10px] font-black uppercase tracking-[0.3em]">{selectedProduct.brand || "Boutique Selection"}</p></div>

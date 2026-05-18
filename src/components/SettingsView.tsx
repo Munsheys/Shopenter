@@ -47,8 +47,13 @@ export default function SettingsView({
 
   // Scroll container + active-section tracking
   const containerRef               = useRef<HTMLDivElement>(null);
+  const tabsContainerRef           = useRef<HTMLDivElement>(null);
+  const isScrollingRef             = useRef(false);
+  const scrollTimeoutRef           = useRef<NodeJS.Timeout | null>(null);
+
   const [activeSection, setActiveSection] = useState<SectionId>('general');
   const [highlighted, setHighlighted]     = useState<string | null>(null);
+  const [pillStyle, setPillStyle]         = useState<React.CSSProperties>({});
 
   // Data
   const [settings, setSettings]   = useState<any>(null);
@@ -90,35 +95,108 @@ export default function SettingsView({
     checkLine();
   }, [checkLine]);
 
-  // Scroll → active section
+  // 1. Dynamic Sliding Pill Position & Width Calculator
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
-    function onScroll() {
-      const containerTop = container!.getBoundingClientRect().top;
-      const threshold = containerTop + 120;
-      let active: SectionId = 'general';
-      for (const id of ids) {
-        const el = container!.querySelector<HTMLElement>(`#${id}`);
-        if (el && el.getBoundingClientRect().top <= threshold) active = id;
+    const updatePill = () => {
+      if (!tabsContainerRef.current) return;
+      const container = tabsContainerRef.current;
+      const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
+      const activeIdx = ids.indexOf(activeSection);
+      if (activeIdx === -1) return;
+      
+      const buttons = container.querySelectorAll('button');
+      const activeBtn = buttons[activeIdx] as HTMLElement;
+      if (activeBtn) {
+        setPillStyle({
+          left: activeBtn.offsetLeft,
+          width: activeBtn.offsetWidth,
+          height: activeBtn.offsetHeight,
+          top: activeBtn.offsetTop,
+        });
       }
-      setActiveSection(active);
-    }
-    container.addEventListener('scroll', onScroll, { passive: true });
-    return () => container.removeEventListener('scroll', onScroll);
-  }, []);
+    };
 
+    updatePill();
+    window.addEventListener('resize', updatePill);
+    return () => window.removeEventListener('resize', updatePill);
+  }, [activeSection]);
+
+  // 2. Flawless Smooth Scrolling Handler with Programmatic Lock
   const scrollTo = useCallback((id: string) => {
     const container = containerRef.current;
     const el = container?.querySelector<HTMLElement>(`#${id}`);
     if (el && container) {
+      isScrollingRef.current = true;
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+
       const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 72;
       container.scrollTo({ top, behavior: 'smooth' });
+      
       const sectionIds: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
       const section = sectionIds.find(s => id === s || id.startsWith(s + '-')) ?? 'general';
       setActiveSection(section);
+
+      // Re-enable scrollspy tracking once smooth scroll finishes
+      scrollTimeoutRef.current = setTimeout(() => {
+        isScrollingRef.current = false;
+      }, 600);
     }
+  }, []);
+
+  // 3. Scroll Tracking with IntersectionObserver + Scroll-to-End bottom-out detection
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
+
+    const observerOptions = {
+      root: container,
+      rootMargin: '-80px 0px -60% 0px', // Focused zone near the top of viewport
+      threshold: 0,
+    };
+
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      if (isScrollingRef.current) return;
+
+      const visibleSections = entries
+        .filter(entry => entry.isIntersecting)
+        .map(entry => entry.target.id as SectionId);
+
+      if (visibleSections.length > 0) {
+        const nextActive = ids.find(id => visibleSections.includes(id));
+        if (nextActive) {
+          setActiveSection(nextActive);
+        }
+      }
+    };
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
+    ids.forEach(id => {
+      const el = container.querySelector(`#${id}`);
+      if (el) observer.observe(el);
+    });
+
+    const handleScroll = () => {
+      if (isScrollingRef.current) return;
+
+      const threshold = 15;
+      const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - threshold;
+
+      if (isAtBottom) {
+        setActiveSection('notifications');
+      } else if (container.scrollTop === 0) {
+        setActiveSection('general');
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      container.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
   }, []);
 
   // External scroll trigger from FloatingGuide navigation
@@ -215,14 +293,19 @@ export default function SettingsView({
 
       {/* ── Sticky scroll-nav ─────────────────────────────────────────────── */}
       <div className={`sticky top-0 z-10 px-6 pt-4 pb-3 ${K.bg}`}>
-        <div className={`flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
+        <div ref={tabsContainerRef} className={`flex items-center gap-1 p-1 rounded-xl relative ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
+          {/* Gorgeous Sliding Indicator Pill */}
+          <div 
+            className="absolute bg-[#00b900] rounded-lg transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] shadow-sm pointer-events-none z-0"
+            style={pillStyle}
+          />
           {SECTIONS.map(s => (
             <button
               key={s.id}
               onClick={() => scrollTo(s.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center relative z-10 ${
                 activeSection === s.id
-                  ? 'bg-[#00b900] text-white shadow-sm'
+                  ? 'text-white'
                   : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
               }`}
             >

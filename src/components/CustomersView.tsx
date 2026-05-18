@@ -333,7 +333,8 @@ export default function CustomersView({ theme }: { theme: string }) {
           description: form.description || undefined,
           price: parseFloat(form.price as any) || 0,
           categories: form.categories,
-          imageUrl: form.imageUrl || undefined,
+          imageUrl: form.images?.[0] || undefined,
+          images: form.images || [],
           isActive: true,
           variants: form.variants.map(v => ({
             ...v,

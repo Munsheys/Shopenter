@@ -47,6 +47,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [customer, setCustomer] = useState<any>(null);
   const [isOrdering, setIsOrdering] = useState(false);
   const [qty, setQty] = useState(1);
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [notFound, setNotFound] = useState(false);
   const liffLock = useRef(false);
 
@@ -181,6 +182,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   if (view === 'detail' && selectedProduct) {
     const productOptions = getProductOptions(selectedProduct);
     const allSelected = productOptions.every(o => selections[o.name]);
+    const imgs: string[] = selectedProduct.images?.length ? selectedProduct.images : (selectedProduct.imageUrl ? [selectedProduct.imageUrl] : []);
+    const displayImg = selectedVariant?.imageUrl || imgs[activeImgIdx] || imgs[0] || null;
     return (
       <div style={style.page}>
         <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
@@ -188,10 +191,24 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           <span className="font-semibold text-sm">{selectedProduct.name}</span>
         </div>
         <div className="p-4 space-y-4 max-w-lg mx-auto">
-          {selectedProduct.imageUrl
-            ? <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl" />
+          {displayImg
+            ? <img src={displayImg} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl" />
             : <div className="w-full aspect-square rounded-2xl flex items-center justify-center" style={{ background: p.inputBg }}><Package size={48} style={style.muted} /></div>
           }
+          {imgs.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {imgs.map((img, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveImgIdx(i)}
+                  className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all"
+                  style={{ borderColor: !selectedVariant?.imageUrl && activeImgIdx === i ? p.accent : 'transparent', opacity: !selectedVariant?.imageUrl && activeImgIdx === i ? 1 : 0.6 }}
+                >
+                  <img src={img} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
           <div>
             <h2 className="text-lg font-bold">{selectedProduct.name}</h2>
             {selectedProduct.brand && <p className="text-sm" style={style.muted}>{selectedProduct.brand}</p>}
@@ -295,7 +312,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       <div className={`p-4 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}`}>
         {filtered.map(pr => (
           <button key={pr._id}
-            onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelections({}); setQty(1); setView('detail'); }}
+            onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
             className={`rounded-2xl overflow-hidden text-left transition-all active:scale-95 ${cardLayout === 'list' ? 'flex gap-3 p-3' : ''}`}
             style={style.card}
           >

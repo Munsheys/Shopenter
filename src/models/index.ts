@@ -61,12 +61,14 @@ const ProductSchema = new mongoose.Schema({
   maxPrice: Number,
   imageUrl: String,
   categories: { type: [String], default: [] },
+  images: { type: [String], default: [] },
   options: [{
     name: String,
     values: { type: [String], default: [] }
   }],
   variants: [{
     combination: { type: mongoose.Schema.Types.Mixed },
+    imageUrl: String,
     variantName: String,
     colors: { type: [String], default: [] },
     price: Number,
