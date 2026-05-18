@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ProductManagement from '@/components/ProductManagement';
@@ -22,6 +22,16 @@ interface Merchant {
   slug?: string | null;
 }
 
+const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: 'customers',  label: 'Customers',  icon: <MessageCircle size={15} /> },
+  { id: 'orders',     label: 'Orders',     icon: <ShoppingCart size={15} /> },
+  { id: 'products',   label: 'Products',   icon: <Package size={15} /> },
+  { id: 'reports',    label: 'Reports',    icon: <BarChart3 size={15} /> },
+  { id: 'broadcasts', label: 'Broadcasts', icon: <Megaphone size={15} /> },
+  { id: 'storefront', label: 'Storefront', icon: <Store size={15} /> },
+  { id: 'settings',   label: 'Settings',   icon: <SettingsIcon size={15} /> },
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   const [merchant, setMerchant] = useState<Merchant | null>(null);
@@ -29,6 +39,9 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('customers');
   const [settingsScroll, setSettingsScroll] = useState<{ section: string; id: number } | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [topNavStyle, setTopNavStyle] = useState<React.CSSProperties>({});
+  const topNavContainerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     async function init() {
@@ -69,17 +82,35 @@ export default function DashboardPage() {
     router.push('/login');
   }
 
-  if (loading) return <LoadingView />;
+  // ── Top Nav sliding underline calculator ──
+  useEffect(() => {
+    const updateTopNav = () => {
+      if (!topNavContainerRef.current) return;
+      const container = topNavContainerRef.current;
+      const activeIdx = tabs.findIndex(t => t.id === activeTab);
+      if (activeIdx === -1) return;
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'customers',  label: 'Customers',  icon: <MessageCircle size={15} /> },
-    { id: 'orders',     label: 'Orders',     icon: <ShoppingCart size={15} /> },
-    { id: 'products',   label: 'Products',   icon: <Package size={15} /> },
-    { id: 'reports',    label: 'Reports',    icon: <BarChart3 size={15} /> },
-    { id: 'broadcasts', label: 'Broadcasts', icon: <Megaphone size={15} /> },
-    { id: 'storefront', label: 'Storefront', icon: <Store size={15} /> },
-    { id: 'settings',   label: 'Settings',   icon: <SettingsIcon size={15} /> },
-  ];
+      const buttons = container.querySelectorAll('button');
+      const activeBtn = buttons[activeIdx] as HTMLElement;
+      if (activeBtn) {
+        setTopNavStyle({
+          left: activeBtn.offsetLeft,
+          width: activeBtn.offsetWidth,
+        });
+      }
+    };
+
+    updateTopNav();
+    const timer = setTimeout(updateTopNav, 50);
+
+    window.addEventListener('resize', updateTopNav);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateTopNav);
+    };
+  }, [activeTab, loading]);
+
+  if (loading) return <LoadingView />;
 
   const theme = settings?.theme || 'light';
   const isDark = theme === 'dark';
@@ -105,15 +136,25 @@ export default function DashboardPage() {
         </div>
 
         {/* Tab navigation — underline style */}
-        <nav className="flex items-stretch h-full flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <nav ref={topNavContainerRef} className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
+          {/* Smooth Sliding Underline Indicator */}
+          <div 
+            className={`absolute bottom-0 h-[2px] bg-[#00b900] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
+              topNavStyle.width ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{
+              left: topNavStyle.left,
+              width: topNavStyle.width,
+            }}
+          />
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative flex items-center gap-2 px-4 h-full text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+              className={`relative flex items-center gap-2 px-4 h-full text-[13px] font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
-                  ? `border-[#00b900] ${isDark ? 'text-white' : 'text-gray-900'}`
-                  : `border-transparent ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
+                  ? `${isDark ? 'text-white' : 'text-gray-900'}`
+                  : `${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
               }`}
             >
               {tab.icon}
