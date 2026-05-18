@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Merchant, Product, Order, Feedback } from '@/models';
+import { Merchant, Product, Order, Feedback, Settings } from '@/models';
 
 export const runtime = 'nodejs';
 
@@ -22,19 +22,51 @@ export async function GET(req: NextRequest) {
   try {
     await dbConnect();
 
-    // 1. Fetch all merchants (including tier & paymentStatus, excluding sensitive credentials)
+    // 1. Fetch all merchants
     const merchants = await Merchant.find({}).sort({ createdAt: -1 });
-    const merchantsList = merchants.map(m => ({
-      _id: m._id,
-      email: m.email,
-      shopName: m.shopName,
-      slug: m.slug || null,
-      tier: m.tier || 'free',
-      paymentStatus: m.paymentStatus || 'trialing',
-      createdAt: m.createdAt,
-    }));
 
-    // 2. System-wide Aggregated Statistics (Keeps individual store statistics anonymous)
+    // 2. Fetch all settings to know integrations diagnostics and LINE OA Plans
+    const allSettings = await Settings.find({});
+    const settingsMap = new Map();
+    allSettings.forEach(s => settingsMap.set(s.merchantId.toString(), s));
+
+    // 3. Count products and orders dynamically per store (No N+1 queries)
+    const productAgg = await Product.aggregate([
+      { $group: { _id: '$merchantId', count: { $sum: 1 } } }
+    ]);
+    const productsCountMap = new Map();
+    productAgg.forEach(p => productsCountMap.set(p._id?.toString(), p.count));
+
+    const orderAgg = await Order.aggregate([
+      { $group: { _id: '$merchantId', count: { $sum: 1 } } }
+    ]);
+    const ordersCountMap = new Map();
+    orderAgg.forEach(o => ordersCountMap.set(o._id?.toString(), o.count));
+
+    // Map merchants with complete, privacy-shielded diagnostics
+    const merchantsList = merchants.map(m => {
+      const s = settingsMap.get(m._id.toString());
+      return {
+        _id: m._id,
+        email: m.email,
+        shopName: m.shopName,
+        slug: m.slug || null,
+        tier: m.tier || 'free',
+        paymentStatus: m.paymentStatus || 'trialing',
+        createdAt: m.createdAt,
+        lineOAPlan: s?.lineOAPlan || 'free',
+        // Integration flags (safely compiled to booleans)
+        isLineConfigured: !!(s?.lineChannelAccessToken && s?.lineChannelSecret),
+        isLiffConfigured: !!s?.liffId,
+        isPromptPayConfigured: !!s?.promptPayId,
+        isSlipOkConfigured: !!(s?.slipokApiKey && s?.slipokBranchId),
+        // Statistics counters
+        productsCount: productsCountMap.get(m._id.toString()) || 0,
+        ordersCount: ordersCountMap.get(m._id.toString()) || 0,
+      };
+    });
+
+    // 4. System-wide Aggregated Statistics (Keeps individual store statistics anonymous)
     const totalMerchants = merchants.length;
     const totalProducts = await Product.countDocuments({});
     
@@ -50,20 +82,31 @@ export async function GET(req: NextRequest) {
     const totalOrders = ordersAgg[0]?.count || 0;
     const totalRevenue = ordersAgg[0]?.totalRevenue || 0;
 
-    // 3. Fetch all feedbacks (including full conversation thread replies)
+    // 5. Fetch all feedbacks (including full conversation thread replies and store diagnostic summaries)
     const feedbacks = await Feedback.find({}).sort({ createdAt: -1 });
     const feedbackList = feedbacks.map(f => {
       const merchant = merchants.find(m => m._id.toString() === f.merchantId.toString());
+      const s = settingsMap.get(f.merchantId.toString());
       return {
         _id: f._id,
         merchantId: f.merchantId,
         merchantEmail: merchant?.email || 'Unknown Merchant',
         merchantShopName: merchant?.shopName || 'Unknown Shop',
+        merchantTier: merchant?.tier || 'free',
+        merchantLineOAPlan: s?.lineOAPlan || 'free',
         category: f.category,
         content: f.content,
         status: f.status,
         replies: f.replies || [],
         createdAt: f.createdAt,
+        diagnostics: {
+          isLineConfigured: !!(s?.lineChannelAccessToken && s?.lineChannelSecret),
+          isLiffConfigured: !!s?.liffId,
+          isPromptPayConfigured: !!s?.promptPayId,
+          isSlipOkConfigured: !!(s?.slipokApiKey && s?.slipokBranchId),
+          productsCount: productsCountMap.get(f.merchantId.toString()) || 0,
+          ordersCount: ordersCountMap.get(f.merchantId.toString()) || 0,
+        }
       };
     });
 
