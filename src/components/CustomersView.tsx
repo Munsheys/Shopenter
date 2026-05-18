@@ -645,211 +645,197 @@ export default function CustomersView({ theme }: { theme: string }) {
         <>
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
             {/* Customer header */}
-            <div className={`relative flex flex-col border-b ${k.border} ${isDark ? 'bg-[#1a1d2e]' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
-              {/* Premium Background Banner */}
-              <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-r ${isDark ? 'from-[#00b900]/20 to-transparent' : 'from-[#00b900]/10 to-[#00b900]/5'} opacity-50 pointer-events-none`} />
-              
-              <div className="flex items-center justify-between px-8 pt-8 pb-4 relative">
-                <div className="flex items-center gap-4 min-w-0">
-                  {selectedCustomer.pictureUrl ? (
-                    <img src={selectedCustomer.pictureUrl} className="w-14 h-14 rounded-full ring-4 ring-[#00b900]/20 flex-shrink-0 shadow-lg object-cover" alt="" />
-                  ) : (
-                    <div className={`w-14 h-14 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-xl font-black flex-shrink-0 ring-4 ring-offset-2 ring-[#00b900]/20 shadow-lg`}>
-                      {(selectedCustomer.displayName || '?')[0].toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <h2 className={`font-black text-lg truncate ${k.text}`}>{selectedCustomer.displayName}</h2>
-                    <div className="flex items-center gap-2 flex-wrap mt-1">
-                      <span className={`text-[11px] font-medium ${k.muted}`}>LINE Customer</span>
-                      {activeOrders.length > 0 && (
-                        <span className="text-[10px] bg-orange-100 text-orange-600 border border-orange-200 px-2 py-0.5 rounded-md font-bold shadow-sm">
-                          {activeOrders.length} active
-                        </span>
-                      )}
-                      {parcelOrders.length > 0 && (
-                        <span className="text-[10px] bg-blue-100 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-md font-bold shadow-sm">
-                          {parcelOrders.length} in parcel
-                        </span>
-                      )}
-                      {totalSpent > 0 && (
-                        <span className="text-[10px] bg-[#00b900]/10 text-[#00b900] px-2 py-0.5 rounded-md font-bold shadow-sm">
-                          ฿{fmt(totalSpent)} LTV
-                        </span>
-                      )}
-                    </div>
+            <div className={`flex items-center justify-between px-8 py-5 border-b ${k.border} ${isDark ? 'bg-[#1a1d2e]' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
+              <div className="flex items-center gap-3 min-w-0">
+                {selectedCustomer.pictureUrl ? (
+                  <img src={selectedCustomer.pictureUrl} className="w-10 h-10 rounded-full ring-2 ring-[#00b900]/30 flex-shrink-0" alt="" />
+                ) : (
+                  <div className={`w-10 h-10 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-sm font-bold flex-shrink-0 ring-2 ring-offset-1 ring-[#00b900]/20`}>
+                    {(selectedCustomer.displayName || '?')[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h2 className={`font-black text-sm truncate ${k.text}`}>{selectedCustomer.displayName}</h2>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                    <span className={`text-[10px] ${k.muted}`}>LINE Customer</span>
+                    {activeOrders.length > 0 && (
+                      <span className="text-[10px] bg-orange-100 text-orange-600 border border-orange-200 px-1.5 py-0.5 rounded-full font-bold">
+                        {activeOrders.length} active
+                      </span>
+                    )}
+                    {parcelOrders.length > 0 && (
+                      <span className="text-[10px] bg-blue-100 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full font-bold">
+                        {parcelOrders.length} in parcel
+                      </span>
+                    )}
+                    {totalSpent > 0 && (
+                      <span className="text-[10px] bg-[#00b900]/10 text-[#00b900] px-1.5 py-0.5 rounded-full font-bold">
+                        ฿{fmt(totalSpent)} total
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <button
-                    onClick={() => setShowModal(true)}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-[#00b900] to-[#00a000] hover:from-[#00a000] hover:to-[#008000] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-[#00b900]/20 active:scale-95"
-                  >
-                    <ShoppingCart size={14} /> New Order
-                  </button>
-                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#00b900] hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-[#00b900]/20 active:scale-95"
+                >
+                  <ShoppingCart size={12} /> New Order
+                </button>
               </div>
             </div>
 
             {/* Scrollable content */}
-            <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-[#0f1117]/50' : 'bg-slate-50/50'}`}>
-              <div className="p-8 max-w-5xl mx-auto">
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-10 space-y-10 max-w-5xl mx-auto">
 
-                <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                  {/* Active Orders */}
-                  {activeOrders.length > 0 ? (
-                    <section aria-label="Active orders">
-                      <div className="flex items-center justify-between">
-                        <SectionLabel>Active Orders</SectionLabel>
-                        {pendingOrders.length > 1 && (
-                          <button
-                            onClick={() => setSelectedOrderIds(allPendingSelected ? new Set() : new Set(pendingOrders.map(o => o._id)))}
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-lg transition-colors ${
-                              allPendingSelected
-                                ? 'text-[#00b900] bg-[#00b900]/10'
-                                : `${k.muted} hover:text-[#00b900]`
-                            }`}
-                          >
-                            {allPendingSelected ? 'Deselect All' : 'Select All'}
-                          </button>
-                        )}
-                      </div>
-                      {selectedOrderIds.size > 0 && (
-                        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-2 ${isDark ? 'bg-[#00b900]/10 border border-[#00b900]/20' : 'bg-[#00b900]/5 border border-[#00b900]/20'}`}>
-                          <span className="text-xs font-bold text-[#00b900] flex-1">
-                            {selectedOrderIds.size} selected · ฿{fmt(selectedTotal)}
-                          </span>
-                          <button
-                            onClick={() => sendBatchQR([...selectedOrderIds])}
-                            disabled={batchActing}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold hover:bg-amber-500 transition-all active:scale-95 disabled:opacity-50"
-                          >
-                            <QrCode size={11} /> {batchActing ? 'Sending...' : 'Combined QR'}
-                          </button>
-                          <button
-                            onClick={() => markBatchPaid([...selectedOrderIds])}
-                            disabled={batchActing}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#00b900] text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
-                          >
-                            <CheckCircle size={11} /> {batchActing ? 'Processing...' : 'Mark All Paid'}
-                          </button>
-                          <button
-                            onClick={() => setSelectedOrderIds(new Set())}
-                            disabled={batchActing}
-                            className={`p-1.5 rounded-lg ${k.muted} ${k.hover} transition-colors disabled:opacity-40`}
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
+                {/* Active Orders */}
+                {activeOrders.length > 0 && (
+                  <section aria-label="Active orders">
+                    <div className="flex items-center justify-between">
+                      <SectionLabel>Active Orders</SectionLabel>
+                      {pendingOrders.length > 1 && (
+                        <button
+                          onClick={() => setSelectedOrderIds(allPendingSelected ? new Set() : new Set(pendingOrders.map(o => o._id)))}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-lg transition-colors ${
+                            allPendingSelected
+                              ? 'text-[#00b900] bg-[#00b900]/10'
+                              : `${k.muted} hover:text-[#00b900]`
+                          }`}
+                        >
+                          {allPendingSelected ? 'Deselect All' : 'Select All'}
+                        </button>
                       )}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                        {activeOrders.map(order => (
-                          <ActiveOrderCard key={order._id} order={order} isDark={isDark} k={k}
-                            onDelete={() => confirmDeleteOrder(order._id)}
-                            onSendQR={() => sendQR(order._id)}
-                            onMarkPaid={() => markPaid(order._id)}
-                            onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
-                            selected={selectedOrderIds.has(order._id)}
-                            onToggleSelect={order.status === 'pending' ? () => toggleOrderSelect(order._id) : undefined}
-                            isActing={actingOrderIds.has(order._id)} />
-                        ))}
-                      </div>
-                    </section>
-                  ) : parcelOrders.length === 0 ? (
-                    <div className={`flex flex-col items-center justify-center p-12 text-center rounded-3xl border border-dashed ${isDark ? 'border-[#1f2335] bg-white/5' : 'border-slate-200 bg-white/50'}`}>
-                      <ShoppingCart size={32} className={`mb-3 opacity-30 ${k.muted}`} />
-                      <h3 className={`text-sm font-bold ${k.text}`}>No active orders</h3>
-                      <p className={`text-xs mt-1 ${k.muted}`}>Create a new order to get started</p>
-                      <button onClick={() => setShowModal(true)} className="mt-4 text-xs font-bold text-[#00b900] hover:underline">Create Order</button>
                     </div>
-                  ) : null}
-
-                  {/* Parcel Fulfillment */}
-                  {parcelOrders.length > 0 && (
-                    <section aria-label="Parcels awaiting shipment">
-                      <div className="space-y-4">
-                        <ParcelContainer 
-                          orders={parcelOrders} 
-                          isDark={isDark} 
-                          k={k}
-                          merchantSettings={merchantSettings}
-                          onPatch={(id, patch) => patchOrder(id, patch)}
-                          onCancelParcel={(id) => patchOrder(id, { status: 'paid' })}
-                          onShip={async (tracking, courier) => {
-                            const addr = selectedCustomer?.addresses[selectedAddressIdx] || '';
-                            for (const o of parcelOrders) {
-                              await patchOrder(o._id, { tracking, courier, address: addr, status: 'shipped' });
-                            }
-                          }}
-                          onAddItem={() => setShowModal(true)} 
-                        />
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Delivery Addresses */}
-                  <section aria-label="Delivery addresses">
-                    <SectionLabel>Delivery Addresses</SectionLabel>
-                    <AddressSection 
-                      customer={selectedCustomer} 
-                      isDark={isDark} 
-                      k={k} 
-                      selectedIdx={selectedAddressIdx}
-                      onSelect={setSelectedAddressIdx}
-                      onAdd={addAddress} 
-                      onRemove={confirmDeleteAddress} 
-                    />
-                  </section>
-
-                  {/* Order History */}
-                  <section aria-label="Order history">
-                    <div className="flex items-center justify-between mb-3">
-                      <SectionLabel>Fulfilled Order History</SectionLabel>
-                      {shippedOrders.length > 0 && (
-                        <span className="text-[10px] font-bold text-[#00b900] bg-[#00b900]/10 px-2 py-0.5 rounded-full">
-                          Total profit: ฿{fmt(totalProfit)}
+                    {selectedOrderIds.size > 0 && (
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-2 ${isDark ? 'bg-[#00b900]/10 border border-[#00b900]/20' : 'bg-[#00b900]/5 border border-[#00b900]/20'}`}>
+                        <span className="text-xs font-bold text-[#00b900] flex-1">
+                          {selectedOrderIds.size} selected · ฿{fmt(selectedTotal)}
                         </span>
-                      )}
-                    </div>
-                    {shippedOrders.length === 0 ? (
-                      <div className={`${k.surface} border ${k.border} rounded-3xl p-8 text-center`}>
-                        <div className={`w-10 h-10 rounded-2xl mx-auto mb-3 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'}`}>
-                          <History size={18} className={`${k.muted} opacity-40`} />
-                        </div>
-                        <p className={`text-xs font-semibold ${k.text}`}>No fulfilled orders yet</p>
-                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Shipped orders will appear here</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {shippedOrders.map((order, i) => (
-                          <HistoryRow key={order._id} order={order} isDark={isDark} k={k}
-                            isLast={i === shippedOrders.length - 1}
-                            onPatch={(patch) => patchOrder(order._id, patch)}
-                            onDelete={() => confirmDeleteOrder(order._id)}
-                          />
-                        ))}
+                        <button
+                          onClick={() => sendBatchQR([...selectedOrderIds])}
+                          disabled={batchActing}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold hover:bg-amber-500 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          <QrCode size={11} /> {batchActing ? 'Sending...' : 'Combined QR'}
+                        </button>
+                        <button
+                          onClick={() => markBatchPaid([...selectedOrderIds])}
+                          disabled={batchActing}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#00b900] text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          <CheckCircle size={11} /> {batchActing ? 'Processing...' : 'Mark All Paid'}
+                        </button>
+                        <button
+                          onClick={() => setSelectedOrderIds(new Set())}
+                          disabled={batchActing}
+                          className={`p-1.5 rounded-lg ${k.muted} ${k.hover} transition-colors disabled:opacity-40`}
+                        >
+                          <X size={12} />
+                        </button>
                       </div>
                     )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                      {activeOrders.map(order => (
+                        <ActiveOrderCard key={order._id} order={order} isDark={isDark} k={k}
+                          onDelete={() => confirmDeleteOrder(order._id)}
+                          onSendQR={() => sendQR(order._id)}
+                          onMarkPaid={() => markPaid(order._id)}
+                          onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
+                          selected={selectedOrderIds.has(order._id)}
+                          onToggleSelect={order.status === 'pending' ? () => toggleOrderSelect(order._id) : undefined}
+                          isActing={actingOrderIds.has(order._id)} />
+                      ))}
+                    </div>
                   </section>
-                </div>
+                )}
+
+                {/* Parcel Fulfillment */}
+                {parcelOrders.length > 0 && (
+                  <section aria-label="Parcels awaiting shipment">
+                    <div className="space-y-4">
+                      <ParcelContainer 
+                        orders={parcelOrders} 
+                        isDark={isDark} 
+                        k={k}
+                        merchantSettings={merchantSettings}
+                        onPatch={(id, patch) => patchOrder(id, patch)}
+                        onCancelParcel={(id) => patchOrder(id, { status: 'paid' })}
+                        onShip={async (tracking, courier) => {
+                          const addr = selectedCustomer?.addresses[selectedAddressIdx] || '';
+                          for (const o of parcelOrders) {
+                            await patchOrder(o._id, { tracking, courier, address: addr, status: 'shipped' });
+                          }
+                        }}
+                        onAddItem={() => setShowModal(true)} 
+                      />
+                    </div>
+                  </section>
+                )}
+
+                {/* Delivery Addresses */}
+                <section aria-label="Delivery addresses">
+                  <SectionLabel>Delivery Addresses</SectionLabel>
+                  <AddressSection 
+                    customer={selectedCustomer} 
+                    isDark={isDark} 
+                    k={k} 
+                    selectedIdx={selectedAddressIdx}
+                    onSelect={setSelectedAddressIdx}
+                    onAdd={addAddress} 
+                    onRemove={confirmDeleteAddress} 
+                  />
+                </section>
+
+                {/* Order History */}
+                <section aria-label="Order history">
+                  <div className="flex items-center justify-between mb-3">
+                    <SectionLabel>Fulfilled Order History</SectionLabel>
+                    {shippedOrders.length > 0 && (
+                      <span className="text-[10px] font-bold text-[#00b900] bg-[#00b900]/10 px-2 py-0.5 rounded-full">
+                        Total profit: ฿{fmt(totalProfit)}
+                      </span>
+                    )}
+                  </div>
+                  {shippedOrders.length === 0 ? (
+                    <div className={`${k.surface} border ${k.border} rounded-3xl p-8 text-center`}>
+                      <div className={`w-10 h-10 rounded-2xl mx-auto mb-3 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'}`}>
+                        <History size={18} className={`${k.muted} opacity-40`} />
+                      </div>
+                      <p className={`text-xs font-semibold ${k.text}`}>No fulfilled orders yet</p>
+                      <p className={`text-[10px] mt-0.5 ${k.muted}`}>Shipped orders will appear here</p>
+                    </div>
+                  ) : (
+                    <div className={`${k.surface} border ${k.border} rounded-3xl overflow-hidden`}>
+                      {shippedOrders.map((order, i) => (
+                        <HistoryRow key={order._id} order={order} isDark={isDark} k={k}
+                          isLast={i === shippedOrders.length - 1}
+                          onPatch={(patch) => patchOrder(order._id, patch)}
+                          onDelete={() => confirmDeleteOrder(order._id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
 
               </div>
             </div>
           </div>
 
           {/* ── Chat panel ── */}
-          <div className={`flex-shrink-0 flex border-l ${k.border} transition-all duration-300 ${chatOpen ? 'w-80' : 'w-8'}`}>
+          <div className={`flex-shrink-0 flex border-l ${k.border} transition-all duration-200 ${chatOpen ? 'w-72' : 'w-8'}`}>
             <button
               onClick={() => setChatOpen(v => !v)}
               aria-label={chatOpen ? 'Collapse chat' : 'Expand chat'}
-              className={`w-8 flex-shrink-0 flex items-center justify-center ${k.muted} hover:text-[#00b900] transition-colors ${isDark ? 'bg-[#1a1d2e]/50' : 'bg-slate-50'}`}
+              className={`w-8 flex-shrink-0 flex items-center justify-center ${k.muted} ${k.hover} border-r ${k.border} transition-colors`}
             >
               {chatOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
             {chatOpen && (
               <div className={`flex-1 flex flex-col min-w-0 ${k.surface}`}>
-                <div className={`flex items-center gap-2.5 px-4 py-3 border-b ${k.border} flex-shrink-0 bg-white/50 dark:bg-[#1a1d2e]/50 backdrop-blur-md z-10 shadow-sm`}>
-                  <div className={`w-8 h-8 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0 ring-2 ring-offset-1 ring-[#00b900]/20`}>
+                <div className={`flex items-center gap-2.5 px-3 py-3 border-b ${k.border} flex-shrink-0`}>
+                  <div className={`w-7 h-7 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0`}>
                     {(selectedCustomer.displayName || '?')[0].toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -859,58 +845,51 @@ export default function CustomersView({ theme }: { theme: string }) {
                   {selectedCustomer.unreadCount > 0 && (
                     <button
                       onClick={markAsRead}
-                      className="text-[10px] px-2.5 py-1 rounded-full bg-[#00b900]/10 text-[#00b900] font-bold hover:bg-[#00b900]/20 transition-colors whitespace-nowrap active:scale-95"
+                      className="text-[10px] px-2 py-1 rounded-full bg-[#00b900]/10 text-[#00b900] font-bold hover:bg-[#00b900]/20 transition-colors whitespace-nowrap"
                     >
                       Mark read
                     </button>
                   )}
                 </div>
-                <div className={`flex-1 overflow-y-auto p-4 space-y-3 ${isDark ? 'bg-[#0f1117]/30' : 'bg-slate-50/50'}`}>
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
                   {messages.map(msg => (
                     <div key={msg._id} className={`flex ${msg.sender === 'admin' ? 'justify-end' : msg.sender === 'system' ? 'justify-center' : 'justify-start'}`}>
                       {msg.sender === 'system' ? (
-                        <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium ${isDark ? 'bg-white/5 text-[#8b92ad]' : 'bg-[#f8f9fc] text-[#8b92ad]'}`}>{msg.text}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-white/10 text-[#8b92ad]' : 'bg-[#f8f9fc] text-[#8b92ad]'}`}>{msg.text}</span>
                       ) : (
-                        <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                        <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
                           msg.sender === 'admin'
-                            ? 'bg-gradient-to-br from-[#00b900] to-[#009a00] text-white rounded-br-sm shadow-[#00b900]/20'
-                            : isDark ? 'bg-[#1a1d2e] text-gray-100 rounded-bl-sm border border-[#1f2335]' : 'bg-white border border-slate-200 text-[#1a1d2e] rounded-bl-sm'
+                            ? 'bg-[#00b900] text-white rounded-br-sm'
+                            : isDark ? 'bg-white/10 text-gray-100 rounded-bl-sm' : 'bg-white shadow-sm border border-[#e2e5ef] text-[#1a1d2e] rounded-bl-sm'
                         }`}>
                           <p style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
-                          <p className={`text-[9px] mt-1.5 font-medium ${msg.sender === 'admin' ? 'text-green-100' : k.muted}`}>
+                          <p className={`text-[9px] mt-1 ${msg.sender === 'admin' ? 'text-green-100' : k.muted}`}>
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
                       )}
                     </div>
                   ))}
-                  {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full opacity-50">
-                      <MessageCircle size={32} className={`mb-3 ${k.muted}`} />
-                      <p className={`text-[11px] font-medium text-center ${k.muted}`}>No messages yet.<br/>Start the conversation!</p>
-                    </div>
-                  )}
+                  {messages.length === 0 && <p className={`text-[11px] text-center ${k.muted} pt-6`}>No messages yet</p>}
                   <div ref={messagesEndRef} />
                 </div>
-                <div className={`p-3 border-t ${k.border} flex-shrink-0 bg-white/80 dark:bg-[#161925]/80 backdrop-blur-md`}>
-                  <div className={`flex items-center gap-2 px-1 py-1 rounded-2xl border ${k.border} focus-within:ring-1 focus-within:border-[#00b900] transition-all ${isDark ? 'bg-[#1a1d2e]' : 'bg-white'}`}>
-                    <input
-                      value={inputText}
-                      onChange={e => setInputText(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                      placeholder="Type a message..."
-                      aria-label="Chat message input"
-                      className="flex-1 text-xs px-3 py-2 bg-transparent outline-none"
-                    />
-                    <button
-                      onClick={sendMessage}
-                      disabled={!inputText.trim() || sending}
-                      aria-label="Send message"
-                      className="bg-gradient-to-r from-[#00b900] to-[#00a000] hover:from-[#00a000] hover:to-[#008000] disabled:opacity-40 text-white rounded-xl w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all active:scale-95 shadow-sm mr-1"
-                    >
-                      <Send size={13} />
-                    </button>
-                  </div>
+                <div className={`flex items-center gap-2 px-3 py-2.5 border-t ${k.border} flex-shrink-0`}>
+                  <input
+                    value={inputText}
+                    onChange={e => setInputText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                    placeholder="Type a message..."
+                    aria-label="Chat message input"
+                    className={`flex-1 text-xs rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`}
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={!inputText.trim() || sending}
+                    aria-label="Send message"
+                    className="bg-[#00b900] hover:opacity-90 disabled:opacity-40 text-white rounded-xl w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
+                  >
+                    <Send size={13} />
+                  </button>
                 </div>
               </div>
             )}
@@ -1216,11 +1195,11 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
   };
 
   const cardClasses = isDark
-    ? `bg-[#1a1d2e]/80 backdrop-blur-md border border-[#1f2335] hover:bg-[#1f2335]/80 shadow-lg ${status.glow || ''}`
-    : `bg-white/80 backdrop-blur-md border border-slate-200/60 shadow-lg hover:shadow-xl transition-all ${status.glow || ''}`;
+    ? `bg-[#161925] border border-[#1f2335] hover:bg-white/10 ${status.glow || ''}`
+    : `bg-white ${status.border} shadow-sm hover:shadow-md transition-all ${status.glow || ''}`;
 
   return (
-    <article className={`relative overflow-hidden rounded-3xl p-5 transition-all duration-300 active:scale-[0.98] ${cardClasses} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/50 shadow-[#00b900]/10' : ''}`}>
+    <article className={`relative overflow-hidden rounded-2xl border-l-4 p-5 transition-all duration-300 ${cardClasses} ${!isDark ? `border-l-${order.status === 'pending' ? 'amber-400' : order.status === 'paid' ? 'blue-400' : 'emerald-400'}` : 'border-l-transparent'} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/40' : ''}`}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           {onToggleSelect && (
@@ -1371,18 +1350,18 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
   }
 
   return (
-    <article className={`rounded-3xl border ${isDark ? 'border-[#1f2335] bg-[#1a1d2e]/80 shadow-lg' : 'border-slate-200/60 bg-white/80 shadow-md'} p-8 space-y-6 transition-all duration-300 backdrop-blur-md`}>
+    <article className={`rounded-[32px] border-2 border-dashed ${outer} ${isDark ? 'bg-[#161925]' : 'bg-white shadow-xl'} p-8 space-y-6 transition-all duration-300`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
-            <Package size={20} className="text-emerald-500" />
+          <div className="w-10 h-10 rounded-2xl bg-[#00b900]/10 flex items-center justify-center">
+            <Package size={20} className="text-[#00b900]" />
           </div>
           <div>
             <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Parcel Identity</p>
             <p className={`text-sm font-black ${k.text}`}>{parcelId}</p>
           </div>
         </div>
-        <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl bg-emerald-500 hover:opacity-90 text-white transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
+        <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl bg-[#00b900] hover:opacity-90 text-white transition-all active:scale-95 shadow-lg shadow-[#00b900]/20">
           <Plus size={14} /> Add Product
         </button>
       </div>
@@ -1539,11 +1518,11 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
   }
 
   return (
-    <div className={`transition-all duration-300 rounded-3xl overflow-hidden ${isDark ? 'bg-[#1a1d2e]/80 border border-[#1f2335] shadow-lg hover:shadow-xl hover:bg-[#1f2335]/80' : 'bg-white/80 border border-slate-200/60 shadow-md hover:shadow-xl hover:bg-white'} backdrop-blur-md active:scale-[0.99]`}>
+    <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''}`}>
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
-        className="w-full flex items-center gap-4 px-6 py-5 text-left transition-all outline-none"
+        className={`w-full flex items-center gap-4 px-6 py-5 text-left transition-all ${k.hover} outline-none`}
       >
         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-500/10'}`}>
           <Package size={16} className="text-emerald-500" />

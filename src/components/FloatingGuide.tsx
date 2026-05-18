@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   BookOpen, Check, ArrowRight, ExternalLink, ChevronUp, ChevronDown,
   Store, MessageSquare, Globe, Zap, Package, Hand, LayoutGrid, Megaphone, X,
@@ -34,6 +34,12 @@ export default function FloatingGuide({
   const [open, setOpen]           = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [settings, setSettings]   = useState<any>(null);
+  
+  type Corner = 'tl' | 'tr' | 'bl' | 'br';
+  const [corner, setCorner] = useState<Corner>('br');
+  const [isDragging, setIsDragging] = useState(false);
+  const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
+  const dragRef = useRef<{ startX: number, startY: number, initX: number, initY: number, moved: boolean } | null>(null);
   const [lineOk, setLineOk]       = useState(false);
   const [hasProducts, setHasProducts]     = useState(false);
   const [hasAutoReply, setHasAutoReply]   = useState(false);
@@ -43,6 +49,8 @@ export default function FloatingGuide({
   useEffect(() => {
     if (localStorage.getItem('sg-dismissed') === 'true') { setDismissed(true); return; }
     setOpen(localStorage.getItem('sg-open') === 'true');
+    const c = localStorage.getItem('sg-corner') as Corner;
+    if (c) setCorner(c);
 
     fetch('/api/settings').then(r => r.json()).then(setSettings).catch(() => {});
     fetch('/api/line-status')
@@ -79,6 +87,68 @@ export default function FloatingGuide({
       return !v;
     });
   }, []);
+
+  const onPointerDown = useCallback((e: React.PointerEvent, isHeader?: boolean) => {
+    if (e.button !== 0) return; // only left click
+    const target = e.target as HTMLElement;
+    if (open && !isHeader) return; // if expanded, only drag from header
+    if (target.closest('button') && !isHeader) return; // ignore clicks on buttons when collapsed
+    
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: rect.left,
+      initY: rect.top,
+      moved: false,
+    };
+    setPos({ x: rect.left, y: rect.top });
+    setIsDragging(true);
+  }, [open]);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragRef.current) return;
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) dragRef.current.moved = true;
+      setPos({
+        x: dragRef.current.initX + dx,
+        y: dragRef.current.initY + dy,
+      });
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (!dragRef.current) return;
+      if (dragRef.current.moved) {
+        const cx = e.clientX;
+        const cy = e.clientY;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const isLeft = cx < w / 2;
+        const isTop = cy < h / 2;
+        const c = `${isTop ? 't' : 'b'}${isLeft ? 'l' : 'r'}` as Corner;
+        setCorner(c);
+        localStorage.setItem('sg-corner', c);
+      } else {
+        // it was just a click
+        if (!open) toggle();
+      }
+      setIsDragging(false);
+      setPos(null);
+      dragRef.current = null;
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [isDragging, open, toggle]);
 
   if (!settings || dismissed) return null;
 
@@ -161,10 +231,28 @@ export default function FloatingGuide({
   const deep   = isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100';
   const border = isDark ? 'border-[#1f2335]' : 'border-slate-200';
 
+  const getStyle = (): React.CSSProperties => {
+    if (pos) {
+      return {
+        position: 'fixed', left: pos.x, top: pos.y,
+        transition: 'none', zIndex: 9999,
+        pointerEvents: 'none',
+        alignItems: corner.includes('l') ? 'flex-start' : 'flex-end',
+      };
+    }
+    const s: React.CSSProperties = { position: 'fixed', zIndex: 50, transition: 'all 0.3s ease-out' };
+    const margin = 20;
+    if (corner.includes('t')) s.top = margin;
+    else s.bottom = nudgeUp ? margin + 70 : margin;
+    if (corner.includes('l')) { s.left = margin; s.alignItems = 'flex-start'; }
+    else { s.right = margin; s.alignItems = 'flex-end'; }
+    return s;
+  };
+
   return (
     <div
-      className="fixed right-5 z-50 flex flex-col items-end gap-2 pointer-events-none transition-all duration-300"
-      style={{ bottom: nudgeUp ? '90px' : '20px' }}
+      className={`flex flex-col gap-2 pointer-events-none ${isDragging ? 'opacity-80' : ''}`}
+      style={getStyle()}
     >
 
       {/* ── Expanded panel ── */}
@@ -172,7 +260,10 @@ export default function FloatingGuide({
         <div className={`rounded-2xl shadow-2xl w-72 overflow-hidden pointer-events-auto ${bg}`}>
 
           {/* Header */}
-          <div className={`flex items-center justify-between px-4 py-3 border-b ${border}`}>
+          <div 
+            className={`flex items-center justify-between px-4 py-3 border-b ${border} cursor-move`}
+            onPointerDown={(e) => onPointerDown(e, true)}
+          >
             <div className="flex items-center gap-2">
               <BookOpen size={13} className="text-[#00b900]" />
               <p className={`text-sm font-semibold ${text}`}>Getting Started</p>
@@ -251,13 +342,14 @@ export default function FloatingGuide({
       )}
 
       {/* ── Collapsed pill ── */}
-      <button
-        onClick={toggle}
-        className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-2xl shadow-xl transition-all pointer-events-auto ${bg} hover:shadow-2xl active:scale-[0.98]`}
-      >
-        <div className="w-7 h-7 rounded-full bg-[#00b900]/10 flex items-center justify-center flex-shrink-0">
-          <BookOpen size={13} className="text-[#00b900]" />
-        </div>
+      {!open && (
+        <div
+          onPointerDown={(e) => onPointerDown(e, false)}
+          className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-2xl shadow-xl transition-all pointer-events-auto ${bg} hover:shadow-2xl active:scale-[0.98] cursor-pointer`}
+        >
+          <div className="w-7 h-7 rounded-full bg-[#00b900]/10 flex items-center justify-center flex-shrink-0">
+            <BookOpen size={13} className="text-[#00b900]" />
+          </div>
         <div className="flex flex-col items-start gap-0.5">
           <p className={`text-xs font-semibold leading-none ${text}`}>Getting Started</p>
           <div className="flex items-center gap-2">
@@ -274,7 +366,8 @@ export default function FloatingGuide({
           ? <ChevronDown size={12} className={muted} />
           : <ChevronUp   size={12} className={muted} />
         }
-      </button>
+        </div>
+      )}
     </div>
   );
 }

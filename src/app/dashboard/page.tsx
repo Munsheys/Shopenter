@@ -151,7 +151,7 @@ export default function DashboardPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative flex items-center gap-2 px-4 h-full text-[13px] font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
+              className={`relative flex items-center gap-2 px-4 h-full text-[13px] font-bold transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? `${isDark ? 'text-white' : 'text-gray-900'}`
                   : `${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
