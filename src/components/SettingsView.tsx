@@ -28,8 +28,27 @@ interface LineStatus {
   configured: boolean;
   valid?: boolean;
   error?: string;
-  bot?: { displayName: string; basicId: string; chatMode: string };
+  bot?: { displayName: string; basicId: string; chatMode: string; pictureUrl?: string | null };
   tier?: 'unverified' | 'verified' | 'premium';
+  quota?: { type: string; value: number | null };
+  consumption?: { totalUsage: number };
+}
+
+function getPlanLabel(tier: string | undefined, quota: LineStatus['quota']): string {
+  if (tier === 'premium' || quota?.type === 'none') return 'Unlimited';
+  const v = quota?.value;
+  if (!v || v <= 1000) return 'Free';
+  if (v <= 15000) return 'Light';
+  if (v <= 35000) return 'Standard';
+  return 'Pro';
+}
+
+function getPlanColor(plan: string): string {
+  if (plan === 'Unlimited') return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+  if (plan === 'Light')     return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+  if (plan === 'Standard')  return 'bg-violet-500/15 text-violet-400 border-violet-500/30';
+  if (plan === 'Pro')       return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+  return 'bg-slate-500/15 text-slate-400 border-slate-500/30';
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -547,6 +566,69 @@ export default function SettingsView({
               <p className={`text-xs ${K.muted}`}>Press "Test Connection" to verify your LINE channel.</p>
             )}
           </div>
+
+          {/* LINE OA Plan & Quota */}
+          {lineStatus?.configured && lineStatus.valid && ((() => {
+            const isUnlimited = lineStatus.quota?.type === 'none' || lineStatus.tier === 'premium';
+            const used        = lineStatus.consumption?.totalUsage ?? 0;
+            const limit       = lineStatus.quota?.value ?? 0;
+            const pct         = isUnlimited ? 100 : limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+            const remaining   = Math.max(0, limit - used);
+            const plan        = getPlanLabel(lineStatus.tier, lineStatus.quota);
+            const planColor   = getPlanColor(plan);
+            const barColor    = isUnlimited ? 'bg-amber-400' : pct >= 90 ? 'bg-red-400' : pct >= 70 ? 'bg-amber-400' : 'bg-[#00b900]';
+
+            return (
+              <div className={`rounded-2xl p-5 space-y-4 ${K.surface}`}>
+                <div className="flex items-center justify-between">
+                  <p className={`text-sm font-semibold ${K.text}`}>LINE OA Plan & Quota</p>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${planColor}`}>
+                    {plan}
+                  </span>
+                </div>
+
+                {isUnlimited ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-medium ${K.muted}`}>Monthly messages</span>
+                      <span className="text-xs font-bold text-amber-400">Unlimited</span>
+                    </div>
+                    <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'}`}>
+                      <div className="h-full rounded-full bg-amber-400 w-full" />
+                    </div>
+                    <p className={`text-[10px] ${K.muted}`}>
+                      {used.toLocaleString()} messages sent this month · No cap
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-medium ${K.muted}`}>Monthly messages</span>
+                      <span className={`text-xs font-bold ${pct >= 90 ? 'text-red-400' : pct >= 70 ? 'text-amber-400' : K.text}`}>
+                        {used.toLocaleString()} / {limit.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'}`}>
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-[10px] ${K.muted}`}>
+                        {remaining.toLocaleString()} remaining · {pct.toFixed(1)}% used
+                      </p>
+                      {pct >= 80 && (
+                        <p className={`text-[10px] font-semibold ${pct >= 90 ? 'text-red-400' : 'text-amber-400'}`}>
+                          {pct >= 90 ? 'Quota almost full' : 'Running low'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })())}
 
           {/* Webhook URL */}
           <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
