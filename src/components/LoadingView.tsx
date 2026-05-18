@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { Package } from 'lucide-react';
 
 export default function LoadingView({ 
   message = "Loading Data...", 
@@ -9,71 +10,25 @@ export default function LoadingView({
   message?: string, 
   theme?: 'light' | 'dark' 
 }) {
-  const isDark = theme === 'dark';
-  
   return (
-    <div className={`w-full max-w-4xl mx-auto p-6 space-y-8 animate-in fade-in duration-500 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-      {/* Dynamic Keyframes Injection */}
-      <style>{`
-        @keyframes shimmerSweep {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        .shimmer-card {
-          background: ${isDark ? 'linear-gradient(90deg, #1b2030 25%, #232a3f 37%, #1b2030 63%)' : 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%)'};
-          background-size: 200% 100%;
-          animation: shimmerSweep 1.6s infinite linear;
-        }
-      `}</style>
-
-      {/* Header Skeleton */}
-      <div className="space-y-3">
-        <div className="w-1/3 h-8 rounded-lg shimmer-card" />
-        <div className="w-1/2 h-4 rounded-md shimmer-card opacity-60" />
-      </div>
-
-      {/* Nav skeleton */}
-      <div className="flex gap-2 border-b pb-4 border-slate-200 dark:border-slate-800">
-        <div className="w-24 h-8 rounded-lg shimmer-card" />
-        <div className="w-24 h-8 rounded-lg shimmer-card opacity-80" />
-        <div className="w-24 h-8 rounded-lg shimmer-card opacity-60" />
-        <div className="w-24 h-8 rounded-lg shimmer-card opacity-40" />
-      </div>
-
-      {/* Content cards grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="w-1/4 h-5 rounded-md shimmer-card" />
-            <div className="space-y-2">
-              <div className="w-full h-10 rounded-xl shimmer-card" />
-              <div className="w-full h-10 rounded-xl shimmer-card" />
-            </div>
-          </div>
-          <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="w-1/3 h-5 rounded-md shimmer-card" />
-            <div className="space-y-3">
-              <div className="w-full h-12 rounded-xl shimmer-card" />
-              <div className="w-2/3 h-4 rounded-md shimmer-card" />
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="w-1/2 h-5 rounded-md shimmer-card" />
-            <div className="w-full h-32 rounded-xl shimmer-card" />
-          </div>
+    <div className={cn(
+      "max-w-4xl mx-auto h-[60vh] flex flex-col items-center justify-center animate-in fade-in duration-500 transition-colors",
+      theme === 'dark' ? "text-white" : "text-[#1a1d2e]"
+    )}>
+      <div className="relative">
+        <div className={cn(
+          "w-20 h-20 border-4 rounded-full animate-spin",
+          theme === 'dark' ? "border-white/10 border-t-[#00b900]" : "border-[#00b900]/10 border-t-[#00b900]"
+        )}></div>
+        <div className="absolute inset-0 flex items-center justify-center text-[#00b900] animate-pulse">
+          <Package size={24} />
         </div>
       </div>
-
-      {/* Floating loading feedback */}
-      <div className="flex items-center justify-center gap-2 py-4">
-        <div className="w-2 h-2 rounded-full bg-[#00b900] animate-bounce [animation-delay:-0.3s]" />
-        <div className="w-2 h-2 rounded-full bg-[#00b900] animate-bounce [animation-delay:-0.15s]" />
-        <div className="w-2 h-2 rounded-full bg-[#00b900] animate-bounce" />
-        <span className="text-xs font-bold text-[#8b92ad] uppercase tracking-[0.2em] ml-1">{message}</span>
-      </div>
+      <p className="mt-6 text-xs font-bold text-[#8b92ad] uppercase tracking-[0.2em] animate-pulse">{message}</p>
     </div>
   );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
 }
