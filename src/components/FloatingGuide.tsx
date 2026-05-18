@@ -92,13 +92,13 @@ export default function FloatingGuide({
       n: 2, done: !!(settings.shopName && settings.shopName !== 'My Shop'),
       icon: <Store size={12} />,
       title: 'Set your shop name',
-      action: { kind: 'nav', label: 'General', tab: 'settings', section: 'general' },
+      action: { kind: 'nav', label: 'General', tab: 'settings', section: 'general-shopname' },
     },
     {
       n: 3, done: lineOk,
       icon: <MessageSquare size={12} />,
       title: 'Connect LINE OA',
-      action: { kind: 'nav', label: 'LINE Settings', tab: 'settings', section: 'line' },
+      action: { kind: 'nav', label: 'LINE Settings', tab: 'settings', section: 'line-credentials' },
     },
     {
       n: 4, done: false,
@@ -110,7 +110,7 @@ export default function FloatingGuide({
       n: 5, done: !!settings.promptPayId,
       icon: <Zap size={12} />,
       title: 'Add PromptPay ID',
-      action: { kind: 'nav', label: 'Payment Settings', tab: 'settings', section: 'payment' },
+      action: { kind: 'nav', label: 'Payment Settings', tab: 'settings', section: 'payment-promptpay' },
     },
     {
       n: 6, done: hasProducts,

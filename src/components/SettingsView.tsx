@@ -48,7 +48,7 @@ export default function SettingsView({
   // Scroll container + active-section tracking
   const containerRef               = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState<SectionId>('general');
-  const [highlighted, setHighlighted]     = useState<SectionId | null>(null);
+  const [highlighted, setHighlighted]     = useState<string | null>(null);
 
   // Data
   const [settings, setSettings]   = useState<any>(null);
@@ -109,13 +109,15 @@ export default function SettingsView({
     return () => container.removeEventListener('scroll', onScroll);
   }, []);
 
-  const scrollTo = useCallback((id: SectionId) => {
+  const scrollTo = useCallback((id: string) => {
     const container = containerRef.current;
     const el = container?.querySelector<HTMLElement>(`#${id}`);
     if (el && container) {
       const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 72;
       container.scrollTo({ top, behavior: 'smooth' });
-      setActiveSection(id);
+      const sectionIds: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
+      const section = sectionIds.find(s => id === s || id.startsWith(s + '-')) ?? 'general';
+      setActiveSection(section);
     }
   }, []);
 
@@ -241,7 +243,7 @@ export default function SettingsView({
           </div>
 
           {/* Shop identity */}
-          <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
+          <div id="general-shopname" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'general-shopname' ? isDark ? 'ring-2 ring-[#00b900]/50' : 'ring-2 ring-green-300' : ''}`}>
             <p className={`text-sm font-semibold ${K.text}`}>Shop Identity</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
@@ -385,7 +387,7 @@ export default function SettingsView({
           </div>
 
           {/* Credentials */}
-          <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
+          <div id="line-credentials" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'line-credentials' ? isDark ? 'ring-2 ring-[#00b900]/50' : 'ring-2 ring-green-300' : ''}`}>
             <div>
               <p className={`text-sm font-semibold ${K.text}`}>Messaging API Credentials</p>
               <p className={`text-xs mt-1 ${K.muted}`}>Use credentials from your <strong>Messaging API</strong> channel only — not a LINE Login channel.</p>
@@ -458,7 +460,7 @@ export default function SettingsView({
             <h2 className={`text-base font-bold ${K.text}`}>Payment</h2>
           </div>
 
-          <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
+          <div id="payment-promptpay" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'payment-promptpay' ? isDark ? 'ring-2 ring-[#00b900]/50' : 'ring-2 ring-green-300' : ''}`}>
             <p className={`text-sm font-semibold ${K.text}`}>PromptPay</p>
             <div className="md:w-1/2">
               <label className={lbl}>PromptPay ID (phone or national ID)</label>
