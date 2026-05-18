@@ -235,7 +235,7 @@ export default function SettingsView({
 
         {/* ══ GENERAL ══════════════════════════════════════════════════════ */}
         <div id="general" className="space-y-6 pt-2">
-          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'general' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'general' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
             <SettingsIcon size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>General</h2>
           </div>
@@ -317,7 +317,7 @@ export default function SettingsView({
 
         {/* ══ LINE ═════════════════════════════════════════════════════════ */}
         <div id="line" className="space-y-6">
-          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'line' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'line' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
             <MessageSquare size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>LINE Integration</h2>
           </div>
@@ -453,7 +453,7 @@ export default function SettingsView({
 
         {/* ══ PAYMENT ══════════════════════════════════════════════════════ */}
         <div id="payment" className="space-y-6">
-          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'payment' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'payment' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
             <Zap size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>Payment</h2>
           </div>
@@ -505,7 +505,7 @@ export default function SettingsView({
 
         {/* ══ SHIPPING ═════════════════════════════════════════════════════ */}
         <div id="shipping" className="space-y-6">
-          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'shipping' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'shipping' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
             <Package size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>Shipping</h2>
           </div>
@@ -546,7 +546,7 @@ export default function SettingsView({
 
         {/* ══ NOTIFICATIONS ════════════════════════════════════════════════ */}
         <div id="notifications" className="space-y-6">
-          <div className={`flex items-center gap-2 pb-1 px-2 -mx-2 rounded-lg transition-colors duration-700 ${highlighted === 'notifications' ? isDark ? 'bg-[#00b900]/10' : 'bg-[#00b900]/8' : ''}`}>
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'notifications' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
             <Bell size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>Notifications</h2>
           </div>
