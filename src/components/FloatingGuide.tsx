@@ -47,7 +47,15 @@ export default function FloatingGuide({
   const [hasBroadcast, setHasBroadcast]   = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem('sg-dismissed') === 'true') { setDismissed(true); return; }
+    const syncDismissed = () => {
+      setDismissed(localStorage.getItem('sg-dismissed') === 'true');
+    };
+    syncDismissed();
+    window.addEventListener('sg-dismissed-changed', syncDismissed);
+    return () => window.removeEventListener('sg-dismissed-changed', syncDismissed);
+  }, []);
+
+  useEffect(() => {
     setOpen(localStorage.getItem('sg-open') === 'true');
     const c = localStorage.getItem('sg-corner') as Corner;
     if (c) setCorner(c);
@@ -76,9 +84,12 @@ export default function FloatingGuide({
   }, []);
 
   const dismiss = useCallback(() => {
+    const ok = window.confirm("Caution: Dismissing this setup guide will hide the helpful checklist widget. You can re-enable it anytime in your Settings page. Do you want to hide it now?");
+    if (!ok) return;
     setDismissed(true);
     setOpen(false);
     localStorage.setItem('sg-dismissed', 'true');
+    window.dispatchEvent(new Event('sg-dismissed-changed'));
   }, []);
 
   const toggle = useCallback(() => {

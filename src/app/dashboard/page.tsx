@@ -139,12 +139,13 @@ export default function DashboardPage() {
         <nav ref={topNavContainerRef} className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
           {/* Smooth Sliding Underline Indicator */}
           <div 
-            className={`absolute bottom-0 h-[2px] bg-[#00b900] shadow-[0_0_12px_#00b900,0_0_4px_#00b900] animate-pulse transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
+            className={`absolute bottom-0 h-[2px] bg-[#00b900] shadow-[0_0_6px_rgba(0,185,0,0.6),0_0_2px_rgba(0,185,0,0.3)] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
               topNavStyle.width ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
               left: topNavStyle.left,
               width: topNavStyle.width,
+              animation: 'pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
             }}
           />
           {tabs.map(tab => (

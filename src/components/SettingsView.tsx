@@ -58,6 +58,16 @@ export default function SettingsView({
   // Data
   const [settings, setSettings]   = useState<any>(null);
   const [newCompany, setNewCompany] = useState('');
+  const [showGuide, setShowGuide] = useState(true);
+
+  useEffect(() => {
+    setShowGuide(localStorage.getItem('sg-dismissed') !== 'true');
+    const sync = () => {
+      setShowGuide(localStorage.getItem('sg-dismissed') !== 'true');
+    };
+    window.addEventListener('sg-dismissed-changed', sync);
+    return () => window.removeEventListener('sg-dismissed-changed', sync);
+  }, []);
 
   const [isSaving,   setIsSaving]   = useState(false);
   const [saved,      setSaved]      = useState(false);
@@ -372,6 +382,41 @@ export default function SettingsView({
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Interface settings */}
+          <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
+            <div>
+              <p className={`text-sm font-semibold ${K.text}`}>Interface Settings</p>
+              <p className={`text-xs mt-1 ${K.muted}`}>Configure display preferences for your administrative dashboard.</p>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <p className={`text-xs font-semibold ${K.text}`}>Getting Started Guide</p>
+                <p className={hint}>Show the checklist floating helper widget</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const dismissed = localStorage.getItem('sg-dismissed') === 'true';
+                  if (dismissed) {
+                    localStorage.removeItem('sg-dismissed');
+                  } else {
+                    localStorage.setItem('sg-dismissed', 'true');
+                  }
+                  window.dispatchEvent(new Event('sg-dismissed-changed'));
+                }}
+                className={`w-12 h-6 rounded-full p-0.5 transition-colors relative flex items-center ${
+                  showGuide ? 'bg-[#00b900]' : isDark ? 'bg-slate-800' : 'bg-slate-200'
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
+                    showGuide ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </button>
             </div>
           </div>
 
