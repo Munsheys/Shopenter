@@ -70,6 +70,10 @@ export default function DashboardPage() {
     if (res.ok) setSettings(await res.json());
   }, []);
 
+  const handleThemeChange = useCallback((newTheme: 'light' | 'dark') => {
+    setSettings((prev: any) => prev ? { ...prev, theme: newTheme } : prev);
+  }, []);
+
   async function handleSaveStorefront(config: any) {
     await fetch('/api/settings', {
       method: 'POST',
@@ -226,7 +230,7 @@ export default function DashboardPage() {
         </div>
 
         <div className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-          <SettingsView theme={theme} onSave={refreshSettings} scrollTrigger={settingsScroll} />
+          <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} scrollTrigger={settingsScroll} />
         </div>
         
         <div className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6' : 'hidden'}>

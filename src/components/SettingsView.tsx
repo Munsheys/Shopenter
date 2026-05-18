@@ -37,10 +37,12 @@ interface LineStatus {
 export default function SettingsView({
   theme,
   onSave,
+  onThemeChange,
   scrollTrigger,
 }: {
   theme?: 'light' | 'dark';
   onSave?: () => void;
+  onThemeChange?: (newTheme: 'light' | 'dark') => void;
   scrollTrigger?: { section: string; id: number } | null;
 }) {
   const isDark = theme === 'dark';
@@ -278,6 +280,27 @@ export default function SettingsView({
   const set = (field: string, value: any) =>
     setSettings((s: any) => ({ ...s, [field]: value }));
 
+  const handleThemeChange = async (newTheme: 'light' | 'dark') => {
+    // 1. Instantly update local state in SettingsView
+    set('theme', newTheme);
+    
+    // 2. Instantly update parent context in dashboard/page.tsx for 0ms transition!
+    onThemeChange?.(newTheme);
+    
+    // 3. Silently save to the database in the background without manual save button press!
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...settings, theme: newTheme }),
+      });
+      // 4. Trigger parent sync callback silently to keep settings perfectly fresh
+      onSave?.();
+    } catch (err) {
+      console.error('[Background Theme Autocommit Error]:', err);
+    }
+  };
+
   const removeCompany = (c: string) =>
     set('shippingCompanies', settings.shippingCompanies.filter((x: string) => x !== c));
 
@@ -375,7 +398,7 @@ export default function SettingsView({
                 <label className={lbl}>Theme</label>
                 <div className={`flex p-1 rounded-xl ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
                   {(['light', 'dark'] as const).map(t => (
-                    <button key={t} onClick={() => set('theme', t)}
+                    <button key={t} onClick={() => handleThemeChange(t)}
                       className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all capitalize ${settings.theme === t ? 'bg-[#00b900] text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
                       {t}
                     </button>
