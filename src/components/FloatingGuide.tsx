@@ -397,27 +397,27 @@ export default function FloatingGuide({
       {showConfirm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200 pointer-events-auto">
           <div 
-            className={`max-w-sm w-full rounded-[24px] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 ${
+            className={`max-w-xl w-full rounded-[36px] p-9 shadow-2xl space-y-8 animate-in zoom-in-95 duration-200 ${
               isDark ? 'bg-[#161925] border border-[#1f2335] text-white' : 'bg-white border border-slate-100 text-slate-900'
             }`}
           >
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0 text-amber-500">
-                <AlertCircle size={20} />
+            <div className="flex items-start gap-6">
+              <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0 text-amber-500">
+                <AlertCircle size={28} />
               </div>
-              <div className="space-y-1.5 flex-1 min-w-0">
-                <h4 className="text-sm font-bold tracking-tight">Dismiss Setup Guide?</h4>
-                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>
+              <div className="space-y-3 flex-1 min-w-0">
+                <h4 className="text-xl font-bold tracking-tight">Dismiss Setup Guide?</h4>
+                <p className={`text-sm leading-relaxed ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>
                   Caution: Dismissing this setup guide will hide the helpful checklist widget. You can re-enable it anytime in your Settings page. Do you want to hide it now?
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex items-center justify-end gap-4 pt-4">
               <button
                 type="button"
                 onClick={() => setShowConfirm(false)}
-                className={`px-4 py-2 rounded-xl text-[11px] font-bold transition-all ${
+                className={`px-6 py-3 rounded-2xl text-xs font-bold transition-all ${
                   isDark 
                     ? 'bg-[#1a1d2e] text-[#8b92ad] hover:bg-white/5 hover:text-white' 
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -428,7 +428,7 @@ export default function FloatingGuide({
               <button
                 type="button"
                 onClick={confirmDismiss}
-                className="px-4 py-2 rounded-xl text-[11px] font-bold bg-[#00b900] text-white hover:bg-[#00a300] shadow-md shadow-[#00b900]/10 transition-all active:scale-95"
+                className="px-6 py-3 rounded-2xl text-xs font-bold bg-[#00b900] text-white hover:bg-[#00a300] shadow-md shadow-[#00b900]/10 transition-all active:scale-95"
               >
                 Yes, Dismiss
               </button>
