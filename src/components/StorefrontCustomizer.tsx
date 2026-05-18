@@ -310,7 +310,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
       </div>
 
       {/* ── Right: Persistent Preview ──────────────────────────────────── */}
-      <div className="w-72 flex-shrink-0 sticky top-6 self-start space-y-3">
+      <div className="flex-1 min-w-64 sticky top-6 self-start space-y-3">
         <div className="flex items-center gap-2">
           <Eye size={14} className="text-gray-500 dark:text-gray-400" />
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Live Preview</h3>
