@@ -482,6 +482,12 @@ export function ProductModal({
     return () => document.removeEventListener('click', handler);
   }, [imagePickerRow]);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
   if (!isOpen) return null;
 
   const updateForm = (updates: Partial<ProductForm>) => setForm(prev => ({ ...prev, ...updates }));
@@ -494,7 +500,10 @@ export function ProductModal({
   const isValid = quickOrderMode ? form.name.trim() !== '' : form.name.trim() !== '' && form.brand.trim() !== '';
 
   return (
-    <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className={cn("w-full max-w-4xl rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
         {/* Header */}
         <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
@@ -707,8 +716,17 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
     return [v.variantName, v.colors?.[0]].filter(Boolean).join(' — ') || 'Default';
   }
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className={cn("w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
         <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <div>
@@ -993,7 +1011,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
       )}
 
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+        <div 
+          className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}
+        >
           <div className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6"><Trash2 size={32} /></div>
             <h3 className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete Product?</h3>

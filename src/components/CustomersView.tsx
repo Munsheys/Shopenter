@@ -185,6 +185,21 @@ export default function CustomersView({ theme }: { theme: string }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const closeQuickOrder = useCallback(() => {
+    setShowModal(false);
+    setQoMode('existing'); setQoNewProduct(null); setQoSelected(null); setQoSearch(''); setQoPrice(''); setQoCostPrice(''); setQoQty(1);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showModal) {
+        closeQuickOrder();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showModal, closeQuickOrder]);
+
   function selectCustomer(c: Customer) {
     setSelectedCustomer(c);
     setSelectedAddressIdx(0);
@@ -884,14 +899,17 @@ export default function CustomersView({ theme }: { theme: string }) {
 
       {/* ── Quick Order Modal ── */}
       {showModal && selectedCustomer && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Quick order">
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Quick order"
+          onClick={(e) => { if (e.target === e.currentTarget) closeQuickOrder(); }}
+        >
           <div className={`${k.surface} rounded-3xl shadow-2xl w-full max-w-md border ${k.border}`}>
             <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border}`}>
               <div>
                 <h3 className={`font-black text-sm ${k.text}`}>Quick Chat Order</h3>
                 <p className={`text-[10px] mt-0.5 ${k.muted}`}>{selectedCustomer.displayName}</p>
               </div>
-              <button onClick={() => { setShowModal(false); setQoMode('existing'); setQoNewProduct(null); setQoSelected(null); setQoSearch(''); setQoPrice(''); setQoCostPrice(''); setQoQty(1); }} aria-label="Close" className={`p-1.5 rounded-xl ${k.muted} ${k.hover} transition-colors`}>
+              <button onClick={closeQuickOrder} aria-label="Close" className={`p-1.5 rounded-xl ${k.muted} ${k.hover} transition-colors`}>
                 <X size={16} />
               </button>
             </div>
@@ -1028,9 +1046,18 @@ export default function CustomersView({ theme }: { theme: string }) {
 }
 
 function ConfirmModal({ config, onClose, isDark, k }: { config: any, onClose: () => void, isDark: boolean, k: typeof DK }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
   if (!config.open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className={`w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
         <div className="p-10 text-center">
           <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 ${config.danger ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
