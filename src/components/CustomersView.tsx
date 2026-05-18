@@ -209,20 +209,30 @@ export default function CustomersView({ theme }: { theme: string }) {
   }
 
   async function patchOrder(id: string, patch: object) {
-    const res = await fetch(`/api/orders/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setAllOrders(prev => prev.map(o => o._id === id ? updated : o));
+    setAllOrders(prev => prev.map(o => o._id === id ? { ...o, ...patch } : o));
+    setActingOrderIds(prev => new Set(prev).add(id));
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setAllOrders(prev => prev.map(o => o._id === id ? updated : o));
+      } else {
+        refreshOrders();
+      }
+    } catch {
+      refreshOrders();
+    } finally {
+      setActingOrderIds(prev => { const s = new Set(prev); s.delete(id); return s; });
     }
   }
 
   async function deleteOrder(id: string) {
-    await fetch(`/api/orders/${id}`, { method: 'DELETE' });
     setAllOrders(prev => prev.filter(o => o._id !== id));
+    fetch(`/api/orders/${id}`, { method: 'DELETE' }).catch(() => refreshOrders());
   }
 
   async function sendQR(id: string) {
@@ -237,11 +247,13 @@ export default function CustomersView({ theme }: { theme: string }) {
   }
 
   async function markPaid(id: string) {
+    setAllOrders(prev => prev.map(o => o._id === id ? { ...o, status: 'paid' } : o));
     setActingOrderIds(prev => new Set(prev).add(id));
     try {
       await fetch(`/api/orders/${id}/mark-paid`, { method: 'POST' });
-      setAllOrders(prev => prev.map(o => o._id === id ? { ...o, status: 'paid' } : o));
       if (selectedCustomer) loadMessages(selectedCustomer.userId);
+    } catch {
+      refreshOrders();
     } finally {
       setActingOrderIds(prev => { const s = new Set(prev); s.delete(id); return s; });
     }
@@ -1259,9 +1271,9 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
       {order.status !== 'preparing' && !showEdit && (
         <div className={`flex flex-wrap gap-2 mt-4 pt-3 border-t border-dashed ${k.border}`}>
           {onMoveToParcel && order.status === 'paid' && (
-            <button onClick={onMoveToParcel}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-[#1a1d2e] text-white hover:bg-black transition-all active:scale-95">
-              <Package size={12} /> Move to Parcel
+            <button onClick={onMoveToParcel} disabled={isActing}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-[#1a1d2e] text-white hover:bg-black transition-all active:scale-95 disabled:opacity-50">
+              <Package size={12} /> {isActing ? 'Moving...' : 'Move to Parcel'}
             </button>
           )}
           {onSendQR && order.status === 'pending' && (
