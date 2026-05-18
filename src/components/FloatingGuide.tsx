@@ -131,9 +131,11 @@ export default function FloatingGuide({
       const dx = e.clientX - dragRef.current.startX;
       const dy = e.clientY - dragRef.current.startY;
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) dragRef.current.moved = true;
+      
+      const targetY = dragRef.current.initY + dy;
       setPos({
         x: dragRef.current.initX + dx,
-        y: dragRef.current.initY + dy,
+        y: Math.max(76, targetY),
       });
     };
 
@@ -241,7 +243,14 @@ export default function FloatingGuide({
 
   if (doneCount === steps.length) return null;
 
-  const bg     = isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200';
+  const bgOpen = isDark 
+    ? 'bg-[#161925] border border-[#00b900]/30 shadow-[0_12px_40px_rgba(0,185,0,0.22)]' 
+    : 'bg-white border border-[#00b900]/20 shadow-[0_12px_40px_rgba(0,185,0,0.12)]';
+
+  const bgCollapsed = isDark
+    ? 'bg-[#161925] border border-[#00b900]/35 shadow-[0_8px_32px_rgba(0,185,0,0.2)] hover:shadow-[0_8px_32px_rgba(0,185,0,0.35)] hover:scale-[1.02]'
+    : 'bg-white border border-[#00b900]/25 shadow-[0_8px_32px_rgba(0,185,0,0.12)] hover:shadow-[0_8px_32px_rgba(0,185,0,0.25)] hover:scale-[1.02]';
+
   const text   = isDark ? 'text-white' : 'text-slate-900';
   const muted  = isDark ? 'text-[#8b92ad]' : 'text-slate-500';
   const deep   = isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100';
@@ -258,7 +267,7 @@ export default function FloatingGuide({
     }
     const s: React.CSSProperties = { position: 'fixed', zIndex: 50, transition: 'all 0.3s ease-out' };
     const margin = 20;
-    if (corner.includes('t')) s.top = margin;
+    if (corner.includes('t')) s.top = 76; // Offset top coordinates by 76px to stay cleanly below the top navbar
     else s.bottom = nudgeUp ? margin + 70 : margin;
     if (corner.includes('l')) { s.left = margin; s.alignItems = 'flex-start'; }
     else { s.right = margin; s.alignItems = 'flex-end'; }
@@ -273,7 +282,7 @@ export default function FloatingGuide({
 
       {/* ── Expanded panel ── */}
       {open && (
-        <div className={`rounded-2xl shadow-2xl w-72 overflow-hidden pointer-events-auto ${bg}`}>
+        <div className={`rounded-2xl w-72 overflow-hidden pointer-events-auto ${bgOpen}`}>
 
           {/* Header */}
           <div 
@@ -361,7 +370,7 @@ export default function FloatingGuide({
       {!open && (
         <div
           onPointerDown={(e) => onPointerDown(e, false)}
-          className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-2xl shadow-xl transition-all pointer-events-auto ${bg} hover:shadow-2xl active:scale-[0.98] cursor-pointer`}
+          className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-2xl transition-all pointer-events-auto ${bgCollapsed} active:scale-[0.98] cursor-pointer`}
         >
           <div className="w-7 h-7 rounded-full bg-[#00b900]/10 flex items-center justify-center flex-shrink-0">
             <BookOpen size={13} className="text-[#00b900]" />
