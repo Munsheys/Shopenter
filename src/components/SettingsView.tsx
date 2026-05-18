@@ -34,22 +34,38 @@ interface LineStatus {
   consumption?: { totalUsage: number };
 }
 
-function getPlanLabel(tier: string | undefined, quota: LineStatus['quota']): string {
-  if (tier === 'premium' || quota?.type === 'none') return 'Unlimited';
-  const v = quota?.value;
-  if (!v || v <= 1000) return 'Free';
-  if (v <= 15000) return 'Light';
-  if (v <= 35000) return 'Standard';
-  return 'Pro';
+function getOATypeLabel(tier: string | undefined): string {
+  if (tier === 'verified') return 'Verified OA';
+  if (tier === 'premium')  return 'Premium OA';
+  return 'Unverified OA';
 }
 
-function getPlanColor(plan: string): string {
+function getLinePlanLabel(tier: string | undefined, quota: LineStatus['quota']): string {
+  if (tier === 'premium' || quota?.type === 'none') return 'Unlimited';
+  const v = quota?.value;
+  if (!v || v <= 500)   return 'Free';
+  if (v <= 15000) return 'Light';
+  return 'Standard';
+}
+
+function getLinePlanColor(plan: string): string {
   if (plan === 'Unlimited') return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
   if (plan === 'Light')     return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
   if (plan === 'Standard')  return 'bg-violet-500/15 text-violet-400 border-violet-500/30';
-  if (plan === 'Pro')       return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
   return 'bg-slate-500/15 text-slate-400 border-slate-500/30';
 }
+
+const SHOPENTER_PLAN: Record<string, { label: string; color: string; desc: string }> = {
+  free:       { label: 'Free',       color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',   desc: 'Basic features included' },
+  pro:        { label: 'Pro',        color: 'bg-violet-500/15 text-violet-400 border-violet-500/30', desc: 'Full feature access' },
+  enterprise: { label: 'Enterprise', color: 'bg-amber-500/15 text-amber-400 border-amber-500/30',   desc: 'Custom solutions & support' },
+};
+
+const SHOPENTER_STATUS: Record<string, { label: string; color: string }> = {
+  paid:      { label: 'Active',    color: 'text-emerald-400' },
+  trialing:  { label: 'Trial',     color: 'text-amber-400'   },
+  unpaid:    { label: 'Past due',  color: 'text-red-400'      },
+};
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -110,6 +126,9 @@ export default function SettingsView({
   const [lineStatus,   setLineStatus]   = useState<LineStatus | null>(null);
   const [checkingLine, setCheckingLine] = useState(false);
 
+  // ShopEnter billing plan
+  const [merchantPlan, setMerchantPlan] = useState<{ tier: string; paymentStatus: string } | null>(null);
+
   const checkLine = useCallback(async () => {
     setCheckingLine(true);
     setLineStatus(null);
@@ -122,6 +141,7 @@ export default function SettingsView({
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(setSettings).catch(() => {});
+    fetch('/api/merchant/me').then(r => r.ok ? r.json() : null).then(d => { if (d) setMerchantPlan({ tier: d.tier, paymentStatus: d.paymentStatus }); }).catch(() => {});
     setWebhookUrl(`${window.location.origin}/api/webhook`);
     checkLine();
   }, [checkLine]);
@@ -520,6 +540,26 @@ export default function SettingsView({
             {liveRateError && <p className="text-xs text-red-400">{liveRateError}</p>}
           </div>
 
+          {/* ShopEnter Plan */}
+          {merchantPlan && (() => {
+            const plan   = SHOPENTER_PLAN[merchantPlan.tier] ?? SHOPENTER_PLAN.free;
+            const status = SHOPENTER_STATUS[merchantPlan.paymentStatus] ?? SHOPENTER_STATUS.trialing;
+            return (
+              <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
+                <div className="flex items-center justify-between">
+                  <p className={`text-sm font-semibold ${K.text}`}>ShopEnter Plan</p>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${plan.color}`}>
+                    {plan.label}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className={`text-xs ${K.muted}`}>{plan.desc}</p>
+                  <span className={`text-xs font-semibold ${status.color}`}>{status.label}</span>
+                </div>
+              </div>
+            );
+          })()}
+
         </div>
 
         {/* ══ LINE ═════════════════════════════════════════════════════════ */}
@@ -553,7 +593,7 @@ export default function SettingsView({
                   <div>
                     <p className="text-sm font-semibold text-emerald-400">{lineStatus.bot?.displayName}</p>
                     <p className={`text-xs ${K.muted}`}>
-                      {lineStatus.bot?.basicId} · {lineStatus.tier ?? 'unverified'}
+                      {lineStatus.bot?.basicId} · {getOATypeLabel(lineStatus.tier)}
                       {lineStatus.bot?.chatMode === 'chat' && ' · Chat mode (auto-reply paused)'}
                     </p>
                   </div>
@@ -582,8 +622,8 @@ export default function SettingsView({
             const limit       = lineStatus.quota?.value ?? 0;
             const pct         = isUnlimited ? 100 : limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
             const remaining   = Math.max(0, limit - used);
-            const plan        = getPlanLabel(lineStatus.tier, lineStatus.quota);
-            const planColor   = getPlanColor(plan);
+            const plan        = getLinePlanLabel(lineStatus.tier, lineStatus.quota);
+            const planColor   = getLinePlanColor(plan);
             const barColor    = isUnlimited ? 'bg-amber-400' : pct >= 90 ? 'bg-red-400' : pct >= 70 ? 'bg-amber-400' : 'bg-[#00b900]';
 
             return (

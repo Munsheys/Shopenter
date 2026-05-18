@@ -88,10 +88,25 @@ const LK = {
 };
 
 const TIER_BADGE: Record<string, { label: string; color: string }> = {
-  unverified: { label: 'Unverified', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
-  verified:   { label: 'Verified ✓', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  premium:    { label: 'Premium ✦', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  unverified: { label: 'Unverified OA', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
+  verified:   { label: 'Verified OA',   color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  premium:    { label: 'Premium OA',    color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
 };
+
+function getLinePlanLabel(tier: string | undefined, quota: LineStatus['quota']): string {
+  if (tier === 'premium' || quota?.type === 'none') return 'Unlimited';
+  const v = quota?.value;
+  if (!v || v <= 500)   return 'Free';
+  if (v <= 15000) return 'Light';
+  return 'Standard';
+}
+
+function getLinePlanColor(plan: string): string {
+  if (plan === 'Unlimited') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+  if (plan === 'Light')     return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+  if (plan === 'Standard')  return 'bg-violet-500/10 text-violet-400 border-violet-500/20';
+  return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+}
 
 const AUDIENCE_LABELS: Record<string, string> = {
   all:           'All customers',
@@ -387,6 +402,7 @@ function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSy
             <p className={`text-xs ${k.muted}`}>{status.bot?.basicId}</p>
           </div>
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${badge.color}`}>{badge.label}</span>
+          {(() => { const pl = getLinePlanLabel(status.tier, status.quota); return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${getLinePlanColor(pl)}`}>{pl}</span>; })()}
           {status.bot?.chatMode === 'chat' && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">Chat mode — auto-reply paused</span>
           )}
@@ -415,7 +431,7 @@ function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSy
         </div>
       )}
       {unlimited && (
-        <p className="text-xs text-emerald-400 font-medium">✦ Unlimited messages — Premium plan</p>
+        <p className="text-xs text-emerald-400 font-medium">✦ Unlimited messages — Premium OA</p>
       )}
 
       <div className="flex flex-wrap gap-2">
@@ -423,8 +439,8 @@ function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSy
         <CapChip label="Queued Campaign" ok={true} />
         <CapChip label="Auto-Reply" ok={true} />
         <CapChip label="Rich Menu" ok={true} />
-        <CapChip label="Follower Sync" ok={caps?.followerSync ?? false} lockedReason="Requires Verified LINE OA (Blue Shield or above)" />
-        <CapChip label="Unlimited Messages" ok={caps?.unlimitedMessages ?? false} lockedReason="Requires Premium LINE OA plan" />
+        <CapChip label="Follower Sync" ok={caps?.followerSync ?? false} lockedReason="Requires Verified OA or above" />
+        <CapChip label="Unlimited Messages" ok={caps?.unlimitedMessages ?? false} lockedReason="Requires Premium OA" />
       </div>
 
       {tier === 'unverified' && (

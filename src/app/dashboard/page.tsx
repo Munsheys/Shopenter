@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake } from 'lucide-react';
+import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ProductManagement from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
@@ -41,23 +41,37 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('customers');
   const [settingsScroll, setSettingsScroll] = useState<{ section: string; id: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [topNavStyle, setTopNavStyle] = useState<React.CSSProperties>({});
   const topNavContainerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    // Show cached data immediately (stale-while-revalidate)
+    let hasCached = false;
+    try {
+      const cm = localStorage.getItem('dash_merchant');
+      const cs = localStorage.getItem('dash_settings');
+      if (cm) { setMerchant(JSON.parse(cm)); hasCached = true; }
+      if (cs) { setSettings(JSON.parse(cs)); hasCached = true; }
+      if (hasCached) setLoading(false);
+    } catch {}
+
     async function init() {
       try {
         const [meRes, settingsRes] = await Promise.all([
           fetch('/api/merchant/me'),
           fetch('/api/settings')
         ]);
-        if (!meRes.ok) { router.replace('/login'); return; }
+        if (!meRes.ok) { if (!hasCached) router.replace('/login'); return; }
         const [me, s] = await Promise.all([meRes.json(), settingsRes.json()]);
         setMerchant(me);
         setSettings(s);
+        localStorage.setItem('dash_merchant', JSON.stringify(me));
+        localStorage.setItem('dash_settings', JSON.stringify(s));
       } catch {
-        router.replace('/login');
+        if (!hasCached) router.replace('/login');
       } finally {
         setLoading(false);
       }
@@ -67,7 +81,30 @@ export default function DashboardPage() {
 
   const refreshSettings = useCallback(async () => {
     const res = await fetch('/api/settings');
-    if (res.ok) setSettings(await res.json());
+    if (res.ok) {
+      const s = await res.json();
+      setSettings(s);
+      localStorage.setItem('dash_settings', JSON.stringify(s));
+    }
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const [meRes, settingsRes] = await Promise.all([
+        fetch('/api/merchant/me'),
+        fetch('/api/settings')
+      ]);
+      if (meRes.ok && settingsRes.ok) {
+        const [me, s] = await Promise.all([meRes.json(), settingsRes.json()]);
+        setMerchant(me);
+        setSettings(s);
+        localStorage.setItem('dash_merchant', JSON.stringify(me));
+        localStorage.setItem('dash_settings', JSON.stringify(s));
+      }
+    } catch {}
+    setRefreshKey(k => k + 1);
+    setIsRefreshing(false);
   }, []);
 
   const handleThemeChange = useCallback((newTheme: 'light' | 'dark') => {
@@ -99,6 +136,8 @@ export default function DashboardPage() {
 
   async function handleLogout() {
     await fetch('/api/merchant/auth/logout', { method: 'POST' });
+    localStorage.removeItem('dash_merchant');
+    localStorage.removeItem('dash_settings');
     router.push('/login');
   }
 
@@ -211,6 +250,15 @@ export default function DashboardPage() {
             </a>
           )}
 
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            title="Refresh data"
+            className={`p-1.5 rounded-lg transition-colors disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+          >
+            <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
+
           <div className={`flex items-center gap-2 pl-3 border-l ${isDark ? 'border-[#1f2335]' : 'border-gray-200'}`}>
             <div className="w-8 h-8 rounded-full bg-[#00b900]/10 border border-[#00b900]/20 flex items-center justify-center flex-shrink-0">
               <span className="text-[#00b900] text-xs font-bold">{shopInitial}</span>
@@ -228,35 +276,35 @@ export default function DashboardPage() {
 
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
+        <div key={`customers-${refreshKey}`} className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
           <CustomersView theme={theme} />
         </div>
-        
-        <div className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
+
+        <div key={`orders-${refreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
           <ShopOrdersView theme={theme} t={{}} />
         </div>
-        
-        <div className={activeTab === 'products' ? 'flex-1 overflow-auto' : 'hidden'}>
+
+        <div key={`products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto' : 'hidden'}>
           <ProductManagement theme={theme} t={{}} />
         </div>
-        
-        <div className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
+
+        <div key={`reports-${refreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
           <ReportsView theme={theme} t={{}} />
         </div>
-        
-        <div className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col' : 'hidden'}>
+
+        <div key={`broadcasts-${refreshKey}`} className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col' : 'hidden'}>
           <BroadcastsView theme={theme} t={{}} />
         </div>
-        
-        <div className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
+
+        <div key={`feedback-${refreshKey}`} className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
           <FeedbackView theme={theme} />
         </div>
 
-        <div className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
+        <div key={`settings-${refreshKey}`} className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
           <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} scrollTrigger={settingsScroll} />
         </div>
-        
-        <div className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6' : 'hidden'}>
+
+        <div key={`storefront-${refreshKey}`} className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6' : 'hidden'}>
           <div className="mb-6">
             <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Storefront customization</h2>
             <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
