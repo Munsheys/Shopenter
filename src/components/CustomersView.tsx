@@ -85,6 +85,7 @@ export default function CustomersView({ theme }: { theme: string }) {
   const k = isDark ? DK : LK;
 
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -134,6 +135,7 @@ export default function CustomersView({ theme }: { theme: string }) {
         const { type, customers: c } = JSON.parse(e.data);
         if ((type === 'init' || type === 'update') && c) {
           setCustomers(c);
+          setIsLoading(false);
           if (selectedRef.current) {
             const updated = c.find((x: Customer) => x._id === selectedRef.current!._id);
             if (updated) setSelectedCustomer(updated);
@@ -498,7 +500,12 @@ export default function CustomersView({ theme }: { theme: string }) {
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {customers.length === 0 ? (
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 py-8 text-[#8b92ad]">
+                  <div className="w-6 h-6 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Syncing customers...</span>
+                </div>
+              ) : customers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full px-4 gap-3 py-8">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'}`}>
                     <MessageCircle size={22} className={`${k.muted} opacity-40`} />

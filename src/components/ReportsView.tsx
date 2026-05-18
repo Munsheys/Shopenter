@@ -55,7 +55,7 @@ interface ReportsViewProps {
   t: any;
 }
 
-function StatsCard({ icon, label, value, trend, color, theme }: any) {
+function StatsCard({ icon, label, value, trend, color, theme, isLoading }: any) {
   const colorMap: any = {
     emerald: "text-emerald-500 bg-emerald-500/10",
     amber: "text-amber-500 bg-amber-500/10",
@@ -75,7 +75,7 @@ function StatsCard({ icon, label, value, trend, color, theme }: any) {
         <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", colorMap[color])}>
           {icon}
         </div>
-        {trend && (
+        {!isLoading && trend && (
           <div className={cn(
             "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black",
             trend > 0 ? "text-[#00b900] bg-[#00b90011]" : "text-rose-500 bg-rose-500/11"
@@ -88,7 +88,11 @@ function StatsCard({ icon, label, value, trend, color, theme }: any) {
       
       <div>
         <div className="text-[#8b92ad] text-[10px] font-black uppercase tracking-widest mb-1">{label}</div>
-        <div className={cn("text-2xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+        {isLoading ? (
+          <div className="w-5 h-5 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin mt-1" />
+        ) : (
+          <div className={cn("text-2xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+        )}
       </div>
     </div>
   );
@@ -285,7 +289,6 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
     document.body.removeChild(link);
   };
 
-  if (isLoading) return <LoadingView theme={theme} message="Crunching Financial Data..." />;
 
   return (
     <div className="max-w-7xl mx-auto px-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -346,6 +349,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
           value={`${localCurrency} ${stats.revenue.toLocaleString()}`}
           trend={12}
           color="emerald"
+          isLoading={isLoading}
         />
         <StatsCard 
           theme={theme}
@@ -354,6 +358,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
           value={`${localCurrency} ${stats.profit.toLocaleString()}`}
           trend={8}
           color="blue"
+          isLoading={isLoading}
         />
         <StatsCard 
           theme={theme}
@@ -361,6 +366,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
           label={t.orders_count}
           value={stats.count.toLocaleString()}
           color="indigo"
+          isLoading={isLoading}
         />
         <StatsCard 
           theme={theme}
@@ -368,6 +374,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
           label={t.avg_margin || "Avg Margin"}
           value={`${stats.margin.toFixed(1)}%`}
           color="amber"
+          isLoading={isLoading}
         />
       </div>
 
@@ -394,7 +401,14 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
             </div>
           </div>
           <div className="h-[300px]">
-            <Line data={chartData} options={chartOptions as any} />
+            {isLoading ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-[#8b92ad]">
+                <div className="w-8 h-8 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin" />
+                <span className="text-xs font-bold uppercase tracking-wider">Generating revenue growth...</span>
+              </div>
+            ) : (
+              <Line data={chartData} options={chartOptions as any} />
+            )}
           </div>
         </div>
 
@@ -408,26 +422,33 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
             <p className="text-[10px] text-[#8b92ad] font-bold uppercase tracking-widest">{t.brand_perf}</p>
           </div>
           
-          <div className="space-y-6">
-            {brandData.labels.map((label, idx) => {
-              const value = brandData.datasets[0].data[idx];
-              const percentage = (value / stats.revenue) * 100;
-              return (
-                <div key={label} className="group">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className={cn("text-xs font-bold transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{label}</span>
-                    <span className="text-[10px] font-black text-[#00b900]">{localCurrency} {value.toLocaleString()}</span>
+          {isLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center gap-3 text-[#8b92ad]">
+              <div className="w-8 h-8 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin" />
+              <span className="text-xs font-bold uppercase tracking-wider">Analysing brand performance...</span>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {brandData.labels.map((label, idx) => {
+                const value = brandData.datasets[0].data[idx];
+                const percentage = (value / stats.revenue) * 100;
+                return (
+                  <div key={label} className="group">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className={cn("text-xs font-bold transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{label}</span>
+                      <span className="text-[10px] font-black text-[#00b900]">{localCurrency} {value.toLocaleString()}</span>
+                    </div>
+                    <div className={cn("h-1.5 w-full rounded-full overflow-hidden transition-colors", theme === 'dark' ? "bg-[#1f2335]" : "bg-[#f4f6f9]")}>
+                      <div 
+                        className="h-full bg-[#00b900] rounded-full transition-all duration-1000 group-hover:opacity-80" 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className={cn("h-1.5 w-full rounded-full overflow-hidden transition-colors", theme === 'dark' ? "bg-[#1f2335]" : "bg-[#f4f6f9]")}>
-                    <div 
-                      className="h-full bg-[#00b900] rounded-full transition-all duration-1000 group-hover:opacity-80" 
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className={cn(
             "mt-10 p-4 rounded-2xl border border-dashed text-center",

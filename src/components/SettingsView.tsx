@@ -277,7 +277,7 @@ export default function SettingsView({
     setNewCompany('');
   };
 
-  if (!settings) return <LoadingView theme={theme} message="Loading Settings…" />;
+  const isSettingsLoading = !settings;
 
   // ── Style tokens ─────────────────────────────────────────────────────────────
   const K = {
@@ -338,9 +338,15 @@ export default function SettingsView({
 
       {/* ── All sections on one page ──────────────────────────────────────── */}
       <div className="px-6 pb-10 max-w-3xl mx-auto space-y-16">
-
-        {/* ══ GENERAL ══════════════════════════════════════════════════════ */}
-        <div id="general" className="space-y-6 pt-2">
+        {isSettingsLoading ? (
+          <div className="py-32 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
+            <div className="w-10 h-10 border-4 border-t-transparent border-[#00b900] rounded-full animate-spin" />
+            <span className="text-xs font-bold uppercase tracking-[0.2em]">Syncing Merchant Profile...</span>
+          </div>
+        ) : (
+          <>
+            {/* ══ GENERAL ══════════════════════════════════════════════════════ */}
+            <div id="general" className="space-y-6 pt-2">
           <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'general' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
             <SettingsIcon size={15} className="text-[#00b900]" />
             <h2 className={`text-base font-bold ${K.text}`}>General</h2>
@@ -710,6 +716,8 @@ export default function SettingsView({
           </div>
         </div>
 
+          </>
+        )}
       </div>
     </div>
 

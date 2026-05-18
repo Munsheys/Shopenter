@@ -120,7 +120,6 @@ export default function ShopOrdersView({
     totalItems: orders?.reduce((sum, o) => sum + (o.items?.reduce((s: number, i: any) => s + (i.qty || 1), 0) || 1), 0) || 0
   };
 
-  if (orders === null && isLoading) return <LoadingView theme={theme} message="Syncing Orders..." />;
 
   return (
     <div className="max-w-7xl mx-auto px-4 pb-12">
@@ -152,6 +151,7 @@ export default function ShopOrdersView({
           value={`฿${stats.revenue.toLocaleString()}`} 
           color="emerald" 
           theme={theme} 
+          isLoading={isLoading || orders === null}
         />
         <StatsCard 
           icon={<Clock size={20} />} 
@@ -159,6 +159,7 @@ export default function ShopOrdersView({
           value={stats.pending.toString()} 
           color="amber" 
           theme={theme} 
+          isLoading={isLoading || orders === null}
         />
         <StatsCard 
           icon={<Package size={20} />} 
@@ -166,6 +167,7 @@ export default function ShopOrdersView({
           value={stats.preparing.toString()} 
           color="blue" 
           theme={theme} 
+          isLoading={isLoading || orders === null}
         />
         <StatsCard 
           icon={<CheckCircle2 size={20} />} 
@@ -173,6 +175,7 @@ export default function ShopOrdersView({
           value={stats.totalItems.toString()} 
           color="indigo" 
           theme={theme} 
+          isLoading={isLoading || orders === null}
         />
       </div>
 
@@ -361,7 +364,7 @@ export default function ShopOrdersView({
   );
 }
 
-function StatsCard({ icon, label, value, color, theme }: any) {
+function StatsCard({ icon, label, value, color, theme, isLoading }: any) {
   const colorMap: any = {
     emerald: "text-emerald-500 bg-emerald-500/10",
     amber: "text-amber-500 bg-amber-500/10",
@@ -379,7 +382,11 @@ function StatsCard({ icon, label, value, color, theme }: any) {
       </div>
       <div>
         <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
-        <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+        {isLoading ? (
+          <div className="w-5 h-5 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin mt-1" />
+        ) : (
+          <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+        )}
       </div>
     </div>
   );

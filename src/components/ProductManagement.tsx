@@ -919,8 +919,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t }: { 
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-8">
-        <StatsCard icon={<BarChart2 size={20} />} label={t.total_catalog || "Total Catalog"} value={stats.total.toString()} color="indigo" theme={theme} />
-        <StatsCard icon={<Eye size={20} />} label={t.active_storefront || "Active Storefront"} value={stats.active.toString()} color="emerald" theme={theme} />
+        <StatsCard icon={<BarChart2 size={20} />} label={t.total_catalog || "Total Catalog"} value={stats.total.toString()} color="indigo" theme={theme} isLoading={isLoading} />
+        <StatsCard icon={<Eye size={20} />} label={t.active_storefront || "Active Storefront"} value={stats.active.toString()} color="emerald" theme={theme} isLoading={isLoading} />
       </div>
 
       <div className={cn("p-4 rounded-3xl border mb-6 flex flex-col lg:flex-row gap-4", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
@@ -1071,14 +1071,18 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
   );
 }
 
-function StatsCard({ icon, label, value, color, theme }: any) {
+function StatsCard({ icon, label, value, color, theme, isLoading }: any) {
   const colorMap: any = { emerald: "text-emerald-500 bg-emerald-500/10", amber: "text-amber-500 bg-amber-500/10", blue: "text-blue-500 bg-blue-500/10", indigo: "text-indigo-500 bg-indigo-500/10" };
   return (
     <div className={cn("p-5 rounded-3xl border shadow-sm flex flex-col gap-3", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
       <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", colorMap[color])}>{icon}</div>
       <div>
         <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
-        <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+        {isLoading ? (
+          <div className="w-5 h-5 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin mt-1" />
+        ) : (
+          <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+        )}
       </div>
     </div>
   );
