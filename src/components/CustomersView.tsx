@@ -25,8 +25,17 @@ type Order = {
   statusBeforeParcel?: string;
 };
 type Message = {
-  _id: string; lineUserId: string; type: 'text' | 'image' | 'system';
+  _id: string; lineUserId: string;
+  type: 'text' | 'image' | 'sticker' | 'audio' | 'video' | 'system';
   text: string; sender: 'user' | 'admin' | 'system'; createdAt: string;
+  metadata?: {
+    originalContentUrl?: string;
+    previewImageUrl?: string;
+    packageId?: string;
+    stickerId?: string;
+    altText?: string;
+    flexContent?: any;
+  };
 };
 type Product = {
   _id: string; name: string; brand?: string; price: number; imageUrl?: string;
@@ -100,6 +109,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [actingOrderIds, setActingOrderIds] = useState<Set<string>>(new Set());
   const [batchActing, setBatchActing] = useState(false);
+  const [listWidth, setListWidth] = useState(300);
+  const [chatWidth, setChatWidth] = useState(280);
 
   const [qoMode, setQoMode] = useState<'existing' | 'new'>('existing');
   const [qoSearch, setQoSearch] = useState('');
@@ -442,6 +453,26 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
     setCustomers(prev => prev.map(c => c.userId === selectedCustomer.userId ? { ...c, unreadCount: 0 } : c));
   }
 
+  function startListResize(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = listWidth;
+    const onMove = (me: MouseEvent) => setListWidth(Math.max(200, Math.min(520, startW + me.clientX - startX)));
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
+  function startChatResize(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = chatWidth;
+    const onMove = (me: MouseEvent) => setChatWidth(Math.max(220, Math.min(480, startW - (me.clientX - startX))));
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
   const customerOrders = selectedCustomer
     ? allOrders.filter(o => o.lineUserId === selectedCustomer.userId)
     : [];
@@ -486,7 +517,10 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
     <div className={`flex h-screen overflow-hidden ${k.bg} font-sans antialiased text-slate-100`}>
 
       {/* ── Customer list panel ── */}
-      <aside className={`flex-shrink-0 flex flex-col border-r ${k.border} ${isDark ? 'bg-[#161925]' : 'bg-white shadow-xl'} transition-all duration-300 z-30 ${listOpen ? 'w-80' : 'w-20'}`}>
+      <aside
+        className={`flex-shrink-0 flex flex-col border-r ${k.border} ${isDark ? 'bg-[#161925]' : 'bg-white shadow-xl'} z-30 transition-[background-color] duration-300`}
+        style={{ width: listOpen ? listWidth : 80 }}
+      >
         {listOpen ? (
           <>
             <div className={`flex items-center gap-2 px-4 py-3 border-b ${k.border} flex-shrink-0`}>
@@ -629,6 +663,13 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
           </div>
         )}
       </aside>
+      {listOpen && (
+        <div
+          onMouseDown={startListResize}
+          className={`w-1 flex-shrink-0 cursor-col-resize transition-colors hover:bg-[#00b900]/40 ${isDark ? 'bg-[#1f2335]' : 'bg-slate-200'}`}
+          title="Drag to resize"
+        />
+      )}
 
       {/* ── Main panel ── */}
       {!selectedCustomer ? (
@@ -824,7 +865,17 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
           </div>
 
           {/* ── Chat panel ── */}
-          <div className={`flex-shrink-0 flex border-l ${k.border} transition-all duration-200 ${chatOpen ? 'w-72' : 'w-8'}`}>
+          {chatOpen && (
+            <div
+              onMouseDown={startChatResize}
+              className={`w-1 flex-shrink-0 cursor-col-resize transition-colors hover:bg-[#00b900]/40 ${isDark ? 'bg-[#1f2335]' : 'bg-slate-200'}`}
+              title="Drag to resize"
+            />
+          )}
+          <div
+            className={`flex-shrink-0 flex border-l ${k.border}`}
+            style={{ width: chatOpen ? chatWidth + 32 : 32 }}
+          >
             <button
               onClick={() => setChatOpen(v => !v)}
               aria-label={chatOpen ? 'Collapse chat' : 'Expand chat'}
@@ -851,25 +902,73 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                     </button>
                   )}
                 </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                  {messages.map(msg => (
-                    <div key={msg._id} className={`flex ${msg.sender === 'admin' ? 'justify-end' : msg.sender === 'system' ? 'justify-center' : 'justify-start'}`}>
-                      {msg.sender === 'system' ? (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-white/10 text-[#8b92ad]' : 'bg-[#f8f9fc] text-[#8b92ad]'}`}>{msg.text}</span>
-                      ) : (
-                        <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
-                          msg.sender === 'admin'
-                            ? 'bg-[#00b900] text-white rounded-br-sm'
-                            : isDark ? 'bg-white/10 text-gray-100 rounded-bl-sm' : 'bg-white shadow-sm border border-[#e2e5ef] text-[#1a1d2e] rounded-bl-sm'
-                        }`}>
-                          <p style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
-                          <p className={`text-[9px] mt-1 ${msg.sender === 'admin' ? 'text-green-100' : k.muted}`}>
-                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
+                <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                  {messages.map(msg => {
+                    const timeStr = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    if (msg.sender === 'system') {
+                      const t = msg.text;
+                      const isOrder = t.startsWith('Order created') || t.includes('order');
+                      const isQR = t.toLowerCase().includes('qr') || t.toLowerCase().includes('payment') || t.toLowerCase().includes('qr code');
+                      const isNotif = t.toLowerCase().includes('notification') || t.toLowerCase().includes('sent') || t.toLowerCase().includes('delivered') || t.toLowerCase().includes('shipped') || t.toLowerCase().includes('preparing') || t.toLowerCase().includes('paid');
+                      const icon = isOrder ? '🛍️' : isQR ? '💳' : isNotif ? '🔔' : '•';
+                      const color = isOrder ? (isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200') :
+                                    isQR    ? (isDark ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200') :
+                                    isNotif ? (isDark ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-700 border-blue-200') :
+                                               (isDark ? 'bg-white/5 text-[#8b92ad] border-white/10' : 'bg-[#f8f9fc] text-[#8b92ad] border-slate-200');
+                      return (
+                        <div key={msg._id} className="flex justify-center my-1">
+                          <span className={`text-[10px] px-2.5 py-1 rounded-full border font-medium flex items-center gap-1 max-w-[90%] text-center ${color}`}>
+                            <span>{icon}</span>
+                            <span style={{ wordBreak: 'break-word' }}>{t}</span>
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                      );
+                    }
+
+                    const isAdmin = msg.sender === 'admin';
+                    const imgUrl = msg.type === 'image' ? (msg.metadata?.previewImageUrl || msg.metadata?.originalContentUrl || null) : null;
+
+                    return (
+                      <div key={msg._id} className={`flex items-end gap-1.5 ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                        {!isAdmin && (
+                          <div className={`w-5 h-5 rounded-full flex-shrink-0 mb-1 flex items-center justify-center text-[8px] font-bold text-white ${avatarColor(selectedCustomer.displayName)}`}>
+                            {(selectedCustomer.displayName || '?')[0].toUpperCase()}
+                          </div>
+                        )}
+                        <div className={`max-w-[80%] flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}>
+                          {imgUrl ? (
+                            <div className={`rounded-2xl overflow-hidden ${isAdmin ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
+                              <img
+                                src={imgUrl}
+                                alt="Image"
+                                className="max-w-[180px] max-h-[180px] object-cover block"
+                                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                              />
+                              <p className={`text-[9px] px-2 py-0.5 ${isAdmin ? 'text-green-100 bg-[#00b900]' : isDark ? 'text-[#8b92ad] bg-white/10' : 'text-slate-400 bg-white'}`}>
+                                {timeStr}
+                              </p>
+                            </div>
+                          ) : msg.type === 'sticker' ? (
+                            <div className="text-center">
+                              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                                😊
+                              </div>
+                              <p className={`text-[9px] mt-0.5 ${k.muted}`}>{timeStr}</p>
+                            </div>
+                          ) : (
+                            <div className={`px-3 py-2 rounded-2xl text-xs leading-relaxed ${
+                              isAdmin
+                                ? 'bg-[#00b900] text-white rounded-br-sm'
+                                : isDark ? 'bg-[#1f2540] text-gray-100 rounded-bl-sm border border-[#2a2e45]' : 'bg-white shadow-sm border border-[#e2e5ef] text-[#1a1d2e] rounded-bl-sm'
+                            }`}>
+                              <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.text}</p>
+                              <p className={`text-[9px] mt-1 ${isAdmin ? 'text-green-100/80' : k.muted}`}>{timeStr}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                   {messages.length === 0 && <p className={`text-[11px] text-center ${k.muted} pt-6`}>No messages yet</p>}
                   <div ref={messagesEndRef} />
                 </div>

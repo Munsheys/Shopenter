@@ -1,15 +1,15 @@
 export const TIER_LIMITS = {
   free: {
-    products: 20,
-    ordersPerMonth: 50,
-    campaigns: 2,
-    autoReplies: 3,
-    csvExport: false,
-    discountCodes: false,
-    loyalty: false,
+    products: -1,
+    ordersPerMonth: -1,
+    campaigns: -1,
+    autoReplies: -1,
+    csvExport: true,
+    discountCodes: true,
+    loyalty: true,
   },
   pro: {
-    products: 500,
+    products: -1,
     ordersPerMonth: -1,
     campaigns: -1,
     autoReplies: -1,
@@ -47,8 +47,7 @@ export function checkBooleanFeature(
   tier: Tier,
   feature: 'csvExport' | 'discountCodes' | 'loyalty'
 ): boolean {
-  const limits = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
-  return limits[feature] as boolean;
+  return true;
 }
 
 export function getTierLabel(tier: Tier): string {

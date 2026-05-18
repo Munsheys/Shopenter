@@ -247,9 +247,6 @@ export default function DashboardPage() {
               )}
               {tab.icon}
               {tab.label}
-              {tab.id === 'coupons' && !couponsUnlocked && (
-                <Zap size={10} className="text-amber-500 absolute -top-0.5 -right-0.5" />
-              )}
             </button>
           ))}
         </nav>
@@ -328,25 +325,7 @@ export default function DashboardPage() {
         </div>
 
         <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6' : 'hidden'}>
-          {couponsUnlocked ? (
-            <CouponsView theme={theme} />
-          ) : (
-            <div className="max-w-md mx-auto px-4 py-20 text-center">
-              <div className="w-16 h-16 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <Zap size={32} className="text-amber-500" />
-              </div>
-              <h3 className={`text-xl font-black mb-2 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>Upgrade to Use Coupons</h3>
-              <p className={`text-sm mb-6 ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>
-                Discount codes and coupon campaigns are available on the Pro plan.
-              </p>
-              <button
-                onClick={() => setUpgradePrompt({ feature: 'discountCodes' })}
-                className="px-8 py-3 bg-[#00b900] text-white text-sm font-bold rounded-2xl hover:opacity-90 flex items-center gap-2 mx-auto"
-              >
-                <Zap size={16} /> Upgrade to Pro
-              </button>
-            </div>
-          )}
+          <CouponsView theme={theme} />
         </div>
 
         <div key={`storefront-${refreshKey}`} className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6' : 'hidden'}>
