@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Settings } from '@/models';
+import { Order, Settings, Merchant } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
+import { checkCountLimit, type Tier } from '@/lib/tiers';
 
 export const runtime = 'nodejs';
 
@@ -24,6 +25,21 @@ export async function POST(req: NextRequest) {
 
   try {
     await dbConnect();
+
+    const merchantDoc = await Merchant.findById(merchant.merchantId).select('tier').lean() as any;
+    const tier = (merchantDoc?.tier ?? 'free') as Tier;
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const monthCount = await Order.countDocuments({ merchantId: merchant.merchantId, createdAt: { $gte: startOfMonth } });
+    const check = checkCountLimit(tier, 'ordersPerMonth', monthCount);
+    if (!check.allowed) {
+      return NextResponse.json(
+        { error: 'TIER_LIMIT_REACHED', feature: 'ordersPerMonth', limit: check.limit, current: monthCount, requiredTier: 'pro' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
 
     const settings = await Settings.findOne({ merchantId: merchant.merchantId });

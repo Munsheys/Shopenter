@@ -123,8 +123,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     setView('home'); setQty(1);
   }
 
-  async function placeOrder(address: string, couponCode?: string, redeemPoints?: number) {
-    if (!customer) return;
+  async function placeOrder(address: string, couponCode?: string, redeemPoints?: number): Promise<string | null> {
+    if (!customer) return 'Please open this store in LINE to place an order';
     setIsOrdering(true);
     try {
       const items = cart.map(i => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel, price: i.price, qty: i.qty, imageUrl: i.imageUrl }));
@@ -139,7 +139,11 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           redeemPoints: redeemPoints || undefined,
         })
       });
-      if (res.ok) { setCart([]); setView('payment'); }
+      if (res.ok) { setCart([]); setView('payment'); return null; }
+      const err = await res.json().catch(() => ({}));
+      return err.error || 'Failed to place order. Please try again.';
+    } catch {
+      return 'Network error. Please check your connection and try again.';
     } finally { setIsOrdering(false); }
   }
 
@@ -253,8 +257,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     <CartView p={p} style={style} cart={cart} cartTotal={cartTotal} customer={customer} isOrdering={isOrdering}
       merchantId={merchantId}
       onBack={() => setView('home')}
-      onRemove={(id: string) => setCart(prev => prev.filter(i => i.productId !== id))}
-      onQtyChange={(id: string, delta: number) => setCart(prev => prev.map(i => i.productId === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i))}
+      onRemove={(key: string) => setCart(prev => prev.filter(i => `${i.productId}-${i.variantLabel}` !== key))}
+      onQtyChange={(key: string, delta: number) => setCart(prev => prev.map(i => `${i.productId}-${i.variantLabel}` === key ? { ...i, qty: Math.max(1, i.qty + delta) } : i))}
       onOrder={placeOrder}
     />
   );
@@ -359,8 +363,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
 function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId, onBack, onRemove, onQtyChange, onOrder }: {
   p: StorefrontPreset; style: any; cart: CartItem[]; cartTotal: number; customer: any;
-  isOrdering: boolean; merchantId: string; onBack: () => void; onRemove: (id: string) => void;
-  onQtyChange: (id: string, delta: number) => void; onOrder: (address: string, couponCode?: string, redeemPoints?: number) => void;
+  isOrdering: boolean; merchantId: string; onBack: () => void; onRemove: (key: string) => void;
+  onQtyChange: (key: string, delta: number) => void; onOrder: (address: string, couponCode?: string, redeemPoints?: number) => Promise<string | null>;
 }) {
   const [address, setAddress] = useState('');
   const [couponInput, setCouponInput] = useState('');
@@ -369,6 +373,7 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [loyalty, setLoyalty] = useState<{ enabled: boolean; points: number; redeemRate: number; minRedeemPoints: number } | null>(null);
   const [usePoints, setUsePoints] = useState(false);
+  const [orderError, setOrderError] = useState('');
 
   useEffect(() => {
     if (customer?.userId) {
@@ -397,10 +402,14 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
     finally { setValidatingCoupon(false); }
   };
 
+  const couponDiscount = couponResult?.discount ?? 0;
+  const remainingAfterCoupon = Math.max(0, cartTotal - couponDiscount);
+  const maxPointsNeeded = Math.ceil(remainingAfterCoupon * (loyalty?.redeemRate ?? 100));
+  const pointsToUse = loyalty ? Math.min(loyalty.points, maxPointsNeeded) : 0;
   const pointsDiscount = loyalty && usePoints && loyalty.points >= loyalty.minRedeemPoints
-    ? Math.floor(Math.min(loyalty.points, loyalty.points) / loyalty.redeemRate)
+    ? Math.floor(pointsToUse / loyalty.redeemRate)
     : 0;
-  const totalDiscount = (couponResult?.discount ?? 0) + pointsDiscount;
+  const totalDiscount = couponDiscount + pointsDiscount;
   const finalTotal = Math.max(0, cartTotal - totalDiscount);
 
   return (
@@ -422,10 +431,10 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
               <p className="font-bold text-sm" style={{ color: p.accent }}>฿{(item.price * item.qty).toLocaleString()}</p>
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={() => onQtyChange(item.productId, -1)} style={style.card} className="w-7 h-7 rounded-lg flex items-center justify-center"><Minus size={12} /></button>
+              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, -1)} style={style.card} className="w-7 h-7 rounded-lg flex items-center justify-center"><Minus size={12} /></button>
               <span className="w-5 text-center text-sm font-semibold">{item.qty}</span>
-              <button onClick={() => onQtyChange(item.productId, 1)} style={style.card} className="w-7 h-7 rounded-lg flex items-center justify-center"><Plus size={12} /></button>
-              <button onClick={() => onRemove(item.productId)} className="w-7 h-7 ml-1 rounded-lg flex items-center justify-center" style={{ color: '#ef4444' }}><Trash2 size={12} /></button>
+              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, 1)} style={style.card} className="w-7 h-7 rounded-lg flex items-center justify-center"><Plus size={12} /></button>
+              <button onClick={() => onRemove(`${item.productId}-${item.variantLabel}`)} className="w-7 h-7 ml-1 rounded-lg flex items-center justify-center" style={{ color: '#ef4444' }}><Trash2 size={12} /></button>
             </div>
           </div>
         ))}
@@ -504,8 +513,17 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
             Please open this store in LINE to place an order
           </div>
         )}
+        {orderError && (
+          <div className="rounded-xl p-3 text-sm text-center" style={{ background: '#fee2e2', color: '#dc2626' }}>
+            {orderError}
+          </div>
+        )}
         <button disabled={!customer || !address.trim() || isOrdering || cart.length === 0}
-          onClick={() => onOrder(address, couponResult?.code, usePoints ? loyalty?.points : undefined)}
+          onClick={async () => {
+            setOrderError('');
+            const err = await onOrder(address, couponResult?.code, usePoints && loyalty ? pointsToUse : undefined);
+            if (err) setOrderError(err);
+          }}
           style={style.accent}
           className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
           {isOrdering ? 'Placing order...' : <><ArrowRight size={16} /> Place order</>}

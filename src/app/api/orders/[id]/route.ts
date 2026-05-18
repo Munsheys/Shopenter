@@ -26,18 +26,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const before = await Order.findOne({ _id: id, merchantId: merchant.merchantId });
     if (!before) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
+    // Whitelist updatable fields to prevent arbitrary field injection
+    const ALLOWED_FIELDS = ['status', 'tracking', 'courier', 'shipCostTHB', 'costKRW', 'costTHB',
+      'soldTHB', 'profit', 'rateUsed', 'paymentQrSent', 'trackingSent', 'statusBeforeParcel',
+      'address', 'displayName', 'product', 'quantity', 'items', 'lineUserId'];
+    const safeUpdate: Record<string, any> = {};
+    for (const key of ALLOWED_FIELDS) {
+      if (key in body) safeUpdate[key] = body[key];
+    }
+
     const order = await Order.findOneAndUpdate(
       { _id: id, merchantId: merchant.merchantId },
-      body,
+      safeUpdate,
       { new: true }
     );
 
     const newStatus: string | undefined = body.status;
     const flag = newStatus && NOTIF_FLAG[newStatus];
 
+    // Fetch settings once for both loyalty and notification logic
+    const needsSettings = (newStatus === 'paid' && before.status !== 'paid') || (flag && before.status !== newStatus);
+    const settings = needsSettings ? await Settings.findOne({ merchantId: merchant.merchantId }) : null;
+
     // Auto-earn loyalty points when order is marked paid
     if (newStatus === 'paid' && before.status !== 'paid' && order.lineUserId && order.soldTHB > 0) {
-      const settings = await Settings.findOne({ merchantId: merchant.merchantId });
       const loyalty = settings?.loyalty;
       if (loyalty?.enabled && loyalty.pointsPerBaht > 0) {
         const earned = Math.floor(order.soldTHB * loyalty.pointsPerBaht);
@@ -59,7 +71,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     if (flag && before.status !== newStatus && !before[flag] && order.lineUserId) {
-      const settings = await Settings.findOne({ merchantId: merchant.merchantId });
       const stage = settings?.orderNotifications?.[newStatus];
 
       if (stage?.enabled && stage.template && settings?.lineChannelAccessToken) {
