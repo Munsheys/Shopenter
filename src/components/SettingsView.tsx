@@ -414,8 +414,16 @@ export default function SettingsView({
                 <p className={hint}>Shown on storefront and all outgoing messages</p>
               </div>
               <div>
+                <label className={lbl}>Storefront URL Slug</label>
+                <div className="relative">
+                  <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>/shop/</span>
+                  <input type="text" value={settings.slug || ''} onChange={e => set('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} placeholder="my-awesome-shop" className={`${inputCls} pl-12`} autoComplete="off" />
+                </div>
+                <p className={hint}>Letters, numbers, and hyphens only</p>
+              </div>
+              <div className="md:col-span-2">
                 <label className={lbl}>Theme</label>
-                <div className={`flex p-1 rounded-xl ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
+                <div className={`flex p-1 rounded-xl w-full md:w-1/2 ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
                   {(['light', 'dark'] as const).map(t => (
                     <button key={t} onClick={() => handleThemeChange(t)}
                       className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all capitalize ${settings.theme === t ? 'bg-[#00b900] text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>

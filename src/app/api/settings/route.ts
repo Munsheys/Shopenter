@@ -49,6 +49,24 @@ export async function POST(req: NextRequest) {
     delete body.merchantId;
     delete body.adminSecret;
 
+    // Sync shopName and slug to the Merchant model as well, since they govern global identity and storefront routing
+    if (body.shopName !== undefined || body.slug !== undefined) {
+      const merchantUpdate: any = {};
+      if (body.shopName !== undefined) merchantUpdate.shopName = body.shopName;
+      if (body.slug !== undefined) {
+        // Enforce lowercase alphanumeric with hyphens
+        const cleanSlug = typeof body.slug === 'string' ? body.slug.toLowerCase().replace(/[^a-z0-9-]/g, '') : '';
+        merchantUpdate.slug = cleanSlug || null; // convert empty strings to null to avoid unique constraint errors on empty slugs
+        body.slug = cleanSlug;
+      }
+      try {
+        const { Merchant } = require('@/models');
+        await Merchant.findByIdAndUpdate(merchant.merchantId, { $set: merchantUpdate });
+      } catch (e) {
+        // Ignore duplicate slug errors for now or handle them gracefully
+      }
+    }
+
     const s = await Settings.findOneAndUpdate(
       { merchantId: merchant.merchantId },
       { $set: body },

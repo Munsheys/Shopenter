@@ -243,13 +243,13 @@ export default function FloatingGuide({
 
   if (doneCount === steps.length) return null;
 
-  const bgOpen = isDark 
-    ? 'bg-[#161925] border border-[#00b900]/30 shadow-[0_12px_40px_rgba(0,185,0,0.22)]' 
-    : 'bg-white border-2 border-[#00b900]/50 shadow-[0_12px_40px_rgba(0,185,0,0.35)]';
+  const bgOpen = isDark
+    ? 'bg-[#161925] border border-[#00b900]/30 shadow-[0_12px_40px_rgba(0,185,0,0.22)]'
+    : 'bg-white border-2 border-[#00b900]/40 shadow-[0_12px_40px_rgba(0,185,0,0.18)]';
 
   const bgCollapsed = isDark
     ? 'bg-[#161925] border border-[#00b900]/35 shadow-[0_8px_32px_rgba(0,185,0,0.2)] hover:shadow-[0_8px_32px_rgba(0,185,0,0.35)] hover:scale-[1.02]'
-    : 'bg-white border-2 border-[#00b900]/50 shadow-[0_8px_32px_rgba(0,185,0,0.30)] hover:shadow-[0_8px_40px_rgba(0,185,0,0.50)] hover:scale-[1.02]';
+    : 'bg-white border-2 border-[#00b900]/35 shadow-[0_8px_32px_rgba(0,185,0,0.15)] hover:shadow-[0_8px_40px_rgba(0,185,0,0.28)] hover:scale-[1.02]';
 
   const text   = isDark ? 'text-white' : 'text-slate-900';
   const muted  = isDark ? 'text-[#8b92ad]' : 'text-slate-500';

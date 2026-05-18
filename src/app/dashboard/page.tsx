@@ -124,6 +124,12 @@ export default function DashboardPage() {
 
   return (
     <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`}>
+      <style>{`
+        @keyframes navglow {
+          0%, 100% { box-shadow: 0 0 4px rgba(0,185,0,0.45), 0 0 2px rgba(0,185,0,0.2); opacity: 0.85; }
+          50%       { box-shadow: 0 0 10px rgba(0,185,0,0.75), 0 0 5px rgba(0,185,0,0.4); opacity: 1; }
+        }
+      `}</style>
 
       {/* ── Top navbar ── */}
       <header className={`flex items-center h-14 border-b flex-shrink-0 ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-white border-gray-200'} transition-colors duration-300`}>
@@ -144,14 +150,14 @@ export default function DashboardPage() {
         {/* Tab navigation — underline style */}
         <nav ref={topNavContainerRef} className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
           {/* Smooth Sliding Underline Indicator */}
-          <div 
-            className={`absolute bottom-0 h-[2px] bg-[#00b900] shadow-[0_0_6px_rgba(0,185,0,0.6),0_0_2px_rgba(0,185,0,0.3)] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
-              topNavStyle.width ? 'opacity-100' : 'opacity-0'
+          <div
+            className={`absolute bottom-0 h-[2px] bg-[#00b900] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
+              topNavStyle.width ? '' : 'opacity-0'
             }`}
             style={{
               left: topNavStyle.left,
               width: topNavStyle.width,
-              animation: 'pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              animation: 'navglow 3s ease-in-out infinite',
             }}
           />
           {tabs.map(tab => (
@@ -164,6 +170,9 @@ export default function DashboardPage() {
                   : `${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
               }`}
             >
+              {activeTab === tab.id && (
+                <span className={`absolute inset-0 rounded-none pointer-events-none ${isDark ? 'bg-[#00b900]/[0.05]' : 'bg-[#00b900]/[0.04]'}`} />
+              )}
               {tab.icon}
               {tab.label}
             </button>
