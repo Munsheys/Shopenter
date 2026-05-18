@@ -114,7 +114,6 @@ export default function CustomersView({ theme }: { theme: string }) {
   const [qoSubmitting, setQoSubmitting] = useState(false);
 
   const [selectedAddressIdx, setSelectedAddressIdx] = useState(0);
-  const [selectedAddressIdx, setSelectedAddressIdx] = useState(0);
 
   const [confirm, setConfirm] = useState<{
     open: boolean;
@@ -690,9 +689,6 @@ export default function CustomersView({ theme }: { theme: string }) {
                   </button>
                 </div>
               </div>
-
-              </div>
-            </div>
             </div>
 
             {/* Scrollable content */}
