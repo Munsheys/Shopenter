@@ -126,7 +126,7 @@ export default function SettingsView({
   const [lineStatus,   setLineStatus]   = useState<LineStatus | null>(null);
   const [checkingLine, setCheckingLine] = useState(false);
 
-  // ShopEnter billing plan
+  // Shopenter billing plan
   const [merchantPlan, setMerchantPlan] = useState<{ tier: string; paymentStatus: string } | null>(null);
 
   const checkLine = useCallback(async () => {
@@ -540,14 +540,14 @@ export default function SettingsView({
             {liveRateError && <p className="text-xs text-red-400">{liveRateError}</p>}
           </div>
 
-          {/* ShopEnter Plan */}
+          {/* Shopenter Plan */}
           {merchantPlan && (() => {
             const plan   = SHOPENTER_PLAN[merchantPlan.tier] ?? SHOPENTER_PLAN.free;
             const status = SHOPENTER_STATUS[merchantPlan.paymentStatus] ?? SHOPENTER_STATUS.trialing;
             return (
               <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
                 <div className="flex items-center justify-between">
-                  <p className={`text-sm font-semibold ${K.text}`}>ShopEnter Plan</p>
+                  <p className={`text-sm font-semibold ${K.text}`}>Shopenter Plan</p>
                   <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${plan.color}`}>
                     {plan.label}
                   </span>
