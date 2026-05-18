@@ -35,14 +35,16 @@ interface Order {
   tracking?: string;
 }
 
-export default function ShopOrdersView({ 
-  theme, 
+export default function ShopOrdersView({
+  theme,
   onViewCustomer,
-  t
-}: { 
+  t,
+  onLimitHit,
+}: {
   theme?: 'light' | 'dark',
   onViewCustomer?: (userId: string) => void,
-  t: any
+  t: any,
+  onLimitHit?: (feature: string, limit?: number, current?: number) => void,
 }) {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);

@@ -11,6 +11,7 @@ import {
 interface BroadcastsViewProps {
   theme?: 'light' | 'dark';
   t: any;
+  onLimitHit?: (feature: string, limit?: number, current?: number) => void;
 }
 
 interface LineBlock {
@@ -568,7 +569,7 @@ function RmButtonEditor({ index, btn, onChange, isDark, k }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function BroadcastsView({ theme }: BroadcastsViewProps) {
+export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProps) {
   const isDark = theme === 'dark';
   const k = isDark ? DK : LK;
 
@@ -707,6 +708,9 @@ export default function BroadcastsView({ theme }: BroadcastsViewProps) {
         setQMessages([{ type: 'text', text: '' }]);
         setQName('');
         await loadCampaigns();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        if (err?.error === 'TIER_LIMIT_REACHED') onLimitHit?.(err.feature, err.limit, err.current);
       }
     } catch { /* ignore */ }
     finally { setQCreating(false); }
@@ -748,11 +752,15 @@ export default function BroadcastsView({ theme }: BroadcastsViewProps) {
           body: JSON.stringify({ keyword: rKeyword, matchType: rMatchType, messages: rMessages }),
         });
       } else {
-        await fetch('/api/auto-reply', {
+        const res = await fetch('/api/auto-reply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ keyword: rKeyword, matchType: rMatchType, messages: rMessages }),
         });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          if (err?.error === 'TIER_LIMIT_REACHED') { onLimitHit?.(err.feature, err.limit, err.current); return; }
+        }
       }
       setShowRuleModal(false);
       await loadRules();

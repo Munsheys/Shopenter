@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake } from 'lucide-react';
+import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, Tag, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ProductManagement from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
@@ -13,14 +13,19 @@ import BroadcastsView from '@/components/BroadcastsView';
 import LoadingView from '@/components/LoadingView';
 import FloatingGuide from '@/components/FloatingGuide';
 import FeedbackView from '@/components/FeedbackView';
+import CouponsView from '@/components/CouponsView';
+import UpgradePrompt from '@/components/UpgradePrompt';
+import { type Tier, getTierLabel, checkBooleanFeature } from '@/lib/tiers';
 
-type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'feedback' | 'settings';
+type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'coupons' | 'feedback' | 'settings';
 
 interface Merchant {
   merchantId: string;
   email: string;
   shopName?: string;
   slug?: string | null;
+  tier?: Tier;
+  paymentStatus?: string;
 }
 
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -30,6 +35,7 @@ const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'reports',    label: 'Reports',    icon: <BarChart3 size={15} /> },
   { id: 'broadcasts', label: 'Broadcasts', icon: <Megaphone size={15} /> },
   { id: 'storefront', label: 'Storefront', icon: <Store size={15} /> },
+  { id: 'coupons',    label: 'Coupons',    icon: <Tag size={15} /> },
   { id: 'feedback',   label: 'Feedback',   icon: <HeartHandshake size={15} /> },
   { id: 'settings',   label: 'Settings',   icon: <SettingsIcon size={15} /> },
 ];
@@ -41,6 +47,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('customers');
   const [settingsScroll, setSettingsScroll] = useState<{ section: string; id: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [upgradePrompt, setUpgradePrompt] = useState<{ feature: string; limit?: number; current?: number } | null>(null);
 
   const [topNavStyle, setTopNavStyle] = useState<React.CSSProperties>({});
   const topNavContainerRef = useRef<HTMLElement>(null);
@@ -88,7 +95,10 @@ export default function DashboardPage() {
     router.push('/login');
   }
 
-  // ── Top Nav sliding underline calculator ──
+  const handleLimitHit = useCallback((feature: string, limit?: number, current?: number) => {
+    setUpgradePrompt({ feature, limit, current });
+  }, []);
+
   useEffect(() => {
     const updateTopNav = () => {
       if (!topNavContainerRef.current) return;
@@ -108,12 +118,8 @@ export default function DashboardPage() {
 
     updateTopNav();
     const timer = setTimeout(updateTopNav, 50);
-
     window.addEventListener('resize', updateTopNav);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', updateTopNav);
-    };
+    return () => { clearTimeout(timer); window.removeEventListener('resize', updateTopNav); };
   }, [activeTab, loading]);
 
   if (loading) return <LoadingView />;
@@ -121,6 +127,15 @@ export default function DashboardPage() {
   const theme = settings?.theme || 'light';
   const isDark = theme === 'dark';
   const shopInitial = (settings?.shopName || merchant?.email || 'S')[0].toUpperCase();
+  const tier = merchant?.tier ?? 'free';
+  const tierLabel = getTierLabel(tier);
+  const couponsUnlocked = checkBooleanFeature(tier, 'discountCodes');
+
+  const TIER_BADGE_COLORS: Record<string, string> = {
+    free:       'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-[#8b92ad]',
+    pro:        'bg-[#00b900]/10 text-[#00b900]',
+    enterprise: 'bg-amber-50 text-amber-600',
+  };
 
   return (
     <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`}>
@@ -134,17 +149,21 @@ export default function DashboardPage() {
             <MessageCircle size={16} className="text-white" />
           </div>
           <div className="hidden sm:block">
-            <p className={`text-sm font-semibold leading-tight truncate max-w-[140px] ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {settings?.shopName || 'My Shop'}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className={`text-sm font-semibold leading-tight truncate max-w-[120px] ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                {settings?.shopName || 'My Shop'}
+              </p>
+              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider ${TIER_BADGE_COLORS[tier]}`}>
+                {tierLabel}
+              </span>
+            </div>
             <p className={`text-[10px] font-medium ${isDark ? 'text-[#8b92ad]' : 'text-gray-400'}`}>Dashboard</p>
           </div>
         </div>
 
-        {/* Tab navigation — underline style */}
+        {/* Tab navigation */}
         <nav ref={topNavContainerRef} className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
-          {/* Smooth Sliding Underline Indicator */}
-          <div 
+          <div
             className={`absolute bottom-0 h-[2px] bg-[#00b900] shadow-[0_0_6px_rgba(0,185,0,0.6),0_0_2px_rgba(0,185,0,0.3)] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
               topNavStyle.width ? 'opacity-100' : 'opacity-0'
             }`}
@@ -166,10 +185,13 @@ export default function DashboardPage() {
             >
               {tab.icon}
               {tab.label}
+              {tab.id === 'coupons' && !couponsUnlocked && (
+                <Zap size={10} className="text-amber-500 absolute -top-0.5 -right-0.5" />
+              )}
             </button>
           ))}
         </nav>
- 
+
         {/* Right: view store + user section */}
         <div className="flex items-center gap-3 px-4 flex-shrink-0">
           {merchant && (
@@ -206,25 +228,25 @@ export default function DashboardPage() {
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <div className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-          <CustomersView theme={theme} />
+          <CustomersView theme={theme} onLimitHit={handleLimitHit} />
         </div>
-        
+
         <div className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
-          <ShopOrdersView theme={theme} t={{}} />
+          <ShopOrdersView theme={theme} t={{}} onLimitHit={handleLimitHit} />
         </div>
-        
+
         <div className={activeTab === 'products' ? 'flex-1 overflow-auto' : 'hidden'}>
-          <ProductManagement theme={theme} t={{}} />
+          <ProductManagement theme={theme} t={{}} onLimitHit={handleLimitHit} />
         </div>
-        
+
         <div className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
           <ReportsView theme={theme} t={{}} />
         </div>
-        
+
         <div className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col' : 'hidden'}>
-          <BroadcastsView theme={theme} t={{}} />
+          <BroadcastsView theme={theme} t={{}} onLimitHit={handleLimitHit} />
         </div>
-        
+
         <div className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
           <FeedbackView theme={theme} />
         </div>
@@ -232,7 +254,29 @@ export default function DashboardPage() {
         <div className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
           <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} scrollTrigger={settingsScroll} />
         </div>
-        
+
+        <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6' : 'hidden'}>
+          {couponsUnlocked ? (
+            <CouponsView theme={theme} />
+          ) : (
+            <div className="max-w-md mx-auto px-4 py-20 text-center">
+              <div className="w-16 h-16 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <Zap size={32} className="text-amber-500" />
+              </div>
+              <h3 className={`text-xl font-black mb-2 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>Upgrade to Use Coupons</h3>
+              <p className={`text-sm mb-6 ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>
+                Discount codes and coupon campaigns are available on the Pro plan.
+              </p>
+              <button
+                onClick={() => setUpgradePrompt({ feature: 'discountCodes' })}
+                className="px-8 py-3 bg-[#00b900] text-white text-sm font-bold rounded-2xl hover:opacity-90 flex items-center gap-2 mx-auto"
+              >
+                <Zap size={16} /> Upgrade to Pro
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6' : 'hidden'}>
           <div className="mb-6">
             <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Storefront customization</h2>
@@ -255,14 +299,25 @@ export default function DashboardPage() {
           />
         </div>
       </main>
+
       <FloatingGuide
         theme={theme}
         nudgeUp={activeTab === 'settings'}
         onNavigate={(tab, section) => {
-          setActiveTab(tab);
+          setActiveTab(tab as Tab);
           if (section) setSettingsScroll({ section, id: Date.now() });
         }}
       />
+
+      {upgradePrompt && (
+        <UpgradePrompt
+          feature={upgradePrompt.feature}
+          limit={upgradePrompt.limit}
+          current={upgradePrompt.current}
+          theme={theme}
+          onClose={() => setUpgradePrompt(null)}
+        />
+      )}
     </div>
   );
 }

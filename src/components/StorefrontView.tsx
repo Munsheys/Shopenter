@@ -123,7 +123,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     setView('home'); setQty(1);
   }
 
-  async function placeOrder(address: string) {
+  async function placeOrder(address: string, couponCode?: string, redeemPoints?: number) {
     if (!customer) return;
     setIsOrdering(true);
     try {
@@ -134,7 +134,9 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         body: JSON.stringify({
           lineUserId: customer.userId, displayName: customer.displayName, address, items,
           product: items.map(i => `${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}`).join(', '),
-          quantity: items.reduce((s, i) => s + i.qty, 0), soldTHB: cartTotal
+          quantity: items.reduce((s, i) => s + i.qty, 0), soldTHB: cartTotal,
+          couponCode: couponCode || undefined,
+          redeemPoints: redeemPoints || undefined,
         })
       });
       if (res.ok) { setCart([]); setView('payment'); }
@@ -249,6 +251,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
   if (view === 'cart') return (
     <CartView p={p} style={style} cart={cart} cartTotal={cartTotal} customer={customer} isOrdering={isOrdering}
+      merchantId={merchantId}
       onBack={() => setView('home')}
       onRemove={(id: string) => setCart(prev => prev.filter(i => i.productId !== id))}
       onQtyChange={(id: string, delta: number) => setCart(prev => prev.map(i => i.productId === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i))}
@@ -354,12 +357,52 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   );
 }
 
-function CartView({ p, style, cart, cartTotal, customer, isOrdering, onBack, onRemove, onQtyChange, onOrder }: {
+function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId, onBack, onRemove, onQtyChange, onOrder }: {
   p: StorefrontPreset; style: any; cart: CartItem[]; cartTotal: number; customer: any;
-  isOrdering: boolean; onBack: () => void; onRemove: (id: string) => void;
-  onQtyChange: (id: string, delta: number) => void; onOrder: (address: string) => void;
+  isOrdering: boolean; merchantId: string; onBack: () => void; onRemove: (id: string) => void;
+  onQtyChange: (id: string, delta: number) => void; onOrder: (address: string, couponCode?: string, redeemPoints?: number) => void;
 }) {
   const [address, setAddress] = useState('');
+  const [couponInput, setCouponInput] = useState('');
+  const [couponResult, setCouponResult] = useState<{ discount: number; description: string; code: string } | null>(null);
+  const [couponError, setCouponError] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [loyalty, setLoyalty] = useState<{ enabled: boolean; points: number; redeemRate: number; minRedeemPoints: number } | null>(null);
+  const [usePoints, setUsePoints] = useState(false);
+
+  useEffect(() => {
+    if (customer?.userId) {
+      fetch(`/api/storefront/${merchantId}/loyalty?lineUserId=${customer.userId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.enabled) setLoyalty(data); })
+        .catch(() => {});
+    }
+  }, [customer, merchantId]);
+
+  const validateCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setValidatingCoupon(true);
+    setCouponError('');
+    setCouponResult(null);
+    try {
+      const res = await fetch(`/api/storefront/${merchantId}/validate-coupon`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput.trim(), orderTotal: cartTotal }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) setCouponResult(data);
+      else setCouponError(data.error || 'Invalid coupon');
+    } catch { setCouponError('Failed to validate coupon'); }
+    finally { setValidatingCoupon(false); }
+  };
+
+  const pointsDiscount = loyalty && usePoints && loyalty.points >= loyalty.minRedeemPoints
+    ? Math.floor(Math.min(loyalty.points, loyalty.points) / loyalty.redeemRate)
+    : 0;
+  const totalDiscount = (couponResult?.discount ?? 0) + pointsDiscount;
+  const finalTotal = Math.max(0, cartTotal - totalDiscount);
+
   return (
     <div style={style.page}>
       <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
@@ -386,22 +429,84 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, onBack, onR
             </div>
           </div>
         ))}
+
+        {/* Coupon input */}
+        <div style={style.card} className="rounded-2xl p-4">
+          <p className="text-sm font-medium mb-2">Coupon Code</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={couponInput}
+              onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponResult(null); setCouponError(''); }}
+              placeholder="Enter coupon code"
+              style={{ ...style.input, flex: 1, borderRadius: '0.75rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem', outline: 'none', fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: '0.1em' }}
+            />
+            <button
+              onClick={validateCoupon}
+              disabled={!couponInput.trim() || validatingCoupon}
+              style={couponResult ? { background: '#00b900', color: '#fff' } : style.accent}
+              className="px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 whitespace-nowrap"
+            >
+              {validatingCoupon ? '...' : couponResult ? '✓ Applied' : 'Apply'}
+            </button>
+          </div>
+          {couponResult && <p className="text-xs mt-1.5 font-medium" style={{ color: '#00b900' }}>-฿{couponResult.discount.toLocaleString()} ({couponResult.description})</p>}
+          {couponError && <p className="text-xs mt-1.5" style={{ color: '#ef4444' }}>{couponError}</p>}
+        </div>
+
+        {/* Loyalty points */}
+        {loyalty && loyalty.points >= loyalty.minRedeemPoints && (
+          <div style={style.card} className="rounded-2xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Loyalty Points</p>
+                <p className="text-xs mt-0.5" style={style.muted}>You have {loyalty.points.toLocaleString()} pts · {loyalty.redeemRate} pts = ฿1</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {usePoints && <span className="text-xs font-bold" style={{ color: '#00b900' }}>-฿{pointsDiscount.toLocaleString()}</span>}
+                <button
+                  onClick={() => setUsePoints(v => !v)}
+                  style={usePoints ? { background: '#00b900' } : style.card}
+                  className="relative w-11 h-6 rounded-full transition-colors"
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${usePoints ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={style.card} className="rounded-2xl p-4">
           <p className="text-sm font-medium mb-2">Delivery address</p>
           <textarea value={address} onChange={e => setAddress(e.target.value)} rows={3} placeholder="Enter your delivery address..."
             style={{ ...style.input, resize: 'none' as const, width: '100%', borderRadius: '0.75rem', padding: '0.75rem', fontSize: '0.875rem', outline: 'none', display: 'block' }} />
         </div>
-        <div style={style.card} className="rounded-2xl p-4 flex items-center justify-between">
-          <span className="font-medium">Total</span>
-          <span className="font-bold text-lg" style={{ color: p.accent }}>฿{cartTotal.toLocaleString()}</span>
+
+        <div style={style.card} className="rounded-2xl p-4 space-y-1.5">
+          <div className="flex items-center justify-between text-sm">
+            <span style={style.muted}>Subtotal</span>
+            <span>฿{cartTotal.toLocaleString()}</span>
+          </div>
+          {totalDiscount > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span style={{ color: '#00b900' }}>Discount</span>
+              <span style={{ color: '#00b900' }}>-฿{totalDiscount.toLocaleString()}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between font-bold">
+            <span>Total</span>
+            <span className="text-lg" style={{ color: p.accent }}>฿{finalTotal.toLocaleString()}</span>
+          </div>
         </div>
+
         {!customer && (
           <div className="rounded-xl p-3 text-sm text-center" style={{ background: `${p.accent}20`, color: p.accent }}>
             Please open this store in LINE to place an order
           </div>
         )}
         <button disabled={!customer || !address.trim() || isOrdering || cart.length === 0}
-          onClick={() => onOrder(address)} style={style.accent}
+          onClick={() => onOrder(address, couponResult?.code, usePoints ? loyalty?.points : undefined)}
+          style={style.accent}
           className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
           {isOrdering ? 'Placing order...' : <><ArrowRight size={16} /> Place order</>}
         </button>

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMerchantFromRequest } from '@/lib/auth';
 import dbConnect from '@/lib/db';
-import { AutoReply } from '@/models';
+import { AutoReply, Merchant } from '@/models';
+import { checkCountLimit, type Tier } from '@/lib/tiers';
 
 export const runtime = 'nodejs';
 
@@ -37,6 +38,17 @@ export async function POST(req: NextRequest) {
   }
 
   await dbConnect();
+
+  const merchantDoc = await Merchant.findById(merchant.merchantId).select('tier').lean() as any;
+  const tier = (merchantDoc?.tier ?? 'free') as Tier;
+  const ruleCount = await AutoReply.countDocuments({ merchantId: merchant.merchantId });
+  const check = checkCountLimit(tier, 'autoReplies', ruleCount);
+  if (!check.allowed) {
+    return NextResponse.json(
+      { error: 'TIER_LIMIT_REACHED', feature: 'autoReplies', limit: check.limit, current: ruleCount, requiredTier: 'pro' },
+      { status: 403 }
+    );
+  }
 
   // Only one default rule per merchant
   if (matchType === 'default') {

@@ -80,7 +80,7 @@ const LK = {
   input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#00b900]',
 };
 
-export default function CustomersView({ theme }: { theme: string }) {
+export default function CustomersView({ theme, onLimitHit }: { theme: string; onLimitHit?: (feature: string, limit?: number, current?: number) => void }) {
   const isDark = theme === 'dark';
   const k = isDark ? DK : LK;
 

@@ -683,6 +683,61 @@ export default function SettingsView({
 
         </div>
 
+        {/* ══ LOYALTY PROGRAM ══════════════════════════════════════════════ */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-2">
+            <span className="text-[#00b900] text-sm">★</span>
+            <h2 className={`text-base font-bold ${K.text}`}>Loyalty Points</h2>
+          </div>
+          <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-semibold ${K.text}`}>Enable Loyalty Program</p>
+                <p className={`text-xs mt-0.5 ${K.muted}`}>Customers earn points per baht spent and can redeem at checkout</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => set('loyalty', { ...(settings.loyalty || {}), enabled: !settings.loyalty?.enabled })}
+                className={`relative w-11 h-6 rounded-full transition-colors ${settings.loyalty?.enabled ? 'bg-[#00b900]' : isDark ? 'bg-[#2d324d]' : 'bg-slate-200'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.loyalty?.enabled ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
+            {settings.loyalty?.enabled && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-dashed border-[#e2e5ef] dark:border-[#1f2335]">
+                <div>
+                  <label className={lbl}>Points per ฿1 spent</label>
+                  <input
+                    type="number" min="0.1" step="0.1"
+                    value={settings.loyalty?.pointsPerBaht ?? 1}
+                    onChange={e => set('loyalty', { ...(settings.loyalty || {}), pointsPerBaht: parseFloat(e.target.value) || 1 })}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={lbl}>Points to redeem ฿1</label>
+                  <input
+                    type="number" min="1"
+                    value={settings.loyalty?.redeemRate ?? 100}
+                    onChange={e => set('loyalty', { ...(settings.loyalty || {}), redeemRate: parseInt(e.target.value) || 100 })}
+                    className={inputCls}
+                  />
+                  <p className={`text-[10px] mt-1 ${K.muted}`}>{settings.loyalty?.redeemRate ?? 100} pts = ฿1</p>
+                </div>
+                <div>
+                  <label className={lbl}>Min points to redeem</label>
+                  <input
+                    type="number" min="1"
+                    value={settings.loyalty?.minRedeemPoints ?? 100}
+                    onChange={e => set('loyalty', { ...(settings.loyalty || {}), minRedeemPoints: parseInt(e.target.value) || 100 })}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* ══ SHIPPING ═════════════════════════════════════════════════════ */}
         <div id="shipping" className="space-y-6">
           <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'shipping' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
