@@ -162,7 +162,10 @@ export default function FloatingGuide({
   const border = isDark ? 'border-[#1f2335]' : 'border-slate-200';
 
   return (
-    <div className={`fixed right-5 z-50 flex flex-col items-end gap-2 pointer-events-none transition-all duration-300 ${nudgeUp ? 'bottom-20' : 'bottom-5'}`}>
+    <div
+      className="fixed right-5 z-50 flex flex-col items-end gap-2 pointer-events-none transition-all duration-300"
+      style={{ bottom: nudgeUp ? '90px' : '20px' }}
+    >
 
       {/* ── Expanded panel ── */}
       {open && (
