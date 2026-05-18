@@ -199,6 +199,15 @@ const MediaFileSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 30 },
 });
 
+// Merchant opinions/bug reports schema
+const FeedbackSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  category: { type: String, required: true, enum: ['feature', 'bug', 'opinion', 'other'] },
+  content: { type: String, required: true },
+  status: { type: String, enum: ['new', 'reviewing', 'planned', 'completed'], default: 'new' },
+  createdAt: { type: Date, default: Date.now }
+});
+
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
@@ -209,3 +218,4 @@ export const ProcessedEvent = mongoose.models.ProcessedEvent || mongoose.model('
 export const Campaign = mongoose.models.Campaign || mongoose.model('Campaign', CampaignSchema);
 export const AutoReply = mongoose.models.AutoReply || mongoose.model('AutoReply', AutoReplySchema);
 export const MediaFile = mongoose.models.MediaFile || mongoose.model('MediaFile', MediaFileSchema);
+export const Feedback = mongoose.models.Feedback || mongoose.model('Feedback', FeedbackSchema);

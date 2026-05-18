@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone } from 'lucide-react';
+import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ProductManagement from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
@@ -12,8 +12,9 @@ import CustomersView from '@/components/CustomersView';
 import BroadcastsView from '@/components/BroadcastsView';
 import LoadingView from '@/components/LoadingView';
 import FloatingGuide from '@/components/FloatingGuide';
+import FeedbackView from '@/components/FeedbackView';
 
-type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'settings';
+type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'feedback' | 'settings';
 
 interface Merchant {
   merchantId: string;
@@ -29,6 +30,7 @@ const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'reports',    label: 'Reports',    icon: <BarChart3 size={15} /> },
   { id: 'broadcasts', label: 'Broadcasts', icon: <Megaphone size={15} /> },
   { id: 'storefront', label: 'Storefront', icon: <Store size={15} /> },
+  { id: 'feedback',   label: 'Feedback',   icon: <HeartHandshake size={15} /> },
   { id: 'settings',   label: 'Settings',   icon: <SettingsIcon size={15} /> },
 ];
 
@@ -219,6 +221,10 @@ export default function DashboardPage() {
           <BroadcastsView theme={theme} t={{}} />
         </div>
         
+        <div className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
+          <FeedbackView theme={theme} />
+        </div>
+
         <div className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
           <SettingsView theme={theme} onSave={refreshSettings} scrollTrigger={settingsScroll} />
         </div>
