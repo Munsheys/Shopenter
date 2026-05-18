@@ -353,7 +353,7 @@ export default function DashboardPage() {
 
           <div className="mb-6">
             <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Storefront customization</h2>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-700'}`}>
               Choose a theme, set your brand colors, and configure what customers see at{' '}
               {merchant && (
                 <a

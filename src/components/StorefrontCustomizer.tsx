@@ -83,8 +83,8 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   }
 
   const sectionHeading = 'text-sm font-semibold mb-3 text-gray-900 dark:text-gray-100';
-  const fieldLabel = 'text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 block';
-  const inputCls = 'w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500';
+  const fieldLabel = 'text-xs font-medium text-gray-800 dark:text-gray-300 mb-1 block';
+  const inputCls = 'w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500';
 
   return (
     <div className="flex gap-12 items-start">
@@ -95,12 +95,12 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         {/* Store handle */}
         <section>
           <h3 className={sectionHeading}>Store handle</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            Your custom short URL. Customers can reach your store at <span className="font-medium text-gray-700 dark:text-gray-300">/shop/yourhandle</span> instead of the long ID.
+          <p className="text-xs text-gray-700 dark:text-gray-400 mb-3">
+            Your custom short URL. Customers can reach your store at <span className="font-medium text-gray-800 dark:text-gray-300">/shop/yourhandle</span> instead of the long ID.
           </p>
           <div className="flex gap-2">
             <div className="flex-1 flex items-center border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-green-500">
-              <span className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 select-none flex-shrink-0">/shop/</span>
+              <span className="px-3 py-2 text-sm text-gray-600 dark:text-gray-500 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 select-none flex-shrink-0">/shop/</span>
               <input
                 type="text"
                 value={slugInput}
@@ -129,7 +129,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
               Store is now reachable at <span className="font-medium">/shop/{slugInput}</span>
             </p>
           )}
-          <p className="mt-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+          <p className="mt-1.5 text-[10px] text-gray-600 dark:text-gray-500">
             Lowercase letters, numbers, and hyphens only · 3–30 characters
           </p>
         </section>
@@ -188,7 +188,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             {config.accentColor && (
               <button
                 onClick={() => set('accentColor', '')}
-                className="text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors flex-shrink-0"
+                className="text-xs font-medium text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors flex-shrink-0"
               >
                 Reset
               </button>
@@ -312,9 +312,9 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
       {/* ── Right: Persistent Preview ──────────────────────────────────── */}
       <div className="flex-1 min-w-64 sticky top-6 self-start space-y-3">
         <div className="flex items-center gap-2">
-          <Eye size={14} className="text-gray-500 dark:text-gray-400" />
+          <Eye size={14} className="text-gray-700 dark:text-gray-400" />
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Live Preview</h3>
-          <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">Updates instantly</span>
+          <span className="text-[10px] text-gray-600 dark:text-gray-500 ml-auto">Updates instantly</span>
         </div>
 
         <div
@@ -429,7 +429,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
           </div>
         </div>
 
-        <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
+        <p className="text-[10px] text-gray-600 dark:text-gray-500 text-center">
           Approximate preview · actual storefront may vary
         </p>
       </div>
