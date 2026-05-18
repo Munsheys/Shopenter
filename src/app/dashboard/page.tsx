@@ -83,6 +83,20 @@ export default function DashboardPage() {
     await refreshSettings();
   }
 
+  async function handleSaveSlug(slug: string): Promise<{ ok: boolean; error?: string }> {
+    const res = await fetch('/api/merchant/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setMerchant(prev => prev ? { ...prev, slug: data.slug } : prev);
+      return { ok: true };
+    }
+    return { ok: false, error: data.error };
+  }
+
   async function handleLogout() {
     await fetch('/api/merchant/auth/logout', { method: 'POST' });
     router.push('/login');
@@ -259,8 +273,10 @@ export default function DashboardPage() {
           </div>
           <StorefrontCustomizer
             shopName={settings?.shopName || 'My Shop'}
+            slug={merchant?.slug}
             initial={settings?.storefront}
             onSave={handleSaveStorefront}
+            onSaveSlug={handleSaveSlug}
           />
         </div>
       </main>

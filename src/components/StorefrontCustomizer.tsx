@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Check, LayoutGrid, List, Eye, Save } from 'lucide-react';
+import { Check, LayoutGrid, List, Eye, Save, Link } from 'lucide-react';
 import { PRESETS, resolvePreset } from '@/lib/storefrontPresets';
 
 interface StorefrontConfig {
@@ -32,14 +32,22 @@ const DEFAULT_CONFIG: StorefrontConfig = {
 
 interface Props {
   shopName: string;
+  slug?: string | null;
   initial?: Partial<StorefrontConfig>;
   onSave: (config: StorefrontConfig) => Promise<void>;
+  onSaveSlug: (slug: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
-export default function StorefrontCustomizer({ shopName, initial, onSave }: Props) {
+export default function StorefrontCustomizer({ shopName, slug: initialSlug, initial, onSave, onSaveSlug }: Props) {
   const [config, setConfig] = useState<StorefrontConfig>({ ...DEFAULT_CONFIG, ...initial });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Slug state
+  const [slugInput, setSlugInput]   = useState(initialSlug ?? '');
+  const [slugSaving, setSlugSaving] = useState(false);
+  const [slugSaved, setSlugSaved]   = useState(false);
+  const [slugError, setSlugError]   = useState('');
 
   const p = resolvePreset(config.preset, config.accentColor);
 
@@ -59,6 +67,21 @@ export default function StorefrontCustomizer({ shopName, initial, onSave }: Prop
     }
   }
 
+  async function handleSaveSlug() {
+    if (!slugInput.trim() || slugSaving) return;
+    setSlugSaving(true);
+    setSlugError('');
+    setSlugSaved(false);
+    const result = await onSaveSlug(slugInput.trim().toLowerCase());
+    if (result.ok) {
+      setSlugSaved(true);
+      setTimeout(() => setSlugSaved(false), 2500);
+    } else {
+      setSlugError(result.error ?? 'Failed to save handle');
+    }
+    setSlugSaving(false);
+  }
+
   const sectionHeading = 'text-sm font-semibold mb-3 text-gray-900 dark:text-gray-100';
   const fieldLabel = 'text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 block';
   const inputCls = 'w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500';
@@ -68,6 +91,48 @@ export default function StorefrontCustomizer({ shopName, initial, onSave }: Prop
 
       {/* ── Left: Controls ─────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0 space-y-8">
+
+        {/* Store handle */}
+        <section>
+          <h3 className={sectionHeading}>Store handle</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            Your custom short URL. Customers can reach your store at <span className="font-medium text-gray-700 dark:text-gray-300">/shop/yourhandle</span> instead of the long ID.
+          </p>
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-green-500">
+              <span className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 select-none flex-shrink-0">/shop/</span>
+              <input
+                type="text"
+                value={slugInput}
+                onChange={e => { setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); setSlugError(''); setSlugSaved(false); }}
+                onKeyDown={e => e.key === 'Enter' && handleSaveSlug()}
+                placeholder="your-handle"
+                maxLength={30}
+                className="flex-1 px-3 py-2 text-sm bg-transparent focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+              />
+            </div>
+            <button
+              onClick={handleSaveSlug}
+              disabled={slugSaving || !slugInput.trim()}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-shrink-0 disabled:opacity-50 ${
+                slugSaved
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-green-500 hover:bg-green-600 text-white'
+              }`}
+            >
+              {slugSaved ? <><Check size={14} />Saved</> : slugSaving ? 'Saving…' : <><Link size={14} />Apply</>}
+            </button>
+          </div>
+          {slugError && <p className="mt-1.5 text-xs text-red-500">{slugError}</p>}
+          {slugSaved && (
+            <p className="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+              Store is now reachable at <span className="font-medium">/shop/{slugInput}</span>
+            </p>
+          )}
+          <p className="mt-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+            Lowercase letters, numbers, and hyphens only · 3–30 characters
+          </p>
+        </section>
 
         {/* Preset picker */}
         <section>
