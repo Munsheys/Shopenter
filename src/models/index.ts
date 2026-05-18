@@ -5,6 +5,8 @@ const MerchantSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   shopName: { type: String, required: true },
   slug: { type: String, unique: true, sparse: true, lowercase: true },
+  tier: { type: String, enum: ['free', 'pro', 'enterprise'], default: 'free' },
+  paymentStatus: { type: String, enum: ['paid', 'trialing', 'unpaid'], default: 'trialing' },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -205,6 +207,11 @@ const FeedbackSchema = new mongoose.Schema({
   category: { type: String, required: true, enum: ['feature', 'bug', 'opinion', 'other'] },
   content: { type: String, required: true },
   status: { type: String, enum: ['new', 'reviewing', 'planned', 'completed'], default: 'new' },
+  replies: [{
+    sender: { type: String, enum: ['admin', 'merchant'], required: true },
+    content: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+  }],
   createdAt: { type: Date, default: Date.now }
 });
 

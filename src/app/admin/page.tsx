@@ -5,7 +5,8 @@ import {
   ShieldCheck, ShieldAlert, Users, Package, ShoppingCart, DollarSign,
   HeartHandshake, Sparkles, AlertCircle, MessageSquare, HelpCircle,
   TrendingUp, Calendar, Check, ExternalLink, RefreshCw, Key, LogOut,
-  Sliders, Activity, CheckCircle2, ChevronRight, Lock
+  Sliders, Activity, CheckCircle2, ChevronRight, Lock, Trash2, Send, 
+  Loader2, User, UserCheck
 } from 'lucide-react';
 
 interface Metrics {
@@ -20,10 +21,15 @@ interface MerchantItem {
   email: string;
   shopName: string;
   slug: string | null;
+  tier: 'free' | 'pro' | 'enterprise';
+  paymentStatus: 'paid' | 'trialing' | 'unpaid';
   createdAt: string;
-  lineConfigured: boolean;
-  promptPayConfigured: boolean;
-  theme: string;
+}
+
+interface Reply {
+  sender: 'admin' | 'merchant';
+  content: string;
+  createdAt: string;
 }
 
 interface FeedbackItem {
@@ -34,6 +40,7 @@ interface FeedbackItem {
   category: 'feature' | 'bug' | 'opinion' | 'other';
   content: string;
   status: 'new' | 'reviewing' | 'planned' | 'completed';
+  replies?: Reply[];
   createdAt: string;
 }
 
@@ -50,6 +57,14 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'merchants' | 'feedback'>('overview');
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState<string | null>(null);
+
+  // Administrative replying state
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [replyingFeedbackId, setReplyingFeedbackId] = useState<string | null>(null);
+
+  // Deletion overlay state
+  const [feedbackToDelete, setFeedbackToDelete] = useState<FeedbackItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Check existing credentials
   useEffect(() => {
@@ -131,15 +146,70 @@ export default function AdminPage() {
           'Content-Type': 'application/json',
           'x-admin-secret': secret
         },
-        body: JSON.stringify({ feedbackId, status: newStatus })
+        body: JSON.stringify({ action: 'update_status', feedbackId, status: newStatus })
       });
       if (res.ok) {
-        // Update local list
         setFeedbacks(prev => prev.map(f => f._id === feedbackId ? { ...f, status: newStatus as any } : f));
       }
     } catch {}
     finally {
       setUpdatingFeedbackId(null);
+    }
+  };
+
+  const handleSendAdminReply = async (feedbackId: string) => {
+    const text = replyTexts[feedbackId];
+    if (!text || !text.trim() || replyingFeedbackId) return;
+
+    const secret = localStorage.getItem('sys_admin_secret') || '';
+    setReplyingFeedbackId(feedbackId);
+    try {
+      const res = await fetch('/api/admin/system', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-secret': secret
+        },
+        body: JSON.stringify({
+          action: 'reply',
+          feedbackId,
+          content: text.trim()
+        })
+      });
+
+      if (res.ok) {
+        // Clear reply box
+        setReplyTexts(prev => ({ ...prev, [feedbackId]: '' }));
+        // Refresh local listings
+        const data = await res.json();
+        if (data.success && data.feedback) {
+          setFeedbacks(prev => prev.map(f => f._id === feedbackId ? { ...f, replies: data.feedback.replies } : f));
+        }
+      }
+    } catch {}
+    finally {
+      setReplyingFeedbackId(null);
+    }
+  };
+
+  const handleDeleteFeedback = async () => {
+    if (!feedbackToDelete || isDeleting) return;
+
+    const secret = localStorage.getItem('sys_admin_secret') || '';
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/system?id=${feedbackToDelete._id}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-secret': secret }
+      });
+
+      if (res.ok) {
+        setFeedbacks(prev => prev.filter(f => f._id !== feedbackToDelete._id));
+        setFeedbackToDelete(null);
+      }
+    } catch {}
+    finally {
+      setIsDeleting(false);
     }
   };
 
@@ -383,7 +453,7 @@ export default function AdminPage() {
                     { label: 'Database Status', val: 'Operational', active: true },
                     { label: 'LINE OA Webhook Endpoint', val: 'Active (200 OK)', active: true },
                     { label: 'Platform Multi-Tenant Middleware', val: 'Secured', active: true },
-                    { label: 'Active LINE OA Sync Ratio', val: `${Math.round((merchants.filter(m => m.lineConfigured).length / Math.max(1, merchants.length)) * 100)}% of stores`, active: true },
+                    { label: 'Active Plan Ratio', val: `${Math.round((merchants.filter(m => m.tier !== 'free').length / Math.max(1, merchants.length)) * 100)}% premium`, active: true },
                   ].map(h => (
                     <div key={h.label} className="flex items-center justify-between py-2 border-b border-[#1f2335] last:border-b-0">
                       <span className="text-[10px] font-bold text-[#8b92ad]">{h.label}</span>
@@ -400,12 +470,12 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ── SUB-TAB: MERCHANTS LIST ── */}
+        {/* ── SUB-TAB: MERCHANTS LIST (PRIVACY PRESERVING) ── */}
         {activeSubTab === 'merchants' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div>
-              <h2 className="text-xl font-bold tracking-tight">Registered Merchant Stores</h2>
-              <p className="text-xs text-[#8b92ad] mt-1">Registry directory of active stores on the platform. Individual product inventories and private customer data are safely shielded.</p>
+              <h2 className="text-xl font-bold tracking-tight">Registered Merchant Directory</h2>
+              <p className="text-xs text-[#8b92ad] mt-1">Registry directory of active stores on the platform. Individual sales volume, LINE keys, and PromptPay credentials are safely shielded.</p>
             </div>
 
             <div className="rounded-2xl border border-[#1f2335] bg-[#161925] overflow-hidden shadow-xl">
@@ -416,8 +486,8 @@ export default function AdminPage() {
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px]">Store Identity</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px]">Account Email</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px]">Register Date</th>
-                      <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">LINE Credentials</th>
-                      <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">PromptPay ID</th>
+                      <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Service Tier</th>
+                      <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Payment Status</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-right">Actions</th>
                     </tr>
                   </thead>
@@ -430,7 +500,10 @@ export default function AdminPage() {
                       merchants.map(m => (
                         <tr key={m._id} className="hover:bg-white/5 transition-colors">
                           <td className="py-4 px-6">
-                            <div className="font-bold text-white">{m.shopName}</div>
+                            <div className="font-bold text-white flex items-center gap-1.5">
+                              {m.shopName}
+                              {m.tier === 'enterprise' && <UserCheck size={11} className="text-purple-400" />}
+                            </div>
                             <div className="text-[10px] text-[#8b92ad] mt-0.5">slug: <span className="font-mono text-[#00b900]">{m.slug || 'unset'}</span></div>
                           </td>
                           <td className="py-4 px-6 text-[#8b92ad] font-semibold">{m.email}</td>
@@ -438,13 +511,25 @@ export default function AdminPage() {
                             {new Date(m.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                           </td>
                           <td className="py-4 px-6 text-center">
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full ${m.lineConfigured ? 'bg-[#00b900]/10 text-[#00b900]' : 'bg-red-500/10 text-red-400'}`}>
-                              {m.lineConfigured ? 'Connected' : 'Disconnected'}
+                            <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md ${
+                              m.tier === 'enterprise' 
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                                : m.tier === 'pro'
+                                  ? 'bg-[#00b900]/10 text-[#00b900] border border-[#00b900]/20'
+                                  : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                            }`}>
+                              {m.tier} plan
                             </span>
                           </td>
                           <td className="py-4 px-6 text-center">
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full ${m.promptPayConfigured ? 'bg-blue-500/10 text-blue-400' : 'bg-gray-500/10 text-gray-400'}`}>
-                              {m.promptPayConfigured ? 'Configured' : 'Missing'}
+                            <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md ${
+                              m.paymentStatus === 'paid' 
+                                ? 'bg-[#00b900]/10 text-[#00b900] border border-[#00b900]/20' 
+                                : m.paymentStatus === 'trialing'
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            }`}>
+                              {m.paymentStatus === 'paid' ? 'Active / Paid' : m.paymentStatus === 'trialing' ? 'Free Trial' : 'Unpaid'}
                             </span>
                           </td>
                           <td className="py-4 px-6 text-right">
@@ -470,15 +555,20 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ── SUB-TAB: FEEDBACK INBOX ── */}
+        {/* ── SUB-TAB: OPINIONS INBOX & TWO-WAY CHAT ── */}
         {activeSubTab === 'feedback' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">Merchant Opinions & Bug Inbox</h2>
-              <p className="text-xs text-[#8b92ad] mt-1">Oversee bugs, suggestions, and feedback submitted by merchants. Update status levels to display planned updates directly inside merchant dashboards.</p>
+          <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">Merchant Communication Hub</h2>
+                <p className="text-xs text-[#8b92ad] mt-1">Oversight bugs, suggestions, and feedback submitted by merchants. Send interactive responses and status updates.</p>
+              </div>
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#161925] border border-[#1f2335] text-[#00b900]">
+                {feedbacks.length} submissions
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-6">
               {feedbacks.length === 0 ? (
                 <div className="rounded-2xl border border-[#1f2335] bg-[#161925] py-20 text-center text-xs font-bold text-[#8b92ad]">
                   <HeartHandshake size={32} className="mx-auto mb-3 opacity-20" />
@@ -486,52 +576,122 @@ export default function AdminPage() {
                 </div>
               ) : (
                 feedbacks.map(fb => (
-                  <div key={fb._id} className="rounded-2xl border border-[#1f2335] bg-[#161925] p-6 shadow-xl flex flex-col md:flex-row justify-between gap-6 hover:border-[#00b900]/30 transition-all">
+                  <div key={fb._id} className="rounded-2xl border border-[#1f2335] bg-[#161925] p-6 shadow-xl space-y-5 hover:border-[#00b900]/20 transition-all">
                     
-                    {/* Left: Info */}
-                    <div className="space-y-4 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg border border-white/5 bg-white/5 text-[9px] font-bold text-white uppercase">
-                          {getCategoryIcon(fb.category)}
-                          {fb.category}
-                        </span>
-                        <span className="text-[10px] text-[#8b92ad] font-medium">
-                          submitted by <span className="text-white font-bold">{fb.merchantShopName}</span> ({fb.merchantEmail})
-                        </span>
-                        <span className="text-[10px] text-[#8b92ad] font-semibold">•</span>
-                        <span className="text-[9px] text-[#8b92ad]">
-                          {new Date(fb.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-4 border-b border-[#1f2335] pb-4">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg border border-white/5 bg-white/5 text-[9px] font-bold text-white uppercase">
+                            {getCategoryIcon(fb.category)}
+                            {fb.category}
+                          </span>
+                          <span className="text-[10px] text-[#8b92ad] font-medium">
+                            submitted by <span className="text-white font-bold">{fb.merchantShopName}</span> ({fb.merchantEmail})
+                          </span>
+                          <span className="text-[10px] text-[#8b92ad] font-semibold">•</span>
+                          <span className="text-[9px] text-[#8b92ad]">
+                            {new Date(fb.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
                       </div>
 
-                      <p className="text-xs text-white leading-relaxed whitespace-pre-wrap max-w-3xl">
-                        {fb.content}
-                      </p>
-                    </div>
-
-                    {/* Right: Status Actions Dropdown */}
-                    <div className="flex flex-col justify-between items-end gap-3 flex-shrink-0 md:border-l md:border-[#1f2335] md:pl-6">
-                      <div className="space-y-1 text-right">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-[#8b92ad] block mb-1">State status</span>
+                      <div className="flex items-center gap-3">
                         <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md ${getStatusStyles(fb.status)}`}>
                           {fb.status}
                         </span>
-                      </div>
-
-                      <div className="space-y-2 w-full min-w-[140px]">
-                        <label className="text-[9px] font-extrabold uppercase tracking-wider text-[#8b92ad] block">Change status</label>
+                        
+                        {/* Status Change Dropdown */}
                         <select
                           value={fb.status}
                           disabled={updatingFeedbackId === fb._id}
                           onChange={(e) => handleUpdateStatus(fb._id, e.target.value)}
-                          className="w-full bg-[#0f1117] border border-[#1f2335] text-xs font-bold text-white rounded-lg p-2 outline-none focus:border-[#00b900] transition-colors"
+                          className="bg-[#0f1117] border border-[#1f2335] text-[10px] font-extrabold text-white rounded-lg p-1.5 outline-none focus:border-[#00b900] transition-colors"
                         >
                           <option value="new">New (Received)</option>
                           <option value="reviewing">In Review</option>
                           <option value="planned">Planned (Planned)</option>
                           <option value="completed">Completed (Closed)</option>
                         </select>
+
+                        {/* Deletion Icon */}
+                        <button
+                          onClick={() => setFeedbackToDelete(fb)}
+                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#8b92ad] hover:text-red-400 transition-colors"
+                          title="Purge Report"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
+                    </div>
+
+                    {/* Content Section */}
+                    <div className="bg-[#0f1117]/40 border border-[#1f2335]/50 p-4 rounded-xl space-y-1">
+                      <span className="text-[8px] font-black text-slate-400 block uppercase tracking-wider">Merchant Description</span>
+                      <p className="text-xs text-white leading-relaxed whitespace-pre-wrap">
+                        {fb.content}
+                      </p>
+                    </div>
+
+                    {/* Conversation thread log */}
+                    <div className="space-y-3 pt-2">
+                      <span className="text-[8px] font-black text-slate-400 block uppercase tracking-wider">Communication Logs Thread</span>
+                      
+                      <div className="max-h-[220px] overflow-y-auto space-y-2.5 pr-2">
+                        {fb.replies && fb.replies.length > 0 ? (
+                          fb.replies.map((rep, rIdx) => {
+                            const isAdmin = rep.sender === 'admin';
+                            return (
+                              <div key={rIdx} className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}>
+                                <div className={`px-4 py-2.5 rounded-2xl text-[10px] leading-relaxed max-w-[80%] border ${
+                                  isAdmin 
+                                    ? 'bg-[#1a1d2e] border-[#1f2335] rounded-tr-sm text-white' 
+                                    : 'bg-[#00b900]/10 border-[#00b900]/20 rounded-tl-sm text-white'
+                                }`}>
+                                  <span className={`text-[8px] font-black block mb-1 uppercase tracking-wider ${isAdmin ? 'text-blue-400' : 'text-[#00b900]'}`}>
+                                    {isAdmin ? 'You (Administrator)' : `${fb.merchantShopName}`}
+                                  </span>
+                                  <p className="whitespace-pre-wrap">{rep.content}</p>
+                                  <span className="text-[7px] text-[#8b92ad] block text-right mt-1 font-semibold">
+                                    {new Date(rep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-center py-4 border border-[#1f2335]/30 border-dashed rounded-xl">
+                            <span className="text-[9px] text-[#8b92ad] font-bold block">No replies recorded yet</span>
+                            <span className="text-[8px] text-slate-500">Send an inquiry below to ask for more details.</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Interactive Admin Response Area */}
+                    <div className="flex gap-3 pt-1">
+                      <input
+                        type="text"
+                        value={replyTexts[fb._id] || ''}
+                        onChange={(e) => setReplyTexts(prev => ({ ...prev, [fb._id]: e.target.value }))}
+                        placeholder={`Send a responsive request for more info back to ${fb.merchantShopName}...`}
+                        className="flex-1 bg-[#0f1117] border border-[#1f2335] text-[10px] text-white rounded-xl px-4 py-2.5 outline-none focus:border-[#00b900] transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSendAdminReply(fb._id)}
+                        disabled={!(replyTexts[fb._id] || '').trim() || replyingFeedbackId === fb._id}
+                        className="px-4 py-2 bg-[#00b900] text-white hover:bg-[#00a300] rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {replyingFeedbackId === fb._id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <>
+                            <Send size={11} />
+                            Send Reply
+                          </>
+                        )}
+                      </button>
                     </div>
 
                   </div>
@@ -542,6 +702,54 @@ export default function AdminPage() {
         )}
 
       </main>
+
+      {/* ── GLOBAL CUSTOM DELETION MODAL ── */}
+      {feedbackToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="max-w-sm w-full bg-[#161925] border border-[#1f2335] rounded-[24px] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0 text-red-500 animate-pulse">
+                <ShieldAlert size={20} />
+              </div>
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <h4 className="text-sm font-bold tracking-tight text-white">Permanently Delete Feedback?</h4>
+                <p className="text-[11px] text-[#8b92ad] leading-relaxed">
+                  Warning: Purging this report removes the submission, status states, and all dialogue logs permanently from the database. This action is irreversible.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setFeedbackToDelete(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl text-[11px] font-bold transition-all bg-[#1a1d2e] border-transparent text-[#8b92ad] hover:bg-white/5 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteFeedback}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl text-[11px] font-bold bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/10 transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    Purging...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={12} />
+                    Yes, Purge
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="h-10 border-t border-[#1f2335] bg-[#161925] flex items-center justify-center text-[10px] text-[#8b92ad] flex-shrink-0">
         © {new Date().getFullYear()} Shopenter Administration Overseer. Privacy Shield Active.

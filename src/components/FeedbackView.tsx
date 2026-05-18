@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { HelpCircle, Send, CheckCircle2, MessageSquare, AlertCircle, Sparkles, Loader2, MessageSquareCode } from 'lucide-react';
+import { 
+  HelpCircle, Send, CheckCircle2, MessageSquare, AlertCircle, Sparkles, 
+  Loader2, MessageSquareCode, Trash2, ArrowLeft, User, ShieldAlert 
+} from 'lucide-react';
 import LoadingView from './LoadingView';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -10,11 +13,18 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+interface Reply {
+  sender: 'admin' | 'merchant';
+  content: string;
+  createdAt: string;
+}
+
 interface FeedbackItem {
   _id: string;
   category: 'feature' | 'bug' | 'opinion' | 'other';
   content: string;
   status: 'new' | 'reviewing' | 'planned' | 'completed';
+  replies?: Reply[];
   createdAt: string;
 }
 
@@ -30,11 +40,29 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
   const [history, setHistory] = useState<FeedbackItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
-  const fetchHistory = async () => {
+  // Conversation thread selection state
+  const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [isReplying, setIsReplying] = useState(false);
+
+  // Deletion prompt state
+  const [feedbackToDelete, setFeedbackToDelete] = useState<FeedbackItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchHistory = async (autoSelectId?: string) => {
     try {
       const res = await fetch('/api/feedback');
       if (res.ok) {
-        setHistory(await res.json());
+        const data = await res.json();
+        setHistory(data);
+        // Refresh selected thread details if currently open
+        if (autoSelectId) {
+          const fresh = data.find((x: FeedbackItem) => x._id === autoSelectId);
+          if (fresh) setSelectedFeedback(fresh);
+        } else if (selectedFeedback) {
+          const fresh = data.find((x: FeedbackItem) => x._id === selectedFeedback._id);
+          if (fresh) setSelectedFeedback(fresh);
+        }
       }
     } catch {}
     finally {
@@ -74,6 +102,54 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
       setError('A connection error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyText.trim() || !selectedFeedback || isReplying) return;
+
+    setIsReplying(true);
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reply',
+          feedbackId: selectedFeedback._id,
+          content: replyText.trim()
+        })
+      });
+
+      if (res.ok) {
+        setReplyText('');
+        await fetchHistory(selectedFeedback._id);
+      }
+    } catch {}
+    finally {
+      setIsReplying(false);
+    }
+  };
+
+  const handleDeleteFeedback = async () => {
+    if (!feedbackToDelete || isDeleting) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/feedback?id=${feedbackToDelete._id}`, {
+        method: 'DELETE'
+      });
+
+      if (res.ok) {
+        if (selectedFeedback?._id === feedbackToDelete._id) {
+          setSelectedFeedback(null);
+        }
+        setFeedbackToDelete(null);
+        await fetchHistory();
+      }
+    } catch {}
+    finally {
+      setIsDeleting(false);
     }
   };
 
@@ -124,7 +200,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
   };
 
   return (
-    <div className={cn("flex-1 overflow-y-auto p-6 space-y-8", K.bg)}>
+    <div className={cn("flex-1 overflow-y-auto p-6 space-y-8 relative", K.bg)}>
       
       {/* Title Header */}
       <div className="max-w-4xl mx-auto">
@@ -224,53 +300,248 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
           </form>
         </div>
 
-        {/* Right: Submission History */}
-        <div className={cn("rounded-2xl p-6 space-y-6 lg:col-span-2 flex flex-col min-h-[400px]", K.surface)}>
-          <div className="flex items-center justify-between border-b pb-4 border-[#1f2335]/10 dark:border-[#1f2335]">
-            <p className={cn("text-sm font-semibold", K.text)}>Feedback History</p>
-            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#1a1d2e]", K.muted)}>
-              {history.length}
-            </span>
-          </div>
+        {/* Right: Submission History / Conversation Console */}
+        <div className={cn("rounded-2xl p-6 space-y-6 lg:col-span-2 flex flex-col min-h-[460px] relative overflow-hidden", K.surface)}>
+          
+          {/* SCREEN 1: Dynamic Message Logs Thread (Selected) */}
+          {selectedFeedback ? (
+            <div className="flex flex-col h-full flex-1 animate-in slide-in-from-right duration-200">
+              
+              {/* Thread Header */}
+              <div className="flex items-center justify-between border-b pb-4 border-[#1f2335]/10 dark:border-[#1f2335]">
+                <button
+                  onClick={() => setSelectedFeedback(null)}
+                  className={cn("flex items-center gap-1 text-[10px] font-extrabold hover:text-[#00b900] transition-colors", K.muted)}
+                >
+                  <ArrowLeft size={12} />
+                  Back
+                </button>
 
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1" style={{ maxHeight: '420px' }}>
-            {isLoadingHistory ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3 text-[#8b92ad]">
-                <Loader2 size={24} className="animate-spin text-[#00b900]" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Syncing opinions history...</span>
+                <span className={cn("text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md", getStatusStyles(selectedFeedback.status))}>
+                  {selectedFeedback.status}
+                </span>
+
+                <button
+                  onClick={() => setFeedbackToDelete(selectedFeedback)}
+                  className="p-1 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-colors"
+                  title="Delete Feedback"
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
-            ) : history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-                <MessageSquareCode size={36} className="opacity-20 text-[#8b92ad]" />
-                <p className={cn("text-xs font-bold", K.text)}>No Feedback Submitted Yet</p>
-                <p className={cn("text-[10px] max-w-[200px] leading-relaxed mx-auto", K.muted)}>Your opinion matters. Submit your thoughts on the left and see them here!</p>
-              </div>
-            ) : (
-              history.map((item) => (
-                <div key={item._id} className={cn("p-4 rounded-xl space-y-3 animate-in fade-in duration-300", K.card)}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={cn("text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md", getStatusStyles(item.status))}>
-                      {item.status}
+
+              {/* Thread Messages List Container */}
+              <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1 max-h-[300px]" style={{ minHeight: '260px' }}>
+                
+                {/* 1. Original Submission Card */}
+                <div className="flex flex-col gap-1 items-end">
+                  <div className={cn("px-4 py-3 rounded-2xl rounded-tr-sm text-[10px] leading-relaxed max-w-[85%] border shadow-sm", 
+                    isDark ? 'bg-[#00b900]/10 border-[#00b900]/20 text-white' : 'bg-green-50 border-green-100 text-slate-800'
+                  )}>
+                    <span className="text-[9px] font-extrabold text-[#00b900] block mb-1 uppercase tracking-wide">
+                      {getCategoryLabel(selectedFeedback.category)} (Submission)
                     </span>
-                    <span className={cn("text-[9px] font-medium", K.muted)}>
-                      {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    <p className="whitespace-pre-wrap">{selectedFeedback.content}</p>
+                    <span className={cn("text-[8px] mt-1.5 block text-right font-medium opacity-60")}>
+                      {new Date(selectedFeedback.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
-                  </div>
-                  <div>
-                    <span className={cn("text-[10px] font-extrabold block mb-1", K.text)}>
-                      {getCategoryLabel(item.category)}
-                    </span>
-                    <p className={cn("text-[10px] leading-relaxed whitespace-pre-wrap", K.muted)}>
-                      {item.content}
-                    </p>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+
+                {/* 2. Interactive Dialog Replies */}
+                {selectedFeedback.replies && selectedFeedback.replies.length > 0 ? (
+                  selectedFeedback.replies.map((rep, idx) => {
+                    const isAdmin = rep.sender === 'admin';
+                    return (
+                      <div
+                        key={idx}
+                        className={cn("flex flex-col gap-1", isAdmin ? "items-start" : "items-end")}
+                      >
+                        <div className={cn(
+                          "px-4 py-3 rounded-2xl text-[10px] leading-relaxed max-w-[85%] border shadow-sm",
+                          isAdmin
+                            ? isDark
+                              ? 'bg-[#1a1d2e] border-[#1f2335] rounded-tl-sm text-white'
+                              : 'bg-slate-100 border-slate-200 rounded-tl-sm text-slate-800'
+                            : isDark
+                              ? 'bg-[#00b900]/10 border-[#00b900]/20 rounded-tr-sm text-white'
+                              : 'bg-green-50 border-green-100 rounded-tr-sm text-slate-800'
+                        )}>
+                          <span className={cn("text-[8px] font-black block mb-1 uppercase tracking-wider", 
+                            isAdmin ? "text-blue-400" : "text-[#00b900]"
+                          )}>
+                            {isAdmin ? 'System Administrator' : 'You (Merchant)'}
+                          </span>
+                          <p className="whitespace-pre-wrap">{rep.content}</p>
+                          <span className="text-[8px] mt-1.5 block text-right font-medium opacity-65">
+                            {new Date(rep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-8 text-center">
+                    <p className={cn("text-[9px] font-bold uppercase tracking-wider", K.muted)}>Awaiting Admin Review</p>
+                    <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 max-w-[180px] mx-auto leading-relaxed">
+                      We have notified the project director. Administrative responses will appear directly here.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Reply Input Bar */}
+              <form onSubmit={handleSendReply} className="border-t border-[#1f2335]/10 dark:border-[#1f2335] pt-4 flex gap-2">
+                <input
+                  type="text"
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Type a response to the admin..."
+                  className={cn(
+                    "flex-1 rounded-xl px-3 py-2 text-[10px] outline-none border focus:border-[#00b900] transition-colors",
+                    K.input
+                  )}
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={!replyText.trim() || isReplying}
+                  className="px-4 rounded-xl bg-[#00b900] text-white hover:bg-[#00a300] active:scale-95 transition-all flex items-center justify-center"
+                >
+                  {isReplying ? <Loader2 size={12} className="animate-spin" /> : <Send size={11} />}
+                </button>
+              </form>
+
+            </div>
+          ) : (
+            
+            /* SCREEN 2: Feedback History List */
+            <div className="flex flex-col h-full flex-1">
+              <div className="flex items-center justify-between border-b pb-4 border-[#1f2335]/10 dark:border-[#1f2335]">
+                <p className={cn("text-sm font-semibold", K.text)}>Feedback History</p>
+                <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#1a1d2e]", K.muted)}>
+                  {history.length}
+                </span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-4 max-h-[380px]" style={{ minHeight: '320px' }}>
+                {isLoadingHistory ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-3 text-[#8b92ad]">
+                    <Loader2 size={24} className="animate-spin text-[#00b900]" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Syncing opinions history...</span>
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+                    <MessageSquareCode size={36} className="opacity-20 text-[#8b92ad]" />
+                    <p className={cn("text-xs font-bold", K.text)}>No Feedback Submitted Yet</p>
+                    <p className={cn("text-[10px] max-w-[200px] leading-relaxed mx-auto", K.muted)}>Your opinion matters. Submit your thoughts on the left and track conversations here!</p>
+                  </div>
+                ) : (
+                  history.map((item) => (
+                    <div
+                      key={item._id}
+                      onClick={() => setSelectedFeedback(item)}
+                      className={cn("p-4 rounded-xl space-y-3 cursor-pointer hover:border-[#00b900]/30 transition-all active:scale-99 animate-in fade-in duration-300", K.card)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={cn("text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md", getStatusStyles(item.status))}>
+                          {item.status}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {item.replies && item.replies.length > 0 && (
+                            <span className="text-[8px] font-bold bg-[#00b900] text-white px-1.5 py-0.5 rounded-full">
+                              {item.replies.length} replies
+                            </span>
+                          )}
+                          <span className={cn("text-[9px] font-medium", K.muted)}>
+                            {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <span className={cn("text-[10px] font-extrabold block mb-1", K.text)}>
+                            {getCategoryLabel(item.category)}
+                          </span>
+                          <p className={cn("text-[10px] leading-relaxed whitespace-pre-wrap truncate", K.muted)}>
+                            {item.content}
+                          </p>
+                        </div>
+                        <Trash2
+                          size={13}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFeedbackToDelete(item);
+                          }}
+                          className="text-slate-400 hover:text-red-500 mt-1 cursor-pointer transition-colors"
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
 
       </div>
+
+      {/* ── CUSTOM GLASSMORPHIC DELETION MODAL ── */}
+      {feedbackToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div 
+            className={cn("max-w-sm w-full rounded-[24px] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200", 
+              isDark ? 'bg-[#161925] border border-[#1f2335] text-white' : 'bg-white border border-slate-100 text-slate-900'
+            )}
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0 text-red-500 animate-pulse">
+                <ShieldAlert size={20} />
+              </div>
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <h4 className="text-sm font-bold tracking-tight">Delete Feedback Report?</h4>
+                <p className={cn("text-[11px] leading-relaxed", K.muted)}>
+                  Warning: Deleting this report is permanent. It will instantly remove all messages and response threads from both your history and the Super Admin control desk.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setFeedbackToDelete(null)}
+                disabled={isDeleting}
+                className={cn("px-4 py-2 rounded-xl text-[11px] font-bold transition-all border",
+                  isDark 
+                    ? 'bg-[#1a1d2e] border-transparent text-[#8b92ad] hover:bg-white/5 hover:text-white' 
+                    : 'bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200'
+                )}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteFeedback}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl text-[11px] font-bold bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/10 transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={12} />
+                    Yes, Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
