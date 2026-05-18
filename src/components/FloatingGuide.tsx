@@ -35,7 +35,24 @@ export default function FloatingGuide({
   const [open, setOpen]           = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [settings, setSettings]   = useState<any>(null);
-  
+
+  const autoCollapseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAutoCollapse = useCallback(() => {
+    if (autoCollapseRef.current) {
+      clearTimeout(autoCollapseRef.current);
+      autoCollapseRef.current = null;
+    }
+  }, []);
+
+  const scheduleAutoCollapse = useCallback(() => {
+    clearAutoCollapse();
+    autoCollapseRef.current = setTimeout(() => {
+      setOpen(false);
+      localStorage.setItem('sg-open', 'false');
+    }, 8000);
+  }, [clearAutoCollapse]);
+
   type Corner = 'tl' | 'tr' | 'bl' | 'br';
   const [corner, setCorner] = useState<Corner>('br');
   const [isDragging, setIsDragging] = useState(false);
@@ -103,6 +120,16 @@ export default function FloatingGuide({
       return !v;
     });
   }, []);
+
+  // Auto-collapse: start 8s timer when panel opens; clear when it closes
+  useEffect(() => {
+    if (open) {
+      scheduleAutoCollapse();
+    } else {
+      clearAutoCollapse();
+    }
+    return () => clearAutoCollapse();
+  }, [open, scheduleAutoCollapse, clearAutoCollapse]);
 
   const onPointerDown = useCallback((e: React.PointerEvent, isHeader?: boolean) => {
     if (e.button !== 0) return; // only left click
@@ -282,7 +309,11 @@ export default function FloatingGuide({
 
       {/* ── Expanded panel ── */}
       {open && (
-        <div className={`rounded-2xl w-72 overflow-hidden pointer-events-auto ${bgOpen}`}>
+        <div
+          className={`rounded-2xl w-72 overflow-hidden pointer-events-auto ${bgOpen}`}
+          onMouseEnter={clearAutoCollapse}
+          onMouseLeave={scheduleAutoCollapse}
+        >
 
           {/* Header */}
           <div 
