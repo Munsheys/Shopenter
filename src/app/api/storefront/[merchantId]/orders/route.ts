@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Campaign } from '@/models';
+import { Order, Campaign, Settings } from '@/models';
 
 export const runtime = 'nodejs';
 
@@ -8,6 +8,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
   const { merchantId } = await params;
   try {
     await dbConnect();
+    const merchantExists = await Settings.exists({ merchantId });
+    if (!merchantExists) return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+
     const body = await req.json();
     const order = await Order.create({ ...body, merchantId });
 

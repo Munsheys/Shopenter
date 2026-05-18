@@ -56,6 +56,10 @@ export async function POST(req: NextRequest) {
     if (!category || !content) {
       return NextResponse.json({ error: 'Category and content are required' }, { status: 400 });
     }
+    const VALID_CATEGORIES = ['feature', 'bug', 'opinion', 'other'];
+    if (!VALID_CATEGORIES.includes(category)) {
+      return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
+    }
 
     const item = await Feedback.create({
       merchantId: merchant.merchantId,

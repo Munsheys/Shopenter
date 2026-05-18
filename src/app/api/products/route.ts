@@ -25,6 +25,12 @@ export async function POST(req: NextRequest) {
   try {
     await dbConnect();
     const body = await req.json();
+    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
+      return NextResponse.json({ error: 'Product name is required' }, { status: 400 });
+    }
+    if (typeof body.price !== 'number' || body.price < 0) {
+      return NextResponse.json({ error: 'Price must be a non-negative number' }, { status: 400 });
+    }
     const product = await Product.create({ ...body, merchantId: merchant.merchantId });
     return NextResponse.json(product, { status: 201 });
   } catch {

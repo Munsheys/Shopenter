@@ -64,14 +64,18 @@ export async function POST(req: Request) {
       const secret = s.lineChannelSecret?.trim();
       if (!secret) continue;
       const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('base64');
-      if (signature === expected) { matchedSettings = s; break; }
+      const sigBuf = Buffer.from(signature, 'base64');
+      const expBuf = Buffer.from(expected, 'base64');
+      if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) { matchedSettings = s; break; }
     }
 
     if (!matchedSettings) {
       const envSecret = process.env.LINE_CHANNEL_SECRET?.trim();
       if (envSecret) {
         const expected = crypto.createHmac('sha256', envSecret).update(rawBody).digest('base64');
-        if (signature !== expected) return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+        const sigBuf = Buffer.from(signature, 'base64');
+        const expBuf = Buffer.from(expected, 'base64');
+        if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       } else {
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }

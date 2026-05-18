@@ -2,7 +2,10 @@ import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET env var must be set to at least 32 characters');
+};
 const BCRYPT_ROUNDS = 12;
 
 export interface MerchantJwtPayload {

@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 
 function verifyAdmin(req: NextRequest) {
   const secret = req.headers.get('x-admin-secret');
-  const masterSecret = process.env.NEXT_PUBLIC_ADMIN_SECRET;
+  const masterSecret = process.env.ADMIN_SECRET;
   
   if (!masterSecret || secret !== masterSecret) {
     return false;

@@ -13,6 +13,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await dbConnect();
     const { id } = await params;
     const body = await req.json();
+    if (body.name !== undefined && (typeof body.name !== 'string' || !body.name.trim())) {
+      return NextResponse.json({ error: 'Product name must be a non-empty string' }, { status: 400 });
+    }
+    if (body.price !== undefined && (typeof body.price !== 'number' || body.price < 0)) {
+      return NextResponse.json({ error: 'Price must be a non-negative number' }, { status: 400 });
+    }
     const product = await Product.findOneAndUpdate(
       { _id: id, merchantId: merchant.merchantId },
       body,

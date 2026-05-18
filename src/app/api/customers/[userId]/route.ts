@@ -28,13 +28,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
 
   const { userId } = await params;
   const body = await req.json().catch(() => ({}));
-  delete body.merchantId;
+  const update: Record<string, unknown> = {};
+  if (body.addresses !== undefined) update.addresses = body.addresses;
+  if (body.status !== undefined) update.status = body.status;
 
   try {
     await dbConnect();
     const customer = await Customer.findOneAndUpdate(
       { merchantId: merchant.merchantId, userId },
-      body,
+      update,
       { new: true }
     );
     if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });

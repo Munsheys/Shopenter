@@ -21,6 +21,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
 
+  const VALID_MATCH_TYPES = ['exact', 'contains', 'starts_with', 'default'];
+  if (update.matchType !== undefined && !VALID_MATCH_TYPES.includes(update.matchType as string)) {
+    return NextResponse.json({ error: 'Invalid matchType' }, { status: 400 });
+  }
+  if (update.messages !== undefined) {
+    if (!Array.isArray(update.messages) || update.messages.length === 0 || update.messages.length > 5) {
+      return NextResponse.json({ error: 'messages must be an array of 1–5 items' }, { status: 400 });
+    }
+  }
+
   await dbConnect();
   const rule = await AutoReply.findOneAndUpdate(
     { _id: id, merchantId: merchant.merchantId },
