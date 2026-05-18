@@ -139,7 +139,7 @@ export default function DashboardPage() {
         <nav ref={topNavContainerRef} className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
           {/* Smooth Sliding Underline Indicator */}
           <div 
-            className={`absolute bottom-0 h-[2px] bg-[#00b900] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
+            className={`absolute bottom-0 h-[2px] bg-[#00b900] shadow-[0_0_12px_#00b900,0_0_4px_#00b900] animate-pulse transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
               topNavStyle.width ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
@@ -162,7 +162,7 @@ export default function DashboardPage() {
             </button>
           ))}
         </nav>
-
+ 
         {/* Right: view store + user section */}
         <div className="flex items-center gap-3 px-4 flex-shrink-0">
           {merchant && (
@@ -170,10 +170,10 @@ export default function DashboardPage() {
               href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all active:scale-95 shadow-sm shadow-[#00b900]/10 ${
                 isDark
-                  ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#2d3555]'
-                  : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  ? 'border-[#00b900]/30 bg-[#00b900]/10 text-[#00b900] hover:bg-[#00b900] hover:text-white hover:border-[#00b900]'
+                  : 'border-[#00b900]/25 bg-[#00b900]/5 text-[#00b900] hover:bg-[#00b900] hover:text-white hover:border-[#00b900]'
               }`}
             >
               <ExternalLink size={12} />
