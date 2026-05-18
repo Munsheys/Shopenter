@@ -117,9 +117,14 @@ export default function SettingsView({
     };
 
     updatePill();
+    const timer = setTimeout(updatePill, 50);
+
     window.addEventListener('resize', updatePill);
-    return () => window.removeEventListener('resize', updatePill);
-  }, [activeSection]);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updatePill);
+    };
+  }, [activeSection, settings !== null]);
 
   // 2. Flawless Smooth Scrolling Handler with Programmatic Lock
   const scrollTo = useCallback((id: string) => {
@@ -187,6 +192,18 @@ export default function SettingsView({
         setActiveSection('notifications');
       } else if (container.scrollTop === 0) {
         setActiveSection('general');
+      } else {
+        // Hybrid Backup Check: reliable coordinate-based lookup to support instant tracking
+        const containerTop = container.getBoundingClientRect().top;
+        const triggerLine = containerTop + 120;
+        let active: SectionId = 'general';
+        for (const id of ids) {
+          const el = container.querySelector<HTMLElement>(`#${id}`);
+          if (el && el.getBoundingClientRect().top <= triggerLine) {
+            active = id;
+          }
+        }
+        setActiveSection(active);
       }
     };
 
@@ -197,7 +214,7 @@ export default function SettingsView({
       container.removeEventListener('scroll', handleScroll);
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
-  }, []);
+  }, [settings !== null]);
 
   // External scroll trigger from FloatingGuide navigation
   useEffect(() => {
@@ -296,7 +313,9 @@ export default function SettingsView({
         <div ref={tabsContainerRef} className={`flex items-center gap-1 p-1 rounded-xl relative ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
           {/* Gorgeous Sliding Indicator Pill */}
           <div 
-            className="absolute bg-[#00b900] rounded-lg transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] shadow-sm pointer-events-none z-0"
+            className={`absolute bg-[#00b900] rounded-lg transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] shadow-sm pointer-events-none z-0 ${
+              pillStyle.width ? 'opacity-100' : 'opacity-0'
+            }`}
             style={pillStyle}
           />
           {SECTIONS.map(s => (
@@ -305,7 +324,9 @@ export default function SettingsView({
               onClick={() => scrollTo(s.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center relative z-10 ${
                 activeSection === s.id
-                  ? 'text-white'
+                  ? pillStyle.width
+                    ? 'text-white'
+                    : 'bg-[#00b900] text-white shadow-sm'
                   : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
