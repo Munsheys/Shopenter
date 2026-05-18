@@ -198,35 +198,51 @@ export default function DashboardPage() {
 
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        {activeTab === 'customers'  && <CustomersView theme={theme} />}
-        {activeTab === 'orders'     && <div className="flex-1 overflow-auto pt-2"><ShopOrdersView theme={theme} t={{}} /></div>}
-        {activeTab === 'products'   && <div className="flex-1 overflow-auto"><ProductManagement theme={theme} t={{}} /></div>}
-        {activeTab === 'reports'    && <div className="flex-1 overflow-auto pt-2"><ReportsView theme={theme} t={{}} /></div>}
-        {activeTab === 'broadcasts' && <div className="flex-1 overflow-hidden flex flex-col"><BroadcastsView theme={theme} t={{}} /></div>}
-        {activeTab === 'settings'   && <SettingsView theme={theme} onSave={refreshSettings} scrollTrigger={settingsScroll} />}
-        {activeTab === 'storefront' && (
-          <div className="flex-1 overflow-auto p-6">
-            <div className="mb-6">
-              <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Storefront customization</h2>
-              <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                Choose a theme, set your brand colors, and configure what customers see at{' '}
-                {merchant && (
-                  <a
-                    href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
-                    target="_blank" rel="noopener noreferrer" className="text-green-500 hover:underline"
-                  >
-                    {merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
-                  </a>
-                )}
-              </p>
-            </div>
-            <StorefrontCustomizer
-              shopName={settings?.shopName || 'My Shop'}
-              initial={settings?.storefront}
-              onSave={handleSaveStorefront}
-            />
+        <div className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
+          <CustomersView theme={theme} />
+        </div>
+        
+        <div className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
+          <ShopOrdersView theme={theme} t={{}} />
+        </div>
+        
+        <div className={activeTab === 'products' ? 'flex-1 overflow-auto' : 'hidden'}>
+          <ProductManagement theme={theme} t={{}} />
+        </div>
+        
+        <div className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
+          <ReportsView theme={theme} t={{}} />
+        </div>
+        
+        <div className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col' : 'hidden'}>
+          <BroadcastsView theme={theme} t={{}} />
+        </div>
+        
+        <div className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
+          <SettingsView theme={theme} onSave={refreshSettings} scrollTrigger={settingsScroll} />
+        </div>
+        
+        <div className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6' : 'hidden'}>
+          <div className="mb-6">
+            <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Storefront customization</h2>
+            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Choose a theme, set your brand colors, and configure what customers see at{' '}
+              {merchant && (
+                <a
+                  href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
+                  target="_blank" rel="noopener noreferrer" className="text-green-500 hover:underline"
+                >
+                  {merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
+                </a>
+              )}
+            </p>
           </div>
-        )}
+          <StorefrontCustomizer
+            shopName={settings?.shopName || 'My Shop'}
+            initial={settings?.storefront}
+            onSave={handleSaveStorefront}
+          />
+        </div>
       </main>
       <FloatingGuide
         theme={theme}
