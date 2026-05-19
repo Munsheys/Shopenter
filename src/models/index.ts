@@ -14,6 +14,7 @@ const SettingsSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   shopName: { type: String, default: "My Shop" },
   theme: { type: String, enum: ['light', 'dark'], default: "light" },
+  dashboardAccent: { type: String, default: '#00b900' },
   krwRate: { type: Number, default: 0.026 },
   importCurrency: { type: String, default: 'KRW' },
   localCurrency: { type: String, default: 'THB' },
