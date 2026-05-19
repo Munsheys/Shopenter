@@ -20,11 +20,13 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: "Shopenter",
     type: "website",
+    images: [{ url: `${siteUrl}/opengraph-image`, width: 1200, height: 630, alt: "Shopenter — LINE OA Store Management" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Shopenter — All-in-One LINE OA Store Management Platform",
     description: "Run your LINE OA store with ease. Manage products, orders, customers, campaigns, and payments from one dashboard made for Thai merchants.",
+    images: [`${siteUrl}/opengraph-image`],
   },
 };
 
