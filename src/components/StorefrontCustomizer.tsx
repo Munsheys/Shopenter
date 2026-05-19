@@ -86,7 +86,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
   const sectionHeading = `text-sm font-semibold mb-3 ${isDark ? 'text-gray-100' : 'text-gray-900'}`;
   const fieldLabel = `text-xs font-medium mb-1 block ${isDark ? 'text-gray-300' : 'text-gray-800'}`;
-  const inputCls = `w-full border rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${isDark ? 'border-gray-700 text-gray-100 placeholder-gray-500' : 'border-gray-200 text-gray-900 placeholder-gray-500'}`;
+  const inputCls = `w-full border rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 ${isDark ? 'border-gray-700 text-gray-100 placeholder-gray-500' : 'border-gray-200 text-gray-900 placeholder-gray-500'}`;
 
   return (
     <div className="flex gap-12 items-start">
@@ -101,7 +101,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             Your custom short URL. Customers can reach your store at <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-800'}`}>/shop/yourhandle</span> instead of the long ID.
           </p>
           <div className="flex gap-2">
-            <div className={`flex-1 flex items-center border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-green-500 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+            <div className={`flex-1 flex items-center border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-accent/40 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
               <span className={`px-3 py-2 text-sm border-r select-none flex-shrink-0 ${isDark ? 'text-gray-500 border-gray-700 bg-white/5' : 'text-gray-600 border-gray-200 bg-gray-50'}`}>/shop/</span>
               <input
                 type="text"
@@ -160,7 +160,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     <p className="text-xs" style={{ color: preset.textMuted }}>{preset.description}</p>
                   </div>
                   {active && (
-                    <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                    <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-accent flex items-center justify-center">
                       <Check size={11} className="text-white" />
                     </div>
                   )}
@@ -172,25 +172,39 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
         {/* Accent color override */}
         <section>
-          <h3 className={sectionHeading}>Accent color override</h3>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={config.accentColor || p.accent}
-              onChange={e => set('accentColor', e.target.value)}
-              className={`w-10 h-10 rounded-lg border cursor-pointer bg-transparent flex-shrink-0 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
-            />
-            <input
-              type="text"
-              value={config.accentColor}
-              onChange={e => set('accentColor', e.target.value)}
-              placeholder={`Default: ${p.accent}`}
-              className={`${inputCls} flex-1`}
-            />
+          <h3 className={sectionHeading}>Accent color</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            {[p.accent, '#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'].map(color => {
+              const isActive = (config.accentColor || p.accent) === color;
+              return (
+                <button
+                  key={color}
+                  onClick={() => set('accentColor', color === p.accent ? '' : color)}
+                  title={color === p.accent ? `Preset default (${color})` : color}
+                  style={{
+                    backgroundColor: color,
+                    ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : {}),
+                  }}
+                  className={`w-7 h-7 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                />
+              );
+            })}
+            <label
+              title="Custom color"
+              className={`w-7 h-7 rounded-full border-2 cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center ${isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}
+            >
+              <input
+                type="color"
+                value={config.accentColor || p.accent}
+                onChange={e => set('accentColor', e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+              <span className={`text-[13px] font-bold leading-none ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>+</span>
+            </label>
             {config.accentColor && (
               <button
                 onClick={() => set('accentColor', '')}
-                className={`text-xs font-medium transition-colors flex-shrink-0 ${isDark ? 'text-gray-400 hover:text-gray-100' : 'text-gray-700 hover:text-gray-900'}`}
+                className={`text-[10px] font-semibold ml-1 transition-colors ${isDark ? 'text-gray-500 hover:text-gray-200' : 'text-gray-400 hover:text-gray-700'}`}
               >
                 Reset
               </button>
