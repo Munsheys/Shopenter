@@ -19,7 +19,7 @@ type Order = {
   costTHB: number; profit: number; shipCostTHB: number;
   costCurrency?: string; soldCurrency?: string;
   tracking?: string; courier?: string; address?: string;
-  status: 'pending' | 'paid' | 'preparing' | 'shipped';
+  status: 'pending' | 'paid' | 'preparing' | 'shipped' | 'delivered';
   paymentQrSent: boolean; createdAt: string;
   rateUsed?: number;
   statusBeforeParcel?: string;
@@ -481,7 +481,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   const selectedTotal = activeOrders.filter(o => selectedOrderIds.has(o._id)).reduce((s, o) => s + (o.soldTHB || 0), 0);
   const allPendingSelected = pendingOrders.length > 0 && pendingOrders.every(o => selectedOrderIds.has(o._id));
   const parcelOrders = customerOrders.filter(o => o.status === 'preparing');
-  const shippedOrders = customerOrders.filter(o => o.status === 'shipped');
+  const shippedOrders = customerOrders.filter(o => o.status === 'shipped' || o.status === 'delivered');
 
   const totalSpent = customerOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
   const totalProfit = shippedOrders.reduce((s, o) => s + (o.profit || 0), 0);
@@ -1227,10 +1227,16 @@ const STATUS_COLORS: Record<string, any> = {
     border: 'border-slate-500/30',
     lightBg: 'bg-slate-500/10',
   },
+  delivered: {
+    bg: 'bg-green-500',
+    text: 'text-green-600',
+    border: 'border-green-500/30',
+    lightBg: 'bg-green-500/10',
+  },
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: 'New Order', paid: 'Paid', preparing: 'In Parcel', shipped: 'Shipped',
+  pending: 'New Order', paid: 'Paid', preparing: 'In Parcel', shipped: 'Shipped', delivered: 'Delivered',
 };
 
 function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSendQR, onMarkPaid, onMoveToParcel, selected, onToggleSelect, isActing }: {
@@ -1297,8 +1303,15 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
     ? `bg-[#161925] border border-[#1f2335] hover:bg-white/10 ${status.glow || ''}`
     : `bg-white ${status.border} shadow-sm hover:shadow-md transition-all ${status.glow || ''}`;
 
+  const borderColors: Record<string, string> = {
+    pending: '#fbbf24', paid: '#60a5fa', preparing: '#34d399', shipped: '#94a3b8', delivered: '#4ade80',
+  };
+
   return (
-    <article className={`relative overflow-hidden rounded-2xl border-l-4 p-5 transition-all duration-300 ${cardClasses} ${!isDark ? `border-l-${order.status === 'pending' ? 'amber-400' : order.status === 'paid' ? 'blue-400' : 'emerald-400'}` : 'border-l-transparent'} ${selected && onToggleSelect ? 'ring-2 ring-accent/40' : ''}`}>
+    <article
+      className={`relative overflow-hidden rounded-2xl border-l-4 p-5 transition-all duration-300 ${cardClasses} ${selected && onToggleSelect ? 'ring-2 ring-accent/40' : ''}`}
+      style={!isDark ? { borderLeftColor: borderColors[order.status] ?? borderColors.pending } : { borderLeftColor: 'transparent' }}
+    >
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           {onToggleSelect && (

@@ -30,7 +30,7 @@ interface Order {
   quantity: number;
   items: any[];
   soldTHB: number;
-  status: 'pending' | 'paid' | 'preparing' | 'shipped';
+  status: 'pending' | 'paid' | 'preparing' | 'shipped' | 'delivered';
   createdAt: string;
   tracking?: string;
 }
@@ -116,10 +116,10 @@ export default function ShopOrdersView({
   };
 
   const stats = {
-    revenue: orders?.reduce((sum, o) => sum + (o.soldTHB || 0), 0) || 0,
-    pending: orders?.filter(o => o.status === 'pending').length || 0,
+    revenue:   orders?.reduce((sum, o) => sum + (o.soldTHB || 0), 0) || 0,
+    pending:   orders?.filter(o => o.status === 'pending').length || 0,
     preparing: orders?.filter(o => o.status === 'preparing').length || 0,
-    totalItems: orders?.reduce((sum, o) => sum + (o.items?.reduce((s: number, i: any) => s + (i.qty || 1), 0) || 1), 0) || 0
+    delivered: orders?.filter(o => o.status === 'delivered').length || 0,
   };
 
 
@@ -171,12 +171,12 @@ export default function ShopOrdersView({
           theme={theme} 
           isLoading={isLoading || orders === null}
         />
-        <StatsCard 
-          icon={<CheckCircle2 size={20} />} 
-          label="Items Volume" 
-          value={stats.totalItems.toString()} 
-          color="indigo" 
-          theme={theme} 
+        <StatsCard
+          icon={<CheckCircle2 size={20} />}
+          label="Delivered"
+          value={stats.delivered.toString()}
+          color="indigo"
+          theme={theme}
           isLoading={isLoading || orders === null}
         />
       </div>
@@ -221,6 +221,7 @@ export default function ShopOrdersView({
               <option value="paid">Paid</option>
               <option value="preparing">Preparing</option>
               <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
           </div>
@@ -396,10 +397,11 @@ function StatsCard({ icon, label, value, color, theme, isLoading }: any) {
 
 function StatusPill({ status }: { status: string }) {
   const configs: any = {
-    pending: { label: 'PENDING', bg: 'bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40' },
-    paid: { label: 'PAID', bg: 'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40' },
+    pending:   { label: 'PENDING',   bg: 'bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40' },
+    paid:      { label: 'PAID',      bg: 'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40' },
     preparing: { label: 'PREPARING', bg: 'bg-blue-100 text-blue-600 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/40' },
-    shipped: { label: 'SHIPPED', bg: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/40' },
+    shipped:   { label: 'SHIPPED',   bg: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/40' },
+    delivered: { label: 'DELIVERED', bg: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/40' },
   };
 
   const config = configs[status] || configs.pending;

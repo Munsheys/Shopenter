@@ -1,4 +1,4 @@
-export type OrderStatus = 'pending' | 'preparing' | 'in_parcel' | 'shipped';
+export type OrderStatus = 'pending' | 'paid' | 'preparing' | 'shipped' | 'delivered';
 
 export interface Customer {
   userId: string;
