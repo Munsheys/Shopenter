@@ -36,8 +36,6 @@ const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'broadcasts', label: 'Broadcasts', icon: <Megaphone size={15} /> },
   { id: 'storefront', label: 'Storefront', icon: <Store size={15} /> },
   { id: 'coupons',    label: 'Coupons',    icon: <Tag size={15} /> },
-  { id: 'feedback',   label: 'Feedback',   icon: <HeartHandshake size={15} /> },
-  { id: 'settings',   label: 'Settings',   icon: <SettingsIcon size={15} /> },
 ];
 
 export default function DashboardPage() {
@@ -236,7 +234,7 @@ export default function DashboardPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative flex items-center gap-2 px-4 h-full text-[13px] font-bold transition-colors whitespace-nowrap flex-shrink-0 ${
+              className={`relative flex items-center gap-2 px-3 h-full text-[13px] font-bold transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? `${isDark ? 'text-white' : 'text-gray-900'}`
                   : `${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
@@ -277,6 +275,31 @@ export default function DashboardPage() {
           >
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
+
+          <div className={`flex items-center gap-1 pl-3 border-l ${isDark ? 'border-[#1f2335]' : 'border-gray-200'}`}>
+            <button
+              onClick={() => setActiveTab('feedback')}
+              title="Feedback"
+              className={`p-1.5 rounded-lg transition-colors ${
+                activeTab === 'feedback'
+                  ? 'text-[#00b900] bg-[#00b900]/10'
+                  : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <HeartHandshake size={15} />
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              title="Settings"
+              className={`p-1.5 rounded-lg transition-colors ${
+                activeTab === 'settings'
+                  ? 'text-[#00b900] bg-[#00b900]/10'
+                  : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <SettingsIcon size={15} />
+            </button>
+          </div>
 
           <div className={`flex items-center gap-2 pl-3 border-l ${isDark ? 'border-[#1f2335]' : 'border-gray-200'}`}>
             <div className="w-8 h-8 rounded-full bg-[#00b900]/10 border border-[#00b900]/20 flex items-center justify-center flex-shrink-0">
