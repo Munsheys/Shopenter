@@ -348,6 +348,7 @@ export default function DashboardPage() {
             shopName={settings?.shopName || 'My Shop'}
             slug={merchant?.slug}
             initial={settings?.storefront}
+            theme={theme}
             onSave={handleSaveStorefront}
             onSaveSlug={handleSaveSlug}
           />

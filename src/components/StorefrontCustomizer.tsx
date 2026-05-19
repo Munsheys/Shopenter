@@ -34,11 +34,13 @@ interface Props {
   shopName: string;
   slug?: string | null;
   initial?: Partial<StorefrontConfig>;
+  theme?: 'light' | 'dark';
   onSave: (config: StorefrontConfig) => Promise<void>;
   onSaveSlug: (slug: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
-export default function StorefrontCustomizer({ shopName, slug: initialSlug, initial, onSave, onSaveSlug }: Props) {
+export default function StorefrontCustomizer({ shopName, slug: initialSlug, initial, theme = 'light', onSave, onSaveSlug }: Props) {
+  const isDark = theme === 'dark';
   const [config, setConfig] = useState<StorefrontConfig>({ ...DEFAULT_CONFIG, ...initial });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -82,9 +84,9 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
     setSlugSaving(false);
   }
 
-  const sectionHeading = 'text-sm font-semibold mb-3 text-gray-900 dark:text-gray-100';
-  const fieldLabel = 'text-xs font-medium text-gray-800 dark:text-gray-300 mb-1 block';
-  const inputCls = 'w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500';
+  const sectionHeading = `text-sm font-semibold mb-3 ${isDark ? 'text-gray-100' : 'text-gray-900'}`;
+  const fieldLabel = `text-xs font-medium mb-1 block ${isDark ? 'text-gray-300' : 'text-gray-800'}`;
+  const inputCls = `w-full border rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${isDark ? 'border-gray-700 text-gray-100 placeholder-gray-500' : 'border-gray-200 text-gray-900 placeholder-gray-500'}`;
 
   return (
     <div className="flex gap-12 items-start">
@@ -95,12 +97,12 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         {/* Store handle */}
         <section>
           <h3 className={sectionHeading}>Store handle</h3>
-          <p className="text-xs text-gray-700 dark:text-gray-400 mb-3">
-            Your custom short URL. Customers can reach your store at <span className="font-medium text-gray-800 dark:text-gray-300">/shop/yourhandle</span> instead of the long ID.
+          <p className={`text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-700'}`}>
+            Your custom short URL. Customers can reach your store at <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-800'}`}>/shop/yourhandle</span> instead of the long ID.
           </p>
           <div className="flex gap-2">
-            <div className="flex-1 flex items-center border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-green-500">
-              <span className="px-3 py-2 text-sm text-gray-600 dark:text-gray-500 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5 select-none flex-shrink-0">/shop/</span>
+            <div className={`flex-1 flex items-center border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-green-500 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <span className={`px-3 py-2 text-sm border-r select-none flex-shrink-0 ${isDark ? 'text-gray-500 border-gray-700 bg-white/5' : 'text-gray-600 border-gray-200 bg-gray-50'}`}>/shop/</span>
               <input
                 type="text"
                 value={slugInput}
@@ -108,7 +110,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 onKeyDown={e => e.key === 'Enter' && handleSaveSlug()}
                 placeholder="your-handle"
                 maxLength={30}
-                className="flex-1 px-3 py-2 text-sm bg-transparent focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                className={`flex-1 px-3 py-2 text-sm bg-transparent focus:outline-none ${isDark ? 'text-gray-100 placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`}
               />
             </div>
             <button
@@ -125,11 +127,11 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
           </div>
           {slugError && <p className="mt-1.5 text-xs text-red-500">{slugError}</p>}
           {slugSaved && (
-            <p className="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+            <p className={`mt-1.5 text-xs ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
               Store is now reachable at <span className="font-medium">/shop/{slugInput}</span>
             </p>
           )}
-          <p className="mt-1.5 text-[10px] text-gray-600 dark:text-gray-500">
+          <p className={`mt-1.5 text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
             Lowercase letters, numbers, and hyphens only · 3–30 characters
           </p>
         </section>
@@ -176,7 +178,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
               type="color"
               value={config.accentColor || p.accent}
               onChange={e => set('accentColor', e.target.value)}
-              className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer bg-transparent flex-shrink-0"
+              className={`w-10 h-10 rounded-lg border cursor-pointer bg-transparent flex-shrink-0 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
             />
             <input
               type="text"
@@ -188,7 +190,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             {config.accentColor && (
               <button
                 onClick={() => set('accentColor', '')}
-                className="text-xs font-medium text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors flex-shrink-0"
+                className={`text-xs font-medium transition-colors flex-shrink-0 ${isDark ? 'text-gray-400 hover:text-gray-100' : 'text-gray-700 hover:text-gray-900'}`}
               >
                 Reset
               </button>
@@ -265,7 +267,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors ${
                   config.cardLayout === opt.id
                     ? 'bg-green-500 text-white border-green-500'
-                    : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                    : isDark ? 'border-gray-700 text-gray-300 hover:border-gray-600' : 'border-gray-200 text-gray-700 hover:border-gray-300'
                 }`}
               >
                 {opt.icon}{opt.label}
@@ -285,12 +287,12 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             ] as { key: keyof StorefrontConfig; label: string }[]).map(({ key, label }) => (
               <label
                 key={key}
-                className="flex items-center justify-between py-2 px-3 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
+                className={`flex items-center justify-between py-2 px-3 rounded-xl border cursor-pointer ${isDark ? 'border-gray-800 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50'}`}
               >
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
+                <span className={`text-sm font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{label}</span>
                 <div
                   onClick={() => set(key, !config[key] as any)}
-                  className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${config[key] ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`}
+                  className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${config[key] ? 'bg-green-500' : isDark ? 'bg-gray-700' : 'bg-gray-200'}`}
                 >
                   <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${config[key] ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
@@ -312,13 +314,13 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
       {/* ── Right: Persistent Preview ──────────────────────────────────── */}
       <div className="flex-1 min-w-64 sticky top-6 self-start space-y-3">
         <div className="flex items-center gap-2">
-          <Eye size={14} className="text-gray-700 dark:text-gray-400" />
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Live Preview</h3>
-          <span className="text-[10px] text-gray-600 dark:text-gray-500 ml-auto">Updates instantly</span>
+          <Eye size={14} className={isDark ? 'text-gray-400' : 'text-gray-700'} />
+          <h3 className={`text-sm font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Live Preview</h3>
+          <span className={`text-[10px] ml-auto ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Updates instantly</span>
         </div>
 
         <div
-          className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700"
+          className={`rounded-2xl overflow-hidden border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
           style={{ background: p.pageBg }}
         >
           {/* Announcement bar */}
@@ -429,7 +431,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
           </div>
         </div>
 
-        <p className="text-[10px] text-gray-600 dark:text-gray-500 text-center">
+        <p className={`text-[10px] text-center ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
           Approximate preview · actual storefront may vary
         </p>
       </div>
