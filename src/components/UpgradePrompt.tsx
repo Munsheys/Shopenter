@@ -34,7 +34,7 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
     >
       <div className={`w-full max-w-md rounded-[28px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
         {/* Header */}
-        <div className="relative bg-gradient-to-br from-[#00b900] to-[#007700] p-8 pb-10">
+        <div className="relative bg-gradient-to-br from-accent to-[#007700] p-8 pb-10">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
@@ -67,8 +67,8 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
           <ul className="space-y-2 mb-6">
             {PRO_FEATURES.map((feat) => (
               <li key={feat} className="flex items-center gap-2.5 text-sm">
-                <div className="w-4 h-4 bg-[#00b900]/10 rounded-full flex items-center justify-center flex-shrink-0">
-                  <div className="w-1.5 h-1.5 bg-[#00b900] rounded-full" />
+                <div className="w-4 h-4 bg-accent/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-1.5 h-1.5 bg-accent rounded-full" />
                 </div>
                 <span className={isDark ? 'text-[#8b92ad]' : 'text-[#4a5170]'}>{feat}</span>
               </li>
@@ -84,7 +84,7 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
             </button>
             <button
               onClick={() => { onClose(); }}
-              className="flex-1 py-3 text-sm font-bold text-white bg-[#00b900] rounded-2xl shadow-lg shadow-[#00b90033] hover:opacity-90 flex items-center justify-center gap-2"
+              className="flex-1 py-3 text-sm font-bold text-white bg-accent rounded-2xl shadow-lg shadow-accent/20 hover:opacity-90 flex items-center justify-center gap-2"
             >
               <Zap size={16} /> Upgrade to Pro
             </button>

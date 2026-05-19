@@ -169,8 +169,8 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
           : 'bg-purple-50 text-purple-600 border border-purple-100';
       case 'completed':
         return isDark 
-          ? 'bg-[#00b900]/10 text-[#00b900] border border-[#00b900]/20' 
-          : 'bg-green-50 text-[#00b900] border border-green-100';
+          ? 'bg-accent/10 text-accent border border-accent/20' 
+          : 'bg-accent/5 text-accent border border-green-100';
     }
   };
 
@@ -195,7 +195,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
     surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200',
     text: isDark ? 'text-white' : 'text-slate-900',
     muted: isDark ? 'text-[#8b92ad]' : 'text-slate-500',
-    input: isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white focus:border-[#00b900]' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-[#00b900]',
+    input: isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white focus:border-accent' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-accent',
     card: isDark ? 'bg-[#1a1d2e]/50 border border-[#1f2335]' : 'bg-slate-50 border border-slate-100',
   };
 
@@ -228,10 +228,10 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                     className={cn(
                       "p-3 rounded-xl border text-left transition-all active:scale-98 flex flex-col gap-1.5",
                       category === cat.id
-                        ? "border-[#00b900] bg-[#00b900]/5 text-[#00b900] shadow-sm shadow-[#00b900]/5"
+                        ? "border-accent bg-accent/5 text-accent shadow-sm shadow-accent/5"
                         : isDark
-                          ? "border-[#1f2335] bg-[#1a1d2e]/50 text-[#8b92ad] hover:border-[#00b900]/30"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-[#00b900]/30"
+                          ? "border-[#1f2335] bg-[#1a1d2e]/50 text-[#8b92ad] hover:border-accent/30"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-accent/30"
                     )}
                   >
                     <span className="flex items-center gap-1.5 text-xs font-bold">
@@ -254,7 +254,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                 rows={6}
                 required
                 className={cn(
-                  "w-full rounded-2xl p-4 text-xs outline-none border focus:ring-1 focus:ring-[#00b900] transition-all resize-none leading-relaxed",
+                  "w-full rounded-2xl p-4 text-xs outline-none border focus:ring-1 focus:ring-accent transition-all resize-none leading-relaxed",
                   K.input
                 )}
               />
@@ -262,7 +262,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
 
             {/* Success and Error Indicators */}
             {success && (
-              <div className="flex items-center gap-2 p-3.5 rounded-xl text-xs font-bold text-[#00b900] bg-[#00b900]/10 border border-[#00b900]/20 animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-2 p-3.5 rounded-xl text-xs font-bold text-accent bg-accent/10 border border-accent/20 animate-in fade-in zoom-in-95">
                 <CheckCircle2 size={16} />
                 <span>Thank you! Your feedback has been received and sent directly to the project director.</span>
               </div>
@@ -280,8 +280,8 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
               type="submit"
               disabled={!content.trim() || isSubmitting}
               className={cn(
-                "w-full py-3.5 rounded-xl text-xs font-bold shadow-lg shadow-[#00b900]/10 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50",
-                "bg-[#00b900] text-white hover:bg-[#00a300]"
+                "w-full py-3.5 rounded-xl text-xs font-bold shadow-lg shadow-accent/10 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50",
+                "bg-accent text-white hover:bg-[#00a300]"
               )}
             >
               {isSubmitting ? (
@@ -311,7 +311,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
               <div className="flex items-center justify-between border-b pb-4 border-[#1f2335]/10 dark:border-[#1f2335]">
                 <button
                   onClick={() => setSelectedFeedback(null)}
-                  className={cn("flex items-center gap-1 text-[10px] font-extrabold hover:text-[#00b900] transition-colors", K.muted)}
+                  className={cn("flex items-center gap-1 text-[10px] font-extrabold hover:text-accent transition-colors", K.muted)}
                 >
                   <ArrowLeft size={12} />
                   Back
@@ -336,9 +336,9 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                 {/* 1. Original Submission Card */}
                 <div className="flex flex-col gap-1 items-end">
                   <div className={cn("px-4 py-3 rounded-2xl rounded-tr-sm text-[10px] leading-relaxed max-w-[85%] border shadow-sm", 
-                    isDark ? 'bg-[#00b900]/10 border-[#00b900]/20 text-white' : 'bg-green-50 border-green-100 text-slate-800'
+                    isDark ? 'bg-accent/10 border-accent/20 text-white' : 'bg-accent/5 border-green-100 text-slate-800'
                   )}>
-                    <span className="text-[9px] font-extrabold text-[#00b900] block mb-1 uppercase tracking-wide">
+                    <span className="text-[9px] font-extrabold text-accent block mb-1 uppercase tracking-wide">
                       {getCategoryLabel(selectedFeedback.category)} (Submission)
                     </span>
                     <p className="whitespace-pre-wrap">{selectedFeedback.content}</p>
@@ -364,11 +364,11 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                               ? 'bg-[#1a1d2e] border-[#1f2335] rounded-tl-sm text-white'
                               : 'bg-slate-100 border-slate-200 rounded-tl-sm text-slate-800'
                             : isDark
-                              ? 'bg-[#00b900]/10 border-[#00b900]/20 rounded-tr-sm text-white'
-                              : 'bg-green-50 border-green-100 rounded-tr-sm text-slate-800'
+                              ? 'bg-accent/10 border-accent/20 rounded-tr-sm text-white'
+                              : 'bg-accent/5 border-green-100 rounded-tr-sm text-slate-800'
                         )}>
                           <span className={cn("text-[8px] font-black block mb-1 uppercase tracking-wider", 
-                            isAdmin ? "text-blue-400" : "text-[#00b900]"
+                            isAdmin ? "text-blue-400" : "text-accent"
                           )}>
                             {isAdmin ? 'System Administrator' : 'You (Merchant)'}
                           </span>
@@ -398,7 +398,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder="Type a response to the admin..."
                   className={cn(
-                    "flex-1 rounded-xl px-3 py-2 text-[10px] outline-none border focus:border-[#00b900] transition-colors",
+                    "flex-1 rounded-xl px-3 py-2 text-[10px] outline-none border focus:border-accent transition-colors",
                     K.input
                   )}
                   required
@@ -406,7 +406,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                 <button
                   type="submit"
                   disabled={!replyText.trim() || isReplying}
-                  className="px-4 rounded-xl bg-[#00b900] text-white hover:bg-[#00a300] active:scale-95 transition-all flex items-center justify-center"
+                  className="px-4 rounded-xl bg-accent text-white hover:bg-[#00a300] active:scale-95 transition-all flex items-center justify-center"
                 >
                   {isReplying ? <Loader2 size={12} className="animate-spin" /> : <Send size={11} />}
                 </button>
@@ -427,7 +427,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
               <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-4 max-h-[380px]" style={{ minHeight: '320px' }}>
                 {isLoadingHistory ? (
                   <div className="flex flex-col items-center justify-center py-24 gap-3 text-[#8b92ad]">
-                    <Loader2 size={24} className="animate-spin text-[#00b900]" />
+                    <Loader2 size={24} className="animate-spin text-accent" />
                     <span className="text-[10px] font-bold uppercase tracking-wider">Syncing opinions history...</span>
                   </div>
                 ) : history.length === 0 ? (
@@ -441,7 +441,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                     <div
                       key={item._id}
                       onClick={() => setSelectedFeedback(item)}
-                      className={cn("p-4 rounded-xl space-y-3 cursor-pointer hover:border-[#00b900]/30 transition-all active:scale-99 animate-in fade-in duration-300", K.card)}
+                      className={cn("p-4 rounded-xl space-y-3 cursor-pointer hover:border-accent/30 transition-all active:scale-99 animate-in fade-in duration-300", K.card)}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className={cn("text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md", getStatusStyles(item.status))}>
@@ -449,7 +449,7 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                         </span>
                         <div className="flex items-center gap-2">
                           {item.replies && item.replies.length > 0 && (
-                            <span className="text-[8px] font-bold bg-[#00b900] text-white px-1.5 py-0.5 rounded-full">
+                            <span className="text-[8px] font-bold bg-accent text-white px-1.5 py-0.5 rounded-full">
                               {item.replies.length} replies
                             </span>
                           )}

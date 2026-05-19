@@ -108,7 +108,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
   };
 
   const surface = isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]';
-  const inputCls = cn('w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#00b900]',
+  const inputCls = cn('w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-accent',
     isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]');
   const labelCls = 'text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block';
 
@@ -118,14 +118,14 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h2 className={cn('text-2xl font-black flex items-center gap-3', isDark ? 'text-white' : 'text-[#1a1d2e]')}>
-            <div className="p-2 bg-[#00b900]/10 rounded-xl text-[#00b900]"><Tag size={24} /></div>
+            <div className="p-2 bg-accent/10 rounded-xl text-accent"><Tag size={24} /></div>
             Discount Codes
           </h2>
           <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">Coupons & Promotions</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="w-full sm:w-auto bg-[#00b900] text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all"
+          className="w-full sm:w-auto bg-accent text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-accent/[13%] hover:opacity-90 active:scale-95 transition-all"
         >
           <Plus size={18} /> Create Coupon
         </button>
@@ -170,7 +170,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
                     onClick={() => setForm(f => ({ ...f, type: t }))}
                     className={cn('flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all',
                       form.type === t
-                        ? 'bg-[#00b900] text-white border-[#00b900]'
+                        ? 'bg-accent text-white border-accent'
                         : isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-[#e2e5ef] text-[#8b92ad]'
                     )}
                   >
@@ -186,7 +186,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
                 type="number"
                 value={form.value}
                 onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
-                className={cn(inputCls, 'font-bold text-[#00b900]')}
+                className={cn(inputCls, 'font-bold text-accent')}
                 placeholder={form.type === 'percent' ? '10' : '50'}
                 min="1"
                 max={form.type === 'percent' ? '100' : undefined}
@@ -238,7 +238,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
             <button
               onClick={handleCreate}
               disabled={saving || !form.code || !form.value}
-              className="flex-1 py-3 text-sm font-bold text-white bg-[#00b900] rounded-2xl disabled:opacity-40 hover:opacity-90"
+              className="flex-1 py-3 text-sm font-bold text-white bg-accent rounded-2xl disabled:opacity-40 hover:opacity-90"
             >
               {saving ? 'Creating...' : 'Create Coupon'}
             </button>
@@ -249,11 +249,11 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
       {/* Coupon List */}
       {isLoading ? (
         <div className="flex justify-center py-16">
-          <div className="w-6 h-6 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-t-transparent border-accent rounded-full animate-spin" />
         </div>
       ) : coupons.length === 0 ? (
         <div className={cn('border rounded-3xl p-12 text-center', surface)}>
-          <div className="w-14 h-14 bg-[#00b900]/10 rounded-3xl flex items-center justify-center mx-auto mb-4"><Tag size={28} className="text-[#00b900] opacity-50" /></div>
+          <div className="w-14 h-14 bg-accent/10 rounded-3xl flex items-center justify-center mx-auto mb-4"><Tag size={28} className="text-accent opacity-50" /></div>
           <p className={cn('text-sm font-bold', isDark ? 'text-white' : 'text-[#1a1d2e]')}>No coupons yet</p>
           <p className="text-xs text-[#8b92ad] mt-1">Create your first discount code above</p>
         </div>
@@ -268,12 +268,12 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={cn('px-3 py-1.5 rounded-xl font-mono font-black text-sm tracking-widest flex items-center gap-2 cursor-pointer select-none',
-                      isDark ? 'bg-[#1a1d2e] text-[#00b900]' : 'bg-[#f4f6f9] text-[#00b900]')}
+                      isDark ? 'bg-[#1a1d2e] text-accent' : 'bg-[#f4f6f9] text-accent')}
                       onClick={() => copyCode(coupon.code)}
                     >
                       {coupon.code}
                       {copiedCode === coupon.code
-                        ? <Check size={12} className="text-[#00b900]" />
+                        ? <Check size={12} className="text-accent" />
                         : <Copy size={12} className="text-[#8b92ad]" />
                       }
                     </div>
@@ -300,7 +300,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
                       onClick={() => toggleActive(coupon)}
                       className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all',
                         coupon.isActive
-                          ? 'border-[#00b900]/30 bg-[#00b900]/10 text-[#00b900]'
+                          ? 'border-accent/30 bg-accent/10 text-accent'
                           : isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-[#e2e5ef] text-[#8b92ad]'
                       )}
                     >

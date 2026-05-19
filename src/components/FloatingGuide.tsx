@@ -271,12 +271,12 @@ export default function FloatingGuide({
   if (doneCount === steps.length) return null;
 
   const bgOpen = isDark
-    ? 'bg-[#161925] border border-[#00b900]/30 shadow-[0_12px_40px_rgba(0,185,0,0.22)]'
-    : 'bg-white border-2 border-[#00b900]/40 shadow-[0_12px_40px_rgba(0,185,0,0.18)]';
+    ? 'bg-[#161925] border border-accent/30 shadow-[0_12px_40px_color-mix(in_srgb,var(--accent)_22%,transparent)]'
+    : 'bg-white border-2 border-accent/40 shadow-[0_12px_40px_color-mix(in_srgb,var(--accent)_18%,transparent)]';
 
   const bgCollapsed = isDark
-    ? 'bg-[#161925] border border-[#00b900]/35 shadow-[0_8px_32px_rgba(0,185,0,0.2)] hover:shadow-[0_8px_32px_rgba(0,185,0,0.35)] hover:scale-[1.02]'
-    : 'bg-white border-2 border-[#00b900]/35 shadow-[0_8px_32px_rgba(0,185,0,0.15)] hover:shadow-[0_8px_40px_rgba(0,185,0,0.28)] hover:scale-[1.02]';
+    ? 'bg-[#161925] border border-accent/35 shadow-[0_8px_32px_color-mix(in_srgb,var(--accent)_20%,transparent)] hover:shadow-[0_8px_32px_color-mix(in_srgb,var(--accent)_35%,transparent)] hover:scale-[1.02]'
+    : 'bg-white border-2 border-accent/35 shadow-[0_8px_32px_color-mix(in_srgb,var(--accent)_15%,transparent)] hover:shadow-[0_8px_40px_color-mix(in_srgb,var(--accent)_28%,transparent)] hover:scale-[1.02]';
 
   const text   = isDark ? 'text-white' : 'text-slate-900';
   const muted  = isDark ? 'text-[#8b92ad]' : 'text-slate-500';
@@ -321,7 +321,7 @@ export default function FloatingGuide({
             onPointerDown={(e) => onPointerDown(e, true)}
           >
             <div className="flex items-center gap-2">
-              <BookOpen size={13} className="text-[#00b900]" />
+              <BookOpen size={13} className="text-accent" />
               <p className={`text-sm font-semibold ${text}`}>Getting Started</p>
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${deep} ${muted}`}>
                 {doneCount}/{steps.length}
@@ -341,7 +341,7 @@ export default function FloatingGuide({
           <div className="px-4 pt-3 pb-1">
             <div className={`h-1 rounded-full ${deep}`}>
               <div
-                className="h-1 rounded-full bg-[#00b900] transition-all duration-500"
+                className="h-1 rounded-full bg-accent transition-all duration-500"
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -360,7 +360,7 @@ export default function FloatingGuide({
               >
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold ${
                   step.done
-                    ? 'bg-[#00b900]/15 text-[#00b900]'
+                    ? 'bg-accent/15 text-accent'
                     : isDark ? 'bg-[#1a1d2e] text-[#8b92ad]' : 'bg-slate-100 text-slate-500'
                 }`}>
                   {step.done ? <Check size={10} /> : step.n}
@@ -372,7 +372,7 @@ export default function FloatingGuide({
 
                 {!step.done && step.action && (() => {
                   const a = step.action!;
-                  const cls = `text-[10px] font-semibold text-[#00b900] hover:text-[#00a000] transition-colors flex-shrink-0 flex items-center gap-0.5 whitespace-nowrap`;
+                  const cls = `text-[10px] font-semibold text-accent hover:text-accent transition-colors flex-shrink-0 flex items-center gap-0.5 whitespace-nowrap`;
                   if (a.kind === 'href') return (
                     <a href={a.href} target="_blank" rel="noopener noreferrer" className={cls}>
                       {a.label} <ExternalLink size={8} />
@@ -403,15 +403,15 @@ export default function FloatingGuide({
           onPointerDown={(e) => onPointerDown(e, false)}
           className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-2xl transition-all pointer-events-auto ${bgCollapsed} active:scale-[0.98] cursor-pointer`}
         >
-          <div className="w-7 h-7 rounded-full bg-[#00b900]/10 flex items-center justify-center flex-shrink-0">
-            <BookOpen size={13} className="text-[#00b900]" />
+          <div className="w-7 h-7 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+            <BookOpen size={13} className="text-accent" />
           </div>
         <div className="flex flex-col items-start gap-0.5">
           <p className={`text-xs font-semibold leading-none ${text}`}>Getting Started</p>
           <div className="flex items-center gap-2">
             <div className={`w-14 h-1 rounded-full ${deep}`}>
               <div
-                className="h-1 rounded-full bg-[#00b900] transition-all duration-500"
+                className="h-1 rounded-full bg-accent transition-all duration-500"
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -459,7 +459,7 @@ export default function FloatingGuide({
               <button
                 type="button"
                 onClick={confirmDismiss}
-                className="px-6 py-3 rounded-2xl text-xs font-bold bg-[#00b900] text-white hover:bg-[#00a300] shadow-md shadow-[#00b900]/10 transition-all active:scale-95"
+                className="px-6 py-3 rounded-2xl text-xs font-bold bg-accent text-white hover:bg-[#00a300] shadow-md shadow-accent/10 transition-all active:scale-95"
               >
                 Yes, Dismiss
               </button>

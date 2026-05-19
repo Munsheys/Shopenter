@@ -76,7 +76,7 @@ const DK = {
   text: 'text-white',
   muted: 'text-[#8b92ad]',
   hover: 'hover:bg-white/5 transition-all duration-300',
-  input: 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-[#00b900]',
+  input: 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-accent',
 };
 const LK = {
   bg: 'bg-slate-50', 
@@ -86,7 +86,7 @@ const LK = {
   text: 'text-slate-900', 
   muted: 'text-slate-500',
   hover: 'hover:bg-slate-50 transition-all duration-300', 
-  input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#00b900]',
+  input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent',
 };
 
 export default function CustomersView({ theme, onLimitHit }: { theme: string; onLimitHit?: (feature: string, limit?: number, current?: number) => void }) {
@@ -524,8 +524,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         {listOpen ? (
           <>
             <div className={`flex items-center gap-2 px-4 py-3 border-b ${k.border} flex-shrink-0`}>
-              <div className="w-6 h-6 rounded-xl bg-[#00b900]/10 flex items-center justify-center flex-shrink-0">
-                <MessageCircle size={13} className="text-[#00b900]" />
+              <div className="w-6 h-6 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                <MessageCircle size={13} className="text-accent" />
               </div>
               <span className={`font-black text-xs flex-1 tracking-wide ${k.text}`}>
                 CUSTOMERS
@@ -550,7 +550,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                   onChange={e => setCustomerSearch(e.target.value)}
                   placeholder="Search customers..."
                   aria-label="Search customers"
-                  className={`w-full text-xs rounded-xl pl-7 pr-7 py-1.5 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`}
+                  className={`w-full text-xs rounded-xl pl-7 pr-7 py-1.5 border outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all ${k.input}`}
                 />
                 {customerSearch && (
                   <button onClick={() => setCustomerSearch('')} aria-label="Clear search" className={`absolute right-2 top-1/2 -translate-y-1/2 ${k.muted} hover:text-red-500`}>
@@ -563,7 +563,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             <div className="flex-1 overflow-y-auto">
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center h-full gap-3 py-8 text-[#8b92ad]">
-                  <div className="w-6 h-6 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-t-transparent border-accent rounded-full animate-spin" />
                   <span className="text-[10px] font-bold uppercase tracking-wider">Syncing customers...</span>
                 </div>
               ) : customers.length === 0 ? (
@@ -589,9 +589,9 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                       onClick={() => selectCustomer(c)}
                       aria-pressed={isSelected}
                       aria-label={`Customer ${c.displayName}${c.unreadCount > 0 ? `, ${c.unreadCount} unread` : ''}`}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 transition-all border-l-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#00b900]/40 ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 transition-all border-l-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                         isSelected
-                          ? isDark ? 'bg-[#00b900]/10 border-l-[#00b900]' : 'bg-[#00b900]/5 border-l-[#00b900]'
+                          ? isDark ? 'bg-accent/10 border-l-accent' : 'bg-accent/5 border-l-accent'
                           : `border-l-transparent ${k.hover}`
                       }`}
                     >
@@ -614,7 +614,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                           <p className={`text-xs font-semibold truncate ${k.text}`}>{c.displayName}</p>
                           <span className={`text-[10px] flex-shrink-0 ${k.muted}`}>{timeAgo(c.lastSeen)}</span>
                         </div>
-                        <p className={`text-[10px] truncate mt-0.5 ${c.unreadCount > 0 ? 'text-[#00b900] font-medium' : k.muted}`}>
+                        <p className={`text-[10px] truncate mt-0.5 ${c.unreadCount > 0 ? 'text-accent font-medium' : k.muted}`}>
                           {c.unreadCount > 0 ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}` : 'LINE customer'}
                         </p>
                       </div>
@@ -641,8 +641,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                   onClick={() => selectCustomer(c)}
                   aria-label={c.displayName}
                   title={c.displayName}
-                  className={`relative w-8 h-8 rounded-full flex-shrink-0 transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#00b900]/40 ${
-                    selectedCustomer?._id === c._id ? 'ring-2 ring-[#00b900] ring-offset-1' : 'opacity-60 hover:opacity-100'
+                  className={`relative w-8 h-8 rounded-full flex-shrink-0 transition-all outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                    selectedCustomer?._id === c._id ? 'ring-2 ring-accent ring-offset-1' : 'opacity-60 hover:opacity-100'
                   }`}
                 >
                   {c.pictureUrl ? (
@@ -666,7 +666,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
       {listOpen && (
         <div
           onMouseDown={startListResize}
-          className={`w-1 flex-shrink-0 cursor-col-resize transition-colors hover:bg-[#00b900]/40 ${isDark ? 'bg-[#1f2335]' : 'bg-slate-200'}`}
+          className={`w-1 flex-shrink-0 cursor-col-resize transition-colors hover:bg-accent/40 ${isDark ? 'bg-[#1f2335]' : 'bg-slate-200'}`}
           title="Drag to resize"
         />
       )}
@@ -689,9 +689,9 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             <div className={`flex items-center justify-between px-8 py-5 border-b ${k.border} ${isDark ? 'bg-[#1a1d2e]' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
               <div className="flex items-center gap-3 min-w-0">
                 {selectedCustomer.pictureUrl ? (
-                  <img src={selectedCustomer.pictureUrl} className="w-10 h-10 rounded-full ring-2 ring-[#00b900]/30 flex-shrink-0" alt="" />
+                  <img src={selectedCustomer.pictureUrl} className="w-10 h-10 rounded-full ring-2 ring-accent/30 flex-shrink-0" alt="" />
                 ) : (
-                  <div className={`w-10 h-10 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-sm font-bold flex-shrink-0 ring-2 ring-offset-1 ring-[#00b900]/20`}>
+                  <div className={`w-10 h-10 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-sm font-bold flex-shrink-0 ring-2 ring-offset-1 ring-accent/20`}>
                     {(selectedCustomer.displayName || '?')[0].toUpperCase()}
                   </div>
                 )}
@@ -710,7 +710,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                       </span>
                     )}
                     {totalSpent > 0 && (
-                      <span className="text-[10px] bg-[#00b900]/10 text-[#00b900] px-1.5 py-0.5 rounded-full font-bold">
+                      <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full font-bold">
                         ฿{fmt(totalSpent)} total
                       </span>
                     )}
@@ -720,7 +720,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => setShowModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-[#00b900] hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-[#00b900]/20 active:scale-95"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-accent/20 active:scale-95"
                 >
                   <ShoppingCart size={12} /> New Order
                 </button>
@@ -741,8 +741,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                           onClick={() => setSelectedOrderIds(allPendingSelected ? new Set() : new Set(pendingOrders.map(o => o._id)))}
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-lg transition-colors ${
                             allPendingSelected
-                              ? 'text-[#00b900] bg-[#00b900]/10'
-                              : `${k.muted} hover:text-[#00b900]`
+                              ? 'text-accent bg-accent/10'
+                              : `${k.muted} hover:text-accent`
                           }`}
                         >
                           {allPendingSelected ? 'Deselect All' : 'Select All'}
@@ -750,8 +750,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                       )}
                     </div>
                     {selectedOrderIds.size > 0 && (
-                      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-2 ${isDark ? 'bg-[#00b900]/10 border border-[#00b900]/20' : 'bg-[#00b900]/5 border border-[#00b900]/20'}`}>
-                        <span className="text-xs font-bold text-[#00b900] flex-1">
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-2 ${isDark ? 'bg-accent/10 border border-accent/20' : 'bg-accent/5 border border-accent/20'}`}>
+                        <span className="text-xs font-bold text-accent flex-1">
                           {selectedOrderIds.size} selected · ฿{fmt(selectedTotal)}
                         </span>
                         <button
@@ -764,7 +764,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                         <button
                           onClick={() => markBatchPaid([...selectedOrderIds])}
                           disabled={batchActing}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#00b900] text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-accent text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
                         >
                           <CheckCircle size={11} /> {batchActing ? 'Processing...' : 'Mark All Paid'}
                         </button>
@@ -834,7 +834,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                   <div className="flex items-center justify-between mb-3">
                     <SectionLabel>Fulfilled Order History</SectionLabel>
                     {shippedOrders.length > 0 && (
-                      <span className="text-[10px] font-bold text-[#00b900] bg-[#00b900]/10 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
                         Total profit: ฿{fmt(totalProfit)}
                       </span>
                     )}
@@ -868,7 +868,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
           {chatOpen && (
             <div
               onMouseDown={startChatResize}
-              className={`w-1 flex-shrink-0 cursor-col-resize transition-colors hover:bg-[#00b900]/40 ${isDark ? 'bg-[#1f2335]' : 'bg-slate-200'}`}
+              className={`w-1 flex-shrink-0 cursor-col-resize transition-colors hover:bg-accent/40 ${isDark ? 'bg-[#1f2335]' : 'bg-slate-200'}`}
               title="Drag to resize"
             />
           )}
@@ -896,7 +896,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                   {selectedCustomer.unreadCount > 0 && (
                     <button
                       onClick={markAsRead}
-                      className="text-[10px] px-2 py-1 rounded-full bg-[#00b900]/10 text-[#00b900] font-bold hover:bg-[#00b900]/20 transition-colors whitespace-nowrap"
+                      className="text-[10px] px-2 py-1 rounded-full bg-accent/10 text-accent font-bold hover:bg-accent/20 transition-colors whitespace-nowrap"
                     >
                       Mark read
                     </button>
@@ -944,7 +944,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                                 className="max-w-[180px] max-h-[180px] object-cover block"
                                 onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                               />
-                              <p className={`text-[9px] px-2 py-0.5 ${isAdmin ? 'text-green-100 bg-[#00b900]' : isDark ? 'text-[#8b92ad] bg-white/10' : 'text-slate-400 bg-white'}`}>
+                              <p className={`text-[9px] px-2 py-0.5 ${isAdmin ? 'text-green-100 bg-accent' : isDark ? 'text-[#8b92ad] bg-white/10' : 'text-slate-400 bg-white'}`}>
                                 {timeStr}
                               </p>
                             </div>
@@ -958,7 +958,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                           ) : (
                             <div className={`px-3 py-2 rounded-2xl text-xs leading-relaxed ${
                               isAdmin
-                                ? 'bg-[#00b900] text-white rounded-br-sm'
+                                ? 'bg-accent text-white rounded-br-sm'
                                 : isDark ? 'bg-[#1f2540] text-gray-100 rounded-bl-sm border border-[#2a2e45]' : 'bg-white shadow-sm border border-[#e2e5ef] text-[#1a1d2e] rounded-bl-sm'
                             }`}>
                               <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.text}</p>
@@ -979,13 +979,13 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                     placeholder="Type a message..."
                     aria-label="Chat message input"
-                    className={`flex-1 text-xs rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/20 transition-all ${k.input}`}
+                    className={`flex-1 text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all ${k.input}`}
                   />
                   <button
                     onClick={sendMessage}
                     disabled={!inputText.trim() || sending}
                     aria-label="Send message"
-                    className="bg-[#00b900] hover:opacity-90 disabled:opacity-40 text-white rounded-xl w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
+                    className="bg-accent hover:opacity-90 disabled:opacity-40 text-white rounded-xl w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
                   >
                     <Send size={13} />
                   </button>
@@ -1016,7 +1016,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               <div className="flex gap-2">
                 {(['existing', 'new'] as const).map(m => (
                   <button key={m} onClick={() => setQoMode(m)}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${qoMode === m ? 'bg-[#00b900] text-white shadow-sm shadow-[#00b900]/20' : isDark ? 'bg-white/5 text-[#8b92ad] hover:bg-white/10' : 'bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#f0f1f5]'}`}>
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${qoMode === m ? 'bg-accent text-white shadow-sm shadow-accent/20' : isDark ? 'bg-white/5 text-[#8b92ad] hover:bg-white/10' : 'bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#f0f1f5]'}`}>
                     {m === 'existing' ? 'Existing Product' : 'New Product'}
                   </button>
                 ))}
@@ -1027,13 +1027,13 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                   <div className="relative">
                     <Search size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 ${k.muted}`} />
                     <input value={qoSearch} onChange={e => setQoSearch(e.target.value)} placeholder="Search products..."
-                      className={`w-full text-sm rounded-xl pl-8 pr-3 py-2.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                      className={`w-full text-sm rounded-xl pl-8 pr-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`} />
                   </div>
                   <div className={`max-h-40 overflow-y-auto rounded-2xl border ${k.border} overflow-hidden`}>
                     {filteredProducts.slice(0, 15).map(p => (
                       <button key={p._id} onClick={() => { setQoSelected(p); setQoPrice(String(p.price)); }}
                         className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
-                          qoSelected?._id === p._id ? 'bg-[#00b900] text-white' : `${k.hover} ${k.text}`
+                          qoSelected?._id === p._id ? 'bg-accent text-white' : `${k.hover} ${k.text}`
                         }`}>
                         <span className="truncate">{p.name}</span>
                         <span className="ml-2 flex-shrink-0 font-bold">฿{p.price.toLocaleString()}</span>
@@ -1047,7 +1047,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                   {!qoNewProduct ? (
                     <button
                       onClick={() => setShowNewProductModal(true)}
-                      className={`w-full border-2 border-dashed rounded-2xl py-8 flex flex-col items-center gap-2 text-[#00b900] hover:bg-[#00b900]/5 transition-all ${isDark ? 'border-[#00b900]/20' : 'border-[#00b900]/30'}`}
+                      className={`w-full border-2 border-dashed rounded-2xl py-8 flex flex-col items-center gap-2 text-accent hover:bg-accent/5 transition-all ${isDark ? 'border-accent/20' : 'border-accent/30'}`}
                     >
                       <Plus size={20} />
                       <span className="text-sm font-bold">Create New Product</span>
@@ -1077,12 +1077,12 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 <div className="flex-1">
                   <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Cost ({qoCostCurrency})</label>
                   <input type="number" value={qoCostPrice} onChange={e => setQoCostPrice(e.target.value)} placeholder="0"
-                    className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                    className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`} />
                 </div>
                 <div>
                   <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Currency</label>
                   <select value={qoCostCurrency} onChange={e => setQoCostCurrency(e.target.value)}
-                    className={`text-sm rounded-xl px-2 py-2.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`}>
+                    className={`text-sm rounded-xl px-2 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`}>
                     {COST_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
@@ -1094,7 +1094,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                     Sold ({merchantSettings?.localCurrency || 'THB'})
                   </label>
                   <input type="number" value={qoPrice} onChange={e => setQoPrice(e.target.value)} placeholder="0"
-                    className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                    className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`} />
                 </div>
                 <div>
                   <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Qty</label>
@@ -1117,7 +1117,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               <button
                 disabled={qoSubmitting || (qoMode === 'existing' ? !qoSelected : !qoNewProduct)}
                 onClick={submitQuickOrder}
-                className="w-full bg-[#00b900] hover:opacity-90 disabled:opacity-40 text-white rounded-2xl py-3 font-black text-sm shadow-sm shadow-[#00b900]/20 transition-all active:scale-95"
+                className="w-full bg-accent hover:opacity-90 disabled:opacity-40 text-white rounded-2xl py-3 font-black text-sm shadow-sm shadow-accent/20 transition-all active:scale-95"
               >
                 {qoSubmitting ? 'Creating...' : 'Add Order'}
               </button>
@@ -1298,7 +1298,7 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
     : `bg-white ${status.border} shadow-sm hover:shadow-md transition-all ${status.glow || ''}`;
 
   return (
-    <article className={`relative overflow-hidden rounded-2xl border-l-4 p-5 transition-all duration-300 ${cardClasses} ${!isDark ? `border-l-${order.status === 'pending' ? 'amber-400' : order.status === 'paid' ? 'blue-400' : 'emerald-400'}` : 'border-l-transparent'} ${selected && onToggleSelect ? 'ring-2 ring-[#00b900]/40' : ''}`}>
+    <article className={`relative overflow-hidden rounded-2xl border-l-4 p-5 transition-all duration-300 ${cardClasses} ${!isDark ? `border-l-${order.status === 'pending' ? 'amber-400' : order.status === 'paid' ? 'blue-400' : 'emerald-400'}` : 'border-l-transparent'} ${selected && onToggleSelect ? 'ring-2 ring-accent/40' : ''}`}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           {onToggleSelect && (
@@ -1307,8 +1307,8 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
               aria-label={selected ? 'Deselect order' : 'Select order'}
               className={`w-4 h-4 flex-shrink-0 rounded border-2 flex items-center justify-center transition-all ${
                 selected
-                  ? 'bg-[#00b900] border-[#00b900]'
-                  : isDark ? 'border-white/30 hover:border-[#00b900]/60' : 'border-gray-300 hover:border-[#00b900]/60'
+                  ? 'bg-accent border-accent'
+                  : isDark ? 'border-white/30 hover:border-accent/60' : 'border-gray-300 hover:border-accent/60'
               }`}
             >
               {selected && <Check size={10} className="text-white" strokeWidth={3} />}
@@ -1325,7 +1325,7 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
         </div>
         <div className="flex items-center gap-1">
           {!editable && (
-            <button onClick={() => setIsEditing(!isEditing)} aria-label="Edit order" className={`p-1 rounded-md transition-colors ${isEditing ? 'text-[#00b900] bg-[#00b900]/10' : 'text-[#8b92ad] hover:text-[#00b900]'}`}>
+            <button onClick={() => setIsEditing(!isEditing)} aria-label="Edit order" className={`p-1 rounded-md transition-colors ${isEditing ? 'text-accent bg-accent/10' : 'text-[#8b92ad] hover:text-accent'}`}>
               <Pencil size={12} />
             </button>
           )}
@@ -1344,7 +1344,7 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
                 ฿{fmt(order.soldTHB)}
               </p>
               {(order.profit || 0) > 0 && (
-                <span className={`text-[10px] font-bold ${isDark ? 'text-[#00b900]' : 'text-[#00b900] bg-[#00b900]/5 px-1.5 py-0.5 rounded-md'}`}>
+                <span className={`text-[10px] font-bold ${isDark ? 'text-accent' : 'text-accent bg-accent/5 px-1.5 py-0.5 rounded-md'}`}>
                   +฿{fmt(order.profit)}
                 </span>
               )}
@@ -1357,37 +1357,37 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
             <div className="flex-1">
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Product Name</label>
               <input value={name} onChange={e => setName(e.target.value)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
             <div className="w-12">
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Qty</label>
               <input type="number" value={qty} onChange={e => setQty(parseInt(e.target.value) || 1)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Cost ({cc})</label>
               <input type="number" step="any" value={cost} onChange={e => setCost(e.target.value)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
             <div>
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Sold ({sc})</label>
               <input type="number" step="any" value={sold} onChange={e => setSold(e.target.value)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
             <div>
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Rate ({cc}→{sc})</label>
               <input type="number" step="any" value={rate} onChange={e => setRate(e.target.value)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
           </div>
           <div className="flex items-center justify-between pt-1">
-            <p className={`text-[10px] font-black ${currentProfit >= 0 ? 'text-[#00b900]' : 'text-red-500'}`}>
+            <p className={`text-[10px] font-black ${currentProfit >= 0 ? 'text-accent' : 'text-red-500'}`}>
               Profit: {sc} {fmt(currentProfit)}
             </p>
             <button onClick={saveChanges}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00b900] hover:opacity-90 text-white text-[10px] font-black transition-all active:scale-95 shadow-sm shadow-[#00b900]/20">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent hover:opacity-90 text-white text-[10px] font-black transition-all active:scale-95 shadow-sm shadow-accent/20">
               <CheckCircle size={11} /> Save Changes
             </button>
           </div>
@@ -1414,7 +1414,7 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
           )}
           {onMarkPaid && order.status === 'pending' && (
             <button onClick={onMarkPaid} disabled={isActing}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-[#00b900] text-white hover:opacity-90 transition-all active:scale-95 shadow-sm shadow-[#00b900]/20 disabled:opacity-50">
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-accent text-white hover:opacity-90 transition-all active:scale-95 shadow-sm shadow-accent/20 disabled:opacity-50">
               <CheckCircle size={12} /> {isActing ? 'Processing...' : 'Mark Paid'}
             </button>
           )}
@@ -1452,15 +1452,15 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
     <article className={`rounded-[32px] border-2 border-dashed ${outer} ${isDark ? 'bg-[#161925]' : 'bg-white shadow-xl'} p-8 space-y-6 transition-all duration-300`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#00b900]/10 flex items-center justify-center">
-            <Package size={20} className="text-[#00b900]" />
+          <div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center">
+            <Package size={20} className="text-accent" />
           </div>
           <div>
             <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Parcel Identity</p>
             <p className={`text-sm font-black ${k.text}`}>{parcelId}</p>
           </div>
         </div>
-        <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl bg-[#00b900] hover:opacity-90 text-white transition-all active:scale-95 shadow-lg shadow-[#00b900]/20">
+        <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl bg-accent hover:opacity-90 text-white transition-all active:scale-95 shadow-lg shadow-accent/20">
           <Plus size={14} /> Add Product
         </button>
       </div>
@@ -1540,12 +1540,12 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
             onClick={() => onSelect(i)}
             className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
               selectedIdx === i 
-                ? (isDark ? 'bg-[#00b900]/5 border-[#00b900]/30 shadow-[0_0_15px_rgba(0,185,0,0.1)]' : 'bg-[#00b900]/5 border-[#00b900]/30 shadow-sm')
+                ? (isDark ? 'bg-accent/5 border-accent/30 shadow-[0_0_15px_color-mix(in_srgb,var(--accent)_10%,transparent)]' : 'bg-accent/5 border-accent/30 shadow-sm')
                 : (isDark ? 'bg-white/5 border-white/5 opacity-60' : 'bg-white border-gray-100 opacity-70')
             } hover:opacity-100 group`}
           >
             <div className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-              selectedIdx === i ? 'border-[#00b900] bg-[#00b900]' : (isDark ? 'border-white/20' : 'border-gray-300')
+              selectedIdx === i ? 'border-accent bg-accent' : (isDark ? 'border-white/20' : 'border-gray-300')
             }`}>
               {selectedIdx === i && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
             </div>
@@ -1566,11 +1566,11 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
           onChange={e => setNewAddr(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
           placeholder="Add new delivery address..."
-          className={`flex-1 text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`}
+          className={`flex-1 text-sm rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
         />
         <button
           onClick={() => { if (newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
-          className="p-2 bg-[#00b900] text-white rounded-xl hover:opacity-90 transition-all active:scale-95"
+          className="p-2 bg-accent text-white rounded-xl hover:opacity-90 transition-all active:scale-95"
         >
           <Plus size={16} />
         </button>
@@ -1641,7 +1641,7 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className={`text-sm font-black ${currentProfit >= 0 ? 'text-[#00b900]' : 'text-red-500'}`}>
+          <p className={`text-sm font-black ${currentProfit >= 0 ? 'text-accent' : 'text-red-500'}`}>
             {sc} {fmt(currentProfit)}
           </p>
           <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(currentSold)}</p>
@@ -1657,17 +1657,17 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
             <div>
               <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Cost ({cc})</label>
               <input type="number" step="any" value={cost} onChange={e => setCost(e.target.value)}
-                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
             <div>
               <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Sold ({sc})</label>
               <input type="number" step="any" value={sold} onChange={e => setSold(e.target.value)}
-                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
             <div>
               <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Rate ({cc} → {sc})</label>
               <input type="number" step="any" value={rate} onChange={e => setRate(e.target.value)}
-                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-[#00b900] transition-all ${k.input}`} />
+                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
           </div>
           <div className="flex gap-2">
@@ -1699,7 +1699,7 @@ function SeedButton({ isDark, k }: { isDark: boolean; k: typeof DK }) {
   }
 
   if (state === 'done') return (
-    <p className="text-xs text-[#00b900] font-bold text-center">Seeded — customers will appear shortly</p>
+    <p className="text-xs text-accent font-bold text-center">Seeded — customers will appear shortly</p>
   );
 
   return (
@@ -1707,7 +1707,7 @@ function SeedButton({ isDark, k }: { isDark: boolean; k: typeof DK }) {
       onClick={seed}
       disabled={state === 'loading'}
       className={`text-xs px-4 py-2 rounded-xl border font-bold transition-all disabled:opacity-50 ${
-        isDark ? 'border-[#2a3050] text-[#8b92ad] hover:border-[#00b900] hover:text-[#00b900]' : 'border-[#e2e5ef] text-[#8b92ad] hover:border-[#00b900] hover:text-[#00b900]'
+        isDark ? 'border-[#2a3050] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-[#e2e5ef] text-[#8b92ad] hover:border-accent hover:text-accent'
       }`}
     >
       {state === 'loading' ? 'Seeding...' : state === 'error' ? 'Failed — try again' : '+ Add mock customers'}

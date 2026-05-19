@@ -18,9 +18,9 @@ export default function LoadingView({
       <div className="relative">
         <div className={cn(
           "w-20 h-20 border-4 rounded-full animate-spin",
-          theme === 'dark' ? "border-white/10 border-t-[#00b900]" : "border-[#00b900]/10 border-t-[#00b900]"
+          theme === 'dark' ? "border-white/10 border-t-accent" : "border-accent/10 border-t-accent"
         )}></div>
-        <div className="absolute inset-0 flex items-center justify-center text-[#00b900] animate-pulse">
+        <div className="absolute inset-0 flex items-center justify-center text-accent animate-pulse">
           <Package size={24} />
         </div>
       </div>

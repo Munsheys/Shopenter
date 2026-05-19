@@ -53,6 +53,7 @@ ChartJS.register(
 interface ReportsViewProps {
   theme?: 'light' | 'dark';
   t: any;
+  accentColor?: string;
 }
 
 function StatsCard({ icon, label, value, trend, color, theme, isLoading }: any) {
@@ -78,7 +79,7 @@ function StatsCard({ icon, label, value, trend, color, theme, isLoading }: any) 
         {!isLoading && trend && (
           <div className={cn(
             "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black",
-            trend > 0 ? "text-[#00b900] bg-[#00b90011]" : "text-rose-500 bg-rose-500/11"
+            trend > 0 ? "text-accent bg-accent/[7%]" : "text-rose-500 bg-rose-500/11"
           )}>
             {trend > 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
             {Math.abs(trend)}%
@@ -89,7 +90,7 @@ function StatsCard({ icon, label, value, trend, color, theme, isLoading }: any) 
       <div>
         <div className="text-[#8b92ad] text-[10px] font-black uppercase tracking-widest mb-1">{label}</div>
         {isLoading ? (
-          <div className="w-5 h-5 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin mt-1" />
+          <div className="w-5 h-5 border-2 border-t-transparent border-accent rounded-full animate-spin mt-1" />
         ) : (
           <div className={cn("text-2xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
         )}
@@ -98,7 +99,7 @@ function StatsCard({ icon, label, value, trend, color, theme, isLoading }: any) 
   );
 }
 
-export default function ReportsView({ theme, t }: ReportsViewProps) {
+export default function ReportsView({ theme, t, accentColor = '#00b900' }: ReportsViewProps) {
   const [orders, setOrders] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -178,8 +179,8 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
         {
           label: t.revenue,
           data: Object.values(groups).map(g => g.rev),
-          borderColor: '#00b900',
-          backgroundColor: 'rgba(0, 185, 0, 0.1)',
+          borderColor: accentColor,
+          backgroundColor: accentColor + '1a',
           fill: true,
           tension: 0.4,
           pointRadius: 4,
@@ -218,7 +219,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
       datasets: [{
         data: sortedBrands.map(([, v]) => v),
         backgroundColor: [
-          '#00b900',
+          accentColor,
           '#10b981',
           '#34d399',
           '#6ee7b7',
@@ -296,7 +297,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
         <div>
           <h2 className={cn("text-3xl font-black flex items-center gap-3", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
-            <div className="p-3 bg-[#00b90011] rounded-2xl text-[#00b900]">
+            <div className="p-3 bg-accent/[7%] rounded-2xl text-accent">
               <TrendingUp size={28} />
             </div>
             {t.report_hub}
@@ -321,8 +322,8 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
                 className={cn(
                   "px-4 py-2 rounded-xl text-[10px] font-black transition-all",
                   dateRange === range.id 
-                    ? "bg-[#00b900] text-white shadow-lg shadow-[#00b90022]" 
-                    : "text-[#8b92ad] hover:text-[#00b900]"
+                    ? "bg-accent text-white shadow-lg shadow-accent/[13%]" 
+                    : "text-[#8b92ad] hover:text-accent"
                 )}
               >
                 {range.label}
@@ -332,7 +333,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
 
           <button 
             onClick={handleExportCSV}
-            className="p-3 rounded-2xl bg-[#00b900] text-white shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all"
+            className="p-3 rounded-2xl bg-accent text-white shadow-lg shadow-accent/[13%] hover:opacity-90 active:scale-95 transition-all"
             title={t.export_report}
           >
             <Download size={20} />
@@ -391,11 +392,11 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
             </div>
             <div className="flex gap-4">
               <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#00b900]" />
+                <div className="w-2.5 h-2.5 rounded-full bg-accent" />
                 <span className="text-[10px] font-black text-[#8b92ad] uppercase">{t.revenue}</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-[#00b900]" />
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-accent" />
                 <span className="text-[10px] font-black text-[#8b92ad] uppercase">{t.profit}</span>
               </div>
             </div>
@@ -403,7 +404,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
           <div className="h-[300px]">
             {isLoading ? (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-[#8b92ad]">
-                <div className="w-8 h-8 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-t-transparent border-accent rounded-full animate-spin" />
                 <span className="text-xs font-bold uppercase tracking-wider">Generating revenue growth...</span>
               </div>
             ) : (
@@ -424,7 +425,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
           
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-[#8b92ad]">
-              <div className="w-8 h-8 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-t-transparent border-accent rounded-full animate-spin" />
               <span className="text-xs font-bold uppercase tracking-wider">Analysing brand performance...</span>
             </div>
           ) : (
@@ -436,11 +437,11 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
                   <div key={label} className="group">
                     <div className="flex justify-between items-center mb-2">
                       <span className={cn("text-xs font-bold transition-colors", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{label}</span>
-                      <span className="text-[10px] font-black text-[#00b900]">{localCurrency} {value.toLocaleString()}</span>
+                      <span className="text-[10px] font-black text-accent">{localCurrency} {value.toLocaleString()}</span>
                     </div>
                     <div className={cn("h-1.5 w-full rounded-full overflow-hidden transition-colors", theme === 'dark' ? "bg-[#1f2335]" : "bg-[#f4f6f9]")}>
                       <div 
-                        className="h-full bg-[#00b900] rounded-full transition-all duration-1000 group-hover:opacity-80" 
+                        className="h-full bg-accent rounded-full transition-all duration-1000 group-hover:opacity-80" 
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
@@ -454,7 +455,7 @@ export default function ReportsView({ theme, t }: ReportsViewProps) {
             "mt-10 p-4 rounded-2xl border border-dashed text-center",
             theme === 'dark' ? "border-[#1f2335] bg-[#1a1d2e]/50" : "border-[#e2e5ef] bg-[#f8f9fc]"
           )}>
-            <Target className="mx-auto mb-2 text-[#00b900] opacity-40" size={20} />
+            <Target className="mx-auto mb-2 text-accent opacity-40" size={20} />
             <p className="text-[10px] font-black text-[#8b92ad] uppercase">{t.sales_velocity}</p>
             <p className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
               {(stats.count / (dateRange === '7d' ? 7 : 30)).toFixed(1)} / day

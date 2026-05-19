@@ -54,8 +54,8 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] flex items-center justify-center p-6">
-      <div className="max-w-xl w-full bg-white rounded-[40px] shadow-2xl shadow-[#00b90011] border border-[#e2e5ef] overflow-hidden">
-        <div className="bg-[#00b900] p-12 text-white text-center relative overflow-hidden">
+      <div className="max-w-xl w-full bg-white rounded-[40px] shadow-2xl shadow-accent/[7%] border border-[#e2e5ef] overflow-hidden">
+        <div className="bg-accent p-12 text-white text-center relative overflow-hidden">
            {/* Background Decorations */}
            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
            <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-20 -mb-20 blur-2xl"></div>
@@ -83,12 +83,12 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
 
         {showGuide && (
           <div className="bg-[#f8f9fc] p-8 border-b border-[#e2e5ef] animate-in slide-in-from-top duration-300">
-             <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[#00b900]">
+             <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-accent">
                <Settings size={16} /> 3-Minute Setup Guide
              </h3>
              <div className="space-y-6">
                 <div className="flex gap-4">
-                   <div className="w-6 h-6 bg-[#00b900] text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">1</div>
+                   <div className="w-6 h-6 bg-accent text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">1</div>
                    <div>
                       <div className="text-[11px] font-bold text-[#1a1d2e] mb-1">LIFF ID (LINE Login Channel)</div>
                       <p className="text-[10px] text-[#8b92ad] leading-relaxed">
@@ -97,7 +97,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                    </div>
                 </div>
                 <div className="flex gap-4">
-                   <div className="w-6 h-6 bg-[#00b900] text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">2</div>
+                   <div className="w-6 h-6 bg-accent text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">2</div>
                    <div>
                       <div className="text-[11px] font-bold text-[#1a1d2e] mb-1">Admin LINE ID</div>
                       <p className="text-[10px] text-[#8b92ad] leading-relaxed">
@@ -106,7 +106,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                    </div>
                 </div>
                 <div className="flex gap-4">
-                   <div className="w-6 h-6 bg-[#00b900] text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">3</div>
+                   <div className="w-6 h-6 bg-accent text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">3</div>
                    <div>
                       <div className="text-[11px] font-bold text-[#1a1d2e] mb-1">Secrets (Messaging API Channel)</div>
                       <p className="text-[10px] text-[#8b92ad] leading-relaxed">
@@ -136,7 +136,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                     value={formData.shopName}
                     onChange={e => setFormData({...formData, shopName: e.target.value})}
                     placeholder="Enter Store Name"
-                    className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all placeholder:text-[#b0b7c3] text-[#1a1d2e] font-medium" 
+                    className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-accent transition-all placeholder:text-[#b0b7c3] text-[#1a1d2e] font-medium" 
                   />
                 </div>
               </div>
@@ -151,7 +151,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                       value={formData.liffId}
                       onChange={e => setFormData({...formData, liffId: e.target.value})}
                       placeholder="Paste your LIFF ID"
-                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm placeholder:text-[#b0b7c3] text-[#1a1d2e] font-mono" 
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-accent transition-all text-sm placeholder:text-[#b0b7c3] text-[#1a1d2e] font-mono" 
                     />
                     <button 
                       type="button"
@@ -171,7 +171,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                       value={formData.adminLineId}
                       onChange={e => setFormData({...formData, adminLineId: e.target.value})}
                       placeholder="U123456789..."
-                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm placeholder:text-[#b0b7c3] text-[#1a1d2e] font-mono" 
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-accent transition-all text-sm placeholder:text-[#b0b7c3] text-[#1a1d2e] font-mono" 
                     />
                   </div>
                 </div>
@@ -181,14 +181,14 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-widest ml-1">Admin Secret (Master Password)</label>
                 <div className="relative">
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#00b900]">
+                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-accent">
                     <ShieldCheck size={20} />
                   </div>
                   <input
                     type={showAdminId ? "text" : "password"}
                     required
                     placeholder="Create your Admin Secret..."
-                    className="w-full bg-[#f8fafc] border border-[#e2e5ef] rounded-2xl py-4 pl-14 pr-12 outline-none focus:border-[#00b900] transition-all font-mono text-sm text-[#1a1d2e]"
+                    className="w-full bg-[#f8fafc] border border-[#e2e5ef] rounded-2xl py-4 pl-14 pr-12 outline-none focus:border-accent transition-all font-mono text-sm text-[#1a1d2e]"
                     value={formData.adminSecret || ""}
                     onChange={(e) => setFormData({ ...formData, adminSecret: e.target.value })}
                   />
@@ -222,7 +222,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                       value={formData.lineChannelSecret}
                       onChange={e => setFormData({...formData, lineChannelSecret: e.target.value})}
                       placeholder="32 character secret"
-                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm font-mono placeholder:text-[#b0b7c3] text-[#1a1d2e]"
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-accent transition-all text-sm font-mono placeholder:text-[#b0b7c3] text-[#1a1d2e]"
                     />
                     <button 
                       type="button"
@@ -243,7 +243,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                       value={formData.lineChannelAccessToken}
                       onChange={e => setFormData({...formData, lineChannelAccessToken: e.target.value})}
                       placeholder="Very long long-lived token"
-                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-[#00b900] transition-all text-sm font-mono placeholder:text-[#b0b7c3] text-[#1a1d2e]"
+                      className="w-full bg-[#f8f9fc] border border-[#e2e5ef] rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-accent transition-all text-sm font-mono placeholder:text-[#b0b7c3] text-[#1a1d2e]"
                     />
                     <button 
                       type="button"
@@ -260,7 +260,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="w-full bg-[#00b900] text-white py-5 rounded-3xl font-bold shadow-xl shadow-[#00b90033] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  className="w-full bg-accent text-white py-5 rounded-3xl font-bold shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   {isSaving ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

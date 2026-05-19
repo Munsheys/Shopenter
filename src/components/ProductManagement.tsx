@@ -179,7 +179,7 @@ export function CreatableDropdown({
       <div
         className={cn("w-full border rounded-xl px-4 py-2.5 text-sm cursor-pointer transition-all flex items-center justify-between",
           theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]",
-          "focus-within:border-[#00b900] focus-within:ring-1 focus-within:ring-[#00b900]")}
+          "focus-within:border-accent focus-within:ring-1 focus-within:ring-accent")}
         onClick={() => setIsOpen(true)}
       >
         <span className={value ? (theme === 'dark' ? "text-white font-medium" : "text-[#1a1d2e] font-medium") : "text-[#8b92ad]"}>{value || placeholder}</span>
@@ -203,7 +203,7 @@ export function CreatableDropdown({
                 onClick={() => { onChange(opt); setIsOpen(false); setSearch(''); }}>{opt}</button>
             ))}
             {showCreate && (
-              <button className={cn("w-full text-left px-3 py-2 text-sm rounded-lg font-bold flex items-center gap-2", theme === 'dark' ? "text-[#00b900] hover:bg-[#00b90011]" : "text-[#00b900] hover:bg-[#00b90008]")}
+              <button className={cn("w-full text-left px-3 py-2 text-sm rounded-lg font-bold flex items-center gap-2", theme === 'dark' ? "text-accent hover:bg-accent/[7%]" : "text-accent hover:bg-accent/[3%]")}
                 onClick={() => { onChange(search.trim()); setIsOpen(false); setSearch(''); }}>
                 <Plus size={14} /> Create "{search.trim()}"
               </button>
@@ -262,7 +262,7 @@ export function TagSelector({
                   </button>
                 ))}
                 {search && !options.some(o => (o || '').toLowerCase() === search.toLowerCase().trim()) && (
-                  <button onClick={() => { onAdd(search.trim()); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-[#00b900] font-bold hover:bg-[#00b90008] rounded-lg flex items-center gap-2">
+                  <button onClick={() => { onAdd(search.trim()); setSearch(''); setIsOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-accent font-bold hover:bg-accent/[3%] rounded-lg flex items-center gap-2">
                     <Plus size={14} /> Create "{search}"
                   </button>
                 )}
@@ -327,7 +327,7 @@ export function MultiImageUploader({ images, onChange, theme = 'light' }: {
           <div key={i} className="relative group w-20 h-20 rounded-xl overflow-hidden border border-[#e2e5ef] dark:border-[#1f2335] flex-shrink-0">
             <img src={img} className="w-full h-full object-cover" alt="" />
             {i === 0 && (
-              <div className="absolute bottom-0 left-0 right-0 bg-[#00b900] text-white text-[8px] font-black text-center py-0.5 uppercase tracking-wider">
+              <div className="absolute bottom-0 left-0 right-0 bg-accent text-white text-[8px] font-black text-center py-0.5 uppercase tracking-wider">
                 Primary
               </div>
             )}
@@ -343,7 +343,7 @@ export function MultiImageUploader({ images, onChange, theme = 'light' }: {
           onClick={openPicker}
           className={cn(
             "w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all flex-shrink-0 cursor-pointer",
-            theme === 'dark' ? "border-[#1f2335] hover:border-[#00b900] text-[#8b92ad]" : "border-[#e2e5ef] hover:border-[#00b900] text-[#8b92ad]"
+            theme === 'dark' ? "border-[#1f2335] hover:border-accent text-[#8b92ad]" : "border-[#e2e5ef] hover:border-accent text-[#8b92ad]"
           )}
         >
           <Plus size={16} />
@@ -409,7 +409,7 @@ export function ImageUploader({ value, onChange }: { value: string; onChange: (u
   return (
     <div>
       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Product Photo</label>
-      <button type="button" onClick={pickFile} className="w-full aspect-video rounded-2xl overflow-hidden border-2 border-dashed border-[#e2e5ef] hover:border-[#00b900]/50 transition-colors bg-[#f8f9fc] flex items-center justify-center relative">
+      <button type="button" onClick={pickFile} className="w-full aspect-video rounded-2xl overflow-hidden border-2 border-dashed border-[#e2e5ef] hover:border-accent/50 transition-colors bg-[#f8f9fc] flex items-center justify-center relative">
         {value
           ? <img src={value} className="w-full h-full object-cover" alt="product" />
           : <span className="text-[#8b92ad] text-xs">Click to upload photo</span>
@@ -532,7 +532,7 @@ export function ProductModal({
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Display Name <span className="text-red-500">*</span></label>
               <input type="text" value={form.name} onChange={e => updateForm({ name: e.target.value })} placeholder="e.g. Classic Tee"
-                className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900]", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
             </div>
 
             {/* Base Price + Base Cost */}
@@ -540,12 +540,12 @@ export function ProductModal({
               <div>
                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Base Price (THB)</label>
                 <input type="number" value={defaultPrice} onChange={e => setDefaultPrice(e.target.value)} placeholder="Inherited by variants"
-                  className={cn("w-full border rounded-xl px-3 py-2.5 text-sm font-bold text-[#00b900] outline-none focus:border-[#00b900]", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
+                  className={cn("w-full border rounded-xl px-3 py-2.5 text-sm font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Base Cost</label>
                 <input type="number" value={defaultCost} onChange={e => setDefaultCost(e.target.value)} placeholder="Inherited by variants"
-                  className={cn("w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#00b900]", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                  className={cn("w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
               </div>
             </div>
 
@@ -557,7 +557,7 @@ export function ProductModal({
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Description</label>
               <textarea value={form.description} onChange={e => updateForm({ description: e.target.value })} rows={3}
-                className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#00b900] resize-none", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent resize-none", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
             </div>
           </div>
 
@@ -569,13 +569,13 @@ export function ProductModal({
                 <p className="text-[9px] text-[#8b92ad] mt-0.5">Max 3 · variants auto-generated</p>
               </div>
               <button onClick={addOption} disabled={form.options.length >= 3}
-                className="text-[#00b900] text-[10px] font-bold flex items-center gap-1 hover:underline disabled:opacity-30 disabled:no-underline">
+                className="text-accent text-[10px] font-bold flex items-center gap-1 hover:underline disabled:opacity-30 disabled:no-underline">
                 <Plus size={14} /> Add Option
               </button>
             </div>
 
             {form.options.length === 0 && (
-              <div className={cn("rounded-2xl border-2 border-dashed p-5 text-center cursor-pointer transition-colors", theme === 'dark' ? "border-[#1f2335] hover:border-[#00b900]/40" : "border-[#e2e5ef] hover:border-[#00b900]/40")} onClick={addOption}>
+              <div className={cn("rounded-2xl border-2 border-dashed p-5 text-center cursor-pointer transition-colors", theme === 'dark' ? "border-[#1f2335] hover:border-accent/40" : "border-[#e2e5ef] hover:border-accent/40")} onClick={addOption}>
                 <Plus size={18} className="mx-auto mb-1 opacity-30" />
                 <p className="text-xs font-bold text-[#8b92ad]">Add an option</p>
                 <p className="text-[10px] text-[#8b92ad] mt-0.5">e.g. Color, Size, Material, Thickness</p>
@@ -624,7 +624,7 @@ export function ProductModal({
                                   <button
                                     onClick={() => setImagePickerRow(imagePickerRow === idx ? null : idx)}
                                     className={cn("w-8 h-8 rounded-lg border overflow-hidden flex items-center justify-center transition-colors",
-                                      v.imageUrl ? "border-[#00b900]" : (theme === 'dark' ? "border-[#1f2335] border-dashed" : "border-dashed border-[#e2e5ef]")
+                                      v.imageUrl ? "border-accent" : (theme === 'dark' ? "border-[#1f2335] border-dashed" : "border-dashed border-[#e2e5ef]")
                                     )}
                                   >
                                     {v.imageUrl
@@ -640,7 +640,7 @@ export function ProductModal({
                                       </button>
                                       {form.images.map((img, imgIdx) => (
                                         <button key={imgIdx} onClick={() => { updateVariant(idx, 'imageUrl', img); setImagePickerRow(null); }}
-                                          className={cn("w-8 h-8 rounded-lg border-2 overflow-hidden transition-all", v.imageUrl === img ? "border-[#00b900] scale-110" : "border-transparent hover:border-[#8b92ad]")}>
+                                          className={cn("w-8 h-8 rounded-lg border-2 overflow-hidden transition-all", v.imageUrl === img ? "border-accent scale-110" : "border-transparent hover:border-[#8b92ad]")}>
                                           <img src={img} className="w-full h-full object-cover" alt="" />
                                         </button>
                                       ))}
@@ -652,12 +652,12 @@ export function ProductModal({
                             <td className="px-1.5 py-1">
                               <input type="number" value={v.price} onChange={e => updateVariant(idx, 'price', e.target.value)}
                                 placeholder={defaultPrice || '—'}
-                                className={cn("w-20 border rounded-lg px-2 py-1 text-xs font-bold text-[#00b900] outline-none focus:border-[#00b900]", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
+                                className={cn("w-20 border rounded-lg px-2 py-1 text-xs font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
                             </td>
                             <td className="px-1.5 py-1">
                               <input type="number" value={v.cost} onChange={e => updateVariant(idx, 'cost', e.target.value)}
                                 placeholder={defaultCost || '—'}
-                                className={cn("w-20 border rounded-lg px-2 py-1 text-xs outline-none focus:border-[#00b900]", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                                className={cn("w-20 border rounded-lg px-2 py-1 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
                             </td>
                           </tr>
                         ))}
@@ -688,7 +688,7 @@ export function ProductModal({
         <div className={cn("p-8 pt-4 border-t flex gap-3", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <button onClick={onClose} className={cn("flex-1 py-4 text-sm font-bold rounded-2xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#e2e5ef]")}>Cancel</button>
           <button disabled={!isValid || isSaving} onClick={() => onSave(form)}
-            className="flex-1 py-4 text-sm font-bold text-white bg-[#00b900] rounded-2xl shadow-lg shadow-[#00b90033] hover:opacity-90 disabled:opacity-40">
+            className="flex-1 py-4 text-sm font-bold text-white bg-accent rounded-2xl shadow-lg shadow-accent/20 hover:opacity-90 disabled:opacity-40">
             {isSaving ? 'Processing...' : quickOrderMode ? 'Save & Select' : initialData ? 'Update Catalog' : 'Catalog Product'}
           </button>
         </div>
@@ -752,7 +752,7 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
                 <span className="text-[10px] font-bold text-[#8b92ad] uppercase">Stock</span>
                 <input type="number" min="0" value={stocks[i] ?? '0'}
                   onChange={e => setStocks(prev => ({ ...prev, [i]: e.target.value }))}
-                  className={cn("w-20 border rounded-xl px-3 py-2 text-sm font-bold text-center outline-none focus:border-[#00b900]", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                  className={cn("w-20 border rounded-xl px-3 py-2 text-sm font-bold text-center outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
               </div>
             </div>
           ))}
@@ -761,7 +761,7 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
         <div className={cn("px-8 pb-8 pt-4 border-t flex gap-3", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <button onClick={onClose} className={cn("flex-1 py-3 text-sm font-bold rounded-2xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f8f9fc] text-[#8b92ad]")}>Cancel</button>
           <button disabled={isSaving} onClick={() => onSave(product.variants.map((v, i) => ({ ...v, stock: parseInt(stocks[i] ?? '0') || 0 })))}
-            className="flex-1 py-3 text-sm font-bold text-white bg-[#00b900] rounded-2xl shadow-lg shadow-[#00b90033] disabled:opacity-40">
+            className="flex-1 py-3 text-sm font-bold text-white bg-accent rounded-2xl shadow-lg shadow-accent/20 disabled:opacity-40">
             {isSaving ? 'Saving...' : 'Save Stock'}
           </button>
         </div>
@@ -933,7 +933,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h2 className={cn("text-2xl font-black flex items-center gap-3", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
-            <div className="p-2 bg-[#00b90011] rounded-xl text-[#00b900]"><Package size={24} /></div>
+            <div className="p-2 bg-accent/[7%] rounded-xl text-accent"><Package size={24} /></div>
             {t.catalog_hub || 'Catalog Hub'}
           </h2>
           <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">{t.inventory_desc || 'Inventory & Product Lifecycle'}</p>
@@ -956,7 +956,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             <FileSpreadsheet size={16} />
           </button>
           <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-            className="flex-1 md:flex-none bg-[#00b900] text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all">
+            className="flex-1 md:flex-none bg-accent text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-accent/[13%] hover:opacity-90 active:scale-95 transition-all">
             <Plus size={18} /> {t.add_catalog || 'Add New Catalog'}
           </button>
         </div>
@@ -971,7 +971,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
           <input type="text" placeholder={t.search_catalog || "Search name, brand, or family..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            className={cn("w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border focus:ring-2 focus:ring-[#00b900]/20", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-[#00b900]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-[#00b900]")} />
+            className={cn("w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border focus:ring-2 focus:ring-accent/20", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-accent" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-accent")} />
         </div>
         <div className="flex flex-wrap md:flex-nowrap gap-3">
           {[
@@ -1021,7 +1021,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
                 <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No products found</p>
                 <p className="text-xs mt-1">Try adjusting your filters</p>
               </div>
-              <button onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setSortOrder('newest'); }} className="text-[#00b900] text-xs font-bold hover:underline">Clear all filters</button>
+              <button onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setSortOrder('newest'); }} className="text-accent text-xs font-bold hover:underline">Clear all filters</button>
             </div>
           )}
         </div>
@@ -1071,7 +1071,7 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
           {!product.isActive && <span className="bg-[#1a1d2e] text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1"><EyeOff size={8} /> HIDDEN</span>}
         </div>
         <button onClick={e => { e.stopPropagation(); onToggleVisibility(); }}
-          className={cn("absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-lg active:scale-90", product.isActive ? "bg-white text-[#00b900]" : "bg-[#1a1d2e] text-[#8b92ad]")}>
+          className={cn("absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-lg active:scale-90", product.isActive ? "bg-white text-accent" : "bg-[#1a1d2e] text-[#8b92ad]")}>
           {product.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
         </button>
         {/* Photo count badge */}
@@ -1083,7 +1083,7 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
       </div>
 
       <div className="flex-1">
-        <div className="text-[10px] font-black text-[#00b900] uppercase tracking-wider truncate mb-1">
+        <div className="text-[10px] font-black text-accent uppercase tracking-wider truncate mb-1">
           {product.brand} {product.modelLine && `• ${product.modelLine}`}
         </div>
         <h3 className={cn("font-bold text-base mb-1", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{product.name}</h3>
@@ -1126,7 +1126,7 @@ function StatsCard({ icon, label, value, color, theme, isLoading }: any) {
       <div>
         <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
         {isLoading ? (
-          <div className="w-5 h-5 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin mt-1" />
+          <div className="w-5 h-5 border-2 border-t-transparent border-accent rounded-full animate-spin mt-1" />
         ) : (
           <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
         )}

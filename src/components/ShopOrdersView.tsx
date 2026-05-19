@@ -129,7 +129,7 @@ export default function ShopOrdersView({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h2 className={cn("text-2xl font-black flex items-center gap-3", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
-            <div className="p-2 bg-[#00b90011] rounded-xl text-[#00b900]">
+            <div className="p-2 bg-accent/[7%] rounded-xl text-accent">
               <ShoppingCart size={24} />
             </div>
             {t.shop_orders_hub || 'Shop Orders Hub'}
@@ -139,7 +139,7 @@ export default function ShopOrdersView({
         
         <button 
           onClick={handleExportCSV}
-          className="w-full md:w-auto bg-[#00b900] text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#00b90022] hover:opacity-90 active:scale-95 transition-all"
+          className="w-full md:w-auto bg-accent text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-accent/[13%] hover:opacity-90 active:scale-95 transition-all"
         >
           <FileSpreadsheet size={18} /> {t.export_view || 'Export Current View'}
         </button>
@@ -194,8 +194,8 @@ export default function ShopOrdersView({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
-              "w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2 focus:ring-[#00b900]/20",
-              theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-[#00b900]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-[#00b900]"
+              "w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2 focus:ring-accent/20",
+              theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-accent" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-accent"
             )}
           />
           {searchTerm && (
@@ -297,12 +297,12 @@ export default function ShopOrdersView({
                     <div className="space-y-1">
                       {o.items && o.items.length > 0 ? o.items.map((item: any, idx: number) => (
                         <div key={idx} className={cn("text-[11px] flex items-center gap-1.5", theme === 'dark' ? "text-[#8b92ad]" : "text-[#4b5563]")}>
-                          <span className="font-bold text-[#00b900] bg-[#00b90011] px-1.5 py-0.5 rounded text-[9px]">{item.qty}x</span>
+                          <span className="font-bold text-accent bg-accent/[7%] px-1.5 py-0.5 rounded text-[9px]">{item.qty}x</span>
                           <span className="truncate max-w-[150px]">{item.name}</span>
                         </div>
                       )) : (
                         <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-[#00b900] bg-[#00b90011] px-1.5 py-0.5 rounded text-[9px]">{o.quantity || 1}x</span>
+                          <span className="font-bold text-accent bg-accent/[7%] px-1.5 py-0.5 rounded text-[9px]">{o.quantity || 1}x</span>
                           <div className="text-[11px] text-[#8b92ad] italic">{o.product}</div>
                         </div>
                       )}
@@ -324,7 +324,7 @@ export default function ShopOrdersView({
                         onClick={() => onViewCustomer?.(o.lineUserId)}
                         className={cn(
                           "flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all active:scale-95 shadow-sm",
-                          theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white hover:border-[#00b900]" : "bg-white border-[#e2e5ef] text-[#1a1d2e] hover:border-[#00b900]"
+                          theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white hover:border-accent" : "bg-white border-[#e2e5ef] text-[#1a1d2e] hover:border-accent"
                         )}
                       >
                         <ExternalLink size={12} /> View in Chat
@@ -355,7 +355,7 @@ export default function ShopOrdersView({
             </div>
             <button 
               onClick={() => { setSearchTerm(''); setStatusFilter(''); setStartDate(''); setEndDate(''); }}
-              className="text-[#00b900] text-xs font-bold hover:underline"
+              className="text-accent text-xs font-bold hover:underline"
             >
               Clear all filters
             </button>
@@ -385,7 +385,7 @@ function StatsCard({ icon, label, value, color, theme, isLoading }: any) {
       <div>
         <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
         {isLoading ? (
-          <div className="w-5 h-5 border-2 border-t-transparent border-[#00b900] rounded-full animate-spin mt-1" />
+          <div className="w-5 h-5 border-2 border-t-transparent border-accent rounded-full animate-spin mt-1" />
         ) : (
           <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
         )}

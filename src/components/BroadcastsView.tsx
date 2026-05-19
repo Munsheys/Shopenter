@@ -11,6 +11,7 @@ import {
 interface BroadcastsViewProps {
   theme?: 'light' | 'dark';
   t: any;
+  accentColor?: string;
   onLimitHit?: (feature: string, limit?: number, current?: number) => void;
 }
 
@@ -76,7 +77,7 @@ const DK = {
   border: 'border-[#1f2335]',
   text: 'text-white',
   muted: 'text-[#8b92ad]',
-  input: 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-[#00b900] focus:outline-none',
+  input: 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-accent focus:outline-none',
 };
 const LK = {
   bg: 'bg-slate-50',
@@ -85,7 +86,7 @@ const LK = {
   border: 'border-slate-200',
   text: 'text-slate-900',
   muted: 'text-slate-500',
-  input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#00b900] focus:outline-none',
+  input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none',
 };
 
 const TIER_BADGE: Record<string, { label: string; color: string }> = {
@@ -189,17 +190,17 @@ function UploadZone({
         onClick={() => inputRef.current?.click()}
         className={`relative flex flex-col items-center justify-center gap-2 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none ${
           dragging
-            ? 'border-[#00b900] bg-[#00b900]/5'
-            : isDark ? 'border-[#1f2335] hover:border-[#00b900]/50 hover:bg-[#00b900]/5' : 'border-slate-200 hover:border-[#00b900]/50 hover:bg-green-50'
+            ? 'border-accent bg-accent/5'
+            : isDark ? 'border-[#1f2335] hover:border-accent/50 hover:bg-accent/5' : 'border-slate-200 hover:border-accent/50 hover:bg-accent/5'
         }`}
       >
         {uploading ? (
-          <Loader2 size={24} className="animate-spin text-[#00b900]" />
+          <Loader2 size={24} className="animate-spin text-accent" />
         ) : (
           <>
             <Upload size={22} className={isDark ? 'text-[#8b92ad]' : 'text-slate-400'} />
             <div className="text-center">
-              <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Drop file here or <span className="text-[#00b900]">browse</span></p>
+              <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Drop file here or <span className="text-accent">browse</span></p>
               <p className={`text-xs mt-0.5 ${k.muted}`}>Max {maxMB} MB</p>
             </div>
           </>
@@ -241,7 +242,7 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
               {(block.type === 'image' || block.type === 'audio' || block.type === 'video') && (
                 <button
                   onClick={() => setUrlMode(m => ({ ...m, [i]: !m[i] }))}
-                  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${urlMode[i] ? 'border-[#00b900]/40 text-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'}`}
+                  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${urlMode[i] ? 'border-accent/40 text-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'}`}
                 >
                   <Link size={9} /> {urlMode[i] ? 'Using URL' : 'Paste URL instead'}
                 </button>
@@ -307,7 +308,7 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
             <div className="space-y-2">
               <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
                 <Info size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
-                <p className={`text-xs ${k.muted}`}>Find Package ID and Sticker ID at <a href="https://developers.line.biz/en/docs/messaging-api/sticker-list/" target="_blank" rel="noopener noreferrer" className="text-[#00b900] hover:underline">LINE sticker list ↗</a></p>
+                <p className={`text-xs ${k.muted}`}>Find Package ID and Sticker ID at <a href="https://developers.line.biz/en/docs/messaging-api/sticker-list/" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">LINE sticker list ↗</a></p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <input type="text" value={block.packageId ?? ''} onChange={e => update(i, { packageId: e.target.value })} placeholder="Package ID e.g. 1" className={`rounded-lg px-3 py-2 text-sm border ${k.input}`} />
@@ -330,7 +331,7 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
             <button
               key={type}
               onClick={() => add(type)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#00b900]/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-[#00b900]/50'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-accent/50'}`}
             >
               {icon} + {label}
             </button>
@@ -359,7 +360,7 @@ function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSy
 
   if (!status) return (
     <div className={`rounded-2xl p-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'} flex items-center gap-3`}>
-      <Loader2 size={18} className="animate-spin text-[#00b900]" />
+      <Loader2 size={18} className="animate-spin text-accent" />
       <span className={`text-sm ${k.muted}`}>Checking LINE account status…</span>
     </div>
   );
@@ -397,7 +398,7 @@ function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSy
     <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          {status.bot?.pictureUrl && <img src={status.bot.pictureUrl} className="w-9 h-9 rounded-full ring-2 ring-[#00b900]/30" alt="" />}
+          {status.bot?.pictureUrl && <img src={status.bot.pictureUrl} className="w-9 h-9 rounded-full ring-2 ring-accent/30" alt="" />}
           <div>
             <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{status.bot?.displayName}</p>
             <p className={`text-xs ${k.muted}`}>{status.bot?.basicId}</p>
@@ -409,7 +410,7 @@ function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSy
           )}
         </div>
         {caps?.followerSync && (
-          <button onClick={onSync} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#00b900]/30 text-[#00b900] hover:bg-[#00b900]/10 transition-colors">
+          <button onClick={onSync} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-accent/30 text-accent hover:bg-accent/10 transition-colors">
             <RefreshCw size={12} /> Sync Followers
           </button>
         )}
@@ -419,13 +420,13 @@ function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSy
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <span className={`text-xs font-medium ${k.muted}`}>Monthly messages</span>
-            <span className={`text-xs font-semibold ${pct > 85 ? 'text-red-400' : pct > 60 ? 'text-amber-400' : 'text-[#00b900]'}`}>
+            <span className={`text-xs font-semibold ${pct > 85 ? 'text-red-400' : pct > 60 ? 'text-amber-400' : 'text-accent'}`}>
               {used.toLocaleString()} / {limit.toLocaleString()} used · {remaining.toLocaleString()} remaining
             </span>
           </div>
           <div className={`h-2 rounded-full ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'}`}>
             <div
-              className={`h-2 rounded-full transition-all ${pct > 85 ? 'bg-red-500' : pct > 60 ? 'bg-amber-500' : 'bg-[#00b900]'}`}
+              className={`h-2 rounded-full transition-all ${pct > 85 ? 'bg-red-500' : pct > 60 ? 'bg-amber-500' : 'bg-accent'}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -449,7 +450,7 @@ function StatusBar({ status, onSync, isDark }: { status: LineStatus | null; onSy
           <Info size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
           <p className={`text-xs ${k.muted}`}>
             Some features are locked because your LINE OA is unverified. Apply for verification in the{' '}
-            <a href="https://manager.line.biz" target="_blank" rel="noopener noreferrer" className="text-[#00b900] hover:underline inline-flex items-center gap-0.5">LINE Official Account Manager <ExternalLink size={10} /></a>.
+            <a href="https://manager.line.biz" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-0.5">LINE Official Account Manager <ExternalLink size={10} /></a>.
           </p>
         </div>
       )}
@@ -507,10 +508,10 @@ function defaultRmButtons(count: number): RmButton[] {
   }));
 }
 
-function LayoutPreview({ template, size, active, isDark }: { template: string; size: 'large' | 'compact'; active: boolean; isDark: boolean }) {
+function LayoutPreview({ template, size, active, isDark, accentColor = '#00b900' }: { template: string; size: 'large' | 'compact'; active: boolean; isDark: boolean; accentColor?: string }) {
   const W = 60, H = size === 'large' ? 36 : 22;
-  const cellFill = active ? 'rgba(0,185,0,0.18)' : isDark ? 'rgba(26,29,46,0.9)' : 'rgba(241,245,249,1)';
-  const strokeCol = active ? '#00b900' : isDark ? '#2d3555' : '#cbd5e1';
+  const cellFill = active ? accentColor + '2e' : isDark ? 'rgba(26,29,46,0.9)' : 'rgba(241,245,249,1)';
+  const strokeCol = active ? accentColor : isDark ? '#2d3555' : '#cbd5e1';
   const hw2 = Math.floor(W / 2), tw = Math.floor(W / 3), hh = Math.floor(H / 2);
 
   let rects: [number, number, number, number][] = [];
@@ -585,7 +586,7 @@ function RmButtonEditor({ index, btn, onChange, isDark, k }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProps) {
+export default function BroadcastsView({ theme, accentColor = '#00b900', onLimitHit }: BroadcastsViewProps) {
   const isDark = theme === 'dark';
   const k = isDark ? DK : LK;
 
@@ -856,7 +857,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
 
       {syncing && (
         <div className={`rounded-xl px-4 py-3 flex items-center gap-2 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-          <Loader2 size={14} className="animate-spin text-[#00b900]" />
+          <Loader2 size={14} className="animate-spin text-accent" />
           <span className={`text-sm ${k.muted}`}>Syncing followers from LINE…</span>
         </div>
       )}
@@ -875,7 +876,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
             onClick={() => setSection(s.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
               section === s.id
-                ? 'bg-[#00b900] text-white shadow-sm'
+                ? 'bg-accent text-white shadow-sm'
                 : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -890,8 +891,8 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
           {/* Instant broadcast */}
           <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-[#00b900]/10 flex items-center justify-center flex-shrink-0">
-                <Zap size={16} className="text-[#00b900]" />
+              <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                <Zap size={16} className="text-accent" />
               </div>
               <div>
                 <p className={`text-sm font-semibold ${k.text}`}>Instant Broadcast</p>
@@ -903,8 +904,8 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
               <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Audience</label>
               <div className="space-y-1.5">
                 {Object.entries(AUDIENCE_LABELS).map(([val, label]) => (
-                  <label key={val} className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${bAudience === val ? 'bg-[#00b900]/10 border border-[#00b900]/30' : isDark ? 'border border-[#1f2335] hover:border-[#2d3555]' : 'border border-slate-200 hover:border-slate-300'}`}>
-                    <input type="radio" name="audience" value={val} checked={bAudience === val} onChange={() => setBAudience(val)} className="accent-[#00b900]" />
+                  <label key={val} className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${bAudience === val ? 'bg-accent/10 border border-accent/30' : isDark ? 'border border-[#1f2335] hover:border-[#2d3555]' : 'border border-slate-200 hover:border-slate-300'}`}>
+                    <input type="radio" name="audience" value={val} checked={bAudience === val} onChange={() => setBAudience(val)} className="accent-accent" />
                     <span className={`text-sm ${k.text}`}>{label}</span>
                   </label>
                 ))}
@@ -938,7 +939,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
             <button
               onClick={handleInstantSend}
               disabled={bSending || bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
               {bSending ? 'Sending…' : 'Send Now'}
@@ -999,7 +1000,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
               !showQueuedForm && (
                 <button
                   onClick={() => setShowQueuedForm(true)}
-                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed text-sm font-medium transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-[#00b900]/40 hover:text-white' : 'border-slate-200 text-slate-500 hover:border-[#00b900]/40 hover:text-slate-900'}`}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed text-sm font-medium transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-accent/40 hover:text-white' : 'border-slate-200 text-slate-500 hover:border-accent/40 hover:text-slate-900'}`}
                 >
                   <Plus size={15} /> New Campaign
                 </button>
@@ -1014,7 +1015,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
                   <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Valid for</label>
                   <div className="flex gap-2 flex-wrap">
                     {[3, 7, 14, 30].map(d => (
-                      <button key={d} onClick={() => setQDays(d)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${qDays === d ? 'bg-[#00b900] text-white border-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>{d} days</button>
+                      <button key={d} onClick={() => setQDays(d)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${qDays === d ? 'bg-accent text-white border-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>{d} days</button>
                     ))}
                   </div>
                 </div>
@@ -1023,7 +1024,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
                   <p className={`text-xs ${k.muted}`}>Delivery is gradual — customers receive this message the next time they message your bot (free via reply token). Not suitable for time-sensitive campaigns.</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={handleCreateQueued} disabled={qCreating} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50">
+                  <button onClick={handleCreateQueued} disabled={qCreating} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors disabled:opacity-50">
                     {qCreating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Launch
                   </button>
                   <button onClick={() => setShowQueuedForm(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
@@ -1066,7 +1067,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
               <p className={`text-sm font-semibold ${k.text}`}>Auto-Reply Rules</p>
               <p className={`text-xs ${k.muted}`}>Keyword-triggered replies sent free via reply token. Checked in priority order.</p>
             </div>
-            <button onClick={openNewRule} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#00b900] text-white text-sm font-medium hover:bg-[#00a000] transition-colors">
+            <button onClick={openNewRule} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent transition-colors">
               <Plus size={14} /> Add Rule
             </button>
           </div>
@@ -1087,7 +1088,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
             <div className="space-y-2">
               {rules.map(rule => (
                 <div key={rule._id} className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
-                  <button onClick={() => handleToggleRule(rule)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rule.isActive ? 'bg-[#00b900]' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                  <button onClick={() => handleToggleRule(rule)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rule.isActive ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
                     <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rule.isActive ? 'left-4' : 'left-0.5'}`} />
                   </button>
                   <div className="flex-1 min-w-0">
@@ -1119,7 +1120,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
             </div>
             <button
               onClick={() => setGreeting(g => ({ ...g, greetingEnabled: !g.greetingEnabled }))}
-              className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${greeting.greetingEnabled ? 'bg-[#00b900]' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
+              className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${greeting.greetingEnabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
             >
               <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${greeting.greetingEnabled ? 'left-6' : 'left-1'}`} />
             </button>
@@ -1129,7 +1130,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
             <BlockComposer blocks={greeting.greetingMessages.length > 0 ? greeting.greetingMessages : [{ type: 'text', text: '' }]} onChange={msgs => setGreeting(g => ({ ...g, greetingMessages: msgs }))} isDark={isDark} />
           )}
 
-          <button onClick={handleSaveGreeting} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors">
+          <button onClick={handleSaveGreeting} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors">
             <Check size={14} /> Save Greeting
           </button>
         </div>
@@ -1168,7 +1169,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
                   {([['large', 'Large', '2500 × 1686 px'], ['compact', 'Compact', '2500 × 843 px']] as const).map(([val, label, sub]) => (
                     <button key={val}
                       onClick={() => { setRmSize(val); setRmTemplate('3col'); setRmButtons(defaultRmButtons(3)); }}
-                      className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${rmSize === val ? 'bg-[#00b900] text-white border-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>
+                      className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${rmSize === val ? 'bg-accent text-white border-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>
                       <p>{label}</p>
                       <p className={`text-[10px] mt-0.5 ${rmSize === val ? 'text-white/70' : k.muted}`}>{sub}</p>
                     </button>
@@ -1183,8 +1184,8 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
                   {RM_TEMPLATES[rmSize].map(tpl => (
                     <button key={tpl.id}
                       onClick={() => { setRmTemplate(tpl.id); setRmButtons(defaultRmButtons(tpl.count)); }}
-                      className={`py-2 px-2 rounded-xl text-[11px] font-medium border transition-colors flex flex-col items-center gap-2 ${rmTemplate === tpl.id ? 'border-[#00b900] bg-[#00b900]/10 text-[#00b900]' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#2d3555]' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
-                      <LayoutPreview template={tpl.id} size={rmSize} active={rmTemplate === tpl.id} isDark={isDark} />
+                      className={`py-2 px-2 rounded-xl text-[11px] font-medium border transition-colors flex flex-col items-center gap-2 ${rmTemplate === tpl.id ? 'border-accent bg-accent/10 text-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#2d3555]' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                      <LayoutPreview template={tpl.id} size={rmSize} active={rmTemplate === tpl.id} isDark={isDark} accentColor={accentColor} />
                       <span>{tpl.label}</span>
                     </button>
                   ))}
@@ -1197,7 +1198,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
                   <label className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Chat Bar Text</label>
                   <button
                     onClick={() => setRmShowChatBar(v => !v)}
-                    className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmShowChatBar ? 'bg-[#00b900]' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                    className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmShowChatBar ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
                     <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rmShowChatBar ? 'left-4' : 'left-0.5'}`} />
                   </button>
                 </div>
@@ -1217,7 +1218,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
                 </div>
                 <button
                   onClick={() => setRmSelected(v => !v)}
-                  className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmSelected ? 'bg-[#00b900]' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                  className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmSelected ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
                   <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rmSelected ? 'left-4' : 'left-0.5'}`} />
                 </button>
               </div>
@@ -1246,7 +1247,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
               <button
                 onClick={handlePublishRichMenu}
                 disabled={rmSaving || !rmImageUrl}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {rmSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
                 {rmSaving ? 'Publishing…' : 'Publish Rich Menu'}
               </button>
@@ -1285,7 +1286,7 @@ export default function BroadcastsView({ theme, onLimitHit }: BroadcastsViewProp
               </div>
             </div>
             <div className={`flex gap-2 px-6 py-4 border-t ${k.border}`}>
-              <button onClick={handleSaveRule} disabled={rSaving} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-[#00b900] text-white text-sm font-semibold hover:bg-[#00a000] transition-colors disabled:opacity-50">
+              <button onClick={handleSaveRule} disabled={rSaving} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors disabled:opacity-50">
                 {rSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save Rule
               </button>
               <button onClick={() => setShowRuleModal(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>

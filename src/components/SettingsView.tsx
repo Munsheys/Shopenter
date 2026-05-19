@@ -15,7 +15,7 @@ function CopyButton({ value }: { value: string }) {
     <button
       type="button"
       onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-      className="flex items-center gap-1 text-[10px] font-medium text-[#00b900] hover:text-[#00a000] flex-shrink-0 transition-colors"
+      className="flex items-center gap-1 text-[10px] font-medium text-accent hover:text-accent flex-shrink-0 transition-colors"
     >
       {copied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy</>}
     </button>
@@ -69,15 +69,21 @@ const SHOPENTER_STATUS: Record<string, { label: string; color: string }> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+const ACCENT_PRESETS = [
+  '#00b900', '#3b82f6', '#f97316', '#ef4444', '#a855f7', '#ec4899', '#06b6d4',
+];
+
 export default function SettingsView({
   theme,
   onSave,
   onThemeChange,
+  onAccentChange,
   scrollTrigger,
 }: {
   theme?: 'light' | 'dark';
   onSave?: () => void;
   onThemeChange?: (newTheme: 'light' | 'dark') => void;
+  onAccentChange?: (newColor: string) => void;
   scrollTrigger?: { section: string; id: number } | null;
 }) {
   const isDark = theme === 'dark';
@@ -320,23 +326,32 @@ export default function SettingsView({
     setSettings((s: any) => ({ ...s, [field]: value }));
 
   const handleThemeChange = async (newTheme: 'light' | 'dark') => {
-    // 1. Instantly update local state in SettingsView
     set('theme', newTheme);
-    
-    // 2. Instantly update parent context in dashboard/page.tsx for 0ms transition!
     onThemeChange?.(newTheme);
-    
-    // 3. Silently save to the database in the background without manual save button press!
     try {
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...settings, theme: newTheme }),
       });
-      // 4. Trigger parent sync callback silently to keep settings perfectly fresh
       onSave?.();
     } catch (err) {
       console.error('[Background Theme Autocommit Error]:', err);
+    }
+  };
+
+  const handleAccentChange = async (newColor: string) => {
+    set('dashboardAccent', newColor);
+    onAccentChange?.(newColor);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...settings, dashboardAccent: newColor }),
+      });
+      onSave?.();
+    } catch (err) {
+      console.error('[Background Accent Autocommit Error]:', err);
     }
   };
 
@@ -359,8 +374,8 @@ export default function SettingsView({
     muted:   isDark ? 'text-[#8b92ad]'                       : 'text-slate-500',
     border:  isDark ? 'border-[#1f2335]'                     : 'border-slate-200',
     inp:     isDark
-      ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-[#00b900] focus:outline-none'
-      : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#00b900] focus:outline-none',
+      ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-accent focus:outline-none'
+      : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none',
   };
 
   const inputCls  = `w-full rounded-xl px-4 py-3 text-sm border transition-colors ${K.inp}`;
@@ -385,7 +400,7 @@ export default function SettingsView({
         <div ref={tabsContainerRef} className={`flex items-center gap-1 p-1 rounded-xl relative ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
           {/* Gorgeous Sliding Indicator Pill */}
           <div 
-            className={`absolute bg-[#00b900] rounded-lg transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] shadow-sm pointer-events-none z-0 ${
+            className={`absolute bg-accent rounded-lg transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] shadow-sm pointer-events-none z-0 ${
               pillStyle.width ? 'opacity-100' : 'opacity-0'
             }`}
             style={pillStyle}
@@ -398,7 +413,7 @@ export default function SettingsView({
                 activeSection === s.id
                   ? pillStyle.width
                     ? 'text-white'
-                    : 'bg-[#00b900] text-white shadow-sm'
+                    : 'bg-accent text-white shadow-sm'
                   : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -412,20 +427,20 @@ export default function SettingsView({
       <div className="px-6 pb-10 max-w-3xl mx-auto space-y-16">
         {isSettingsLoading ? (
           <div className="py-32 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
-            <div className="w-10 h-10 border-4 border-t-transparent border-[#00b900] rounded-full animate-spin" />
+            <div className="w-10 h-10 border-4 border-t-transparent border-accent rounded-full animate-spin" />
             <span className="text-xs font-bold uppercase tracking-[0.2em]">Syncing Merchant Profile...</span>
           </div>
         ) : (
           <>
             {/* ══ GENERAL ══════════════════════════════════════════════════════ */}
             <div id="general" className="space-y-6 pt-2">
-          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'general' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
-            <SettingsIcon size={15} className="text-[#00b900]" />
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'general' ? isDark ? 'bg-accent/20 ring-1 ring-accent/30' : 'bg-accent/5 ring-1 ring-accent/30' : ''}`}>
+            <SettingsIcon size={15} className="text-accent" />
             <h2 className={`text-base font-bold ${K.text}`}>General</h2>
           </div>
 
           {/* Shop identity */}
-          <div id="general-shopname" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'general-shopname' ? isDark ? 'ring-2 ring-[#00b900]/50' : 'ring-2 ring-green-300' : ''}`}>
+          <div id="general-shopname" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'general-shopname' ? isDark ? 'ring-2 ring-accent/50' : 'ring-2 ring-accent/50' : ''}`}>
             <p className={`text-sm font-semibold ${K.text}`}>Shop Identity</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
@@ -441,15 +456,44 @@ export default function SettingsView({
                 </div>
                 <p className={hint}>Letters, numbers, and hyphens only</p>
               </div>
-              <div className="md:col-span-2">
+              <div>
                 <label className={lbl}>Theme</label>
-                <div className={`flex p-1 rounded-xl w-full md:w-1/2 ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
+                <div className={`flex p-1 rounded-xl ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
                   {(['light', 'dark'] as const).map(t => (
                     <button key={t} onClick={() => handleThemeChange(t)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all capitalize ${settings.theme === t ? 'bg-[#00b900] text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all capitalize ${settings.theme === t ? 'bg-accent text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
                       {t}
                     </button>
                   ))}
+                </div>
+              </div>
+              <div>
+                <label className={lbl}>Accent Color</label>
+                <div className="flex items-center gap-2 flex-wrap mt-1">
+                  {ACCENT_PRESETS.map(color => {
+                    const isActive = (settings.dashboardAccent || '#00b900') === color;
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => handleAccentChange(color)}
+                        title={color}
+                        style={{
+                          backgroundColor: color,
+                          ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : {}),
+                        }}
+                        className={`w-7 h-7 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                      />
+                    );
+                  })}
+                  <label title="Custom color" className={`w-7 h-7 rounded-full border-2 cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center ${isDark ? 'border-[#1f2335] bg-[#1a1d2e]' : 'border-slate-200 bg-slate-50'}`}>
+                    <input
+                      type="color"
+                      value={settings.dashboardAccent || '#00b900'}
+                      onChange={e => handleAccentChange(e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                    <span className={`text-[13px] font-bold leading-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -478,7 +522,7 @@ export default function SettingsView({
                   window.dispatchEvent(new Event('sg-dismissed-changed'));
                 }}
                 className={`w-12 h-6 rounded-full p-0.5 transition-colors relative flex items-center ${
-                  showGuide ? 'bg-[#00b900]' : isDark ? 'bg-slate-800' : 'bg-slate-200'
+                  showGuide ? 'bg-accent' : isDark ? 'bg-slate-800' : 'bg-slate-200'
                 }`}
               >
                 <span
@@ -518,7 +562,7 @@ export default function SettingsView({
               <div className={`flex p-1 rounded-xl w-fit ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
                 {([false, true] as const).map(isLive => (
                   <button key={String(isLive)} type="button" onClick={() => set('useAutoRate', isLive)}
-                    className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${(settings.useAutoRate ?? false) === isLive ? 'bg-[#00b900] text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
+                    className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${(settings.useAutoRate ?? false) === isLive ? 'bg-accent text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
                     {isLive ? 'Live (auto)' : 'Manual'}
                   </button>
                 ))}
@@ -532,7 +576,7 @@ export default function SettingsView({
                 <input type="number" step="0.0001" min="0" value={settings.krwRate ?? 0.026} onChange={e => set('krwRate', parseFloat(e.target.value) || 0)} className={inputCls} disabled={settings.useAutoRate} />
               </div>
               <button type="button" onClick={handleFetchLiveRate} disabled={fetchingRate}
-                className={`px-4 py-3 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 flex-shrink-0 disabled:opacity-50 ${isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white hover:border-[#00b900]' : 'bg-slate-50 border-slate-200 text-slate-900 hover:border-[#00b900]'}`}>
+                className={`px-4 py-3 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 flex-shrink-0 disabled:opacity-50 ${isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white hover:border-accent' : 'bg-slate-50 border-slate-200 text-slate-900 hover:border-accent'}`}>
                 <RefreshCw size={14} className={fetchingRate ? 'animate-spin' : ''} />
                 {fetchingRate ? 'Fetching…' : 'Fetch live rate'}
               </button>
@@ -564,8 +608,8 @@ export default function SettingsView({
 
         {/* ══ LINE ═════════════════════════════════════════════════════════ */}
         <div id="line" className="space-y-6">
-          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'line' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
-            <MessageSquare size={15} className="text-[#00b900]" />
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'line' ? isDark ? 'bg-accent/20 ring-1 ring-accent/30' : 'bg-accent/5 ring-1 ring-accent/30' : ''}`}>
+            <MessageSquare size={15} className="text-accent" />
             <h2 className={`text-base font-bold ${K.text}`}>LINE Integration</h2>
           </div>
 
@@ -580,7 +624,7 @@ export default function SettingsView({
             </div>
             {checkingLine && (
               <div className="flex items-center gap-2">
-                <Loader2 size={14} className="animate-spin text-[#00b900]" />
+                <Loader2 size={14} className="animate-spin text-accent" />
                 <span className={`text-sm ${K.muted}`}>Checking…</span>
               </div>
             )}
@@ -624,7 +668,7 @@ export default function SettingsView({
             const remaining   = Math.max(0, limit - used);
             const plan        = getLinePlanLabel(lineStatus.tier, lineStatus.quota);
             const planColor   = getLinePlanColor(plan);
-            const barColor    = isUnlimited ? 'bg-amber-400' : pct >= 90 ? 'bg-red-400' : pct >= 70 ? 'bg-amber-400' : 'bg-[#00b900]';
+            const barColor    = isUnlimited ? 'bg-amber-400' : pct >= 90 ? 'bg-red-400' : pct >= 70 ? 'bg-amber-400' : 'bg-accent';
 
             return (
               <div className={`rounded-2xl p-5 space-y-4 ${K.surface}`}>
@@ -685,17 +729,17 @@ export default function SettingsView({
               <p className={`text-xs mt-0.5 ${K.muted}`}>Paste into LINE Developer Console → Messaging API → Webhook settings.</p>
             </div>
             <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-              <code className={`flex-1 text-xs font-mono truncate ${isDark ? 'text-[#00b900]' : 'text-green-700'}`}>{webhookUrl}</code>
+              <code className={`flex-1 text-xs font-mono truncate ${isDark ? 'text-accent' : 'text-accent'}`}>{webhookUrl}</code>
               <CopyButton value={webhookUrl} />
               <a href="https://developers.line.biz/" target="_blank" rel="noopener noreferrer"
-                className={`flex items-center gap-1 text-[10px] ${K.muted} hover:text-[#00b900] transition-colors flex-shrink-0`}>
+                className={`flex items-center gap-1 text-[10px] ${K.muted} hover:text-accent transition-colors flex-shrink-0`}>
                 Console <ExternalLink size={10} />
               </a>
             </div>
           </div>
 
           {/* Credentials */}
-          <div id="line-credentials" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'line-credentials' ? isDark ? 'ring-2 ring-[#00b900]/50' : 'ring-2 ring-green-300' : ''}`}>
+          <div id="line-credentials" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'line-credentials' ? isDark ? 'ring-2 ring-accent/50' : 'ring-2 ring-accent/50' : ''}`}>
             <div>
               <p className={`text-sm font-semibold ${K.text}`}>Messaging API Credentials</p>
               <p className={`text-xs mt-1 ${K.muted}`}>Use credentials from your <strong>Messaging API</strong> channel only — not a LINE Login channel.</p>
@@ -763,12 +807,12 @@ export default function SettingsView({
 
         {/* ══ PAYMENT ══════════════════════════════════════════════════════ */}
         <div id="payment" className="space-y-6">
-          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'payment' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
-            <Zap size={15} className="text-[#00b900]" />
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'payment' ? isDark ? 'bg-accent/20 ring-1 ring-accent/30' : 'bg-accent/5 ring-1 ring-accent/30' : ''}`}>
+            <Zap size={15} className="text-accent" />
             <h2 className={`text-base font-bold ${K.text}`}>Payment</h2>
           </div>
 
-          <div id="payment-promptpay" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'payment-promptpay' ? isDark ? 'ring-2 ring-[#00b900]/50' : 'ring-2 ring-green-300' : ''}`}>
+          <div id="payment-promptpay" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'payment-promptpay' ? isDark ? 'ring-2 ring-accent/50' : 'ring-2 ring-accent/50' : ''}`}>
             <p className={`text-sm font-semibold ${K.text}`}>PromptPay</p>
             <div className="md:w-1/2">
               <label className={lbl}>PromptPay ID (phone or national ID)</label>
@@ -816,7 +860,7 @@ export default function SettingsView({
         {/* ══ LOYALTY PROGRAM ══════════════════════════════════════════════ */}
         <div className="space-y-6">
           <div className="flex items-center gap-2">
-            <span className="text-[#00b900] text-sm">★</span>
+            <span className="text-accent text-sm">★</span>
             <h2 className={`text-base font-bold ${K.text}`}>Loyalty Points</h2>
           </div>
           <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
@@ -828,7 +872,7 @@ export default function SettingsView({
               <button
                 type="button"
                 onClick={() => set('loyalty', { ...(settings.loyalty || {}), enabled: !settings.loyalty?.enabled })}
-                className={`relative w-11 h-6 rounded-full transition-colors ${settings.loyalty?.enabled ? 'bg-[#00b900]' : isDark ? 'bg-[#2d324d]' : 'bg-slate-200'}`}
+                className={`relative w-11 h-6 rounded-full transition-colors ${settings.loyalty?.enabled ? 'bg-accent' : isDark ? 'bg-[#2d324d]' : 'bg-slate-200'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.loyalty?.enabled ? 'translate-x-5' : ''}`} />
               </button>
@@ -870,8 +914,8 @@ export default function SettingsView({
 
         {/* ══ SHIPPING ═════════════════════════════════════════════════════ */}
         <div id="shipping" className="space-y-6">
-          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'shipping' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
-            <Package size={15} className="text-[#00b900]" />
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'shipping' ? isDark ? 'bg-accent/20 ring-1 ring-accent/30' : 'bg-accent/5 ring-1 ring-accent/30' : ''}`}>
+            <Package size={15} className="text-accent" />
             <h2 className={`text-base font-bold ${K.text}`}>Shipping</h2>
           </div>
 
@@ -887,7 +931,7 @@ export default function SettingsView({
             </div>
             <div className="flex gap-2">
               <input type="text" placeholder="Add shipping company…" value={newCompany} onChange={e => setNewCompany(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addCompany(); }} className={`${inputCls} flex-1`} autoComplete="off" />
-              <button onClick={addCompany} className="bg-[#00b900] text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-[#00a000] transition-all flex-shrink-0">
+              <button onClick={addCompany} className="bg-accent text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-accent transition-all flex-shrink-0">
                 <Plus size={15} /> Add
               </button>
             </div>
@@ -911,8 +955,8 @@ export default function SettingsView({
 
         {/* ══ NOTIFICATIONS ════════════════════════════════════════════════ */}
         <div id="notifications" className="space-y-6">
-          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'notifications' ? isDark ? 'bg-[#00b900]/20 ring-1 ring-[#00b900]/30' : 'bg-green-50 ring-1 ring-green-200' : ''}`}>
-            <Bell size={15} className="text-[#00b900]" />
+          <div className={`flex items-center gap-2 px-3 py-2 -mx-3 rounded-xl transition-colors duration-1000 ${highlighted === 'notifications' ? isDark ? 'bg-accent/20 ring-1 ring-accent/30' : 'bg-accent/5 ring-1 ring-accent/30' : ''}`}>
+            <Bell size={15} className="text-accent" />
             <h2 className={`text-base font-bold ${K.text}`}>Notifications</h2>
           </div>
 
@@ -944,7 +988,7 @@ export default function SettingsView({
                         ...settings.orderNotifications,
                         [key]: { ...stage, enabled: !stage.enabled },
                       })}
-                      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${stage.enabled ? 'bg-[#00b900]' : isDark ? 'bg-[#2a2f45]' : 'bg-slate-200'}`}
+                      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${stage.enabled ? 'bg-accent' : isDark ? 'bg-[#2a2f45]' : 'bg-slate-200'}`}
                     >
                       <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${stage.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                     </button>
@@ -983,7 +1027,7 @@ export default function SettingsView({
         onClick={handleSave}
         disabled={isSaving}
         className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white disabled:opacity-50 active:scale-[0.99] transition-all flex-shrink-0 ${
-          saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#00b900] hover:bg-[#00a000]'
+          saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-accent hover:bg-accent'
         }`}
       >
         {isSaving ? <Loader2 size={15} className="animate-spin" /> : saved ? <Check size={15} /> : <Save size={15} />}

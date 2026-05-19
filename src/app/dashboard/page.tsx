@@ -116,6 +116,10 @@ export default function DashboardPage() {
     setSettings((prev: any) => prev ? { ...prev, theme: newTheme } : prev);
   }, []);
 
+  const handleAccentChange = useCallback((newColor: string) => {
+    setSettings((prev: any) => prev ? { ...prev, dashboardAccent: newColor } : prev);
+  }, []);
+
   async function handleSaveStorefront(config: any) {
     await fetch('/api/settings', {
       method: 'POST',
@@ -177,6 +181,7 @@ export default function DashboardPage() {
 
   const theme = settings?.theme || 'light';
   const isDark = theme === 'dark';
+  const accentColor = settings?.dashboardAccent || '#00b900';
   const shopInitial = (settings?.shopName || merchant?.email || 'S')[0].toUpperCase();
   const tier = merchant?.tier ?? 'free';
   const tierLabel = getTierLabel(tier);
@@ -184,16 +189,16 @@ export default function DashboardPage() {
 
   const TIER_BADGE_COLORS: Record<string, string> = {
     free:       'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-[#8b92ad]',
-    pro:        'bg-[#00b900]/10 text-[#00b900]',
+    pro:        'bg-accent/10 text-accent',
     enterprise: 'bg-amber-50 text-amber-600',
   };
 
   return (
-    <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`}>
+    <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`} style={{ '--accent': accentColor } as React.CSSProperties}>
       <style>{`
         @keyframes navglow {
-          0%, 100% { box-shadow: 0 0 4px rgba(0,185,0,0.45), 0 0 2px rgba(0,185,0,0.2); opacity: 0.85; }
-          50%       { box-shadow: 0 0 10px rgba(0,185,0,0.75), 0 0 5px rgba(0,185,0,0.4); opacity: 1; }
+          0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); opacity: 0.85; }
+          50%       { box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 75%, transparent), 0 0 5px color-mix(in srgb, var(--accent) 40%, transparent); opacity: 1; }
         }
       `}</style>
 
@@ -202,7 +207,7 @@ export default function DashboardPage() {
 
         {/* Brand */}
         <div className={`flex items-center gap-3 px-5 h-full flex-shrink-0 border-r ${isDark ? 'border-[#1f2335]' : 'border-gray-200'}`}>
-          <div className="w-8 h-8 rounded-xl bg-[#00b900] flex items-center justify-center flex-shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center flex-shrink-0 shadow-sm">
             <MessageCircle size={16} className="text-white" />
           </div>
           <div className="hidden sm:block">
@@ -221,7 +226,7 @@ export default function DashboardPage() {
         {/* Tab navigation */}
         <nav ref={topNavContainerRef} className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
           <div
-            className={`absolute bottom-0 h-[2px] bg-[#00b900] shadow-[0_0_6px_rgba(0,185,0,0.6),0_0_2px_rgba(0,185,0,0.3)] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
+            className={`absolute bottom-0 h-[2px] bg-accent transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
               topNavStyle.width ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
@@ -241,7 +246,7 @@ export default function DashboardPage() {
               }`}
             >
               {activeTab === tab.id && (
-                <span className={`absolute inset-0 rounded-none pointer-events-none ${isDark ? 'bg-[#00b900]/[0.05]' : 'bg-[#00b900]/[0.04]'}`} />
+                <span className={`absolute inset-0 rounded-none pointer-events-none ${isDark ? 'bg-accent/5' : 'bg-accent/5'}`} />
               )}
               {tab.icon}
               {tab.label}
@@ -256,10 +261,10 @@ export default function DashboardPage() {
               href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all active:scale-95 shadow-sm shadow-[#00b900]/10 ${
+              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all active:scale-95 shadow-sm shadow-accent/10 ${
                 isDark
-                  ? 'border-[#00b900]/30 bg-[#00b900]/10 text-[#00b900] hover:bg-[#00b900] hover:text-white hover:border-[#00b900]'
-                  : 'border-[#00b900]/25 bg-[#00b900]/5 text-[#00b900] hover:bg-[#00b900] hover:text-white hover:border-[#00b900]'
+                  ? 'border-accent/30 bg-accent/10 text-accent hover:bg-accent hover:text-white hover:border-accent'
+                  : 'border-accent/25 bg-accent/5 text-accent hover:bg-accent hover:text-white hover:border-accent'
               }`}
             >
               <ExternalLink size={12} />
@@ -282,7 +287,7 @@ export default function DashboardPage() {
               title="Feedback"
               className={`p-1.5 rounded-lg transition-colors ${
                 activeTab === 'feedback'
-                  ? 'text-[#00b900] bg-[#00b900]/10'
+                  ? 'text-accent bg-accent/10'
                   : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -293,7 +298,7 @@ export default function DashboardPage() {
               title="Settings"
               className={`p-1.5 rounded-lg transition-colors ${
                 activeTab === 'settings'
-                  ? 'text-[#00b900] bg-[#00b900]/10'
+                  ? 'text-accent bg-accent/10'
                   : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -302,8 +307,8 @@ export default function DashboardPage() {
           </div>
 
           <div className={`flex items-center gap-2 pl-3 border-l ${isDark ? 'border-[#1f2335]' : 'border-gray-200'}`}>
-            <div className="w-8 h-8 rounded-full bg-[#00b900]/10 border border-[#00b900]/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-[#00b900] text-xs font-bold">{shopInitial}</span>
+            <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-accent text-xs font-bold">{shopInitial}</span>
             </div>
             <button
               onClick={handleLogout}
@@ -331,11 +336,11 @@ export default function DashboardPage() {
         </div>
 
         <div key={`reports-${refreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
-          <ReportsView theme={theme} t={{}} />
+          <ReportsView theme={theme} t={{}} accentColor={accentColor} />
         </div>
 
         <div key={`broadcasts-${refreshKey}`} className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col' : 'hidden'}>
-          <BroadcastsView theme={theme} t={{}} onLimitHit={handleLimitHit} />
+          <BroadcastsView theme={theme} t={{}} accentColor={accentColor} onLimitHit={handleLimitHit} />
         </div>
 
         <div key={`feedback-${refreshKey}`} className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
@@ -344,7 +349,7 @@ export default function DashboardPage() {
         </div>
 
         <div key={`settings-${refreshKey}`} className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-          <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} scrollTrigger={settingsScroll} />
+          <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} />
         </div>
 
         <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6' : 'hidden'}>
@@ -360,7 +365,7 @@ export default function DashboardPage() {
               {merchant && (
                 <a
                   href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
-                  target="_blank" rel="noopener noreferrer" className="text-green-500 hover:underline"
+                  target="_blank" rel="noopener noreferrer" className="text-accent hover:underline"
                 >
                   {merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
                 </a>
