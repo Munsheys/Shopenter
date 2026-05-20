@@ -168,6 +168,16 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     </div>
   );
 
+  if (shopInfo && sf.maintenanceMode) return (
+    <div style={style.page} className="flex items-center justify-center min-h-screen">
+      <div className="text-center p-8 max-w-sm">
+        <div className="text-5xl mb-4">🔧</div>
+        <h1 className="text-xl font-bold mb-2">{shopInfo.shopName || 'Store'}</h1>
+        <p style={style.muted} className="text-sm">{sf.maintenanceMessage || 'We will be back soon.'}</p>
+      </div>
+    </div>
+  );
+
   if (!shopInfo) return (
     <div style={{ ...style.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${p.accent}40`, borderTopColor: p.accent }} />
@@ -263,9 +273,18 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     />
   );
 
+  const announcementBgMap: Record<string, string> = {
+    blue:   '#3b82f6', amber: '#f59e0b', red: '#ef4444',
+    accent: p.accent,
+  };
+  const announcementBg = announcementBgMap[sf.announcementColor || 'accent'] ?? p.accent;
+
   return (
     <div style={style.page}>
-      {sf.announcementText && (
+      {sf.announcementEnabled && sf.announcementText && (
+        <div className="px-4 py-1.5 text-xs text-center font-medium text-white" style={{ background: announcementBg }}>{sf.announcementText}</div>
+      )}
+      {!sf.announcementEnabled && sf.announcementText && (
         <div className="px-4 py-1.5 text-xs text-center font-medium" style={style.accent}>{sf.announcementText}</div>
       )}
       <div style={style.header} className="sticky top-0 z-10">

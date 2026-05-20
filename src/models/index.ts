@@ -32,16 +32,66 @@ const SettingsSchema = new mongoose.Schema({
   slipokBranchId: { type: String, default: "" },
   slipokApiKey: { type: String, default: "" },
   lineOAPlan: { type: String, enum: ['free', 'light', 'pro'], default: 'free' },
-  storefrontLanguage: { type: String, enum: ['th', 'ja', 'en', 'ko', 'zh-TW'], default: 'th' },
+  dashboardLanguage: { type: String, enum: ['th', 'ja', 'en', 'ko', 'zh-TW'], default: 'th' },
   orderNotifications: {
     paid:      { enabled: { type: Boolean, default: false }, template: { type: String, default: "✅ รับออเดอร์แล้วครับ!\n\nรายการ: {product}\nยอด: ฿{amount}\n\nกำลังดำเนินการครับ 🙏" } },
     preparing: { enabled: { type: Boolean, default: false }, template: { type: String, default: "📦 กำลังเตรียมสินค้าแล้วครับ!\n\nรายการ: {product}\n\nจะแจ้งเลขพัสดุให้เร็วๆ นี้ครับ 🙏" } },
     shipped:   { enabled: { type: Boolean, default: false }, template: { type: String, default: "🚚 ส่งสินค้าแล้วครับ!\n\nรายการ: {product}\nขนส่ง: {courier}\nเลขพัสดุ: {tracking}\n\nขอบคุณครับ 🙏" } },
     delivered: { enabled: { type: Boolean, default: false }, template: { type: String, default: "✅ สินค้าถึงแล้วนะครับ!\n\nรายการ: {product}\n\nขอบคุณที่ใช้บริการครับ 🙏" } },
   },
+  // Shop identity extras
+  shopDescription: { type: String, default: '' },
+  shopTimezone: { type: String, default: 'Asia/Bangkok' },
+  shopLogoUrl: { type: String, default: '' },
+  compactMode: { type: Boolean, default: false },
+  // Business hours (stored; auto-reply wiring is deferred)
+  businessHours: {
+    enabled: { type: Boolean, default: false },
+    closedAutoReply: { type: String, default: '' },
+    mon: { enabled: { type: Boolean, default: true },  open: { type: String, default: '09:00' }, close: { type: String, default: '18:00' } },
+    tue: { enabled: { type: Boolean, default: true },  open: { type: String, default: '09:00' }, close: { type: String, default: '18:00' } },
+    wed: { enabled: { type: Boolean, default: true },  open: { type: String, default: '09:00' }, close: { type: String, default: '18:00' } },
+    thu: { enabled: { type: Boolean, default: true },  open: { type: String, default: '09:00' }, close: { type: String, default: '18:00' } },
+    fri: { enabled: { type: Boolean, default: true },  open: { type: String, default: '09:00' }, close: { type: String, default: '18:00' } },
+    sat: { enabled: { type: Boolean, default: false }, open: { type: String, default: '10:00' }, close: { type: String, default: '16:00' } },
+    sun: { enabled: { type: Boolean, default: false }, open: { type: String, default: '10:00' }, close: { type: String, default: '16:00' } },
+  },
   // Greeting message sent on follow event
   greetingEnabled: { type: Boolean, default: false },
   greetingMessages: { type: Array, default: [] },
+  // Rich Menu reference
+  richMenuSavedId: { type: String, default: '' },
+  // Payment configuration
+  paymentMethods: {
+    promptpay:   { type: Boolean, default: true },
+    bankTransfer: { type: Boolean, default: false },
+    cod:         { type: Boolean, default: false },
+    truemoney:   { type: Boolean, default: false },
+    truemoneyId: { type: String, default: '' },
+  },
+  bankAccounts: { type: Array, default: [] }, // [{bankName, accountNumber, accountName, branch}]
+  autoCancelHours: { type: Number, default: 0 }, // 0 = disabled
+  // Shipping extras
+  defaultShippingCost: { type: Number, default: 0 },
+  freeShippingThreshold: {
+    enabled: { type: Boolean, default: false },
+    amount:  { type: Number, default: 0 },
+  },
+  codSurcharge: { type: Number, default: 0 },
+  deliveryEstimates: { type: Array, default: [] }, // [{courier, minDays, maxDays}]
+  // Admin alerts
+  adminAlerts: {
+    newOrder:        { type: Boolean, default: false },
+    slipReceived:    { type: Boolean, default: false },
+    outOfStock:      { type: Boolean, default: false },
+    lowStockThreshold: { type: Number, default: 5 },
+  },
+  broadcastReminder: {
+    enabled:         { type: Boolean, default: false },
+    leadTimeMinutes: { type: Number, default: 60 },
+  },
+  // Order display prefix (e.g. "SP-" → SP-001, SP-002)
+  orderPrefix: { type: String, default: '' },
   loyalty: {
     enabled: { type: Boolean, default: false },
     pointsPerBaht: { type: Number, default: 1 },
@@ -59,6 +109,12 @@ const SettingsSchema = new mongoose.Schema({
     showCategoryFilter: { type: Boolean, default: true },
     showSearch: { type: Boolean, default: true },
     announcementText: { type: String, default: "" },
+    announcementEnabled: { type: Boolean, default: false },
+    announcementColor: { type: String, default: 'blue' },
+    maintenanceMode: { type: Boolean, default: false },
+    maintenanceMessage: { type: String, default: 'We will be back soon.' },
+    postCheckoutUrl: { type: String, default: '' },
+    language: { type: String, enum: ['th', 'ja', 'en', 'ko', 'zh-TW'], default: 'th' },
   }
 });
 

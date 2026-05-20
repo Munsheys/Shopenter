@@ -15,6 +15,7 @@ interface StorefrontConfig {
   showCategoryFilter: boolean;
   showSearch: boolean;
   announcementText: string;
+  language: string;
 }
 
 const DEFAULT_CONFIG: StorefrontConfig = {
@@ -28,6 +29,7 @@ const DEFAULT_CONFIG: StorefrontConfig = {
   showCategoryFilter: true,
   showSearch: true,
   announcementText: '',
+  language: 'th',
 };
 
 interface Props {
@@ -329,6 +331,26 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
               </label>
             ))}
           </div>
+        </section>
+
+        {/* Storefront language */}
+        <section>
+          <h3 className={sectionHeading}>Storefront Language</h3>
+          <p className={`text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-700'}`}>
+            Language shown to customers on your public storefront. Translations are applied when available.
+          </p>
+          <select
+            value={config.language}
+            onChange={e => set('language', e.target.value)}
+            className={inputCls}
+            style={{ maxWidth: '280px' }}
+          >
+            <option value="th">🇹🇭 Thai (ภาษาไทย)</option>
+            <option value="ja">🇯🇵 Japanese (日本語)</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="ko">🇰🇷 Korean (한국어)</option>
+            <option value="zh-TW">🇹🇼 Traditional Chinese (繁體中文)</option>
+          </select>
         </section>
 
         {/* Save */}

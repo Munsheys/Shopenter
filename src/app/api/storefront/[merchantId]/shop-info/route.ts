@@ -13,10 +13,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mer
 
     return NextResponse.json({
       shopName: s.shopName,
+      shopDescription: s.shopDescription || '',
+      shopLogoUrl: s.shopLogoUrl || '',
       liffId: s.liffId || null,
       promptPayId: s.promptPayId || null,
       krwRate: s.krwRate ?? 0.026,
-      storefront: s.storefront ?? {}
+      paymentMethods: s.paymentMethods ?? {},
+      bankAccounts: s.bankAccounts ?? [],
+      storefront: s.storefront ?? {},
     });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch store info' }, { status: 500 });

@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import { Order, Settings, Merchant } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
+import { sendLineMessage } from '@/lib/line';
 
 export const runtime = 'nodejs';
 
@@ -76,6 +77,15 @@ export async function POST(req: NextRequest) {
       profit: costAmount > 0 ? profit : (body.profit ?? 0),
       rateUsed: costAmount > 0 ? rate : body.rateUsed,
     });
+
+    // Push admin LINE alert if enabled
+    if (settings?.adminAlerts?.newOrder && settings.adminLineId && settings.lineChannelAccessToken) {
+      const prefix = settings.orderPrefix ? `${settings.orderPrefix}` : '';
+      const shortId = order._id.toString().slice(-6).toUpperCase();
+      const productText = body.product || body.items?.map((i: any) => i.name).join(', ') || 'New item';
+      const alertMsg = `🛍️ New order: ${prefix}${shortId}\n${productText}\n฿${body.soldTHB || 0}`;
+      sendLineMessage(settings.lineChannelAccessToken, settings.adminLineId, alertMsg).catch(() => {});
+    }
 
     return NextResponse.json(order, { status: 201 });
   } catch {

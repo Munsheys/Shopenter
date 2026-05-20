@@ -45,9 +45,11 @@ export async function POST(req: NextRequest) {
     if (!body.lineChannelSecret) delete body.lineChannelSecret;
     if (!body.slipokApiKey) delete body.slipokApiKey;
 
-    // Never let clients overwrite the merchantId binding or old single-tenant auth field
+    // Allow adminSecret to be updated — it's a passphrase for bot commands, not a platform credential.
+    // Treat it like other credential fields: skip save if blank (keeps existing value).
+    if (typeof body.adminSecret === 'string' && !body.adminSecret.trim()) delete body.adminSecret;
+    // Never let clients overwrite the merchantId binding
     delete body.merchantId;
-    delete body.adminSecret;
 
     // Sync shopName and slug to the Merchant model as well, since they govern global identity and storefront routing
     if (body.shopName !== undefined || body.slug !== undefined) {
