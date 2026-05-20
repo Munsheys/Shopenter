@@ -290,8 +290,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       <div style={style.header} className="sticky top-0 z-10">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {sf.logoUrl
-              ? <img src={sf.logoUrl} alt="logo" className="w-8 h-8 rounded-xl object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+            {shopInfo.shopLogoUrl
+              ? <img src={shopInfo.shopLogoUrl} alt="logo" className="w-8 h-8 rounded-xl object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
               : <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold" style={style.accent}>{(shopInfo.shopName || 'S')[0]}</div>
             }
             <div>

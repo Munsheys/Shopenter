@@ -13,6 +13,18 @@ export async function GET() {
   return NextResponse.json({ message: 'Webhook endpoint is active. Use POST for LINE events.' });
 }
 
+// Summarise a message block as plain text for chat log storage
+function blockToLogText(block: any): string {
+  switch (block.type) {
+    case 'text':    return block.text ?? '';
+    case 'image':   return '📷 Image';
+    case 'video':   return '🎥 Video';
+    case 'audio':   return '🔊 Audio';
+    case 'sticker': return '🎭 Sticker';
+    default:        return block.text ?? '[Message]';
+  }
+}
+
 // Convert our stored message block to a valid LINE message object
 function toLineMessage(block: any): any {
   switch (block.type) {
@@ -136,16 +148,25 @@ export async function POST(req: Request) {
 
         // Send greeting if enabled, using reply token (free)
         if (matchedSettings?.greetingEnabled && matchedSettings?.greetingMessages?.length > 0 && event.replyToken) {
+          let greetingSent = false;
           try {
             const greetingMsgs = matchedSettings.greetingMessages.slice(0, 5).map(toLineMessage);
             await client.replyMessage({ replyToken: event.replyToken, messages: greetingMsgs });
+            greetingSent = true;
           } catch (err) {
             console.error('[greeting reply]', err);
             // Fallback to push if reply token expired
             try {
               const greetingMsgs = matchedSettings.greetingMessages.slice(0, 5).map(toLineMessage);
               await client.pushMessage({ to: userId, messages: greetingMsgs });
+              greetingSent = true;
             } catch { /* ignore */ }
+          }
+          if (greetingSent) {
+            const logTexts = matchedSettings.greetingMessages.slice(0, 5).map(blockToLogText).filter(Boolean);
+            if (logTexts.length > 0) {
+              await Message.insertMany(logTexts.map((text: string) => ({ merchantId, lineUserId: userId, type: 'system', text, sender: 'system' })));
+            }
           }
         }
         continue;
@@ -187,6 +208,10 @@ export async function POST(req: Request) {
             try {
               await AutoReply.updateOne({ _id: rule._id }, { $set: { lastTriggeredAt: new Date() } });
               await client.replyMessage({ replyToken: event.replyToken, messages: rule.messages.slice(0, 5).map(toLineMessage) });
+              const logTexts = rule.messages.slice(0, 5).map(blockToLogText).filter(Boolean);
+              if (logTexts.length > 0) {
+                await Message.insertMany(logTexts.map((text: string) => ({ merchantId, lineUserId: userId, type: 'system', text, sender: 'system' })));
+              }
             } catch (err) { console.error('[postback reply]', err); }
           }
         }
@@ -239,6 +264,12 @@ export async function POST(req: Request) {
           if (replyMessages.length > 0 && event.replyToken) {
             try {
               await client.replyMessage({ replyToken: event.replyToken, messages: replyMessages });
+              if (rule) {
+                const logTexts = rule.messages.slice(0, 5).map(blockToLogText).filter(Boolean);
+                if (logTexts.length > 0) {
+                  await Message.insertMany(logTexts.map((text: string) => ({ merchantId, lineUserId: userId, type: 'system', text, sender: 'system' })));
+                }
+              }
             } catch (err) { console.error('[text reply]', err); }
           }
 

@@ -13,7 +13,6 @@ interface StorefrontConfig {
   // Storefront-specific
   preset: string;
   shopTagline: string;
-  logoUrl: string;
   bannerUrl: string;
   accentColor: string;
   cardLayout: 'grid' | 'list';
@@ -36,7 +35,6 @@ const DEFAULT_CONFIG: StorefrontConfig = {
   shopTimezone: 'Asia/Bangkok',
   preset: 'midnight',
   shopTagline: '',
-  logoUrl: '',
   bannerUrl: '',
   accentColor: '',
   cardLayout: 'grid',
@@ -316,7 +314,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 />
               );
             })()}
-            {(['#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'] as const).map(color => {
+            {(['#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'] as const).filter(color => color.toLowerCase() !== (PRESETS[config.preset]?.accent ?? '').toLowerCase()).map(color => {
               const isActive = config.accentColor === color;
               return (
                 <button
@@ -365,16 +363,6 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 value={config.shopTagline}
                 onChange={e => set('shopTagline', e.target.value)}
                 placeholder="e.g. Fresh Korean fashion, delivered fast"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={fieldLabel}>Logo URL</label>
-              <input
-                type="url"
-                value={config.logoUrl}
-                onChange={e => set('logoUrl', e.target.value)}
-                placeholder="https://..."
                 className={inputCls}
               />
             </div>
@@ -596,9 +584,9 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             style={{ background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` }}
           >
             <div className="flex items-center gap-2">
-              {config.logoUrl ? (
+              {config.shopLogoUrl ? (
                 <img
-                  src={config.logoUrl}
+                  src={config.shopLogoUrl}
                   className="w-7 h-7 rounded-lg object-cover"
                   alt="logo"
                   onError={e => (e.currentTarget.style.display = 'none')}
