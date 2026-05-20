@@ -16,14 +16,11 @@ export async function GET(req: NextRequest) {
       s = await Settings.create({ merchantId: merchant.merchantId });
     }
     const settings = s.toObject();
-    // Strip secrets — clients never see raw credentials
+    // Strip platform-level secrets — clients never see raw LINE credentials
     delete settings.lineChannelAccessToken;
     delete settings.lineChannelSecret;
     delete settings.adminSecret;
-    // SlipOK keys are master-admin only; expose only whether they are configured
-    settings.slipokConfigured = !!(s.slipokApiKey && s.slipokBranchId);
-    delete settings.slipokApiKey;
-    delete settings.slipokBranchId;
+    // slipokApiKey and slipokBranchId are the merchant's own credentials — expose them for editing
     return NextResponse.json(settings);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
@@ -43,13 +40,12 @@ export async function POST(req: NextRequest) {
     if (typeof body.lineChannelAccessToken === 'string') body.lineChannelAccessToken = body.lineChannelAccessToken.trim();
     if (typeof body.liffId === 'string') body.liffId = body.liffId.trim();
 
-    // Never overwrite credentials with empty strings — GET strips them from the response so
-    // the client always sends '' for fields the user didn't explicitly change.
+    // Never overwrite credentials with empty strings
     if (!body.lineChannelAccessToken) delete body.lineChannelAccessToken;
     if (!body.lineChannelSecret) delete body.lineChannelSecret;
-    // SlipOK credentials are master-admin only — merchants can never write them
-    delete body.slipokApiKey;
-    delete body.slipokBranchId;
+    // SlipOK credentials are merchant-owned — allow saving, but skip blank values to preserve existing
+    if (typeof body.slipokApiKey === 'string' && !body.slipokApiKey.trim()) delete body.slipokApiKey;
+    if (typeof body.slipokBranchId === 'string' && !body.slipokBranchId.trim()) delete body.slipokBranchId;
 
     // Allow adminSecret to be updated — it's a passphrase for bot commands, not a platform credential.
     // Treat it like other credential fields: skip save if blank (keeps existing value).

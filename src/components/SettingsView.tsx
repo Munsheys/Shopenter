@@ -841,29 +841,67 @@ export default function SettingsView({
             </div>
 
             {/* Slip Verification */}
-            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
+            <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-start gap-2.5">
                   <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0 mt-1.5" />
                   <div>
                     <p className={`text-sm font-semibold ${K.text}`}>SlipOK — Automatic Slip Verification</p>
-                    <p className={`text-xs mt-0.5 ${K.muted}`}>When enabled, bank transfer images sent in chat are automatically verified.</p>
+                    <p className={`text-xs mt-0.5 ${K.muted}`}>When a customer sends a transfer slip in chat, it is verified and the order is marked paid automatically.</p>
                   </div>
                 </div>
                 <Toggle enabled={!!settings.useSlipok} onChange={v => set('useSlipok', v)} isDark={isDark} />
               </div>
-              {settings.useSlipok && !settings.slipokConfigured && (
-                <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-                  <AlertTriangle size={13} className="flex-shrink-0" />
-                  SlipOK has not been configured by the admin yet. Contact support to activate automatic slip verification.
+
+              {/* How it works */}
+              <div className={`rounded-xl p-4 space-y-2 text-xs ${isDark ? 'bg-blue-500/5 border border-blue-500/15' : 'bg-blue-50 border border-blue-100'}`}>
+                <p className={`font-semibold ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>How it works</p>
+                <p className={K.muted}>SlipOK reads the transfer amount from the slip image and automatically matches it to your pending orders — then sends your Payment Confirmation Message without any manual effort.</p>
+                <p className={`${K.muted} mt-1`}>
+                  You need your own{' '}
+                  <a href="https://www.slipok.com" target="_blank" rel="noopener noreferrer" className={`underline font-semibold ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>SlipOK account</a>
+                  {' '}linked to your bank account. Sign up, create a branch for your store, and paste the credentials below.
+                </p>
+              </div>
+
+              {/* Credentials */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className={`text-xs font-medium ${K.muted}`}>Branch ID</label>
+                  <input
+                    type="text"
+                    value={settings.slipokBranchId || ''}
+                    onChange={e => set('slipokBranchId', e.target.value)}
+                    placeholder="e.g. SLIP-XXXXX"
+                    className={inputCls}
+                    autoComplete="off"
+                  />
                 </div>
-              )}
-              {settings.useSlipok && settings.slipokConfigured && (
+                <div className="space-y-1.5">
+                  <label className={`text-xs font-medium ${K.muted}`}>API Key</label>
+                  <input
+                    type="password"
+                    value={settings.slipokApiKey || ''}
+                    onChange={e => set('slipokApiKey', e.target.value)}
+                    placeholder="Your SlipOK API key..."
+                    className={inputCls}
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              {/* Status */}
+              {settings.useSlipok && settings.slipokApiKey && settings.slipokBranchId ? (
                 <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs ${isDark ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
                   <Check size={13} className="flex-shrink-0" />
-                  SlipOK is configured and active. Slip images sent in LINE chat will be verified automatically.
+                  SlipOK is active. Slip images sent in LINE chat will be verified automatically.
                 </div>
-              )}
+              ) : settings.useSlipok ? (
+                <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                  <AlertTriangle size={13} className="flex-shrink-0" />
+                  Enter your Branch ID and API Key above, then save to activate slip verification.
+                </div>
+              ) : null}
             </div>
 
             {/* Payment Confirmation Message */}
