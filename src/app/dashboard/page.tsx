@@ -159,7 +159,7 @@ export default function DashboardPage() {
       if (!topNavContainerRef.current) return;
       const container = topNavContainerRef.current;
       const activeIdx = tabs.findIndex(t => t.id === activeTab);
-      if (activeIdx === -1) return;
+      if (activeIdx === -1) { setTopNavStyle({}); return; }
 
       const buttons = container.querySelectorAll('button');
       const activeBtn = buttons[activeIdx] as HTMLElement;
@@ -199,6 +199,10 @@ export default function DashboardPage() {
         @keyframes navglow {
           0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); opacity: 0.85; }
           50%       { box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 75%, transparent), 0 0 5px color-mix(in srgb, var(--accent) 40%, transparent); opacity: 1; }
+        }
+        @keyframes iconglow {
+          0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent), 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); }
+          50%       { box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent), 0 0 5px color-mix(in srgb, var(--accent) 40%, transparent); }
         }
       `}</style>
 
@@ -290,6 +294,7 @@ export default function DashboardPage() {
                   ? 'text-accent bg-accent/10'
                   : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
               }`}
+              style={activeTab === 'feedback' ? { animation: 'iconglow 3s ease-in-out infinite' } : undefined}
             >
               <HeartHandshake size={15} />
             </button>
@@ -301,6 +306,7 @@ export default function DashboardPage() {
                   ? 'text-accent bg-accent/10'
                   : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
               }`}
+              style={activeTab === 'settings' ? { animation: 'iconglow 3s ease-in-out infinite' } : undefined}
             >
               <SettingsIcon size={15} />
             </button>

@@ -443,18 +443,10 @@ export default function SettingsView({
           <div id="general-shopname" className={`rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === 'general-shopname' ? isDark ? 'ring-2 ring-accent/50' : 'ring-2 ring-accent/50' : ''}`}>
             <p className={`text-sm font-semibold ${K.text}`}>Shop Identity</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
+              <div className="md:col-span-2">
                 <label className={lbl}>Shop Name</label>
                 <input type="text" value={settings.shopName || ''} onChange={e => set('shopName', e.target.value)} placeholder="My Awesome Shop" className={inputCls} autoComplete="off" />
                 <p className={hint}>Shown on storefront and all outgoing messages</p>
-              </div>
-              <div>
-                <label className={lbl}>Storefront URL Slug</label>
-                <div className="relative">
-                  <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>/shop/</span>
-                  <input type="text" value={settings.slug || ''} onChange={e => set('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} placeholder="my-awesome-shop" className={`${inputCls} pl-12`} autoComplete="off" />
-                </div>
-                <p className={hint}>Letters, numbers, and hyphens only</p>
               </div>
               <div>
                 <label className={lbl}>Theme</label>
@@ -496,6 +488,29 @@ export default function SettingsView({
                   </label>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Language & Locale */}
+          <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
+            <div>
+              <p className={`text-sm font-semibold ${K.text}`}>Language & Locale</p>
+              <p className={`text-xs mt-1 ${K.muted}`}>Affects storefront labels, auto-message templates, and LINE-sent text defaults.</p>
+            </div>
+            <div className="md:w-1/2">
+              <label className={lbl}>Storefront Language</label>
+              <select
+                value={settings.storefrontLanguage || 'th'}
+                onChange={e => set('storefrontLanguage', e.target.value)}
+                className={inputCls}
+              >
+                <option value="th">🇹🇭 Thai (ภาษาไทย)</option>
+                <option value="ja">🇯🇵 Japanese (日本語)</option>
+                <option value="en">🇬🇧 English</option>
+                <option value="ko">🇰🇷 Korean (한국어)</option>
+                <option value="zh-TW">🇹🇼 Traditional Chinese (繁體中文)</option>
+              </select>
+              <p className={hint}>Language shown to customers on your public storefront</p>
             </div>
           </div>
 
@@ -551,9 +566,9 @@ export default function SettingsView({
               <div>
                 <label className={lbl}>Selling Currency</label>
                 <select value={settings.localCurrency || 'THB'} onChange={e => set('localCurrency', e.target.value)} className={inputCls}>
-                  {['THB','USD','EUR','GBP','JPY','SGD','MYR','PHP','IDR','VND'].map(c => <option key={c} value={c}>{c}</option>)}
+                  {['THB','JPY','TWD','KRW','USD','EUR','GBP','SGD','MYR','IDR','PHP','VND','AUD','HKD'].map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <p className={hint}>Currency customers pay in</p>
+                <p className={hint}>Price shown on your storefront and in LINE messages</p>
               </div>
             </div>
 

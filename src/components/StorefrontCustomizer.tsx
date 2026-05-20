@@ -171,13 +171,30 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         <section>
           <h3 className={sectionHeading}>Accent color</h3>
           <div className="flex items-center gap-2 flex-wrap">
-            {[p.accent, '#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'].map(color => {
-              const isActive = (config.accentColor || p.accent) === color;
+            {/* First swatch: always the base preset default (resets override on click) */}
+            {(() => {
+              const baseAccent = PRESETS[config.preset]?.accent ?? p.accent;
+              const isDefault = !config.accentColor;
+              return (
+                <button
+                  key="preset-default"
+                  onClick={() => set('accentColor', '')}
+                  title={`Preset default (${baseAccent})`}
+                  style={{
+                    backgroundColor: baseAccent,
+                    ...(isDefault ? { outline: `2.5px solid ${baseAccent}`, outlineOffset: '2px' } : {}),
+                  }}
+                  className={`w-7 h-7 rounded-full transition-all ${isDefault ? 'scale-110' : 'hover:scale-105'}`}
+                />
+              );
+            })()}
+            {(['#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'] as const).map(color => {
+              const isActive = config.accentColor === color;
               return (
                 <button
                   key={color}
-                  onClick={() => set('accentColor', color === p.accent ? '' : color)}
-                  title={color === p.accent ? `Preset default (${color})` : color}
+                  onClick={() => set('accentColor', color)}
+                  title={color}
                   style={{
                     backgroundColor: color,
                     ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : {}),

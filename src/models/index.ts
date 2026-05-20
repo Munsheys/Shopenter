@@ -32,6 +32,7 @@ const SettingsSchema = new mongoose.Schema({
   slipokBranchId: { type: String, default: "" },
   slipokApiKey: { type: String, default: "" },
   lineOAPlan: { type: String, enum: ['free', 'light', 'pro'], default: 'free' },
+  storefrontLanguage: { type: String, enum: ['th', 'ja', 'en', 'ko', 'zh-TW'], default: 'th' },
   orderNotifications: {
     paid:      { enabled: { type: Boolean, default: false }, template: { type: String, default: "✅ รับออเดอร์แล้วครับ!\n\nรายการ: {product}\nยอด: ฿{amount}\n\nกำลังดำเนินการครับ 🙏" } },
     preparing: { enabled: { type: Boolean, default: false }, template: { type: String, default: "📦 กำลังเตรียมสินค้าแล้วครับ!\n\nรายการ: {product}\n\nจะแจ้งเลขพัสดุให้เร็วๆ นี้ครับ 🙏" } },
