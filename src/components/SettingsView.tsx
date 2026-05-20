@@ -34,6 +34,32 @@ function Toggle({ enabled, onChange, isDark }: { enabled: boolean; onChange: (v:
   );
 }
 
+function NumberStepper({
+  value, onChange, min, max, step = 1, isDark, disabled = false,
+}: {
+  value: number; onChange: (v: number) => void;
+  min?: number; max?: number; step?: number; isDark?: boolean; disabled?: boolean;
+}) {
+  const clamp = (v: number) => Math.max(min ?? -Infinity, Math.min(max ?? Infinity, v));
+  const btnCls = `w-9 h-full flex items-center justify-center text-base font-bold flex-shrink-0 transition-colors disabled:opacity-25
+    ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`;
+  return (
+    <div className={`flex items-center h-11 rounded-xl border overflow-hidden ${isDark ? 'bg-[#0f1117] border-[#2a2f45]' : 'bg-white border-slate-200'}`}>
+      <button type="button" disabled={disabled || (min !== undefined && value <= min)} onClick={() => onChange(clamp(value - step))} className={btnCls}>−</button>
+      <div className={`w-px self-stretch ${isDark ? 'bg-[#2a2f45]' : 'bg-slate-200'}`} />
+      <input
+        type="number"
+        value={value}
+        disabled={disabled}
+        onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) onChange(clamp(n)); }}
+        className={`flex-1 min-w-0 text-center text-sm font-semibold bg-transparent outline-none py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isDark ? 'text-white' : 'text-slate-800'}`}
+      />
+      <div className={`w-px self-stretch ${isDark ? 'bg-[#2a2f45]' : 'bg-slate-200'}`} />
+      <button type="button" disabled={disabled || (max !== undefined && value >= max)} onClick={() => onChange(clamp(value + step))} className={btnCls}>+</button>
+    </div>
+  );
+}
+
 type SectionId = 'general' | 'line' | 'payment' | 'shipping' | 'notifications';
 
 interface LineStatus {
@@ -918,7 +944,7 @@ const [showGuide, setShowGuide]     = useState(true);
               {(settings.autoCancelHours || 0) > 0 && (
                 <div className="md:w-1/3">
                   <label className={lbl}>Cancel after (hours)</label>
-                  <input type="number" min="1" max="168" value={settings.autoCancelHours || 24} onChange={e => set('autoCancelHours', parseInt(e.target.value) || 24)} className={inputCls} />
+                  <NumberStepper value={settings.autoCancelHours || 24} onChange={v => set('autoCancelHours', v)} min={1} max={168} step={1} isDark={isDark} />
                 </div>
               )}
             </div>
@@ -936,16 +962,16 @@ const [showGuide, setShowGuide]     = useState(true);
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-dashed border-slate-200 dark:border-[#1f2335]">
                   <div>
                     <label className={lbl}>Points per ฿1 spent</label>
-                    <input type="number" min="0.1" step="0.1" value={settings.loyalty?.pointsPerBaht ?? 1} onChange={e => set('loyalty', { ...(settings.loyalty || {}), pointsPerBaht: parseFloat(e.target.value) || 1 })} className={inputCls} />
+                    <NumberStepper value={settings.loyalty?.pointsPerBaht ?? 1} onChange={v => set('loyalty', { ...(settings.loyalty || {}), pointsPerBaht: v })} min={0.1} step={0.1} isDark={isDark} />
                   </div>
                   <div>
                     <label className={lbl}>Points to redeem ฿1</label>
-                    <input type="number" min="1" value={settings.loyalty?.redeemRate ?? 100} onChange={e => set('loyalty', { ...(settings.loyalty || {}), redeemRate: parseInt(e.target.value) || 100 })} className={inputCls} />
+                    <NumberStepper value={settings.loyalty?.redeemRate ?? 100} onChange={v => set('loyalty', { ...(settings.loyalty || {}), redeemRate: v })} min={1} step={100} isDark={isDark} />
                     <p className={`text-[10px] mt-1 ${K.muted}`}>{settings.loyalty?.redeemRate ?? 100} pts = ฿1</p>
                   </div>
                   <div>
                     <label className={lbl}>Min points to redeem</label>
-                    <input type="number" min="1" value={settings.loyalty?.minRedeemPoints ?? 100} onChange={e => set('loyalty', { ...(settings.loyalty || {}), minRedeemPoints: parseInt(e.target.value) || 100 })} className={inputCls} />
+                    <NumberStepper value={settings.loyalty?.minRedeemPoints ?? 100} onChange={v => set('loyalty', { ...(settings.loyalty || {}), minRedeemPoints: v })} min={1} step={100} isDark={isDark} />
                   </div>
                 </div>
               )}
@@ -984,12 +1010,12 @@ const [showGuide, setShowGuide]     = useState(true);
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className={lbl}>Default Shipping Cost (฿)</label>
-                  <input type="number" min="0" value={settings.defaultShippingCost || 0} onChange={e => set('defaultShippingCost', parseFloat(e.target.value) || 0)} className={inputCls} />
+                  <NumberStepper value={settings.defaultShippingCost || 0} onChange={v => set('defaultShippingCost', v)} min={0} step={100} isDark={isDark} />
                   <p className={hint}>Applied when no specific rate matches</p>
                 </div>
                 <div>
                   <label className={lbl}>COD Surcharge (฿)</label>
-                  <input type="number" min="0" value={settings.codSurcharge || 0} onChange={e => set('codSurcharge', parseFloat(e.target.value) || 0)} className={inputCls} />
+                  <NumberStepper value={settings.codSurcharge || 0} onChange={v => set('codSurcharge', v)} min={0} step={100} isDark={isDark} />
                   <p className={hint}>Extra fee added for cash-on-delivery orders</p>
                 </div>
               </div>
@@ -1003,7 +1029,7 @@ const [showGuide, setShowGuide]     = useState(true);
               {settings.freeShippingThreshold?.enabled && (
                 <div className="md:w-1/3">
                   <label className={lbl}>Free shipping above (฿)</label>
-                  <input type="number" min="0" value={settings.freeShippingThreshold?.amount || 0} onChange={e => setFst('amount', parseFloat(e.target.value) || 0)} className={inputCls} />
+                  <NumberStepper value={settings.freeShippingThreshold?.amount || 0} onChange={v => setFst('amount', v)} min={0} step={100} isDark={isDark} />
                 </div>
               )}
             </div>
@@ -1093,7 +1119,7 @@ const [showGuide, setShowGuide]     = useState(true);
               {settings.adminAlerts?.outOfStock?.dashboard || settings.adminAlerts?.outOfStock?.line ? (
                 <div className="md:w-1/3">
                   <label className={lbl}>Low stock threshold (qty)</label>
-                  <input type="number" min="1" value={settings.adminAlerts?.lowStockThreshold ?? 5} onChange={e => setAa('lowStockThreshold', parseInt(e.target.value) || 5)} className={inputCls} />
+                  <NumberStepper value={settings.adminAlerts?.lowStockThreshold ?? 5} onChange={v => setAa('lowStockThreshold', v)} min={1} step={1} isDark={isDark} />
                   <p className={hint}>Also alert when stock falls to or below this</p>
                 </div>
               ) : null}
