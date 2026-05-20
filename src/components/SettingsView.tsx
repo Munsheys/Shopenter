@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check,
   ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle, Bell,
-  Building2, Truck,
+  Building2,
 } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -128,8 +128,7 @@ export default function SettingsView({
   const [settings, setSettings]       = useState<any>(null);
   const [newCompany, setNewCompany]   = useState('');
   const [newBankRow, setNewBankRow]   = useState({ bankName: '', accountNumber: '', accountName: '', branch: '' });
-  const [newEstRow, setNewEstRow]     = useState({ courier: '', minDays: 1, maxDays: 3 });
-  const [showGuide, setShowGuide]     = useState(true);
+const [showGuide, setShowGuide]     = useState(true);
   const [isSaving,  setIsSaving]      = useState(false);
   const [saved,     setSaved]         = useState(false);
   const [saveError, setSaveError]     = useState('');
@@ -316,14 +315,7 @@ export default function SettingsView({
   };
   const removeBankAccount = (i: number) => set('bankAccounts', (settings.bankAccounts || []).filter((_: any, idx: number) => idx !== i));
 
-  const addDeliveryEstimate = () => {
-    if (!newEstRow.courier.trim()) return;
-    set('deliveryEstimates', [...(settings.deliveryEstimates || []), { ...newEstRow }]);
-    setNewEstRow({ courier: '', minDays: 1, maxDays: 3 });
-  };
-  const removeDeliveryEstimate = (i: number) => set('deliveryEstimates', (settings.deliveryEstimates || []).filter((_: any, idx: number) => idx !== i));
-
-  // ── Style tokens ─────────────────────────────────────────────────────────────
+// ── Style tokens ─────────────────────────────────────────────────────────────
   const K = {
     bg:      isDark ? 'bg-[#0f1117]'                          : 'bg-slate-50',
     surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200',
@@ -1016,47 +1008,7 @@ export default function SettingsView({
               )}
             </div>
 
-            {/* Delivery Estimates */}
-            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-              <div>
-                <p className={`text-sm font-semibold ${K.text}`}>Delivery Estimates</p>
-                <p className={`text-xs mt-1 ${K.muted}`}>Per-courier estimated days, shown in order confirmation messages via <code>{'{eta}'}</code>.</p>
-              </div>
-              {(settings.deliveryEstimates || []).length > 0 && (
-                <div className="space-y-2">
-                  {(settings.deliveryEstimates || []).map((est: any, i: number) => (
-                    <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                      <Truck size={13} className="text-accent flex-shrink-0" />
-                      <span className={`flex-1 text-xs font-semibold ${K.text}`}>{est.courier}</span>
-                      <span className={`text-xs ${K.muted}`}>{est.minDays}–{est.maxDays} days</span>
-                      <button onClick={() => removeDeliveryEstimate(i)} className="text-red-400 hover:text-red-300 transition-colors"><X size={13} /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                <div className="grid grid-cols-5 gap-3 items-end">
-                  <div className="col-span-2">
-                    <label className={lbl}>Courier</label>
-                    <select value={newEstRow.courier} onChange={e => setNewEstRow(r => ({ ...r, courier: e.target.value }))} className={inputCls}>
-                      <option value="">Select…</option>
-                      {(settings.shippingCompanies || []).map((c: string) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={lbl}>Min days</label>
-                    <input type="number" min="1" value={newEstRow.minDays} onChange={e => setNewEstRow(r => ({ ...r, minDays: parseInt(e.target.value) || 1 }))} className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={lbl}>Max days</label>
-                    <input type="number" min="1" value={newEstRow.maxDays} onChange={e => setNewEstRow(r => ({ ...r, maxDays: parseInt(e.target.value) || 3 }))} className={inputCls} />
-                  </div>
-                  <button onClick={addDeliveryEstimate} className="flex items-center justify-center gap-1 px-3 py-3 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 transition-all"><Plus size={13} /></button>
-                </div>
-              </div>
-            </div>
-
-            {/* Sender Address */}
+{/* Sender Address */}
             <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
               <p className={`text-sm font-semibold ${K.text}`}>Sender Address</p>
               <textarea rows={3} value={settings.senderAddress || ''} onChange={e => set('senderAddress', e.target.value)} placeholder="Your shop's return / sender address" className={`${inputCls} resize-none`} autoComplete="off" />

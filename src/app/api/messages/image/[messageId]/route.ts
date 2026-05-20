@@ -1,27 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
+import { getMerchantFromRequest } from '@/lib/auth';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ messageId: string }> }) {
   try {
+    const merchant = getMerchantFromRequest(req);
+    if (!merchant) return new NextResponse('Unauthorized', { status: 401 });
+
     const { messageId } = await params;
-    
-    // Using URL parameters for auth since images are usually loaded in <img> tags
-    // and cannot easily set custom headers like 'x-admin-secret'.
-    const { searchParams } = new URL(req.url);
-    const secret = searchParams.get('secret');
-    
-    if (!secret) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
 
     await dbConnect();
-    const settings = await Settings.findOne();
-    if (!settings || settings.adminSecret !== secret) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    if (!settings.lineChannelAccessToken) {
+    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    if (!settings?.lineChannelAccessToken) {
       return new NextResponse('LINE access token not configured', { status: 400 });
     }
 

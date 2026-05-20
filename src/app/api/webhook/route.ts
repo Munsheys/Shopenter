@@ -344,7 +344,7 @@ export async function POST(req: Request) {
                       let msg = matchedSettings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
                       msg = msg.replace(/{product}/g, combinedProducts).replace(/{amount}/g, amountPaid.toLocaleString()).replace(/{name}/g, customer?.displayName || 'Customer');
                       await client.pushMessage({ to: userId, messages: [{ type: 'text', text: msg }] });
-                      await Message.create({ merchantId, lineUserId: userId, type: 'system', text: '✅ ระบบยืนยันการชำระเงินอัตโนมัติ', metadata: { amount: amountPaid, products: combinedProducts }, sender: 'system' });
+                      await Message.create({ merchantId, lineUserId: userId, type: 'system', text: msg, metadata: { amount: amountPaid, products: combinedProducts }, sender: 'system' });
                     }
                   }
                 }
@@ -353,6 +353,11 @@ export async function POST(req: Request) {
               console.error('[SlipOK]', err);
             }
           }
+
+        // ── Sticker message ───────────────────────────────────────────────────
+        } else if (event.message?.type === 'sticker') {
+          await Message.create({ merchantId, lineUserId: userId, type: 'sticker', text: '🎭 Sticker', sender: 'user' });
+          await Customer.updateOne({ merchantId, userId }, { $inc: { unreadCount: 1 } });
         }
       }
     }

@@ -28,6 +28,7 @@ type Message = {
   _id: string; lineUserId: string;
   type: 'text' | 'image' | 'sticker' | 'audio' | 'video' | 'system';
   text: string; sender: 'user' | 'admin' | 'system'; createdAt: string;
+  messageId?: string;
   metadata?: {
     originalContentUrl?: string;
     previewImageUrl?: string;
@@ -926,7 +927,9 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                     }
 
                     const isAdmin = msg.sender === 'admin';
-                    const imgUrl = msg.type === 'image' ? (msg.metadata?.previewImageUrl || msg.metadata?.originalContentUrl || null) : null;
+                    const imgUrl = msg.type === 'image'
+                      ? (msg.metadata?.previewImageUrl || msg.metadata?.originalContentUrl || (msg.messageId ? `/api/messages/image/${msg.messageId}` : null))
+                      : null;
 
                     return (
                       <div key={msg._id} className={`flex items-end gap-1.5 ${isAdmin ? 'justify-end' : 'justify-start'}`}>

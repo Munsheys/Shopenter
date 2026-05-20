@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Settings, Customer, LoyaltyTransaction } from '@/models';
+import { Order, Settings, Customer, LoyaltyTransaction, Message } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { sendLineMessage, sendFlexMessage, buildOrderStatusFlex, interpolateTemplate } from '@/lib/line';
 
@@ -104,7 +104,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           interpolateTemplate(stage.template, templateData)
         );
 
-        if (sent) await Order.findByIdAndUpdate(id, { [flag]: true });
+        if (sent) {
+          await Order.findByIdAndUpdate(id, { [flag]: true });
+          await Message.create({
+            merchantId: merchant.merchantId,
+            lineUserId: order.lineUserId,
+            type: 'system',
+            text: interpolateTemplate(stage.template, templateData),
+            sender: 'system',
+          });
+        }
       }
     }
 

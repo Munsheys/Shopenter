@@ -204,7 +204,7 @@ const OrderSchema = new mongoose.Schema({
 const MessageSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   lineUserId: { type: String, required: true, index: true },
-  type: { type: String, enum: ['text', 'image', 'system'], default: 'text' },
+  type: { type: String, enum: ['text', 'image', 'sticker', 'system'], default: 'text' },
   messageId: String,
   text: { type: String, required: true },
   metadata: mongoose.Schema.Types.Mixed,

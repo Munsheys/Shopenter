@@ -281,7 +281,8 @@ export default function DashboardPage() {
             onClick={handleRefresh}
             disabled={isRefreshing}
             title="Refresh data"
-            className={`p-1.5 rounded-lg transition-colors disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+            className={`p-1.5 rounded-lg transition-all disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+            style={isRefreshing ? { boxShadow: `0 0 10px 2px ${accentColor}66`, color: accentColor } : undefined}
           >
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
