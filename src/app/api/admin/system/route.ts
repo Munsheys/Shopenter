@@ -187,6 +187,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action, feedbackId } = body;
 
+    // Case 0: Configure SlipOK credentials for a specific merchant (master admin only)
+    if (action === 'configure_slipok') {
+      const { merchantId, slipokApiKey, slipokBranchId } = body;
+      if (!merchantId) return NextResponse.json({ error: 'merchantId is required' }, { status: 400 });
+      await Settings.findOneAndUpdate(
+        { merchantId },
+        { $set: { slipokApiKey: (slipokApiKey ?? '').trim(), slipokBranchId: (slipokBranchId ?? '').trim() } },
+        { upsert: true }
+      );
+      return NextResponse.json({ success: true });
+    }
+
     if (!feedbackId) {
       return NextResponse.json({ error: 'Feedback ID is required' }, { status: 400 });
     }

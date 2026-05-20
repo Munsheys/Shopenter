@@ -71,6 +71,7 @@ const SettingsSchema = new mongoose.Schema({
   },
   bankAccounts: { type: Array, default: [] }, // [{bankName, accountNumber, accountName, branch}]
   autoCancelHours: { type: Number, default: 0 }, // 0 = disabled
+  useSlipok: { type: Boolean, default: false },
   // Shipping extras
   defaultShippingCost: { type: Number, default: 0 },
   freeShippingThreshold: {

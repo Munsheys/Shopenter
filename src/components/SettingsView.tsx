@@ -137,7 +137,6 @@ export default function SettingsView({
   const [showToken,       setShowToken]       = useState(false);
   const [showSecret,      setShowSecret]      = useState(false);
   const [showLiff,        setShowLiff]        = useState(false);
-  const [showSlipKey,     setShowSlipKey]     = useState(false);
   const [showAdminSecret, setShowAdminSecret] = useState(false);
 
   const [webhookUrl,    setWebhookUrl]    = useState('');
@@ -397,71 +396,21 @@ export default function SettingsView({
               <h2 className={`text-base font-bold ${K.text}`}>General</h2>
             </div>
 
-            {/* Shop Identity */}
-            <div id="general-shopname" className={ringCls('general-shopname')}>
-              <p className={`text-sm font-semibold ${K.text}`}>Shop Identity</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="md:col-span-2">
-                  <label className={lbl}>Shop Name</label>
-                  <input type="text" value={settings.shopName || ''} onChange={e => set('shopName', e.target.value)} placeholder="My Awesome Shop" className={inputCls} autoComplete="off" />
-                  <p className={hint}>Shown on storefront and all outgoing messages</p>
-                </div>
-                <div className="md:col-span-2">
-                  <label className={lbl}>Shop Description</label>
-                  <textarea rows={2} value={settings.shopDescription || ''} onChange={e => set('shopDescription', e.target.value)} placeholder="Short tagline or bio shown on your storefront" className={`${inputCls} resize-none`} maxLength={160} autoComplete="off" />
-                  <p className={hint}>{(settings.shopDescription || '').length}/160 characters</p>
-                </div>
-                <div>
-                  <label className={lbl}>Logo URL</label>
-                  <div className="flex items-center gap-3">
-                    {settings.shopLogoUrl && (
-                      <img src={settings.shopLogoUrl} alt="logo" className="w-10 h-10 rounded-xl object-cover flex-shrink-0 border border-slate-200 dark:border-[#1f2335]" onError={e => (e.currentTarget.style.display = 'none')} />
-                    )}
-                    <input type="url" value={settings.shopLogoUrl || ''} onChange={e => set('shopLogoUrl', e.target.value)} placeholder="https://…/logo.png" className={inputCls} autoComplete="off" />
-                  </div>
-                  <p className={hint}>Square image recommended (512×512 px)</p>
-                </div>
-                <div>
-                  <label className={lbl}>Timezone</label>
-                  <select value={settings.shopTimezone || 'Asia/Bangkok'} onChange={e => set('shopTimezone', e.target.value)} className={inputCls}>
-                    <option value="Asia/Bangkok">🇹🇭 Asia/Bangkok (UTC+7)</option>
-                    <option value="Asia/Tokyo">🇯🇵 Asia/Tokyo (UTC+9)</option>
-                    <option value="Asia/Seoul">🇰🇷 Asia/Seoul (UTC+9)</option>
-                    <option value="Asia/Singapore">🇸🇬 Asia/Singapore (UTC+8)</option>
-                    <option value="Asia/Taipei">🇹🇼 Asia/Taipei (UTC+8)</option>
-                    <option value="Asia/Jakarta">🇮🇩 Asia/Jakarta (UTC+7)</option>
-                    <option value="Europe/London">🇬🇧 Europe/London</option>
-                    <option value="America/New_York">🇺🇸 America/New_York</option>
-                  </select>
-                  <p className={hint}>Used for business hours and scheduled messages</p>
-                </div>
-              </div>
-            </div>
-
             {/* Appearance */}
             <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
               <div>
                 <p className={`text-sm font-semibold ${K.text}`}>Appearance</p>
                 <p className={`text-xs mt-1 ${K.muted}`}>Dashboard theme and color preferences.</p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className={lbl}>Theme</label>
-                  <div className={`flex p-1 rounded-xl ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
-                    {(['light', 'dark'] as const).map(t => (
-                      <button key={t} onClick={() => handleThemeChange(t)}
-                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all capitalize ${settings.theme === t ? 'bg-accent text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between py-1">
-                  <div>
-                    <p className={`text-xs font-semibold ${K.text}`}>Compact Mode</p>
-                    <p className={hint}>Tighter spacing in order and customer lists</p>
-                  </div>
-                  <Toggle enabled={!!settings.compactMode} onChange={v => set('compactMode', v)} isDark={isDark} />
+              <div className="md:w-1/2">
+                <label className={lbl}>Theme</label>
+                <div className={`flex p-1 rounded-xl ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
+                  {(['light', 'dark'] as const).map(t => (
+                    <button key={t} onClick={() => handleThemeChange(t)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all capitalize ${settings.theme === t ? 'bg-accent text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
+                      {t}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div>
@@ -770,35 +719,6 @@ export default function SettingsView({
               </div>
             </div>
 
-            {/* Welcome Message */}
-            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-sm font-semibold ${K.text}`}>Welcome Message</p>
-                  <p className={`text-xs mt-0.5 ${K.muted}`}>Sent automatically when a new user follows your OA.</p>
-                </div>
-                <Toggle
-                  enabled={!!settings.greetingEnabled}
-                  onChange={v => set('greetingEnabled', v)}
-                  isDark={isDark}
-                />
-              </div>
-              {settings.greetingEnabled && (
-                <div className="pt-2 border-t border-dashed border-slate-200 dark:border-[#1f2335]">
-                  <label className={lbl}>Message text <span className={`normal-case font-normal ${K.muted}`}>(placeholder: {'{name}'})</span></label>
-                  <textarea
-                    rows={4}
-                    value={settings.greetingMessages?.[0]?.text || ''}
-                    onChange={e => set('greetingMessages', [{ type: 'text', text: e.target.value }])}
-                    placeholder={`สวัสดีครับ {name}! ยินดีต้อนรับสู่ร้านของเราครับ 🎉`}
-                    className={`${inputCls} resize-none font-mono text-xs leading-relaxed`}
-                    autoComplete="off"
-                  />
-                  <p className={hint}>For multiple message blocks, use the Auto-Reply editor under Broadcasts.</p>
-                </div>
-              )}
-            </div>
-
             {/* LIFF & Admin */}
             <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
               <p className={`text-sm font-semibold ${K.text}`}>LIFF & Admin</p>
@@ -922,26 +842,28 @@ export default function SettingsView({
 
             {/* Slip Verification */}
             <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                <div>
-                  <p className={`text-sm font-semibold ${K.text}`}>SlipOK — Slip Verification</p>
-                  <p className={`text-xs mt-0.5 ${K.muted}`}>Automatically verifies bank transfer slips. Leave blank to skip.</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className={lbl}>Branch ID</label>
-                  <input type="text" value={settings.slipokBranchId || ''} onChange={e => set('slipokBranchId', e.target.value)} placeholder="e.g. 12345" className={inputCls} autoComplete="off" />
-                </div>
-                <div>
-                  <label className={lbl}>API Key</label>
-                  <div className="relative">
-                    <input type={showSlipKey ? 'text' : 'password'} value={settings.slipokApiKey || ''} onChange={e => set('slipokApiKey', e.target.value)} placeholder="sk_live_…" className={inputMono} autoComplete="new-password" />
-                    <button type="button" onClick={() => setShowSlipKey(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${K.muted} hover:text-white transition-colors`}>{showSlipKey ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+              <div className="flex items-center justify-between">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0 mt-1.5" />
+                  <div>
+                    <p className={`text-sm font-semibold ${K.text}`}>SlipOK — Automatic Slip Verification</p>
+                    <p className={`text-xs mt-0.5 ${K.muted}`}>When enabled, bank transfer images sent in chat are automatically verified.</p>
                   </div>
                 </div>
+                <Toggle enabled={!!settings.useSlipok} onChange={v => set('useSlipok', v)} isDark={isDark} />
               </div>
+              {settings.useSlipok && !settings.slipokConfigured && (
+                <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                  <AlertTriangle size={13} className="flex-shrink-0" />
+                  SlipOK has not been configured by the admin yet. Contact support to activate automatic slip verification.
+                </div>
+              )}
+              {settings.useSlipok && settings.slipokConfigured && (
+                <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs ${isDark ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
+                  <Check size={13} className="flex-shrink-0" />
+                  SlipOK is configured and active. Slip images sent in LINE chat will be verified automatically.
+                </div>
+              )}
             </div>
 
             {/* Payment Confirmation Message */}
@@ -1102,15 +1024,6 @@ export default function SettingsView({
               <textarea rows={3} value={settings.senderAddress || ''} onChange={e => set('senderAddress', e.target.value)} placeholder="Your shop's return / sender address" className={`${inputCls} resize-none`} autoComplete="off" />
             </div>
 
-            {/* Shipping Notification Message */}
-            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-              <div>
-                <p className={`text-sm font-semibold ${K.text}`}>Shipping Notification Message</p>
-                <p className={`text-xs mt-1 ${K.muted}`}>Sent when you mark an order as shipped.</p>
-              </div>
-              <textarea rows={6} value={settings.trackingTemplate || ''} onChange={e => set('trackingTemplate', e.target.value)} className={`${inputCls} resize-none leading-relaxed`} autoComplete="off" />
-              <p className={`text-[10px] ${K.muted}`}>Placeholders: <code>{'{tracking}'}</code> <code>{'{courier}'}</code> <code>{'{product}'}</code> <code>{'{name}'}</code> <code>{'{eta}'}</code></p>
-            </div>
           </div>
 
           {/* ══ NOTIFICATIONS ════════════════════════════════════════════════ */}
@@ -1190,26 +1103,6 @@ export default function SettingsView({
               )}
             </div>
 
-            {/* Broadcast Reminders */}
-            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-sm font-semibold ${K.text}`}>Broadcast Reminders</p>
-                  <p className={`text-xs mt-0.5 ${K.muted}`}>Notify admin before a scheduled broadcast fires. (Stored; wiring coming soon.)</p>
-                </div>
-                <Toggle enabled={!!settings.broadcastReminder?.enabled} onChange={v => set('broadcastReminder', { ...(settings.broadcastReminder || {}), enabled: v })} isDark={isDark} />
-              </div>
-              {settings.broadcastReminder?.enabled && (
-                <div className="md:w-1/2">
-                  <label className={lbl}>Lead time before broadcast</label>
-                  <select value={settings.broadcastReminder?.leadTimeMinutes ?? 60} onChange={e => set('broadcastReminder', { ...(settings.broadcastReminder || {}), leadTimeMinutes: parseInt(e.target.value) })} className={inputCls}>
-                    <option value={15}>15 minutes before</option>
-                    <option value={60}>1 hour before</option>
-                    <option value={1440}>24 hours before</option>
-                  </select>
-                </div>
-              )}
-            </div>
           </div>
 
 </>

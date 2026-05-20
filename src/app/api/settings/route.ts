@@ -16,10 +16,14 @@ export async function GET(req: NextRequest) {
       s = await Settings.create({ merchantId: merchant.merchantId });
     }
     const settings = s.toObject();
-    // Strip LINE secrets from response — clients get them only through the LINE SDK
+    // Strip secrets — clients never see raw credentials
     delete settings.lineChannelAccessToken;
     delete settings.lineChannelSecret;
     delete settings.adminSecret;
+    // SlipOK keys are master-admin only; expose only whether they are configured
+    settings.slipokConfigured = !!(s.slipokApiKey && s.slipokBranchId);
+    delete settings.slipokApiKey;
+    delete settings.slipokBranchId;
     return NextResponse.json(settings);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
@@ -43,7 +47,9 @@ export async function POST(req: NextRequest) {
     // the client always sends '' for fields the user didn't explicitly change.
     if (!body.lineChannelAccessToken) delete body.lineChannelAccessToken;
     if (!body.lineChannelSecret) delete body.lineChannelSecret;
-    if (!body.slipokApiKey) delete body.slipokApiKey;
+    // SlipOK credentials are master-admin only — merchants can never write them
+    delete body.slipokApiKey;
+    delete body.slipokBranchId;
 
     // Allow adminSecret to be updated — it's a passphrase for bot commands, not a platform credential.
     // Treat it like other credential fields: skip save if blank (keeps existing value).

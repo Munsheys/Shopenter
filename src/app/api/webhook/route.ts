@@ -274,7 +274,7 @@ export async function POST(req: Request) {
           }
 
           // SlipOK payment verification (uses push — independent of reply token)
-          if (matchedSettings?.slipokApiKey) {
+          if (matchedSettings?.useSlipok && matchedSettings?.slipokApiKey) {
             try {
               const imgRes = await fetch(`https://api-data.line.me/v2/bot/message/${event.message.id}/content`, {
                 headers: { Authorization: `Bearer ${channelAccessToken}` }

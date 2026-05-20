@@ -1,10 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Check, LayoutGrid, List, Eye, Save, Link } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Check, LayoutGrid, List, Eye, Save, Link, Upload, Loader2, X } from 'lucide-react';
 import { PRESETS, resolvePreset } from '@/lib/storefrontPresets';
 
 interface StorefrontConfig {
+  // Shop identity (top-level settings fields, saved separately)
+  shopName: string;
+  shopDescription: string;
+  shopLogoUrl: string;
+  shopTimezone: string;
+  // Storefront-specific
   preset: string;
   shopTagline: string;
   logoUrl: string;
@@ -24,6 +30,10 @@ interface StorefrontConfig {
 }
 
 const DEFAULT_CONFIG: StorefrontConfig = {
+  shopName: '',
+  shopDescription: '',
+  shopLogoUrl: '',
+  shopTimezone: 'Asia/Bangkok',
   preset: 'midnight',
   shopTagline: '',
   logoUrl: '',
@@ -50,6 +60,62 @@ interface Props {
   accentColor?: string;
   onSave: (config: StorefrontConfig) => Promise<void>;
   onSaveSlug: (slug: string) => Promise<{ ok: boolean; error?: string }>;
+}
+
+function LogoUpload({ value, onChange, isDark }: { value: string; onChange: (url: string) => void; isDark: boolean }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState('');
+  const [dragging, setDragging] = useState(false);
+
+  async function upload(file: File) {
+    if (file.size > 2 * 1024 * 1024) { setErr('Max 2 MB allowed.'); return; }
+    setUploading(true); setErr('');
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok) onChange(data.url);
+      else setErr(data.error ?? 'Upload failed');
+    } catch { setErr('Upload failed.'); }
+    setUploading(false);
+  }
+
+  if (value) return (
+    <div className="flex items-center gap-3">
+      <img src={value} alt="logo" className="w-16 h-16 rounded-2xl object-cover flex-shrink-0 border border-slate-200 dark:border-[#2d3555]" onError={e => (e.currentTarget.style.display = 'none')} />
+      <div className="space-y-1.5">
+        <button onClick={() => onChange('')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>
+          <X size={11} /> Remove
+        </button>
+        <button onClick={() => inputRef.current?.click()} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>
+          <Upload size={11} /> Replace
+        </button>
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ''; }} />
+    </div>
+  );
+
+  return (
+    <div>
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) upload(f); }}
+        onClick={() => inputRef.current?.click()}
+        className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${dragging ? 'border-accent bg-accent/5' : isDark ? 'border-[#1f2335] hover:border-accent/50' : 'border-slate-200 hover:border-accent/50'}`}
+      >
+        {uploading ? <Loader2 size={18} className="animate-spin text-accent" /> : <Upload size={18} className={isDark ? 'text-[#8b92ad]' : 'text-slate-400'} />}
+        <div>
+          <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Drop logo or <span className="text-accent">browse</span></p>
+          <p className={`text-xs ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>PNG, JPG, WebP · max 2 MB · square recommended</p>
+        </div>
+      </div>
+      {err && <p className="text-xs text-red-400 mt-1.5">{err}</p>}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ''; }} />
+    </div>
+  );
 }
 
 export default function StorefrontCustomizer({ shopName, slug: initialSlug, initial, theme = 'light', accentColor = '#00b900', onSave, onSaveSlug }: Props) {
@@ -106,6 +172,56 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
       {/* ── Left: Controls ─────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0 max-w-2xl space-y-8">
+
+        {/* Shop Identity */}
+        <section>
+          <h3 className={sectionHeading}>Shop Identity</h3>
+          <div className="space-y-4">
+            <div>
+              <label className={fieldLabel}>Shop Name</label>
+              <input
+                type="text"
+                value={config.shopName}
+                onChange={e => set('shopName', e.target.value)}
+                placeholder="My Awesome Shop"
+                className={inputCls}
+                autoComplete="off"
+              />
+              <p className={`text-[10px] mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Shown on storefront and all outgoing LINE messages</p>
+            </div>
+            <div>
+              <label className={fieldLabel}>Shop Description</label>
+              <textarea
+                rows={2}
+                value={config.shopDescription}
+                onChange={e => set('shopDescription', e.target.value)}
+                placeholder="Short tagline or bio shown on your storefront"
+                className={`${inputCls} resize-none`}
+                maxLength={160}
+                autoComplete="off"
+              />
+              <p className={`text-[10px] mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{config.shopDescription.length}/160 characters</p>
+            </div>
+            <div>
+              <label className={fieldLabel}>Shop Logo</label>
+              <LogoUpload value={config.shopLogoUrl} onChange={url => set('shopLogoUrl', url)} isDark={isDark} />
+            </div>
+            <div>
+              <label className={fieldLabel}>Timezone</label>
+              <select value={config.shopTimezone} onChange={e => set('shopTimezone', e.target.value)} className={inputCls}>
+                <option value="Asia/Bangkok">🇹🇭 Asia/Bangkok (UTC+7)</option>
+                <option value="Asia/Tokyo">🇯🇵 Asia/Tokyo (UTC+9)</option>
+                <option value="Asia/Seoul">🇰🇷 Asia/Seoul (UTC+9)</option>
+                <option value="Asia/Singapore">🇸🇬 Asia/Singapore (UTC+8)</option>
+                <option value="Asia/Taipei">🇹🇼 Asia/Taipei (UTC+8)</option>
+                <option value="Asia/Jakarta">🇮🇩 Asia/Jakarta (UTC+7)</option>
+                <option value="Europe/London">🇬🇧 Europe/London</option>
+                <option value="America/New_York">🇺🇸 America/New_York</option>
+              </select>
+              <p className={`text-[10px] mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Used for business hours and scheduled messages</p>
+            </div>
+          </div>
+        </section>
 
         {/* Store handle */}
         <section>

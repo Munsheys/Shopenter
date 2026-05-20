@@ -92,6 +92,12 @@ export default function AdminPage() {
   const [feedbackToDelete, setFeedbackToDelete] = useState<FeedbackItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // SlipOK configuration modal state
+  const [slipokModal, setSlipokModal] = useState<{ merchantId: string; shopName: string } | null>(null);
+  const [slipokBranchId, setSlipokBranchId] = useState('');
+  const [slipokApiKey, setSlipokApiKey] = useState('');
+  const [savingSlipok, setSavingSlipok] = useState(false);
+
   // Premium Toast Alert state
   const [toastMessage, setToastMessage] = useState('');
 
@@ -249,6 +255,36 @@ export default function AdminPage() {
     finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleConfigureSlipok = async () => {
+    if (!slipokModal || savingSlipok) return;
+    const secret = localStorage.getItem('sys_admin_secret') || '';
+    setSavingSlipok(true);
+    try {
+      const res = await fetch('/api/admin/system', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify({
+          action: 'configure_slipok',
+          merchantId: slipokModal.merchantId,
+          slipokApiKey: slipokApiKey.trim(),
+          slipokBranchId: slipokBranchId.trim(),
+        }),
+      });
+      if (res.ok) {
+        setMerchants(prev => prev.map(m =>
+          m._id === slipokModal.merchantId
+            ? { ...m, isSlipOkConfigured: !!(slipokApiKey.trim() && slipokBranchId.trim()) }
+            : m
+        ));
+        setSlipokModal(null);
+        setSlipokBranchId('');
+        setSlipokApiKey('');
+        showToast(`SlipOK credentials configured for ${slipokModal.shopName}.`);
+      }
+    } catch {}
+    finally { setSavingSlipok(false); }
   };
 
   // 🤖 AI DIAGNOSTICS PROMPT EXPORTER 🤖
@@ -758,6 +794,23 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                           <td className="py-4 px-6 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button
+                                onClick={() => {
+                                  setSlipokModal({ merchantId: m._id, shopName: m.shopName });
+                                  setSlipokBranchId('');
+                                  setSlipokApiKey('');
+                                }}
+                                title="Configure SlipOK Credentials"
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors ${
+                                  m.isSlipOkConfigured
+                                    ? 'border-emerald-500/20 text-emerald-400 hover:border-emerald-500'
+                                    : 'border-[#1f2335] text-[#8b92ad] hover:text-amber-400 hover:border-amber-500/30'
+                                }`}
+                              >
+                                <Key size={12} />
+                                <span className="text-[9px] font-extrabold tracking-wide uppercase">SlipOK</span>
+                              </button>
+
+                              <button
                                 onClick={() => handleExportAIPrompt('merchant', m)}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#1f2335] text-slate-300 hover:text-[#00b900] hover:border-[#00b900] transition-colors"
                                 title="Export Live Setup for AI Session"
@@ -1036,6 +1089,78 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                   <>
                     <Trash2 size={12} />
                     Yes, Purge
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SLIPOK CONFIGURATION MODAL ── */}
+      {slipokModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="max-w-sm w-full bg-[#161925] border border-[#1f2335] rounded-[24px] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-[#00b900]/10 border border-[#00b900]/20 flex items-center justify-center flex-shrink-0 text-[#00b900]">
+                <Key size={18} />
+              </div>
+              <div className="space-y-0.5 flex-1 min-w-0">
+                <h4 className="text-sm font-bold tracking-tight text-white">Configure SlipOK</h4>
+                <p className="text-[11px] text-[#8b92ad] truncate">{slipokModal.shopName}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Branch ID</label>
+                <input
+                  type="text"
+                  value={slipokBranchId}
+                  onChange={e => setSlipokBranchId(e.target.value)}
+                  placeholder="e.g. SLIP-XXXXX"
+                  className="w-full bg-[#0f1117] border border-[#1f2335] rounded-xl py-2.5 px-4 text-xs outline-none focus:border-[#00b900] transition-colors text-white font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">API Key</label>
+                <input
+                  type="password"
+                  value={slipokApiKey}
+                  onChange={e => setSlipokApiKey(e.target.value)}
+                  placeholder="SlipOK API key..."
+                  className="w-full bg-[#0f1117] border border-[#1f2335] rounded-xl py-2.5 px-4 text-xs outline-none focus:border-[#00b900] transition-colors text-white font-mono"
+                />
+              </div>
+              <p className="text-[10px] text-[#8b92ad] leading-relaxed">
+                Leave both fields empty and save to remove SlipOK credentials for this merchant.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setSlipokModal(null)}
+                disabled={savingSlipok}
+                className="px-4 py-2 rounded-xl text-[11px] font-bold transition-all bg-[#1a1d2e] text-[#8b92ad] hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfigureSlipok}
+                disabled={savingSlipok}
+                className="px-4 py-2 rounded-xl text-[11px] font-bold bg-[#00b900] hover:bg-[#00a300] text-white shadow-md transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                {savingSlipok ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Key size={12} />
+                    Save Credentials
                   </>
                 )}
               </button>

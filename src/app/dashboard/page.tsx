@@ -121,10 +121,11 @@ export default function DashboardPage() {
   }, []);
 
   async function handleSaveStorefront(config: any) {
+    const { shopName, shopDescription, shopLogoUrl, shopTimezone, ...storefrontConfig } = config;
     await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ storefront: config }),
+      body: JSON.stringify({ shopName, shopDescription, shopLogoUrl, shopTimezone, storefront: storefrontConfig }),
     });
     await refreshSettings();
   }
@@ -381,7 +382,13 @@ export default function DashboardPage() {
           <StorefrontCustomizer
             shopName={settings?.shopName || 'My Shop'}
             slug={merchant?.slug}
-            initial={settings?.storefront}
+            initial={{
+              shopName: settings?.shopName || '',
+              shopDescription: settings?.shopDescription || '',
+              shopLogoUrl: settings?.shopLogoUrl || '',
+              shopTimezone: settings?.shopTimezone || 'Asia/Bangkok',
+              ...settings?.storefront,
+            }}
             theme={theme}
             accentColor={accentColor}
             onSave={handleSaveStorefront}
