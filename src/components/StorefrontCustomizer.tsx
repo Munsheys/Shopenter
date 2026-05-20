@@ -15,6 +15,11 @@ interface StorefrontConfig {
   showCategoryFilter: boolean;
   showSearch: boolean;
   announcementText: string;
+  announcementEnabled: boolean;
+  announcementColor: string;
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  postCheckoutUrl: string;
   language: string;
 }
 
@@ -29,6 +34,11 @@ const DEFAULT_CONFIG: StorefrontConfig = {
   showCategoryFilter: true,
   showSearch: true,
   announcementText: '',
+  announcementEnabled: false,
+  announcementColor: 'accent',
+  maintenanceMode: false,
+  maintenanceMessage: 'We will be back soon.',
+  postCheckoutUrl: '',
   language: 'th',
 };
 
@@ -270,15 +280,46 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 />
               )}
             </div>
-            <div>
+            <div className="space-y-2">
               <label className={fieldLabel}>Announcement bar</label>
-              <input
-                type="text"
-                value={config.announcementText}
-                onChange={e => set('announcementText', e.target.value)}
-                placeholder="e.g. Free shipping on orders over ฿500 🎉"
-                className={inputCls}
-              />
+              <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                <span className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Enable announcement</span>
+                <div
+                  onClick={() => set('announcementEnabled', !config.announcementEnabled)}
+                  className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 cursor-pointer ${config.announcementEnabled ? '' : isDark ? 'bg-gray-700' : 'bg-gray-200'}`}
+                  style={config.announcementEnabled ? { backgroundColor: accentColor } : undefined}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${config.announcementEnabled ? 'translate-x-4' : ''}`} />
+                </div>
+              </div>
+              {config.announcementEnabled && (
+                <>
+                  <input
+                    type="text"
+                    value={config.announcementText}
+                    onChange={e => set('announcementText', e.target.value)}
+                    placeholder="e.g. Free shipping on orders over ฿500 🎉"
+                    className={inputCls}
+                  />
+                  <div>
+                    <label className={`${fieldLabel} mb-1.5`}>Banner color</label>
+                    <div className="flex items-center gap-2">
+                      {(['accent', 'blue', 'amber', 'red'] as const).map(color => {
+                        const bg = color === 'accent' ? accentColor : color === 'blue' ? '#3b82f6' : color === 'amber' ? '#f59e0b' : '#ef4444';
+                        const isActive = config.announcementColor === color;
+                        return (
+                          <button
+                            key={color}
+                            onClick={() => set('announcementColor', color)}
+                            style={{ backgroundColor: bg, ...(isActive ? { outline: `2px solid ${bg}`, outlineOffset: '2px' } : {}) }}
+                            className={`w-6 h-6 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -353,6 +394,53 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
           </select>
         </section>
 
+        {/* Maintenance mode */}
+        <section>
+          <h3 className={sectionHeading}>Maintenance Mode</h3>
+          <div className="space-y-3">
+            <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <div>
+                <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Store offline</span>
+                <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Visitors see a maintenance page instead of products</p>
+              </div>
+              <div
+                onClick={() => set('maintenanceMode', !config.maintenanceMode)}
+                className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 cursor-pointer ${config.maintenanceMode ? '' : isDark ? 'bg-gray-700' : 'bg-gray-200'}`}
+                style={config.maintenanceMode ? { backgroundColor: accentColor } : undefined}
+              >
+                <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${config.maintenanceMode ? 'translate-x-4' : ''}`} />
+              </div>
+            </div>
+            {config.maintenanceMode && (
+              <div>
+                <label className={fieldLabel}>Maintenance message</label>
+                <input
+                  type="text"
+                  value={config.maintenanceMessage}
+                  onChange={e => set('maintenanceMessage', e.target.value)}
+                  placeholder="We will be back soon."
+                  className={inputCls}
+                />
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Post-checkout redirect */}
+        <section>
+          <h3 className={sectionHeading}>Post-checkout Redirect</h3>
+          <p className={`text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-700'}`}>
+            Redirect customers to this URL after a successful order. Leave blank to stay on the storefront.
+          </p>
+          <input
+            type="url"
+            value={config.postCheckoutUrl}
+            onChange={e => set('postCheckoutUrl', e.target.value)}
+            placeholder="https://…"
+            className={inputCls}
+          />
+        </section>
+
         {/* Save */}
         <button
           onClick={handleSave}
@@ -377,14 +465,14 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
           style={{ background: p.pageBg }}
         >
           {/* Announcement bar */}
-          {config.announcementText && (
-            <div
-              className="px-4 py-1.5 text-xs text-center font-medium"
-              style={{ background: p.accent, color: p.accentText }}
-            >
-              {config.announcementText}
-            </div>
-          )}
+          {config.announcementEnabled && config.announcementText && (() => {
+            const bannerBg = config.announcementColor === 'blue' ? '#3b82f6' : config.announcementColor === 'amber' ? '#f59e0b' : config.announcementColor === 'red' ? '#ef4444' : p.accent;
+            return (
+              <div className="px-4 py-1.5 text-xs text-center font-medium" style={{ background: bannerBg, color: '#fff' }}>
+                {config.announcementText}
+              </div>
+            );
+          })()}
 
           {/* Header */}
           <div

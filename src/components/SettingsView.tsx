@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check,
   ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle, Bell,
-  Globe, Clock, CreditCard, Building2, Truck, Star, Store, ShieldAlert,
+  Building2, Truck,
 } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -22,19 +22,19 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ enabled, onChange, isDark }: { enabled: boolean; onChange: (v: boolean) => void; isDark?: boolean }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!enabled)}
-      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${enabled ? 'bg-accent' : 'bg-slate-300 dark:bg-[#2a2f45]'}`}
+      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${enabled ? 'bg-accent' : isDark ? 'bg-[#2a2f45]' : 'bg-slate-300'}`}
     >
-      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : ''}`} />
     </button>
   );
 }
 
-type SectionId = 'general' | 'line' | 'payment' | 'shipping' | 'notifications' | 'storefront';
+type SectionId = 'general' | 'line' | 'payment' | 'shipping' | 'notifications';
 
 interface LineStatus {
   configured: boolean;
@@ -176,7 +176,7 @@ export default function SettingsView({
     const updatePill = () => {
       if (!tabsContainerRef.current) return;
       const container = tabsContainerRef.current;
-      const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications', 'storefront'];
+      const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
       const activeIdx = ids.indexOf(activeSection);
       if (activeIdx === -1) return;
       const buttons = container.querySelectorAll('button');
@@ -197,7 +197,7 @@ export default function SettingsView({
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
       const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 72;
       container.scrollTo({ top, behavior: 'smooth' });
-      const sectionIds: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications', 'storefront'];
+      const sectionIds: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
       const section = sectionIds.find(s => id === s || id.startsWith(s + '-')) ?? 'general';
       setActiveSection(section);
       scrollTimeoutRef.current = setTimeout(() => { isScrollingRef.current = false; }, 600);
@@ -207,7 +207,7 @@ export default function SettingsView({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications', 'storefront'];
+    const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
     const observerCallback = (entries: IntersectionObserverEntry[]) => {
       if (isScrollingRef.current) return;
       const visible = entries.filter(e => e.isIntersecting).map(e => e.target.id as SectionId);
@@ -220,7 +220,7 @@ export default function SettingsView({
       if (isScrollingRef.current) return;
       const threshold = 15;
       if (container.scrollTop + container.clientHeight >= container.scrollHeight - threshold) {
-        setActiveSection('storefront');
+        setActiveSection('notifications');
       } else if (container.scrollTop === 0) {
         setActiveSection('general');
       } else {
@@ -280,7 +280,6 @@ export default function SettingsView({
   };
 
   const set = (field: string, value: any) => setSettings((s: any) => ({ ...s, [field]: value }));
-  const setSf = (field: string, value: any) => setSettings((s: any) => ({ ...s, storefront: { ...(s?.storefront || {}), [field]: value } }));
   const setBh = (field: string, value: any) => setSettings((s: any) => ({ ...s, businessHours: { ...(s?.businessHours || {}), [field]: value } }));
   const setAa = (field: string, value: any) => setSettings((s: any) => ({ ...s, adminAlerts: { ...(s?.adminAlerts || {}), [field]: value } }));
   const setPm = (field: string, value: any) => setSettings((s: any) => ({ ...s, paymentMethods: { ...(s?.paymentMethods || {}), [field]: value } }));
@@ -351,7 +350,6 @@ export default function SettingsView({
     { id: 'payment',       label: 'Payment',       icon: <Zap           size={13} /> },
     { id: 'shipping',      label: 'Shipping',      icon: <Package       size={13} /> },
     { id: 'notifications', label: 'Notifications', icon: <Bell          size={13} /> },
-    { id: 'storefront',    label: 'Storefront',    icon: <Store         size={13} /> },
   ];
 
   const isSettingsLoading = !settings;
@@ -463,7 +461,7 @@ export default function SettingsView({
                     <p className={`text-xs font-semibold ${K.text}`}>Compact Mode</p>
                     <p className={hint}>Tighter spacing in order and customer lists</p>
                   </div>
-                  <Toggle enabled={!!settings.compactMode} onChange={v => set('compactMode', v)} />
+                  <Toggle enabled={!!settings.compactMode} onChange={v => set('compactMode', v)} isDark={isDark} />
                 </div>
               </div>
               <div>
@@ -538,7 +536,7 @@ export default function SettingsView({
                   <p className={`text-sm font-semibold ${K.text}`}>Business Hours</p>
                   <p className={`text-xs mt-0.5 ${K.muted}`}>When enabled, auto-replies outside hours. Auto-reply wiring coming soon.</p>
                 </div>
-                <Toggle enabled={!!settings.businessHours?.enabled} onChange={v => setBh('enabled', v)} />
+                <Toggle enabled={!!settings.businessHours?.enabled} onChange={v => setBh('enabled', v)} isDark={isDark} />
               </div>
               {settings.businessHours?.enabled && (
                 <div className="space-y-3 pt-2 border-t border-dashed border-slate-200 dark:border-[#1f2335]">
@@ -547,7 +545,7 @@ export default function SettingsView({
                     return (
                       <div key={key} className="flex items-center gap-4">
                         <div className="w-28 flex items-center gap-2 flex-shrink-0">
-                          <Toggle enabled={!!day.enabled} onChange={v => setBh(key, { ...day, enabled: v })} />
+                          <Toggle enabled={!!day.enabled} onChange={v => setBh(key, { ...day, enabled: v })} isDark={isDark} />
                           <span className={`text-xs font-semibold ${K.text}`}>{label.slice(0, 3)}</span>
                         </div>
                         {day.enabled ? (
@@ -615,6 +613,19 @@ export default function SettingsView({
                 </button>
               </div>
               {liveRateError && <p className="text-xs text-red-400">{liveRateError}</p>}
+            </div>
+
+            {/* Order Numbering */}
+            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
+              <div>
+                <p className={`text-sm font-semibold ${K.text}`}>Order Numbering</p>
+                <p className={`text-xs mt-1 ${K.muted}`}>Prefix added to the short order ID shown in alerts and messages.</p>
+              </div>
+              <div className="md:w-1/2">
+                <label className={lbl}>Order Prefix</label>
+                <input type="text" value={settings.orderPrefix || ''} onChange={e => set('orderPrefix', e.target.value)} placeholder="e.g. ORD- or SHOP-" maxLength={10} className={inputCls} autoComplete="off" />
+                <p className={hint}>Example: <code>{settings.orderPrefix || 'ORD-'}A1B2C3</code></p>
+              </div>
             </div>
 
             {/* Shopenter Plan */}
@@ -769,6 +780,7 @@ export default function SettingsView({
                 <Toggle
                   enabled={!!settings.greetingEnabled}
                   onChange={v => set('greetingEnabled', v)}
+                  isDark={isDark}
                 />
               </div>
               {settings.greetingEnabled && (
@@ -841,7 +853,7 @@ export default function SettingsView({
                       <p className={`text-sm font-semibold ${K.text}`}>{label}</p>
                       <p className={`text-xs ${K.muted}`}>{sub}</p>
                     </div>
-                    <Toggle enabled={!!settings.paymentMethods?.[key]} onChange={v => setPm(key, v)} />
+                    <Toggle enabled={!!settings.paymentMethods?.[key]} onChange={v => setPm(key, v)} isDark={isDark} />
                   </div>
                 ))}
               </div>
@@ -949,7 +961,7 @@ export default function SettingsView({
                   <p className={`text-sm font-semibold ${K.text}`}>Order Auto-Cancel</p>
                   <p className={`text-xs mt-0.5 ${K.muted}`}>Automatically cancel unpaid pending orders after N hours. (Stored; automation wiring coming soon.)</p>
                 </div>
-                <Toggle enabled={(settings.autoCancelHours || 0) > 0} onChange={v => set('autoCancelHours', v ? 24 : 0)} />
+                <Toggle enabled={(settings.autoCancelHours || 0) > 0} onChange={v => set('autoCancelHours', v ? 24 : 0)} isDark={isDark} />
               </div>
               {(settings.autoCancelHours || 0) > 0 && (
                 <div className="md:w-1/3">
@@ -966,7 +978,7 @@ export default function SettingsView({
                   <p className={`text-sm font-semibold ${K.text}`}>Loyalty Points Program</p>
                   <p className={`text-xs mt-0.5 ${K.muted}`}>Customers earn points per baht spent and redeem at checkout</p>
                 </div>
-                <Toggle enabled={!!settings.loyalty?.enabled} onChange={v => set('loyalty', { ...(settings.loyalty || {}), enabled: v })} />
+                <Toggle enabled={!!settings.loyalty?.enabled} onChange={v => set('loyalty', { ...(settings.loyalty || {}), enabled: v })} isDark={isDark} />
               </div>
               {settings.loyalty?.enabled && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-dashed border-slate-200 dark:border-[#1f2335]">
@@ -1034,7 +1046,7 @@ export default function SettingsView({
                   <p className={`text-xs font-semibold ${K.text}`}>Free Shipping Threshold</p>
                   <p className={hint}>Waive shipping for orders above a minimum</p>
                 </div>
-                <Toggle enabled={!!settings.freeShippingThreshold?.enabled} onChange={v => setFst('enabled', v)} />
+                <Toggle enabled={!!settings.freeShippingThreshold?.enabled} onChange={v => setFst('enabled', v)} isDark={isDark} />
               </div>
               {settings.freeShippingThreshold?.enabled && (
                 <div className="md:w-1/3">
@@ -1130,7 +1142,7 @@ export default function SettingsView({
                         <p className={`text-sm font-medium ${K.text}`}>{label}</p>
                         <p className={`text-xs ${K.muted}`}>{sub}</p>
                       </div>
-                      <Toggle enabled={!!stage.enabled} onChange={v => set('orderNotifications', { ...settings.orderNotifications, [key]: { ...stage, enabled: v } })} />
+                      <Toggle enabled={!!stage.enabled} onChange={v => set('orderNotifications', { ...settings.orderNotifications, [key]: { ...stage, enabled: v } })} isDark={isDark} />
                     </div>
                     {stage.enabled && (
                       <div className={`px-6 pb-5 pt-0 ${isDark ? 'bg-[#1a1d2e]/50' : 'bg-slate-50/70'}`}>
@@ -1159,7 +1171,7 @@ export default function SettingsView({
                       <p className={`text-xs font-semibold ${K.text}`}>{label}</p>
                       <p className={`text-[10px] ${K.muted}`}>{sub}</p>
                     </div>
-                    <Toggle enabled={!!settings.adminAlerts?.[key]} onChange={v => setAa(key, v)} />
+                    <Toggle enabled={!!settings.adminAlerts?.[key]} onChange={v => setAa(key, v)} isDark={isDark} />
                   </div>
                 ))}
               </div>
@@ -1185,7 +1197,7 @@ export default function SettingsView({
                   <p className={`text-sm font-semibold ${K.text}`}>Broadcast Reminders</p>
                   <p className={`text-xs mt-0.5 ${K.muted}`}>Notify admin before a scheduled broadcast fires. (Stored; wiring coming soon.)</p>
                 </div>
-                <Toggle enabled={!!settings.broadcastReminder?.enabled} onChange={v => set('broadcastReminder', { ...(settings.broadcastReminder || {}), enabled: v })} />
+                <Toggle enabled={!!settings.broadcastReminder?.enabled} onChange={v => set('broadcastReminder', { ...(settings.broadcastReminder || {}), enabled: v })} isDark={isDark} />
               </div>
               {settings.broadcastReminder?.enabled && (
                 <div className="md:w-1/2">
@@ -1200,113 +1212,7 @@ export default function SettingsView({
             </div>
           </div>
 
-          {/* ══ STOREFRONT ═══════════════════════════════════════════════════ */}
-          <div id="storefront" className="space-y-6">
-            <div className={`flex items-center gap-2 ${hlCls('storefront')}`}>
-              <Store size={15} className="text-accent" />
-              <h2 className={`text-base font-bold ${K.text}`}>Storefront</h2>
-            </div>
-
-            {/* Maintenance Mode — shown first and most prominent */}
-            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <ShieldAlert size={16} className={settings.storefront?.maintenanceMode ? 'text-red-400' : K.muted.split(' ')[0]} />
-                  <div>
-                    <p className={`text-sm font-semibold ${K.text}`}>Maintenance Mode</p>
-                    <p className={`text-xs mt-0.5 ${K.muted}`}>Replaces your storefront with a "We'll be back" page instantly.</p>
-                  </div>
-                </div>
-                <Toggle enabled={!!settings.storefront?.maintenanceMode} onChange={v => setSf('maintenanceMode', v)} />
-              </div>
-              {settings.storefront?.maintenanceMode && (
-                <div className={`px-4 py-3 rounded-xl text-xs flex items-start gap-2 ${isDark ? 'bg-red-500/10 border border-red-500/25 text-red-300' : 'bg-red-50 border border-red-200 text-red-800'}`}>
-                  <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
-                  <span><strong>Your storefront is currently offline.</strong> Customers will see the maintenance page until you disable this.</span>
-                </div>
-              )}
-              {settings.storefront?.maintenanceMode && (
-                <div>
-                  <label className={lbl}>Maintenance Message</label>
-                  <textarea rows={2} value={settings.storefront?.maintenanceMessage || ''} onChange={e => setSf('maintenanceMessage', e.target.value)} placeholder="We will be back soon." className={`${inputCls} resize-none`} autoComplete="off" />
-                </div>
-              )}
-            </div>
-
-            {/* Announcement Banner */}
-            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-sm font-semibold ${K.text}`}>Announcement Banner</p>
-                  <p className={`text-xs mt-0.5 ${K.muted}`}>A sticky banner shown at the top of your storefront.</p>
-                </div>
-                <Toggle enabled={!!settings.storefront?.announcementEnabled} onChange={v => setSf('announcementEnabled', v)} />
-              </div>
-              <div>
-                <label className={lbl}>Banner Text</label>
-                <input type="text" value={settings.storefront?.announcementText || ''} onChange={e => setSf('announcementText', e.target.value)} placeholder="Free shipping this week! 🎉" className={inputCls} autoComplete="off" maxLength={120} />
-              </div>
-              <div>
-                <label className={lbl}>Banner Color</label>
-                <div className="flex items-center gap-3 mt-1">
-                  {([
-                    { value: 'accent', label: 'Brand',  color: 'var(--accent)' },
-                    { value: 'blue',   label: 'Info',    color: '#3b82f6' },
-                    { value: 'amber',  label: 'Warning', color: '#f59e0b' },
-                    { value: 'red',    label: 'Urgent',  color: '#ef4444' },
-                  ]).map(({ value, label, color }) => {
-                    const isActive = (settings.storefront?.announcementColor || 'accent') === value;
-                    return (
-                      <button key={value} onClick={() => setSf('announcementColor', value)} title={label}
-                        className={`flex flex-col items-center gap-1 transition-all`}>
-                        <div className={`w-7 h-7 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
-                          style={{ backgroundColor: color, outline: isActive ? `2px solid ${color}` : 'none', outlineOffset: '2px' }} />
-                        <span className={`text-[9px] font-bold ${isActive ? K.text : K.muted}`}>{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {settings.storefront?.announcementEnabled && settings.storefront?.announcementText && (
-                <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-[#1f2335]">
-                  <p className={`text-[10px] px-3 py-1 font-bold uppercase tracking-widest ${K.muted} ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>Preview</p>
-                  <div className="px-4 py-1.5 text-xs text-center font-medium text-white" style={{
-                    backgroundColor: { accent: 'var(--accent)', blue: '#3b82f6', amber: '#f59e0b', red: '#ef4444' }[settings.storefront?.announcementColor as string] || 'var(--accent)'
-                  }}>{settings.storefront.announcementText}</div>
-                </div>
-              )}
-            </div>
-
-            {/* Post-Checkout */}
-            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-              <div>
-                <p className={`text-sm font-semibold ${K.text}`}>Post-Checkout Redirect</p>
-                <p className={`text-xs mt-1 ${K.muted}`}>By default, customers see a "Order placed" confirmation screen. Optionally redirect to a custom URL.</p>
-              </div>
-              <div>
-                <label className={lbl}>Redirect URL (optional)</label>
-                <input type="url" value={settings.storefront?.postCheckoutUrl || ''} onChange={e => setSf('postCheckoutUrl', e.target.value)} placeholder="https://example.com/thank-you" className={inputCls} autoComplete="off" />
-                <p className={hint}>Leave empty to use default confirmation screen</p>
-              </div>
-            </div>
-
-            {/* Order Numbering */}
-            <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
-              <div>
-                <p className={`text-sm font-semibold ${K.text}`}>Order Numbering</p>
-                <p className={`text-xs mt-1 ${K.muted}`}>A display prefix prepended to order short-IDs in admin alerts and exports.</p>
-              </div>
-              <div className="md:w-1/2">
-                <label className={lbl}>Order Prefix</label>
-                <input type="text" value={settings.orderPrefix || ''} onChange={e => set('orderPrefix', e.target.value.replace(/[^a-zA-Z0-9\-_#]/g, ''))} placeholder="e.g. SP- or #" className={inputCls} maxLength={8} autoComplete="off" />
-              </div>
-              {settings.orderPrefix && (
-                <p className={`text-xs ${K.muted}`}>Preview: <span className={`font-mono font-bold ${K.text}`}>{settings.orderPrefix}A1B2C3</span>, <span className={`font-mono font-bold ${K.text}`}>{settings.orderPrefix}D4E5F6</span></p>
-              )}
-            </div>
-          </div>
-
-          </>
+</>
         )}
       </div>
     </div>
