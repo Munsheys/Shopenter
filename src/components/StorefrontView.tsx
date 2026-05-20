@@ -128,6 +128,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     setIsOrdering(true);
     try {
       const items = cart.map(i => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel, price: i.price, qty: i.qty, imageUrl: i.imageUrl }));
+      const isLiffClient = liff.isInClient?.() ?? false;
       const res = await fetch(`/api/storefront/${merchantId}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,9 +138,18 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           quantity: items.reduce((s, i) => s + i.qty, 0), soldTHB: cartTotal,
           couponCode: couponCode || undefined,
           redeemPoints: redeemPoints || undefined,
+          isLiffClient,
         })
       });
-      if (res.ok) { setCart([]); setView('payment'); return null; }
+      if (res.ok) {
+        // When inside LINE's browser, send the order summary from the customer to the OA chat
+        // so it appears in both the merchant's LINE app and the dashboard chat view
+        if (isLiffClient) {
+          const summary = `📦 สั่งซื้อแล้ว!\n${items.map(i => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n')}\n\nรวม ฿${cartTotal.toLocaleString()}`;
+          try { await liff.sendMessages([{ type: 'text', text: summary }]); } catch { /* not available in all LIFF contexts */ }
+        }
+        setCart([]); setView('payment'); return null;
+      }
       const err = await res.json().catch(() => ({}));
       return err.error || 'Failed to place order. Please try again.';
     } catch {

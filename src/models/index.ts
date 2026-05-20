@@ -10,6 +10,16 @@ const MerchantSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const NotificationSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  type: { type: String, enum: ['new_order', 'slip_verified', 'slip_failed', 'out_of_stock'], required: true },
+  message: { type: String, required: true },
+  read: { type: Boolean, default: false },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 30 },
+});
+NotificationSchema.index({ merchantId: 1, read: 1, createdAt: -1 });
+
 const SettingsSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   shopName: { type: String, default: "My Shop" },
@@ -80,11 +90,12 @@ const SettingsSchema = new mongoose.Schema({
   },
   codSurcharge: { type: Number, default: 0 },
   deliveryEstimates: { type: Array, default: [] }, // [{courier, minDays, maxDays}]
-  // Admin alerts
+  // Admin alerts — each type has independent line (LINE push) and dashboard (bell) channels
   adminAlerts: {
-    newOrder:        { type: Boolean, default: false },
-    slipReceived:    { type: Boolean, default: false },
-    outOfStock:      { type: Boolean, default: false },
+    newOrder:     { line: { type: Boolean, default: false }, dashboard: { type: Boolean, default: false } },
+    slipReceived: { line: { type: Boolean, default: false }, dashboard: { type: Boolean, default: false } },
+    slipFailed:   { line: { type: Boolean, default: false }, dashboard: { type: Boolean, default: false } },
+    outOfStock:   { line: { type: Boolean, default: false }, dashboard: { type: Boolean, default: false } },
     lowStockThreshold: { type: Number, default: 5 },
   },
   broadcastReminder: {
@@ -126,6 +137,7 @@ const ProductSchema = new mongoose.Schema({
   modelLine: String,
   description: String,
   price: { type: Number, required: true },
+  trackStock: { type: Boolean, default: false },
   maxPrice: Number,
   imageUrl: String,
   categories: { type: [String], default: [] },
@@ -174,7 +186,10 @@ const OrderSchema = new mongoose.Schema({
     variantLabel: String,
     price: Number,
     qty: Number,
-    imageUrl: String
+    imageUrl: String,
+    itemStatus: { type: String, enum: ['pending', 'preparing', 'shipped', 'delivered'], default: 'pending' },
+    itemTracking: { type: String, default: '' },
+    itemCourier: { type: String, default: '' },
   }],
   soldTHB: { type: Number, default: 0 },
   costKRW: { type: Number, default: 0 },
@@ -186,7 +201,7 @@ const OrderSchema = new mongoose.Schema({
   shipCostTHB: { type: Number, default: 0 },
   tracking: String,
   courier: String,
-  status: { type: String, enum: ['pending', 'paid', 'preparing', 'shipped', 'delivered'], default: 'pending' },
+  status: { type: String, enum: ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
   statusBeforeParcel: { type: String, enum: ['pending', 'paid'], default: 'pending' },
   paymentQrSent: { type: Boolean, default: false },
   trackingSent: { type: Boolean, default: false },
@@ -309,6 +324,7 @@ const LoyaltyTransactionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);

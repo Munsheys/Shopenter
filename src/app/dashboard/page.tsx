@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw, Tag, Zap } from 'lucide-react';
+import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw, Tag, Zap, Bell, X, ShoppingBag, CheckCheck, AlertTriangle, TrendingDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ProductManagement from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
@@ -48,6 +48,10 @@ export default function DashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<{ feature: string; limit?: number; current?: number } | null>(null);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   const [topNavStyle, setTopNavStyle] = useState<React.CSSProperties>({});
   const topNavContainerRef = useRef<HTMLElement>(null);
@@ -119,6 +123,52 @@ export default function DashboardPage() {
   const handleAccentChange = useCallback((newColor: string) => {
     setSettings((prev: any) => prev ? { ...prev, dashboardAccent: newColor } : prev);
   }, []);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications ?? []);
+        setUnreadNotifCount(data.unreadCount ?? 0);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+
+  // Update unread count from SSE stream payload
+  useEffect(() => {
+    const es = new EventSource('/api/stream');
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.unreadNotifCount !== undefined) setUnreadNotifCount(data.unreadNotifCount);
+      } catch {}
+    };
+    return () => es.close();
+  }, []);
+
+  // Close notif dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  async function handleOpenNotif() {
+    setNotifOpen(o => !o);
+    if (!notifOpen) {
+      await fetchNotifications();
+      if (unreadNotifCount > 0) {
+        await fetch('/api/notifications', { method: 'PATCH' });
+        setUnreadNotifCount(0);
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      }
+    }
+  }
 
   async function handleSaveStorefront(config: any) {
     const { shopName, shopDescription, shopLogoUrl, shopTimezone, ...storefrontConfig } = config;
@@ -286,6 +336,51 @@ export default function DashboardPage() {
           >
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
+
+          {/* Notification bell */}
+          <div ref={notifRef} className="relative">
+            <button
+              onClick={handleOpenNotif}
+              title="Notifications"
+              className={`relative p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+            >
+              <Bell size={15} />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-accent text-white text-[9px] font-black flex items-center justify-center">
+                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </span>
+              )}
+            </button>
+            {notifOpen && (
+              <div className={`absolute right-0 top-10 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
+                <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                  <span className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>Notifications</span>
+                  <button onClick={() => setNotifOpen(false)} className="text-[#8b92ad] hover:text-red-400"><X size={14} /></button>
+                </div>
+                <div className="max-h-72 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-[#8b92ad] text-xs">No notifications yet</div>
+                  ) : notifications.map((n: any) => {
+                    const icons: Record<string, React.ReactNode> = {
+                      new_order: <ShoppingBag size={13} className="text-accent" />,
+                      slip_verified: <CheckCheck size={13} className="text-emerald-500" />,
+                      slip_failed: <AlertTriangle size={13} className="text-amber-500" />,
+                      out_of_stock: <TrendingDown size={13} className="text-red-500" />,
+                    };
+                    return (
+                      <div key={n._id} className={`flex gap-3 px-4 py-3 border-b last:border-b-0 ${isDark ? 'border-[#1f2335]' : 'border-[#f4f6f9]'} ${!n.read ? isDark ? 'bg-accent/5' : 'bg-accent/[3%]' : ''}`}>
+                        <div className={`w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center ${isDark ? 'bg-[#1a1d2e]' : 'bg-[#f4f6f9]'}`}>{icons[n.type] ?? <Bell size={13} />}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[11px] leading-snug ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{n.message}</p>
+                          <p className="text-[10px] text-[#8b92ad] mt-0.5">{new Date(n.createdAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className={`flex items-center gap-1 pl-3 border-l ${isDark ? 'border-[#1f2335]' : 'border-gray-200'}`}>
             <button

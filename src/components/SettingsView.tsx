@@ -475,7 +475,7 @@ const [showGuide, setShowGuide]     = useState(true);
               <div className="flex items-center justify-between">
                 <div>
                   <p className={`text-sm font-semibold ${K.text}`}>Business Hours</p>
-                  <p className={`text-xs mt-0.5 ${K.muted}`}>When enabled, auto-replies outside hours. Auto-reply wiring coming soon.</p>
+                  <p className={`text-xs mt-0.5 ${K.muted}`}>When closed, sends the message below instead of normal auto-replies. Does not affect the storefront.</p>
                 </div>
                 <Toggle enabled={!!settings.businessHours?.enabled} onChange={v => setBh('enabled', v)} isDark={isDark} />
               </div>
@@ -911,7 +911,7 @@ const [showGuide, setShowGuide]     = useState(true);
               <div className="flex items-center justify-between">
                 <div>
                   <p className={`text-sm font-semibold ${K.text}`}>Order Auto-Cancel</p>
-                  <p className={`text-xs mt-0.5 ${K.muted}`}>Automatically cancel unpaid pending orders after N hours. (Stored; automation wiring coming soon.)</p>
+                  <p className={`text-xs mt-0.5 ${K.muted}`}>Pending orders not paid within this window are automatically cancelled. Runs hourly.</p>
                 </div>
                 <Toggle enabled={(settings.autoCancelHours || 0) > 0} onChange={v => set('autoCancelHours', v ? 24 : 0)} isDark={isDark} />
               </div>
@@ -1061,34 +1061,46 @@ const [showGuide, setShowGuide]     = useState(true);
             <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
               <div>
                 <p className={`text-sm font-semibold ${K.text}`}>Admin Alerts</p>
-                <p className={`text-xs mt-1 ${K.muted}`}>Push LINE messages to your Admin LINE User ID for key events.</p>
+                <p className={`text-xs mt-1 ${K.muted}`}>Choose where each alert is delivered — dashboard bell, LINE message to your admin account, or both.</p>
               </div>
-              <div className="space-y-3">
+              {/* Column headers */}
+              <div className="flex items-center gap-2 pb-1">
+                <div className="flex-1" />
+                <span className={`text-[10px] font-black uppercase tracking-widest w-16 text-center ${K.muted}`}>Dashboard</span>
+                <span className={`text-[10px] font-black uppercase tracking-widest w-16 text-center ${K.muted}`}>LINE</span>
+              </div>
+              <div className="space-y-2">
                 {([
-                  { key: 'newOrder',     label: 'New Order Placed',    sub: 'Alert when a customer places a new order' },
-                  { key: 'slipReceived', label: 'Payment Slip Received', sub: 'Alert when a slip is verified by SlipOK (coming soon)' },
-                  { key: 'outOfStock',   label: 'Product Out of Stock', sub: 'Alert when a product stock reaches 0 (coming soon)' },
+                  { key: 'newOrder',     label: 'New Order',           sub: 'Customer places an order via storefront' },
+                  { key: 'slipReceived', label: 'Slip Verified',        sub: 'SlipOK confirms a payment slip' },
+                  { key: 'slipFailed',   label: 'Slip Scan Failed',     sub: 'SlipOK cannot read the slip image' },
+                  { key: 'outOfStock',   label: 'Out of Stock',         sub: 'A tracked product variant hits 0' },
                 ] as const).map(({ key, label, sub }) => (
-                  <div key={key} className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                    <div>
+                  <div key={key} className={`flex items-center gap-2 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div className="flex-1">
                       <p className={`text-xs font-semibold ${K.text}`}>{label}</p>
                       <p className={`text-[10px] ${K.muted}`}>{sub}</p>
                     </div>
-                    <Toggle enabled={!!settings.adminAlerts?.[key]} onChange={v => setAa(key, v)} isDark={isDark} />
+                    <div className="w-16 flex justify-center">
+                      <Toggle enabled={!!settings.adminAlerts?.[key]?.dashboard} onChange={v => setAa(key, { ...(settings.adminAlerts?.[key] || {}), dashboard: v })} isDark={isDark} />
+                    </div>
+                    <div className="w-16 flex justify-center">
+                      <Toggle enabled={!!settings.adminAlerts?.[key]?.line} onChange={v => setAa(key, { ...(settings.adminAlerts?.[key] || {}), line: v })} isDark={isDark} />
+                    </div>
                   </div>
                 ))}
               </div>
-              {settings.adminAlerts?.outOfStock && (
+              {settings.adminAlerts?.outOfStock?.dashboard || settings.adminAlerts?.outOfStock?.line ? (
                 <div className="md:w-1/3">
                   <label className={lbl}>Low stock threshold (qty)</label>
                   <input type="number" min="1" value={settings.adminAlerts?.lowStockThreshold ?? 5} onChange={e => setAa('lowStockThreshold', parseInt(e.target.value) || 5)} className={inputCls} />
                   <p className={hint}>Also alert when stock falls to or below this</p>
                 </div>
-              )}
-              {(settings.adminAlerts?.newOrder || settings.adminAlerts?.slipReceived || settings.adminAlerts?.outOfStock) && !settings.adminLineId && (
+              ) : null}
+              {(settings.adminAlerts?.newOrder?.line || settings.adminAlerts?.slipReceived?.line || settings.adminAlerts?.slipFailed?.line || settings.adminAlerts?.outOfStock?.line) && !settings.adminLineId && (
                 <div className={`px-4 py-3 rounded-xl text-xs flex items-center gap-2 ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
                   <AlertTriangle size={13} className="flex-shrink-0" />
-                  Set your <strong>Admin LINE User ID</strong> in the LINE tab to receive these alerts.
+                  Set your <strong>Admin LINE User ID</strong> in the LINE tab to receive LINE alerts.
                 </div>
               )}
             </div>

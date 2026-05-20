@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Product } from '@/models';
+import { Product, Settings } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
+import { notifyMerchant } from '@/lib/notifyMerchant';
 
 export const runtime = 'nodejs';
 
@@ -19,12 +20,43 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.price !== undefined && (typeof body.price !== 'number' || body.price < 0)) {
       return NextResponse.json({ error: 'Price must be a non-negative number' }, { status: 400 });
     }
+
+    // Snapshot variants before update for stock comparison
+    const oldProduct = await Product.findOne({ _id: id, merchantId: merchant.merchantId }).lean() as any;
+
     const product = await Product.findOneAndUpdate(
       { _id: id, merchantId: merchant.merchantId },
       body,
       { new: true }
     );
     if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+
+    // Out-of-stock / low-stock notifications — only for products with trackStock enabled
+    const trackStock = product.trackStock ?? oldProduct?.trackStock ?? false;
+    if (trackStock && body.variants !== undefined) {
+      const settings = await Settings.findOne({ merchantId: merchant.merchantId }).lean() as any;
+      const alertCfg = settings?.adminAlerts?.outOfStock;
+      if (alertCfg?.line || alertCfg?.dashboard) {
+        const threshold = settings?.adminAlerts?.lowStockThreshold ?? 5;
+        const oldVariants: any[] = oldProduct?.variants ?? [];
+
+        for (const newV of (product.variants ?? [])) {
+          const oldV = oldVariants.find((v: any) => String(v._id) === String(newV._id));
+          const oldStock = oldV?.stock ?? newV.stock; // if no old variant, don't alert
+          const newStock = newV.stock ?? 0;
+
+          if (newStock < oldStock) {
+            const label = newV.variantName ? ` (${newV.variantName})` : '';
+            if (newStock === 0) {
+              await notifyMerchant({ merchantId: merchant.merchantId, type: 'out_of_stock', message: `📭 Out of stock: ${product.name}${label}`, metadata: { productId: id }, settings });
+            } else if (newStock <= threshold && oldStock > threshold) {
+              await notifyMerchant({ merchantId: merchant.merchantId, type: 'out_of_stock', message: `📉 Low stock: ${product.name}${label} — ${newStock} remaining`, metadata: { productId: id, stock: newStock }, settings });
+            }
+          }
+        }
+      }
+    }
+
     return NextResponse.json(product);
   } catch {
     return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });

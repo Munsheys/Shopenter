@@ -4,6 +4,7 @@ import dbConnect from '@/lib/db';
 import { Customer, Message, Settings, ProcessedEvent, Order, Campaign, AutoReply } from '@/models';
 import { messagingApi } from '@line/bot-sdk';
 import { enqueueCustomerUpdate } from '@/lib/customerQueue';
+import { notifyMerchant } from '@/lib/notifyMerchant';
 
 export const runtime = 'nodejs';
 
@@ -41,6 +42,28 @@ function toLineMessage(block: any): any {
     default:
       return { type: 'text', text: String(block.text ?? '') };
   }
+}
+
+// Returns true if the shop is currently open based on businessHours config
+function isShopOpen(businessHours: any, timezone: string): boolean {
+  if (!businessHours?.enabled) return true;
+  const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const now = new Date();
+  const dayIndex = parseInt(now.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'short' }) === 'Sun' ? '0' :
+    now.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'long' }) === 'Monday' ? '1' :
+    now.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'long' }) === 'Tuesday' ? '2' :
+    now.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'long' }) === 'Wednesday' ? '3' :
+    now.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'long' }) === 'Thursday' ? '4' :
+    now.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'long' }) === 'Friday' ? '5' : '6');
+  const dayKey = dayKeys[dayIndex] ?? 'mon';
+  const dayConfig = businessHours[dayKey];
+  if (!dayConfig?.enabled) return false;
+  const timeStr = now.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false });
+  const [th, tm] = timeStr.split(':').map(Number);
+  const [oh, om] = (dayConfig.open || '09:00').split(':').map(Number);
+  const [ch, cm] = (dayConfig.close || '18:00').split(':').map(Number);
+  const current = th * 60 + tm;
+  return current >= oh * 60 + om && current < ch * 60 + cm;
 }
 
 // Find first matching auto-reply rule for incoming text
@@ -225,6 +248,24 @@ export async function POST(req: Request) {
           await Message.create({ merchantId, lineUserId: userId, text: event.message.text, sender: 'user' });
           await Customer.updateOne({ merchantId, userId }, { $inc: { unreadCount: 1 } });
 
+          // Suppress auto-reply for order confirmations sent via LIFF checkout
+          if (event.message.text.startsWith('📦') && event.message.text.includes('สั่งซื้อแล้ว')) {
+            continue;
+          }
+
+          // Business hours check — only affects LINE chat auto-replies, not storefront
+          const shopTimezone = matchedSettings?.shopTimezone || 'Asia/Bangkok';
+          if (!isShopOpen(matchedSettings?.businessHours, shopTimezone)) {
+            const closedMsg = matchedSettings?.businessHours?.closedAutoReply;
+            if (closedMsg && event.replyToken) {
+              try {
+                await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: closedMsg }] });
+                await Message.create({ merchantId, lineUserId: userId, type: 'system', text: closedMsg, sender: 'system' });
+              } catch (err) { console.error('[closed reply]', err); }
+            }
+            continue;
+          }
+
           // Collect reply messages: auto-reply + campaign piggyback
           const replyMessages: any[] = [];
 
@@ -341,16 +382,29 @@ export async function POST(req: Request) {
                       await Order.updateMany({ _id: { $in: toMark.map((o: any) => o._id) } }, { $set: { status: 'paid' } });
                       const combinedProducts = toMark.map((o: any) => `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${o.product?.replace(/^\d+x\s/, '')}`).join(', ');
                       const customer = await Customer.findOne({ merchantId, userId }).lean() as any;
+                      // Type B: customer confirmation message
                       let msg = matchedSettings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
                       msg = msg.replace(/{product}/g, combinedProducts).replace(/{amount}/g, amountPaid.toLocaleString()).replace(/{name}/g, customer?.displayName || 'Customer');
                       await client.pushMessage({ to: userId, messages: [{ type: 'text', text: msg }] });
                       await Message.create({ merchantId, lineUserId: userId, type: 'system', text: msg, metadata: { amount: amountPaid, products: combinedProducts }, sender: 'system' });
+                      // Type A: merchant alert
+                      await notifyMerchant({ merchantId, type: 'slip_verified', message: `💰 Slip verified!\n\nCustomer: ${customer?.displayName || userId}\nAmount: ฿${amountPaid.toLocaleString()}\nItems: ${combinedProducts}`, metadata: { amount: amountPaid, lineUserId: userId }, settings: matchedSettings });
                     }
+                  } else {
+                    // Slip scan failed (invalid or unreadable slip) — Type A: merchant only, customer stays silent
+                    const customer = await Customer.findOne({ merchantId, userId }).lean() as any;
+                    await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip scan failed\n\nCustomer: ${customer?.displayName || userId}\nThe image could not be verified. Please check manually.`, metadata: { lineUserId: userId }, settings: matchedSettings });
                   }
+                } else {
+                  // SlipOK API error — Type A: merchant only
+                  const customer = await Customer.findOne({ merchantId, userId }).lean() as any;
+                  await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip verification error\n\nCustomer: ${customer?.displayName || userId}\nSlipOK API returned an error. Please verify payment manually.`, metadata: { lineUserId: userId }, settings: matchedSettings });
                 }
               }
             } catch (err) {
               console.error('[SlipOK]', err);
+              // Network/unexpected error — Type A: merchant only
+              await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip verification failed (network error)\n\nPlease verify payment manually.`, metadata: { lineUserId: userId }, settings: matchedSettings });
             }
           }
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings } from '@/models';
+import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Message } from '@/models';
+import { messagingApi } from '@line/bot-sdk';
+import { notifyMerchant } from '@/lib/notifyMerchant';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     if (!merchantExists) return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
 
     const body = await req.json();
-    const { couponCode, redeemPoints, lineUserId, ...orderData } = body;
+    const { couponCode, redeemPoints, lineUserId, isLiffClient, ...orderData } = body;
 
     let discountAmount = 0;
     let appliedCouponCode = '';
@@ -86,6 +88,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
         note: `Redeemed for ฿${Math.floor(redeemedPoints / loyaltyRedeemRate)} discount`,
       });
     }
+
+    // ── Type B: order confirmation message to customer ────────────────────────
+    // LIFF client sends via liff.sendMessages(); external browser gets a push
+    if (!isLiffClient && lineUserId) {
+      const merchantSettings = await Settings.findOne({ merchantId }).lean() as any;
+      if (merchantSettings?.lineChannelAccessToken) {
+        try {
+          const client = new messagingApi.MessagingApiClient({ channelAccessToken: merchantSettings.lineChannelAccessToken });
+          const itemsSummary = order.items?.map((i: any) => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n') || order.product;
+          const confirmMsg = `📦 สั่งซื้อแล้ว!\n${itemsSummary}\n\nรวม ฿${order.soldTHB.toLocaleString()}\n\nขอบคุณที่ใช้บริการครับ 🙏`;
+          await client.pushMessage({ to: lineUserId, messages: [{ type: 'text', text: confirmMsg }] });
+          await Message.create({ merchantId, lineUserId, type: 'system', text: confirmMsg, sender: 'system' });
+        } catch (err) { console.error('[storefront order push]', err); }
+      }
+    }
+
+    // ── Type A: merchant new-order alert ──────────────────────────────────────
+    const settingsForNotif = await Settings.findOne({ merchantId }).lean() as any;
+    const customerName = orderData.displayName || 'Customer';
+    const itemsSummary = order.items?.map((i: any) => `${i.qty}x ${i.name}`).join(', ') || order.product;
+    await notifyMerchant({ merchantId, type: 'new_order', message: `🛒 New order from ${customerName}!\n${itemsSummary}\nTotal: ฿${order.soldTHB.toLocaleString()}`, metadata: { orderId: order._id.toString(), lineUserId }, settings: settingsForNotif });
 
     // Attribute to most recent broadcast in last 48 hours
     const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
