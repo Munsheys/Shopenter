@@ -1114,9 +1114,16 @@ const [showGuide, setShowGuide]     = useState(true);
 
     {/* ── Persistent save bar ──────────────────────────────────────────── */}
     <div className={`flex-shrink-0 flex items-center justify-between gap-4 px-6 py-3 border-t ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-white border-slate-200'}`}>
-      <span className={`text-xs ${saveError ? 'text-red-400' : saved ? 'text-emerald-400' : K.muted}`}>
-        {saveError || (saved ? 'All changes saved.' : 'Changes save across all sections.')}
-      </span>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className={`text-xs ${saveError ? 'text-red-400' : saved ? 'text-emerald-400' : K.muted}`}>
+          {saveError || (saved ? 'All changes saved.' : 'Changes save across all sections.')}
+        </span>
+        <span className={`text-[10px] font-mono ${K.muted} opacity-50`}>
+          {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
+            ? `v${process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}`
+            : 'local'}
+        </span>
+      </div>
       <button
         onClick={handleSave}
         disabled={isSaving}
