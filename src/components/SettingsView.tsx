@@ -6,6 +6,7 @@ import {
   ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle, Bell,
   Building2,
 } from 'lucide-react';
+import NumberStepper from '@/components/NumberStepper';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,31 +35,6 @@ function Toggle({ enabled, onChange, isDark }: { enabled: boolean; onChange: (v:
   );
 }
 
-function NumberStepper({
-  value, onChange, min, max, step = 1, isDark, disabled = false,
-}: {
-  value: number; onChange: (v: number) => void;
-  min?: number; max?: number; step?: number; isDark?: boolean; disabled?: boolean;
-}) {
-  const clamp = (v: number) => Math.max(min ?? -Infinity, Math.min(max ?? Infinity, v));
-  const btnCls = `w-9 h-full flex items-center justify-center text-base font-bold flex-shrink-0 transition-colors disabled:opacity-25
-    ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`;
-  return (
-    <div className={`flex items-center h-11 rounded-xl border overflow-hidden ${isDark ? 'bg-[#0f1117] border-[#2a2f45]' : 'bg-white border-slate-200'}`}>
-      <button type="button" disabled={disabled || (min !== undefined && value <= min)} onClick={() => onChange(clamp(value - step))} className={btnCls}>−</button>
-      <div className={`w-px self-stretch ${isDark ? 'bg-[#2a2f45]' : 'bg-slate-200'}`} />
-      <input
-        type="number"
-        value={value}
-        disabled={disabled}
-        onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) onChange(clamp(n)); }}
-        className={`flex-1 min-w-0 text-center text-sm font-semibold bg-transparent outline-none py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isDark ? 'text-white' : 'text-slate-800'}`}
-      />
-      <div className={`w-px self-stretch ${isDark ? 'bg-[#2a2f45]' : 'bg-slate-200'}`} />
-      <button type="button" disabled={disabled || (max !== undefined && value >= max)} onClick={() => onChange(clamp(value + step))} className={btnCls}>+</button>
-    </div>
-  );
-}
 
 type SectionId = 'general' | 'line' | 'payment' | 'shipping' | 'notifications';
 
@@ -1140,16 +1116,9 @@ const [showGuide, setShowGuide]     = useState(true);
 
     {/* ── Persistent save bar ──────────────────────────────────────────── */}
     <div className={`flex-shrink-0 flex items-center justify-between gap-4 px-6 py-3 border-t ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-white border-slate-200'}`}>
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <span className={`text-xs ${saveError ? 'text-red-400' : saved ? 'text-emerald-400' : K.muted}`}>
-          {saveError || (saved ? 'All changes saved.' : 'Changes save across all sections.')}
-        </span>
-        <span className={`text-[10px] font-mono ${K.muted} opacity-50`}>
-          {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
-            ? `v${process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}`
-            : 'local'}
-        </span>
-      </div>
+      <span className={`text-xs ${saveError ? 'text-red-400' : saved ? 'text-emerald-400' : K.muted}`}>
+        {saveError || (saved ? 'All changes saved.' : 'Changes save across all sections.')}
+      </span>
       <button
         onClick={handleSave}
         disabled={isSaving}

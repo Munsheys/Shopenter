@@ -7,6 +7,7 @@ import {
   Clock, Printer, History, ChevronDown, AlertTriangle, Pencil, Check,
 } from 'lucide-react';
 import { ProductModal, type ProductForm } from './ProductManagement';
+import NumberStepper from '@/components/NumberStepper';
 
 type Customer = {
   _id: string; userId: string; displayName: string; pictureUrl?: string;
@@ -1375,27 +1376,23 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
               <input value={name} onChange={e => setName(e.target.value)}
                 className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
-            <div className="w-12">
+            <div className="w-24">
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Qty</label>
-              <input type="number" value={qty} onChange={e => setQty(parseInt(e.target.value) || 1)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
+              <NumberStepper value={qty} onChange={v => setQty(v)} min={1} step={1} isDark={isDark} size="sm" />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Cost ({cc})</label>
-              <input type="number" step="any" value={cost} onChange={e => setCost(e.target.value)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
+              <NumberStepper value={parseFloat(cost) || 0} onChange={v => setCost(String(v))} min={0} step={1000} isDark={isDark} size="sm" />
             </div>
             <div>
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Sold ({sc})</label>
-              <input type="number" step="any" value={sold} onChange={e => setSold(e.target.value)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
+              <NumberStepper value={parseFloat(sold) || 0} onChange={v => setSold(String(v))} min={0} step={100} isDark={isDark} size="sm" />
             </div>
             <div>
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Rate ({cc}→{sc})</label>
-              <input type="number" step="any" value={rate} onChange={e => setRate(e.target.value)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
+              <NumberStepper value={parseFloat(rate) || 0} onChange={v => setRate(String(v))} min={0} step={0.001} isDark={isDark} size="sm" />
             </div>
           </div>
           <div className="flex items-center justify-between pt-1">
@@ -1672,18 +1669,15 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div>
               <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Cost ({cc})</label>
-              <input type="number" step="any" value={cost} onChange={e => setCost(e.target.value)}
-                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`} />
+              <NumberStepper value={parseFloat(cost) || 0} onChange={v => setCost(String(v))} min={0} step={1000} isDark={isDark} />
             </div>
             <div>
               <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Sold ({sc})</label>
-              <input type="number" step="any" value={sold} onChange={e => setSold(e.target.value)}
-                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`} />
+              <NumberStepper value={parseFloat(sold) || 0} onChange={v => setSold(String(v))} min={0} step={100} isDark={isDark} />
             </div>
             <div>
               <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Rate ({cc} → {sc})</label>
-              <input type="number" step="any" value={rate} onChange={e => setRate(e.target.value)}
-                className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`} />
+              <NumberStepper value={parseFloat(rate) || 0} onChange={v => setRate(String(v))} min={0} step={0.001} isDark={isDark} />
             </div>
           </div>
           <div className="flex gap-2">

@@ -274,7 +274,11 @@ export default function DashboardPage() {
                 {tierLabel}
               </span>
             </div>
-            <p className={`text-[10px] font-medium ${isDark ? 'text-[#8b92ad]' : 'text-gray-400'}`}>Dashboard</p>
+            <p className={`text-[10px] font-mono ${isDark ? 'text-[#8b92ad]' : 'text-gray-400'}`}>
+              {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
+                ? `v${process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}`
+                : 'local'}
+            </p>
           </div>
         </div>
 
