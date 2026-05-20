@@ -35,11 +35,12 @@ interface Props {
   slug?: string | null;
   initial?: Partial<StorefrontConfig>;
   theme?: 'light' | 'dark';
+  accentColor?: string;
   onSave: (config: StorefrontConfig) => Promise<void>;
   onSaveSlug: (slug: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
-export default function StorefrontCustomizer({ shopName, slug: initialSlug, initial, theme = 'light', onSave, onSaveSlug }: Props) {
+export default function StorefrontCustomizer({ shopName, slug: initialSlug, initial, theme = 'light', accentColor = '#00b900', onSave, onSaveSlug }: Props) {
   const isDark = theme === 'dark';
   const [config, setConfig] = useState<StorefrontConfig>({ ...DEFAULT_CONFIG, ...initial });
   const [saving, setSaving] = useState(false);
@@ -116,11 +117,8 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             <button
               onClick={handleSaveSlug}
               disabled={slugSaving || !slugInput.trim()}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-shrink-0 disabled:opacity-50 ${
-                slugSaved
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-green-500 hover:bg-green-600 text-white'
-              }`}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-opacity flex-shrink-0 disabled:opacity-50 hover:opacity-90 text-white"
+              style={{ backgroundColor: slugSaved ? '#10b981' : accentColor }}
             >
               {slugSaved ? <><Check size={14} />Saved</> : slugSaving ? 'Saving…' : <><Link size={14} />Apply</>}
             </button>
@@ -146,9 +144,8 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 <button
                   key={preset.id}
                   onClick={() => set('preset', preset.id)}
-                  className={`relative rounded-xl border-2 overflow-hidden text-left transition-all ${
-                    active ? 'border-green-500 shadow-lg shadow-green-500/20' : 'border-transparent'
-                  }`}
+                  className={`relative rounded-xl border-2 overflow-hidden text-left transition-all ${active ? 'shadow-lg' : 'border-transparent'}`}
+                  style={active ? { borderColor: accentColor, boxShadow: `0 10px 15px -3px ${accentColor}33` } : undefined}
                 >
                   <div className="h-16 flex gap-1 p-2" style={{ background: preset.pageBg }}>
                     <div className="flex-1 rounded-lg" style={{ background: preset.cardBg, border: `1px solid ${preset.cardBorder}` }} />
@@ -160,7 +157,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     <p className="text-xs" style={{ color: preset.textMuted }}>{preset.description}</p>
                   </div>
                   {active && (
-                    <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-accent flex items-center justify-center">
+                    <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: accentColor }}>
                       <Check size={11} className="text-white" />
                     </div>
                   )}
@@ -280,9 +277,10 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 onClick={() => set('cardLayout', opt.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors ${
                   config.cardLayout === opt.id
-                    ? 'bg-green-500 text-white border-green-500'
+                    ? 'text-white'
                     : isDark ? 'border-gray-700 text-gray-300 hover:border-gray-600' : 'border-gray-200 text-gray-700 hover:border-gray-300'
                 }`}
+                style={config.cardLayout === opt.id ? { backgroundColor: accentColor, borderColor: accentColor } : undefined}
               >
                 {opt.icon}{opt.label}
               </button>
@@ -306,7 +304,8 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 <span className={`text-sm font-medium ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{label}</span>
                 <div
                   onClick={() => set(key, !config[key] as any)}
-                  className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${config[key] ? 'bg-green-500' : isDark ? 'bg-gray-700' : 'bg-gray-200'}`}
+                  className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${config[key] ? '' : isDark ? 'bg-gray-700' : 'bg-gray-200'}`}
+                  style={config[key] ? { backgroundColor: accentColor } : undefined}
                 >
                   <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${config[key] ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
@@ -319,7 +318,8 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
+          className="flex items-center gap-2 hover:opacity-90 disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-opacity"
+          style={{ backgroundColor: accentColor }}
         >
           {saved ? <><Check size={16} />Saved!</> : saving ? 'Saving...' : <><Save size={16} />Save storefront</>}
         </button>

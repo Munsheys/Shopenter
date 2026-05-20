@@ -377,6 +377,7 @@ export default function DashboardPage() {
             slug={merchant?.slug}
             initial={settings?.storefront}
             theme={theme}
+            accentColor={accentColor}
             onSave={handleSaveStorefront}
             onSaveSlug={handleSaveSlug}
           />
