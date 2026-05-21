@@ -62,6 +62,9 @@ const GRADIENT_PRESETS = [
   { name: 'Indigo',  gradient: 'linear-gradient(135deg,#6366f1,#8b5cf6)', primary: '#6366f1' },
 ];
 
+const SC_ACCENT_PRESETS = ['#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'];
+const GRAD_PRESET_VALS = new Set(GRADIENT_PRESETS.map(g => g.gradient));
+
 function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChange: (url: string) => void; isDark: boolean; accent: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -160,6 +163,19 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('identity');
+  const [accentTab, setAccentTab] = useState<'solid' | 'gradient'>(
+    initial?.accentGradient ? 'gradient' : 'solid'
+  );
+  const [showCustomGradBuilder, setShowCustomGradBuilder] = useState(false);
+  const [customG, setCustomG] = useState<{ c1: string; c2: string; angle: number | 'radial' }>({ c1: '#8b5cf6', c2: '#ec4899', angle: 135 });
+  const [customSolidHex, setCustomSolidHex] = useState(() => {
+    const c = initial?.accentColor ?? '';
+    return c && !SC_ACCENT_PRESETS.includes(c) && !initial?.accentGradient ? c : '';
+  });
+  const [customGradCss, setCustomGradCss] = useState(() => {
+    const g = initial?.accentGradient ?? '';
+    return g && !GRAD_PRESET_VALS.has(g) ? g : '';
+  });
 
   const [slugInput, setSlugInput] = useState(initialSlug ?? '');
   const [slugSaving, setSlugSaving] = useState(false);
@@ -317,47 +333,155 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
             <Card title="Accent Color" description="Override the theme's default color for buttons and highlights." icon={<Palette size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="space-y-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {(() => {
-                    const baseAccent = PRESETS[config.preset]?.accent ?? p.accent;
-                    const isDefault = !config.accentColor && !config.accentGradient;
-                    return (
-                      <button key="preset-default" onClick={() => setAccent('')} title={`Preset default (${baseAccent})`}
-                        style={{ backgroundColor: baseAccent, ...(isDefault ? { outline: `2.5px solid ${baseAccent}`, outlineOffset: '3px' } : {}) }}
-                        className={`w-8 h-8 rounded-full transition-all ${isDefault ? 'scale-110' : 'hover:scale-105'}`} />
-                    );
-                  })()}
-                  {(['#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'] as const)
-                    .filter(c => c.toLowerCase() !== (PRESETS[config.preset]?.accent ?? '').toLowerCase())
-                    .map(color => {
+                {/* Tab switcher */}
+                <div className={`flex p-0.5 rounded-lg ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
+                  {(['solid', 'gradient'] as const).map(tab => (
+                    <button key={tab} onClick={() => setAccentTab(tab)}
+                      className={`flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all capitalize ${
+                        accentTab === tab ? '' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'
+                      }`}
+                      style={accentTab === tab ? { background: localAccentBg, color: accentTextColor } : undefined}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Solid tab */}
+                {accentTab === 'solid' && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {SC_ACCENT_PRESETS.map(color => {
                       const isActive = !config.accentGradient && config.accentColor === color;
                       return (
                         <button key={color} onClick={() => setAccent(color)} title={color}
                           style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : {}) }}
-                          className={`w-8 h-8 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
+                          className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
                       );
                     })}
-                  <label title="Custom color" className={`w-8 h-8 rounded-full border-2 cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center ${isDark ? 'border-[#2a2f45] bg-[#0f1117]' : 'border-slate-200 bg-slate-50'}`}>
-                    <input type="color" value={config.accentColor || p.accent} onChange={e => setAccent(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-                    <span className={`text-sm font-bold leading-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>
-                  </label>
-                  {(config.accentColor || config.accentGradient) && (
-                    <button onClick={() => setAccent('')} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
-                      Reset
-                    </button>
-                  )}
-                </div>
-                <div className={`h-px ${isDark ? 'bg-[#1f2335]' : 'bg-slate-100'}`} />
-                <div className="flex items-center gap-2 flex-wrap">
-                  {GRADIENT_PRESETS.map(preset => {
-                    const isActive = config.accentGradient === preset.gradient;
-                    return (
-                      <button key={preset.name} onClick={() => setAccent(preset.primary, preset.gradient)} title={preset.name}
-                        style={{ background: preset.gradient, ...(isActive ? { outline: `2.5px solid ${preset.primary}`, outlineOffset: '3px' } : {}) }}
-                        className={`w-8 h-8 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
-                    );
-                  })}
-                </div>
+                    {/* Custom solid slot */}
+                    <label title={customSolidHex || 'Custom color'}
+                      className={`w-8 h-8 rounded-full cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center flex-shrink-0 border-2 ${
+                        customSolidHex ? 'border-transparent' : isDark ? 'border-[#2a2f45] bg-[#0f1117]' : 'border-slate-200 bg-slate-50'
+                      }`}
+                      style={{
+                        ...(customSolidHex ? { backgroundColor: customSolidHex } : {}),
+                        ...(!config.accentGradient && config.accentColor === customSolidHex && !!customSolidHex
+                          ? { outline: `2.5px solid ${customSolidHex}`, outlineOffset: '3px', transform: 'scale(1.1)' } : {}),
+                      }}>
+                      <input type="color" value={customSolidHex || '#8b5cf6'}
+                        onChange={e => { setCustomSolidHex(e.target.value); setAccent(e.target.value); }}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                      {!customSolidHex && <span className={`text-sm font-bold leading-none pointer-events-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>}
+                    </label>
+                    {(config.accentColor || config.accentGradient) && (
+                      <button onClick={() => setAccent('')} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Gradient tab */}
+                {accentTab === 'gradient' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {GRADIENT_PRESETS.map(preset => {
+                        const isActive = config.accentGradient === preset.gradient;
+                        return (
+                          <button key={preset.name} onClick={() => setAccent(preset.primary, preset.gradient)} title={preset.name}
+                            style={{ background: preset.gradient, ...(isActive ? { outline: `2.5px solid ${preset.primary}`, outlineOffset: '3px' } : {}) }}
+                            className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
+                        );
+                      })}
+                      {/* Custom gradient slot */}
+                      <button
+                        title={customGradCss ? 'Custom gradient' : 'Create custom gradient'}
+                        onClick={() => {
+                          if (customGradCss) setAccent(customG.c1, customGradCss);
+                          setShowCustomGradBuilder(v => !v);
+                        }}
+                        className={`w-8 h-8 rounded-full overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center flex-shrink-0 border-2 ${
+                          customGradCss ? 'border-transparent' : isDark ? 'border-[#2a2f45] bg-[#0f1117]' : 'border-slate-200 bg-slate-50'
+                        }`}
+                        style={{
+                          ...(customGradCss ? { background: customGradCss } : {}),
+                          ...(customGradCss && config.accentGradient === customGradCss
+                            ? { outline: `2.5px solid ${customG.c1}`, outlineOffset: '3px', transform: 'scale(1.1)' } : {}),
+                        }}>
+                        {!customGradCss && <span className={`text-sm font-bold leading-none pointer-events-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>}
+                      </button>
+                      {(config.accentColor || config.accentGradient) && (
+                        <button onClick={() => { setAccent(''); setCustomGradCss(''); setShowCustomGradBuilder(false); }} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
+                          Reset
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Custom gradient builder (collapsible) */}
+                    {showCustomGradBuilder && (
+                      <div className={`rounded-xl p-3 space-y-2.5 ${isDark ? 'bg-[#0f1117]' : 'bg-slate-50'}`}>
+                        <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Custom Gradient</p>
+                        <div className="flex items-center gap-2">
+                          <label title="Start color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
+                            style={{ backgroundColor: customG.c1, borderColor: customG.c1 }}>
+                            <input type="color" value={customG.c1} onChange={e => setCustomG(g => ({ ...g, c1: e.target.value }))}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                          </label>
+                          <div className="flex gap-1 flex-1 justify-center">
+                            {([
+                              { deg: 90,       icon: '→' },
+                              { deg: 135,      icon: '↘' },
+                              { deg: 180,      icon: '↓' },
+                              { deg: 45,       icon: '↗' },
+                              { deg: 'radial', icon: '○' },
+                            ] as const).map(a => (
+                              <button key={String(a.deg)}
+                                onClick={() => setCustomG(g => ({ ...g, angle: a.deg }))}
+                                title={a.deg === 'radial' ? 'Radial' : `${a.deg}°`}
+                                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all border ${
+                                  customG.angle === a.deg
+                                    ? 'border-transparent'
+                                    : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'
+                                }`}
+                                style={customG.angle === a.deg ? { background: localAccentBg, color: accentTextColor } : undefined}
+                              >
+                                {a.icon}
+                              </button>
+                            ))}
+                          </div>
+                          <label title="End color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
+                            style={{ backgroundColor: customG.c2, borderColor: customG.c2 }}>
+                            <input type="color" value={customG.c2} onChange={e => setCustomG(g => ({ ...g, c2: e.target.value }))}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-7 rounded-lg"
+                            style={{ background: customG.angle === 'radial'
+                              ? `radial-gradient(circle, ${customG.c1}, ${customG.c2})`
+                              : `linear-gradient(${customG.angle}deg, ${customG.c1}, ${customG.c2})`
+                            }}
+                          />
+                          <button
+                            onClick={() => {
+                              const gradient = customG.angle === 'radial'
+                                ? `radial-gradient(circle,${customG.c1},${customG.c2})`
+                                : `linear-gradient(${customG.angle}deg,${customG.c1},${customG.c2})`;
+                              setCustomGradCss(gradient);
+                              setAccent(customG.c1, gradient);
+                              setShowCustomGradBuilder(false);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all hover:opacity-90 flex-shrink-0 ${
+                              isDark ? 'border-[#2a2f45] bg-[#1a1d2e] text-white' : 'border-slate-200 bg-white text-slate-700'
+                            }`}
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </Card>
 
