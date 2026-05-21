@@ -113,7 +113,7 @@ export default function SettingsView({
   theme?: 'light' | 'lite' | 'dark';
   onSave?: () => void;
   onThemeChange?: (newTheme: 'light' | 'lite' | 'dark') => void;
-  onAccentChange?: (newColor: string) => void;
+  onAccentChange?: (newColor: string, gradient?: string | null) => void;
   scrollTrigger?: { section: string; id: number } | null;
 }) {
   const isDark = theme === 'dark';
@@ -279,7 +279,7 @@ export default function SettingsView({
     const update: any = { dashboardAccent: newColor };
     if (gradient !== undefined) update.dashboardAccentGradient = gradient || null;
     setSettings((s: any) => ({ ...s, ...update }));
-    onAccentChange?.(newColor);
+    onAccentChange?.(newColor, gradient);
     try {
       await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...settings, ...update }) });
       onSave?.();

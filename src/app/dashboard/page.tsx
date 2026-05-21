@@ -120,8 +120,12 @@ export default function DashboardPage() {
     setSettings((prev: any) => prev ? { ...prev, theme: newTheme } : prev);
   }, []);
 
-  const handleAccentChange = useCallback((newColor: string) => {
-    setSettings((prev: any) => prev ? { ...prev, dashboardAccent: newColor } : prev);
+  const handleAccentChange = useCallback((newColor: string, gradient?: string | null) => {
+    setSettings((prev: any) => prev ? {
+      ...prev,
+      dashboardAccent: newColor,
+      ...(gradient !== undefined ? { dashboardAccentGradient: gradient ?? null } : {}),
+    } : prev);
   }, []);
 
   const fetchNotifications = useCallback(async () => {

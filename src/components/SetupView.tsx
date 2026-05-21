@@ -55,7 +55,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
   return (
     <div className="min-h-screen bg-[#f8f9fc] flex items-center justify-center p-6">
       <div className="max-w-xl w-full bg-white rounded-[40px] shadow-2xl shadow-accent/[7%] border border-[#e2e5ef] overflow-hidden">
-        <div className="bg-accent p-12 text-white text-center relative overflow-hidden">
+        <div className="p-12 text-white text-center relative overflow-hidden" style={{ background: 'var(--accent-gradient)' }}>
            {/* Background Decorations */}
            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
            <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-20 -mb-20 blur-2xl"></div>
@@ -88,7 +88,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
              </h3>
              <div className="space-y-6">
                 <div className="flex gap-4">
-                   <div className="w-6 h-6 bg-accent text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">1</div>
+                   <div className="w-6 h-6 text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black" style={{ background: 'var(--accent-gradient)' }}>1</div>
                    <div>
                       <div className="text-[11px] font-bold text-[#1a1d2e] mb-1">LIFF ID (LINE Login Channel)</div>
                       <p className="text-[10px] text-[#8b92ad] leading-relaxed">
@@ -97,7 +97,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                    </div>
                 </div>
                 <div className="flex gap-4">
-                   <div className="w-6 h-6 bg-accent text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">2</div>
+                   <div className="w-6 h-6 text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black" style={{ background: 'var(--accent-gradient)' }}>2</div>
                    <div>
                       <div className="text-[11px] font-bold text-[#1a1d2e] mb-1">Admin LINE ID</div>
                       <p className="text-[10px] text-[#8b92ad] leading-relaxed">
@@ -106,7 +106,7 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                    </div>
                 </div>
                 <div className="flex gap-4">
-                   <div className="w-6 h-6 bg-accent text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black">3</div>
+                   <div className="w-6 h-6 text-white rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-black" style={{ background: 'var(--accent-gradient)' }}>3</div>
                    <div>
                       <div className="text-[11px] font-bold text-[#1a1d2e] mb-1">Secrets (Messaging API Channel)</div>
                       <p className="text-[10px] text-[#8b92ad] leading-relaxed">
@@ -260,7 +260,8 @@ export default function SetupView({ onComplete }: { onComplete: () => void }) {
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="w-full bg-accent text-white py-5 rounded-3xl font-bold shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  className="w-full text-white py-5 rounded-3xl font-bold shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  style={{ background: 'var(--accent-gradient)' }}
                 >
                   {isSaving ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

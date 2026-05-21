@@ -139,7 +139,8 @@ export default function ShopOrdersView({
         
         <button 
           onClick={handleExportCSV}
-          className="w-full md:w-auto bg-accent text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-accent/[13%] hover:opacity-90 active:scale-95 transition-all"
+          className="w-full md:w-auto text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
+          style={{ background: 'var(--accent-gradient)' }}
         >
           <FileSpreadsheet size={18} /> {t.export_view || 'Export Current View'}
         </button>

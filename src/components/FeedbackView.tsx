@@ -280,9 +280,10 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
               type="submit"
               disabled={!content.trim() || isSubmitting}
               className={cn(
-                "w-full py-3.5 rounded-xl text-xs font-bold shadow-lg shadow-accent/10 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50",
-                "bg-accent text-white hover:bg-[#00a300]"
+                "w-full py-3.5 rounded-xl text-xs font-bold shadow-lg transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50",
+                "text-white hover:opacity-90"
               )}
+              style={{ background: 'var(--accent-gradient)' }}
             >
               {isSubmitting ? (
                 <>
@@ -406,7 +407,8 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                 <button
                   type="submit"
                   disabled={!replyText.trim() || isReplying}
-                  className="px-4 rounded-xl bg-accent text-white hover:bg-[#00a300] active:scale-95 transition-all flex items-center justify-center"
+                  className="px-4 rounded-xl text-white hover:opacity-90 active:scale-95 transition-all flex items-center justify-center"
+                  style={{ background: 'var(--accent-gradient)' }}
                 >
                   {isReplying ? <Loader2 size={12} className="animate-spin" /> : <Send size={11} />}
                 </button>

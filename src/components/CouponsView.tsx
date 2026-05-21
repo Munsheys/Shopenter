@@ -125,7 +125,8 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="w-full sm:w-auto bg-accent text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-accent/[13%] hover:opacity-90 active:scale-95 transition-all"
+          className="w-full sm:w-auto text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
+          style={{ background: 'var(--accent-gradient)' }}
         >
           <Plus size={18} /> Create Coupon
         </button>
@@ -170,9 +171,10 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
                     onClick={() => setForm(f => ({ ...f, type: t }))}
                     className={cn('flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all',
                       form.type === t
-                        ? 'bg-accent text-white border-accent'
+                        ? 'text-white border-transparent'
                         : isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-[#e2e5ef] text-[#8b92ad]'
                     )}
+                    style={form.type === t ? { background: 'var(--accent-gradient)' } : undefined}
                   >
                     {t === 'percent' ? '% Percent' : '฿ Fixed'}
                   </button>
@@ -238,7 +240,8 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
             <button
               onClick={handleCreate}
               disabled={saving || !form.code || !form.value}
-              className="flex-1 py-3 text-sm font-bold text-white bg-accent rounded-2xl disabled:opacity-40 hover:opacity-90"
+              className="flex-1 py-3 text-sm font-bold text-white rounded-2xl disabled:opacity-40 hover:opacity-90"
+              style={{ background: 'var(--accent-gradient)' }}
             >
               {saving ? 'Creating...' : 'Create Coupon'}
             </button>

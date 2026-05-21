@@ -722,7 +722,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => setShowModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-accent/20 active:scale-95"
+                  className="flex items-center gap-1.5 px-3 py-2 hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                  style={{ background: 'var(--accent-gradient)' }}
                 >
                   <ShoppingCart size={12} /> New Order
                 </button>
@@ -766,7 +767,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                         <button
                           onClick={() => markBatchPaid([...selectedOrderIds])}
                           disabled={batchActing}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-accent text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                          style={{ background: 'var(--accent-gradient)' }}
                         >
                           <CheckCircle size={11} /> {batchActing ? 'Processing...' : 'Mark All Paid'}
                         </button>
@@ -960,11 +962,14 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                               <p className={`text-[9px] mt-0.5 ${k.muted}`}>{timeStr}</p>
                             </div>
                           ) : (
-                            <div className={`px-3 py-2 rounded-2xl text-xs leading-relaxed ${
-                              isAdmin
-                                ? 'bg-accent text-white rounded-br-sm'
-                                : isDark ? 'bg-[#1f2540] text-gray-100 rounded-bl-sm border border-[#2a2e45]' : 'bg-white shadow-sm border border-[#e2e5ef] text-[#1a1d2e] rounded-bl-sm'
-                            }`}>
+                            <div
+                              className={`px-3 py-2 rounded-2xl text-xs leading-relaxed ${
+                                isAdmin
+                                  ? 'text-white rounded-br-sm'
+                                  : isDark ? 'bg-[#1f2540] text-gray-100 rounded-bl-sm border border-[#2a2e45]' : 'bg-white shadow-sm border border-[#e2e5ef] text-[#1a1d2e] rounded-bl-sm'
+                              }`}
+                              style={isAdmin ? { background: 'var(--accent-gradient)' } : undefined}
+                            >
                               <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.text}</p>
                               <p className={`text-[9px] mt-1 ${isAdmin ? 'text-green-100/80' : k.muted}`}>{timeStr}</p>
                             </div>
@@ -989,7 +994,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                     onClick={sendMessage}
                     disabled={!inputText.trim() || sending}
                     aria-label="Send message"
-                    className="bg-accent hover:opacity-90 disabled:opacity-40 text-white rounded-xl w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
+                    className="hover:opacity-90 disabled:opacity-40 text-white rounded-xl w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
+                    style={{ background: 'var(--accent-gradient)' }}
                   >
                     <Send size={13} />
                   </button>
@@ -1020,7 +1026,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               <div className="flex gap-2">
                 {(['existing', 'new'] as const).map(m => (
                   <button key={m} onClick={() => setQoMode(m)}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${qoMode === m ? 'bg-accent text-white shadow-sm shadow-accent/20' : isDark ? 'bg-white/5 text-[#8b92ad] hover:bg-white/10' : 'bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#f0f1f5]'}`}>
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${qoMode === m ? 'text-white shadow-sm' : isDark ? 'bg-white/5 text-[#8b92ad] hover:bg-white/10' : 'bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#f0f1f5]'}`}
+                    style={qoMode === m ? { background: 'var(--accent-gradient)' } : undefined}>
                     {m === 'existing' ? 'Existing Product' : 'New Product'}
                   </button>
                 ))}
@@ -1037,8 +1044,9 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                     {filteredProducts.slice(0, 15).map(p => (
                       <button key={p._id} onClick={() => { setQoSelected(p); setQoPrice(String(p.price)); }}
                         className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
-                          qoSelected?._id === p._id ? 'bg-accent text-white' : `${k.hover} ${k.text}`
-                        }`}>
+                          qoSelected?._id === p._id ? 'text-white' : `${k.hover} ${k.text}`
+                        }`}
+                        style={qoSelected?._id === p._id ? { background: 'var(--accent-gradient)' } : undefined}>
                         <span className="truncate">{p.name}</span>
                         <span className="ml-2 flex-shrink-0 font-bold">฿{p.price.toLocaleString()}</span>
                       </button>
@@ -1121,7 +1129,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               <button
                 disabled={qoSubmitting || (qoMode === 'existing' ? !qoSelected : !qoNewProduct)}
                 onClick={submitQuickOrder}
-                className="w-full bg-accent hover:opacity-90 disabled:opacity-40 text-white rounded-2xl py-3 font-black text-sm shadow-sm shadow-accent/20 transition-all active:scale-95"
+                className="w-full hover:opacity-90 disabled:opacity-40 text-white rounded-2xl py-3 font-black text-sm shadow-sm transition-all active:scale-95"
+                style={{ background: 'var(--accent-gradient)' }}
               >
                 {qoSubmitting ? 'Creating...' : 'Add Order'}
               </button>
@@ -1400,7 +1409,8 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
               Profit: {sc} {fmt(currentProfit)}
             </p>
             <button onClick={saveChanges}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent hover:opacity-90 text-white text-[10px] font-black transition-all active:scale-95 shadow-sm shadow-accent/20">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:opacity-90 text-white text-[10px] font-black transition-all active:scale-95 shadow-sm"
+              style={{ background: 'var(--accent-gradient)' }}>
               <CheckCircle size={11} /> Save Changes
             </button>
           </div>
@@ -1427,7 +1437,8 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
           )}
           {onMarkPaid && order.status === 'pending' && (
             <button onClick={onMarkPaid} disabled={isActing}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-accent text-white hover:opacity-90 transition-all active:scale-95 shadow-sm shadow-accent/20 disabled:opacity-50">
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold text-white hover:opacity-90 transition-all active:scale-95 shadow-sm disabled:opacity-50"
+              style={{ background: 'var(--accent-gradient)' }}>
               <CheckCircle size={12} /> {isActing ? 'Processing...' : 'Mark Paid'}
             </button>
           )}
@@ -1473,7 +1484,7 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
             <p className={`text-sm font-black ${k.text}`}>{parcelId}</p>
           </div>
         </div>
-        <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl bg-accent hover:opacity-90 text-white transition-all active:scale-95 shadow-lg shadow-accent/20">
+        <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl hover:opacity-90 text-white transition-all active:scale-95 shadow-lg" style={{ background: 'var(--accent-gradient)' }}>
           <Plus size={14} /> Add Product
         </button>
       </div>
@@ -1583,7 +1594,8 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
         />
         <button
           onClick={() => { if (newAddr.trim()) { onAdd(newAddr); setNewAddr(''); } }}
-          className="p-2 bg-accent text-white rounded-xl hover:opacity-90 transition-all active:scale-95"
+          className="p-2 text-white rounded-xl hover:opacity-90 transition-all active:scale-95"
+          style={{ background: 'var(--accent-gradient)' }}
         >
           <Plus size={16} />
         </button>

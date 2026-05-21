@@ -27,9 +27,14 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Both approaches to cover Tailwind v4 layer cascade edge cases */
 .bg-accent {
   background: var(--accent-gradient, var(--color-accent)) !important;
 }
 .hover\:bg-accent:hover {
   background: var(--accent-gradient, var(--color-accent)) !important;
+}
+
+@utility bg-accent {
+  background: var(--accent-gradient, var(--color-accent));
 }

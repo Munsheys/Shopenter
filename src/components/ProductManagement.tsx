@@ -327,7 +327,7 @@ export function MultiImageUploader({ images, onChange, theme = 'light' }: {
           <div key={i} className="relative group w-20 h-20 rounded-xl overflow-hidden border border-[#e2e5ef] dark:border-[#1f2335] flex-shrink-0">
             <img src={img} className="w-full h-full object-cover" alt="" />
             {i === 0 && (
-              <div className="absolute bottom-0 left-0 right-0 bg-accent text-white text-[8px] font-black text-center py-0.5 uppercase tracking-wider">
+              <div className="absolute bottom-0 left-0 right-0 text-white text-[8px] font-black text-center py-0.5 uppercase tracking-wider" style={{ background: 'var(--accent-gradient)' }}>
                 Primary
               </div>
             )}
@@ -688,7 +688,8 @@ export function ProductModal({
         <div className={cn("p-8 pt-4 border-t flex gap-3", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <button onClick={onClose} className={cn("flex-1 py-4 text-sm font-bold rounded-2xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#e2e5ef]")}>Cancel</button>
           <button disabled={!isValid || isSaving} onClick={() => onSave(form)}
-            className="flex-1 py-4 text-sm font-bold text-white bg-accent rounded-2xl shadow-lg shadow-accent/20 hover:opacity-90 disabled:opacity-40">
+            className="flex-1 py-4 text-sm font-bold text-white rounded-2xl shadow-lg hover:opacity-90 disabled:opacity-40"
+            style={{ background: 'var(--accent-gradient)' }}>
             {isSaving ? 'Processing...' : quickOrderMode ? 'Save & Select' : initialData ? 'Update Catalog' : 'Catalog Product'}
           </button>
         </div>
@@ -761,7 +762,8 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
         <div className={cn("px-8 pb-8 pt-4 border-t flex gap-3", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <button onClick={onClose} className={cn("flex-1 py-3 text-sm font-bold rounded-2xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f8f9fc] text-[#8b92ad]")}>Cancel</button>
           <button disabled={isSaving} onClick={() => onSave(product.variants.map((v, i) => ({ ...v, stock: parseInt(stocks[i] ?? '0') || 0 })))}
-            className="flex-1 py-3 text-sm font-bold text-white bg-accent rounded-2xl shadow-lg shadow-accent/20 disabled:opacity-40">
+            className="flex-1 py-3 text-sm font-bold text-white rounded-2xl shadow-lg disabled:opacity-40"
+            style={{ background: 'var(--accent-gradient)' }}>
             {isSaving ? 'Saving...' : 'Save Stock'}
           </button>
         </div>
@@ -956,7 +958,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             <FileSpreadsheet size={16} />
           </button>
           <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-            className="flex-1 md:flex-none bg-accent text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-accent/[13%] hover:opacity-90 active:scale-95 transition-all">
+            className="flex-1 md:flex-none text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
+            style={{ background: 'var(--accent-gradient)' }}>
             <Plus size={18} /> {t.add_catalog || 'Add New Catalog'}
           </button>
         </div>

@@ -876,9 +876,10 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
             onClick={() => setSection(s.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
               section === s.id
-                ? 'bg-accent text-white shadow-sm'
+                ? 'text-white shadow-sm'
                 : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
             }`}
+            style={section === s.id ? { background: 'var(--accent-gradient)' } : undefined}
           >
             {s.icon}{s.label}
           </button>
@@ -939,7 +940,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
             <button
               onClick={handleInstantSend}
               disabled={bSending || bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'var(--accent-gradient)' }}
             >
               {bSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
               {bSending ? 'Sending…' : 'Send Now'}
@@ -1015,7 +1017,9 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                   <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Valid for</label>
                   <div className="flex gap-2 flex-wrap">
                     {[3, 7, 14, 30].map(d => (
-                      <button key={d} onClick={() => setQDays(d)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${qDays === d ? 'bg-accent text-white border-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>{d} days</button>
+                      <button key={d} onClick={() => setQDays(d)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${qDays === d ? 'text-white border-transparent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}
+                        style={qDays === d ? { background: 'var(--accent-gradient)' } : undefined}>{d} days</button>
                     ))}
                   </div>
                 </div>
@@ -1024,7 +1028,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                   <p className={`text-xs ${k.muted}`}>Delivery is gradual — customers receive this message the next time they message your bot (free via reply token). Not suitable for time-sensitive campaigns.</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={handleCreateQueued} disabled={qCreating} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors disabled:opacity-50">
+                  <button onClick={handleCreateQueued} disabled={qCreating} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
                     {qCreating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Launch
                   </button>
                   <button onClick={() => setShowQueuedForm(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
@@ -1067,7 +1071,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               <p className={`text-sm font-semibold ${k.text}`}>Auto-Reply Rules</p>
               <p className={`text-xs ${k.muted}`}>Keyword-triggered replies sent free via reply token. Checked in priority order.</p>
             </div>
-            <button onClick={openNewRule} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent transition-colors">
+            <button onClick={openNewRule} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 transition-all" style={{ background: 'var(--accent-gradient)' }}>
               <Plus size={14} /> Add Rule
             </button>
           </div>
@@ -1130,7 +1134,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
             <BlockComposer blocks={greeting.greetingMessages.length > 0 ? greeting.greetingMessages : [{ type: 'text', text: '' }]} onChange={msgs => setGreeting(g => ({ ...g, greetingMessages: msgs }))} isDark={isDark} />
           )}
 
-          <button onClick={handleSaveGreeting} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors">
+          <button onClick={handleSaveGreeting} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style={{ background: 'var(--accent-gradient)' }}>
             <Check size={14} /> Save Greeting
           </button>
         </div>
@@ -1169,7 +1173,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                   {([['large', 'Large', '2500 × 1686 px'], ['compact', 'Compact', '2500 × 843 px']] as const).map(([val, label, sub]) => (
                     <button key={val}
                       onClick={() => { setRmSize(val); setRmTemplate('3col'); setRmButtons(defaultRmButtons(3)); }}
-                      className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${rmSize === val ? 'bg-accent text-white border-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>
+                      className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${rmSize === val ? 'text-white border-transparent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}
+                      style={rmSize === val ? { background: 'var(--accent-gradient)' } : undefined}>
                       <p>{label}</p>
                       <p className={`text-[10px] mt-0.5 ${rmSize === val ? 'text-white/70' : k.muted}`}>{sub}</p>
                     </button>
@@ -1247,7 +1252,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               <button
                 onClick={handlePublishRichMenu}
                 disabled={rmSaving || !rmImageUrl}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: 'var(--accent-gradient)' }}>
                 {rmSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
                 {rmSaving ? 'Publishing…' : 'Publish Rich Menu'}
               </button>
@@ -1286,7 +1292,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               </div>
             </div>
             <div className={`flex gap-2 px-6 py-4 border-t ${k.border}`}>
-              <button onClick={handleSaveRule} disabled={rSaving} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent transition-colors disabled:opacity-50">
+              <button onClick={handleSaveRule} disabled={rSaving} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
                 {rSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save Rule
               </button>
               <button onClick={() => setShowRuleModal(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
