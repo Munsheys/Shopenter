@@ -23,8 +23,9 @@ NotificationSchema.index({ merchantId: 1, read: 1, createdAt: -1 });
 const SettingsSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   shopName: { type: String, default: "My Shop" },
-  theme: { type: String, enum: ['light', 'dark'], default: "light" },
+  theme: { type: String, enum: ['light', 'lite', 'dark'], default: "light" },
   dashboardAccent: { type: String, default: '#00b900' },
+  dashboardAccentGradient: { type: String, default: '' },
   krwRate: { type: Number, default: 0.026 },
   importCurrency: { type: String, default: 'KRW' },
   localCurrency: { type: String, default: 'THB' },
