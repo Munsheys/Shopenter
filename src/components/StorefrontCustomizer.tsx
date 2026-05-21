@@ -66,7 +66,6 @@ const GRADIENT_PRESETS = [
 ];
 
 const SC_ACCENT_PRESETS = ['#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'];
-const GRAD_PRESET_VALS = new Set(GRADIENT_PRESETS.map(g => g.gradient));
 
 function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChange: (url: string) => void; isDark: boolean; accent: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -382,20 +381,29 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                       <div className="flex items-center gap-2 flex-wrap">
                         {customSolids.map((color, i) => {
                           const isActive = !config.accentGradient && config.accentColor === color;
+                          const inputId = `sc-cs-${i}`;
                           return (
                             <div key={i} className="relative group flex-shrink-0">
+                              <label
+                                htmlFor={inputId}
+                                title={color}
+                                className={`w-8 h-8 rounded-full cursor-pointer block transition-all hover:scale-105 ${isActive ? 'scale-110' : ''}`}
+                                style={{
+                                  backgroundColor: color,
+                                  ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : {}),
+                                }}
+                              />
                               <input
+                                id={inputId}
                                 type="color"
                                 value={color}
-                                title={color}
                                 onChange={e => {
                                   const next = customSolids.map((c, j) => j === i ? e.target.value : c);
                                   setCustomSolids(next);
                                   setConfig(prev => ({ ...prev, customSolids: next }));
                                   setAccent(e.target.value);
                                 }}
-                                className={`w-8 h-8 rounded-lg cursor-pointer border-2 p-0.5 transition-all hover:scale-105 ${isActive ? 'scale-110' : ''} ${isDark ? 'border-[#2a2f45] bg-transparent' : 'border-slate-200 bg-transparent'}`}
-                                style={isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : undefined}
+                                className="sr-only"
                               />
                               <button
                                 onClick={() => {
@@ -473,15 +481,14 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     )}
                     {/* Builder panel */}
                     {showCustomGradBuilder && (
-                      <div className={`rounded-xl p-3 space-y-2.5 ${isDark ? 'bg-[#0f1117]' : 'bg-slate-50'}`}>
-                        <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Build Gradient</p>
-                        <div className="flex items-center gap-2">
-                          <label title="Start color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
-                            style={{ backgroundColor: customG.c1, borderColor: customG.c1 }}>
+                      <div className={`rounded-xl border p-3 space-y-2 ${isDark ? 'bg-[#0d0f16] border-[#1f2335]' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex items-center justify-center gap-2">
+                          <label title="Start" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all flex-shrink-0 overflow-hidden"
+                            style={{ backgroundColor: customG.c1 }}>
                             <input type="color" value={customG.c1} onChange={e => setCustomG(g => ({ ...g, c1: e.target.value }))}
                               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
                           </label>
-                          <div className="flex gap-1 flex-1 justify-center">
+                          <div className="flex gap-0.5">
                             {([
                               { deg: 90,       icon: '→' },
                               { deg: 135,      icon: '↘' },
@@ -492,7 +499,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                               <button key={String(a.deg)}
                                 onClick={() => setCustomG(g => ({ ...g, angle: a.deg }))}
                                 title={a.deg === 'radial' ? 'Radial' : `${a.deg}°`}
-                                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all border ${
+                                className={`w-6 h-6 rounded-md text-[10px] font-bold transition-all border ${
                                   customG.angle === a.deg
                                     ? 'border-transparent'
                                     : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'
@@ -503,14 +510,14 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                               </button>
                             ))}
                           </div>
-                          <label title="End color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
-                            style={{ backgroundColor: customG.c2, borderColor: customG.c2 }}>
+                          <label title="End" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all flex-shrink-0 overflow-hidden"
+                            style={{ backgroundColor: customG.c2 }}>
                             <input type="color" value={customG.c2} onChange={e => setCustomG(g => ({ ...g, c2: e.target.value }))}
                               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
                           </label>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 h-7 rounded-lg"
+                          <div className="flex-1 h-6 rounded-lg"
                             style={{ background: customG.angle === 'radial'
                               ? `radial-gradient(circle, ${customG.c1}, ${customG.c2})`
                               : `linear-gradient(${customG.angle}deg, ${customG.c1}, ${customG.c2})`
@@ -527,9 +534,8 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                               setAccent(customG.c1, gradient);
                               setShowCustomGradBuilder(false);
                             }}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all hover:opacity-90 flex-shrink-0 ${
-                              isDark ? 'border-[#2a2f45] bg-[#1a1d2e] text-white' : 'border-slate-200 bg-white text-slate-700'
-                            }`}
+                            className="px-3 py-1 rounded-lg text-[10px] font-bold flex-shrink-0 hover:opacity-90 transition-opacity"
+                            style={{ background: localAccentBg, color: accentTextColor }}
                           >
                             Add
                           </button>

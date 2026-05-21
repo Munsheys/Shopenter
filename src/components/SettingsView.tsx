@@ -539,19 +539,28 @@ export default function SettingsView({
                             <div className="flex items-center gap-2 flex-wrap">
                               {customSolids.map((color, i) => {
                                 const isActive = (settings.dashboardAccent || '#00b900') === color && !settings.dashboardAccentGradient;
+                                const inputId = `sv-cs-${i}`;
                                 return (
                                   <div key={i} className="relative group flex-shrink-0">
+                                    <label
+                                      htmlFor={inputId}
+                                      title={color}
+                                      className={`w-8 h-8 rounded-full cursor-pointer block transition-all hover:scale-105 ${isActive ? 'scale-110' : ''}`}
+                                      style={{
+                                        backgroundColor: color,
+                                        ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : {}),
+                                      }}
+                                    />
                                     <input
+                                      id={inputId}
                                       type="color"
                                       value={color}
-                                      title={color}
                                       onChange={e => {
                                         const next = customSolids.map((c, j) => j === i ? e.target.value : c);
                                         saveCustomSolids(next);
                                         handleAccentChange(e.target.value, null);
                                       }}
-                                      className={`w-8 h-8 rounded-lg cursor-pointer border-2 p-0.5 transition-all hover:scale-105 ${isActive ? 'scale-110' : ''} ${isDark ? 'border-[#1f2335] bg-transparent' : isLite ? 'border-[#b8c2d8] bg-transparent' : 'border-slate-200 bg-transparent'}`}
-                                      style={isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : undefined}
+                                      className="sr-only"
                                     />
                                     <button
                                       onClick={() => saveCustomSolids(customSolids.filter((_, j) => j !== i))}
@@ -617,15 +626,14 @@ export default function SettingsView({
                           )}
                           {/* Builder panel */}
                           {showCustomGradBuilder && (
-                            <div className={`rounded-xl p-3 space-y-2.5 ${isDark ? 'bg-[#0f1117]' : isLite ? 'bg-[#ccd2e4]' : 'bg-slate-50'}`}>
-                              <p className={`text-[9px] font-bold uppercase tracking-wider ${K.muted}`}>Build Gradient</p>
-                              <div className="flex items-center gap-2">
-                                <label title="Start color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
-                                  style={{ backgroundColor: customG.c1, borderColor: customG.c1 }}>
+                            <div className={`rounded-xl border p-3 space-y-2 ${isDark ? 'bg-[#0d0f16] border-[#1f2335]' : isLite ? 'bg-[#ccd2e4] border-[#b8c2d8]' : 'bg-slate-50 border-slate-200'}`}>
+                              <div className="flex items-center justify-center gap-2">
+                                <label title="Start" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all flex-shrink-0 overflow-hidden"
+                                  style={{ backgroundColor: customG.c1 }}>
                                   <input type="color" value={customG.c1} onChange={e => setCustomG(g => ({ ...g, c1: e.target.value }))}
                                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
                                 </label>
-                                <div className="flex gap-1 flex-1 justify-center">
+                                <div className="flex gap-0.5">
                                   {([
                                     { deg: 90,       icon: '→' },
                                     { deg: 135,      icon: '↘' },
@@ -636,7 +644,7 @@ export default function SettingsView({
                                     <button key={String(a.deg)}
                                       onClick={() => setCustomG(g => ({ ...g, angle: a.deg }))}
                                       title={a.deg === 'radial' ? 'Radial' : `${a.deg}°`}
-                                      className={`w-7 h-7 rounded-lg text-xs font-bold transition-all border ${
+                                      className={`w-6 h-6 rounded-md text-[10px] font-bold transition-all border ${
                                         customG.angle === a.deg
                                           ? 'border-transparent'
                                           : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : isLite ? 'border-[#b8c2d8] text-[#5a6285] hover:text-[#1a1d2e]' : 'border-slate-200 text-slate-400 hover:text-slate-700'
@@ -647,14 +655,14 @@ export default function SettingsView({
                                     </button>
                                   ))}
                                 </div>
-                                <label title="End color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
-                                  style={{ backgroundColor: customG.c2, borderColor: customG.c2 }}>
+                                <label title="End" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all flex-shrink-0 overflow-hidden"
+                                  style={{ backgroundColor: customG.c2 }}>
                                   <input type="color" value={customG.c2} onChange={e => setCustomG(g => ({ ...g, c2: e.target.value }))}
                                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
                                 </label>
                               </div>
                               <div className="flex items-center gap-2">
-                                <div className="flex-1 h-7 rounded-lg"
+                                <div className="flex-1 h-6 rounded-lg"
                                   style={{ background: customG.angle === 'radial'
                                     ? `radial-gradient(circle, ${customG.c1}, ${customG.c2})`
                                     : `linear-gradient(${customG.angle}deg, ${customG.c1}, ${customG.c2})`
@@ -669,9 +677,8 @@ export default function SettingsView({
                                     handleAccentChange(customG.c1, gradient);
                                     setShowCustomGradBuilder(false);
                                   }}
-                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all hover:opacity-90 flex-shrink-0 ${
-                                    isDark ? 'border-[#1f2335] bg-[#1a1d2e] text-white' : isLite ? 'border-[#b8c2d8] bg-[#e0e5f0] text-[#1a1d2e]' : 'border-slate-200 bg-white text-slate-700'
-                                  }`}
+                                  className="px-3 py-1 rounded-lg text-[10px] font-bold flex-shrink-0 hover:opacity-90 transition-opacity"
+                                  style={{ background: 'var(--accent-gradient)', color: 'var(--accent-text, white)' }}
                                 >
                                   Add
                                 </button>

@@ -270,7 +270,7 @@ export default function DashboardPage() {
         {/* Brand */}
         <div className={`flex items-center gap-3 px-5 h-full flex-shrink-0 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#b8c2d8]' : 'border-gray-200'}`}>
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm" style={{ background: 'var(--accent-gradient)' }}>
-            <MessageCircle size={16} className="text-white" />
+            <MessageCircle size={16} />
           </div>
           <div className="hidden sm:block">
             <div className="flex items-center gap-2">
@@ -328,11 +328,8 @@ export default function DashboardPage() {
               href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all active:scale-95 shadow-sm shadow-accent/10 ${
-                isDark
-                  ? 'border-accent/30 bg-accent/10 text-accent hover:bg-accent hover:text-white hover:border-accent'
-                  : 'border-accent/25 bg-accent/5 text-accent hover:bg-accent hover:text-white hover:border-accent'
-              }`}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border-0 transition-all active:scale-95 hover:opacity-90"
+              style={{ background: 'var(--accent-gradient)', color: 'var(--accent-text, white)' }}
             >
               <ExternalLink size={12} />
               View Store
@@ -398,24 +395,24 @@ export default function DashboardPage() {
             <button
               onClick={() => setActiveTab('feedback')}
               title="Feedback"
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`p-1.5 rounded-lg transition-all ${
                 activeTab === 'feedback'
-                  ? 'text-accent bg-accent/10'
+                  ? ''
                   : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
               }`}
-              style={activeTab === 'feedback' ? { animation: 'iconglow 3s ease-in-out infinite' } : undefined}
+              style={activeTab === 'feedback' ? { background: 'var(--accent-gradient)', color: 'var(--accent-text, white)', animation: 'iconglow 3s ease-in-out infinite' } : undefined}
             >
               <HeartHandshake size={15} />
             </button>
             <button
               onClick={() => setActiveTab('settings')}
               title="Settings"
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`p-1.5 rounded-lg transition-all ${
                 activeTab === 'settings'
-                  ? 'text-accent bg-accent/10'
+                  ? ''
                   : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
               }`}
-              style={activeTab === 'settings' ? { animation: 'iconglow 3s ease-in-out infinite' } : undefined}
+              style={activeTab === 'settings' ? { background: 'var(--accent-gradient)', color: 'var(--accent-text, white)', animation: 'iconglow 3s ease-in-out infinite' } : undefined}
             >
               <SettingsIcon size={15} />
             </button>

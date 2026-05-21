@@ -144,10 +144,12 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         })
       });
       if (res.ok) {
+        const orderData = await res.json();
         // When inside LINE's browser, send the order summary from the customer to the OA chat
         // so it appears in both the merchant's LINE app and the dashboard chat view
         if (isLiffClient) {
-          const summary = `📦 สั่งซื้อแล้ว!\n${items.map(i => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n')}\n\nรวม ฿${cartTotal.toLocaleString()}`;
+          const finalPrice = orderData.soldTHB ?? cartTotal;
+          const summary = `📦 สั่งซื้อแล้ว!\n${items.map(i => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n')}\n\nรวม ฿${finalPrice.toLocaleString()}`;
           try { await liff.sendMessages([{ type: 'text', text: summary }]); } catch { /* not available in all LIFF contexts */ }
         }
         setCart([]); setView('payment'); return null;

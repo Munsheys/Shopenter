@@ -52,6 +52,7 @@ interface Product {
   options?: ProductOption[];
   variants: any[];
   isActive: boolean;
+  trackStock?: boolean;
 }
 
 export interface ProductForm {
@@ -65,6 +66,7 @@ export interface ProductForm {
   options: ProductOption[];
   variants: ProductVariant[];
   isActive: boolean;
+  trackStock: boolean;
 }
 
 // --- Helpers ---
@@ -96,6 +98,7 @@ export function normalizeToForm(raw: any): ProductForm {
         stock: String(v.stock ?? 0),
       })),
       isActive: raw.isActive !== false,
+      trackStock: !!raw.trackStock,
     };
   }
 
@@ -139,6 +142,7 @@ export function normalizeToForm(raw: any): ProductForm {
     description: raw.description || '', price: String(raw.price || ''),
     categories: raw.categories || [], images, options: optGroups, variants: newVariants,
     isActive: raw.isActive !== false,
+    trackStock: !!raw.trackStock,
   };
 }
 
@@ -146,6 +150,7 @@ const EMPTY_FORM: ProductForm = {
   name: '', brand: '', modelLine: '', description: '',
   price: '', categories: [], images: [], options: [], variants: [],
   isActive: true,
+  trackStock: false,
 };
 
 // --- Reusable Components ---
@@ -558,6 +563,23 @@ export function ProductModal({
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Description</label>
               <textarea value={form.description} onChange={e => updateForm({ description: e.target.value })} rows={3}
                 className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent resize-none", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+            </div>
+
+            <div className={cn("flex items-center justify-between border rounded-xl px-4 py-3.5", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+              <div>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-0.5 block">Track stock</label>
+                <p className="text-[9.5px] text-[#8b92ad]">Enable stock count tracking and low/out-of-stock alerts for this product</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateForm({ trackStock: !form.trackStock })}
+                className={cn(
+                  "relative w-11 h-6 rounded-full transition-colors flex-shrink-0",
+                  form.trackStock ? "bg-accent" : (theme === 'dark' ? "bg-[#2a2f45]" : "bg-slate-300")
+                )}
+              >
+                <span className={cn("absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform", form.trackStock && "translate-x-5")} />
+              </button>
             </div>
           </div>
 
