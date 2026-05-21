@@ -405,7 +405,7 @@ export default function FloatingGuide({
           onPointerDown={(e) => onPointerDown(e, false)}
           className={`relative flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-2xl transition-all pointer-events-auto ${bgCollapsed} active:scale-[0.98] cursor-pointer`}
         >
-          <div className="absolute inset-0 rounded-2xl blur-lg pointer-events-none -z-10 opacity-40" style={{ background: 'var(--accent-gradient)' }} />
+          <div className="absolute inset-0 rounded-2xl blur-lg pointer-events-none -z-10 opacity-20" style={{ background: 'var(--accent-gradient)' }} />
           <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-gradient)', color: 'var(--accent-text, white)' }}>
             <BookOpen size={13} />
           </div>

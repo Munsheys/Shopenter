@@ -343,7 +343,7 @@ export default function DashboardPage() {
             className={`relative p-1.5 rounded-lg transition-all disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
             style={isRefreshing ? { color: accentColor } : undefined}
           >
-            {isRefreshing && <div className="absolute inset-0 rounded-lg blur-md pointer-events-none -z-10" style={{ background: `var(--accent-gradient)`, opacity: 0.5 }} />}
+            {isRefreshing && <div className="absolute inset-0 rounded-lg blur-md pointer-events-none -z-10" style={{ background: `var(--accent-gradient)`, opacity: 0.25 }} />}
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
 
