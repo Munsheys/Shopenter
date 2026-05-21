@@ -162,7 +162,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     header: { background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` } as React.CSSProperties,
     card: { background: p.cardBg, border: `1px solid ${p.cardBorder}` } as React.CSSProperties,
     input: { background: p.inputBg, border: `1px solid ${p.inputBorder}`, color: p.textPrimary } as React.CSSProperties,
-    accent: { background: p.accent, color: p.accentText } as React.CSSProperties,
+    accent: { background: sf.accentGradient || p.accent, color: p.accentText } as React.CSSProperties,
     pill: (active: boolean): React.CSSProperties => ({ background: active ? p.pillActiveBg : p.pillBg, color: active ? p.pillActiveText : p.textMuted }),
     muted: { color: p.textMuted } as React.CSSProperties,
     sub: { color: p.textSecondary } as React.CSSProperties,
@@ -285,7 +285,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
   const announcementBgMap: Record<string, string> = {
     blue:   '#3b82f6', amber: '#f59e0b', red: '#ef4444',
-    accent: p.accent,
+    accent: sf.accentGradient || p.accent,
   };
   const announcementBg = announcementBgMap[sf.announcementColor || 'accent'] ?? p.accent;
 

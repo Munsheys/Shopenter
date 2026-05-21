@@ -28,6 +28,7 @@ interface StorefrontConfig {
   maintenanceMessage: string;
   postCheckoutUrl: string;
   language: string;
+  accentGradient?: string;
 }
 
 const DEFAULT_CONFIG: StorefrontConfig = {
@@ -36,7 +37,7 @@ const DEFAULT_CONFIG: StorefrontConfig = {
   cardLayout: 'grid', showBrandFilter: true, showCategoryFilter: true, showSearch: true,
   announcementText: '', announcementEnabled: false, announcementColor: 'accent',
   maintenanceMode: false, maintenanceMessage: 'We will be back soon.',
-  postCheckoutUrl: '', language: 'th',
+  postCheckoutUrl: '', language: 'th', accentGradient: '',
 };
 
 interface Props {
@@ -50,6 +51,15 @@ interface Props {
 }
 
 type Tab = 'identity' | 'design' | 'content' | 'advanced';
+
+const GRADIENT_PRESETS = [
+  { name: 'Sunset',  gradient: 'linear-gradient(135deg,#f97316,#ef4444)', primary: '#f97316' },
+  { name: 'Ocean',   gradient: 'linear-gradient(135deg,#06b6d4,#3b82f6)', primary: '#06b6d4' },
+  { name: 'Aurora',  gradient: 'linear-gradient(135deg,#8b5cf6,#ec4899)', primary: '#8b5cf6' },
+  { name: 'Forest',  gradient: 'linear-gradient(135deg,#10b981,#0ea5e9)', primary: '#10b981' },
+  { name: 'Gold',    gradient: 'linear-gradient(135deg,#f59e0b,#f97316)', primary: '#f59e0b' },
+  { name: 'Indigo',  gradient: 'linear-gradient(135deg,#6366f1,#8b5cf6)', primary: '#6366f1' },
+];
 
 function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChange: (url: string) => void; isDark: boolean; accent: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -157,9 +167,15 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
   const p = resolvePreset(config.preset, config.accentColor);
   const accent = config.accentColor || accentColor;
+  const localAccentBg = config.accentGradient || accent;
 
   function set<K extends keyof StorefrontConfig>(key: K, value: StorefrontConfig[K]) {
     setConfig(prev => ({ ...prev, [key]: value }));
+    setSaved(false);
+  }
+
+  function setAccent(hex: string, gradient?: string) {
+    setConfig(prev => ({ ...prev, accentColor: hex, accentGradient: gradient ?? '' }));
     setSaved(false);
   }
 
@@ -206,7 +222,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
               }`}
             >
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${active ? 'text-white' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}
-                style={active ? { backgroundColor: accent } : undefined}>
+                style={active ? { background: localAccentBg } : undefined}>
                 {tab.icon}
               </div>
               <div className="min-w-0">
@@ -221,7 +237,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         <div className="pt-4">
           <button onClick={handleSave} disabled={saving}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
-            style={{ backgroundColor: saved ? '#10b981' : accent }}>
+            style={{ background: saved ? '#10b981' : localAccentBg }}>
             {saved ? <><Check size={13} />Saved!</> : saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : <><Save size={13} />Save</>}
           </button>
         </div>
@@ -298,35 +314,48 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             </Card>
 
             <Card title="Accent Color" description="Override the theme's default color for buttons and highlights." icon={<Palette size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
-              <div className="flex items-center gap-3 flex-wrap">
-                {(() => {
-                  const baseAccent = PRESETS[config.preset]?.accent ?? p.accent;
-                  const isDefault = !config.accentColor;
-                  return (
-                    <button key="preset-default" onClick={() => set('accentColor', '')} title={`Preset default (${baseAccent})`}
-                      style={{ backgroundColor: baseAccent, ...(isDefault ? { outline: `2.5px solid ${baseAccent}`, outlineOffset: '3px' } : {}) }}
-                      className={`w-8 h-8 rounded-full transition-all ${isDefault ? 'scale-110' : 'hover:scale-105'}`} />
-                  );
-                })()}
-                {(['#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'] as const)
-                  .filter(c => c.toLowerCase() !== (PRESETS[config.preset]?.accent ?? '').toLowerCase())
-                  .map(color => {
-                    const isActive = config.accentColor === color;
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(() => {
+                    const baseAccent = PRESETS[config.preset]?.accent ?? p.accent;
+                    const isDefault = !config.accentColor && !config.accentGradient;
                     return (
-                      <button key={color} onClick={() => set('accentColor', color)} title={color}
-                        style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : {}) }}
+                      <button key="preset-default" onClick={() => setAccent('')} title={`Preset default (${baseAccent})`}
+                        style={{ backgroundColor: baseAccent, ...(isDefault ? { outline: `2.5px solid ${baseAccent}`, outlineOffset: '3px' } : {}) }}
+                        className={`w-8 h-8 rounded-full transition-all ${isDefault ? 'scale-110' : 'hover:scale-105'}`} />
+                    );
+                  })()}
+                  {(['#ec4899', '#38bdf8', '#d97706', '#3b82f6', '#a855f7', '#ef4444'] as const)
+                    .filter(c => c.toLowerCase() !== (PRESETS[config.preset]?.accent ?? '').toLowerCase())
+                    .map(color => {
+                      const isActive = !config.accentGradient && config.accentColor === color;
+                      return (
+                        <button key={color} onClick={() => setAccent(color)} title={color}
+                          style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : {}) }}
+                          className={`w-8 h-8 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
+                      );
+                    })}
+                  <label title="Custom color" className={`w-8 h-8 rounded-full border-2 cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center ${isDark ? 'border-[#2a2f45] bg-[#0f1117]' : 'border-slate-200 bg-slate-50'}`}>
+                    <input type="color" value={config.accentColor || p.accent} onChange={e => setAccent(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                    <span className={`text-sm font-bold leading-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>
+                  </label>
+                  {(config.accentColor || config.accentGradient) && (
+                    <button onClick={() => setAccent('')} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
+                      Reset
+                    </button>
+                  )}
+                </div>
+                <div className={`h-px ${isDark ? 'bg-[#1f2335]' : 'bg-slate-100'}`} />
+                <div className="flex items-center gap-2 flex-wrap">
+                  {GRADIENT_PRESETS.map(preset => {
+                    const isActive = config.accentGradient === preset.gradient;
+                    return (
+                      <button key={preset.name} onClick={() => setAccent(preset.primary, preset.gradient)} title={preset.name}
+                        style={{ background: preset.gradient, ...(isActive ? { outline: `2.5px solid ${preset.primary}`, outlineOffset: '3px' } : {}) }}
                         className={`w-8 h-8 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
                     );
                   })}
-                <label title="Custom color" className={`w-8 h-8 rounded-full border-2 cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center ${isDark ? 'border-[#2a2f45] bg-[#0f1117]' : 'border-slate-200 bg-slate-50'}`}>
-                  <input type="color" value={config.accentColor || p.accent} onChange={e => set('accentColor', e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-                  <span className={`text-sm font-bold leading-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>
-                </label>
-                {config.accentColor && (
-                  <button onClick={() => set('accentColor', '')} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
-                    Reset
-                  </button>
-                )}
+                </div>
               </div>
             </Card>
 
@@ -501,7 +530,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
         <div className={`rounded-2xl overflow-hidden border ${isDark ? 'border-[#1f2335] shadow-2xl shadow-black/40' : 'border-slate-200 shadow-xl shadow-slate-200/60'}`} style={{ background: p.pageBg }}>
           {config.announcementEnabled && config.announcementText && (() => {
-            const bannerBg = config.announcementColor === 'blue' ? '#3b82f6' : config.announcementColor === 'amber' ? '#f59e0b' : config.announcementColor === 'red' ? '#ef4444' : p.accent;
+            const bannerBg = config.announcementColor === 'blue' ? '#3b82f6' : config.announcementColor === 'amber' ? '#f59e0b' : config.announcementColor === 'red' ? '#ef4444' : localAccentBg;
             return <div className="px-4 py-1.5 text-[10px] text-center font-semibold text-white" style={{ background: bannerBg }}>{config.announcementText}</div>;
           })()}
 
@@ -509,14 +538,14 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             <div className="flex items-center gap-2">
               {config.shopLogoUrl
                 ? <img src={config.shopLogoUrl} className="w-7 h-7 rounded-lg object-cover" alt="logo" onError={e => (e.currentTarget.style.display = 'none')} />
-                : <div className="w-7 h-7 rounded-lg" style={{ background: p.accent }} />
+                : <div className="w-7 h-7 rounded-lg" style={{ background: localAccentBg }} />
               }
               <div>
                 <p className="text-xs font-bold" style={{ color: p.textPrimary }}>{config.shopName || shopName || 'My Shop'}</p>
                 {config.shopTagline && <p className="text-[9px]" style={{ color: p.textMuted }}>{config.shopTagline}</p>}
               </div>
             </div>
-            <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: p.accent }}>
+            <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: localAccentBg }}>
               <div className="w-3 h-3 rounded-sm bg-white/80" />
             </div>
           </div>
@@ -547,7 +576,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     <div className="aspect-square" style={{ background: p.inputBg }} />
                     <div className="p-2 space-y-1.5">
                       <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '70%' }} />
-                      <div className="h-1.5 rounded" style={{ background: p.accent, width: '40%' }} />
+                      <div className="h-1.5 rounded" style={{ background: localAccentBg, width: '40%' }} />
                     </div>
                   </>
                 ) : (
@@ -556,7 +585,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     <div className="flex-1 space-y-1.5 pt-0.5">
                       <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '70%' }} />
                       <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.2, width: '50%' }} />
-                      <div className="h-1.5 rounded mt-1" style={{ background: p.accent, width: '30%' }} />
+                      <div className="h-1.5 rounded mt-1" style={{ background: localAccentBg, width: '30%' }} />
                     </div>
                   </div>
                 )}

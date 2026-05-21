@@ -26,3 +26,10 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+.bg-accent {
+  background: var(--accent-gradient, var(--color-accent)) !important;
+}
+.hover\:bg-accent:hover {
+  background: var(--accent-gradient, var(--color-accent)) !important;
+}
