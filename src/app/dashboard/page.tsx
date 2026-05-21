@@ -340,9 +340,10 @@ export default function DashboardPage() {
             onClick={handleRefresh}
             disabled={isRefreshing}
             title="Refresh data"
-            className={`p-1.5 rounded-lg transition-all disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
-            style={isRefreshing ? { boxShadow: `0 0 10px 2px ${accentColor}66`, color: accentColor } : undefined}
+            className={`relative p-1.5 rounded-lg transition-all disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+            style={isRefreshing ? { color: accentColor } : undefined}
           >
+            {isRefreshing && <div className="absolute inset-0 rounded-lg blur-md pointer-events-none -z-10" style={{ background: `var(--accent-gradient)`, opacity: 0.5 }} />}
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
 
@@ -419,9 +420,6 @@ export default function DashboardPage() {
           </div>
 
           <div className={`flex items-center gap-2 pl-3 border-l ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#b8c2d8]' : 'border-gray-200'}`}>
-            <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-accent text-xs font-bold">{shopInitial}</span>
-            </div>
             <button
               onClick={handleLogout}
               title="Sign out"
