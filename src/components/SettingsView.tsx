@@ -110,13 +110,14 @@ export default function SettingsView({
   onAccentChange,
   scrollTrigger,
 }: {
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'lite' | 'dark';
   onSave?: () => void;
-  onThemeChange?: (newTheme: 'light' | 'dark') => void;
+  onThemeChange?: (newTheme: 'light' | 'lite' | 'dark') => void;
   onAccentChange?: (newColor: string) => void;
   scrollTrigger?: { section: string; id: number } | null;
 }) {
   const isDark = theme === 'dark';
+  const isLite = theme === 'lite';
 
   const containerRef       = useRef<HTMLDivElement>(null);
   const isScrollingRef     = useRef(false);
@@ -265,7 +266,7 @@ export default function SettingsView({
   const setPm = (field: string, value: any) => setSettings((s: any) => ({ ...s, paymentMethods: { ...(s?.paymentMethods || {}), [field]: value } }));
   const setFst = (field: string, value: any) => setSettings((s: any) => ({ ...s, freeShippingThreshold: { ...(s?.freeShippingThreshold || {}), [field]: value } }));
 
-  const handleThemeChange = async (newTheme: 'light' | 'dark') => {
+  const handleThemeChange = async (newTheme: 'light' | 'lite' | 'dark') => {
     set('theme', newTheme);
     onThemeChange?.(newTheme);
     try {
@@ -274,11 +275,13 @@ export default function SettingsView({
     } catch {}
   };
 
-  const handleAccentChange = async (newColor: string) => {
-    set('dashboardAccent', newColor);
+  const handleAccentChange = async (newColor: string, gradient?: string | null) => {
+    const update: any = { dashboardAccent: newColor };
+    if (gradient !== undefined) update.dashboardAccentGradient = gradient || null;
+    setSettings((s: any) => ({ ...s, ...update }));
     onAccentChange?.(newColor);
     try {
-      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...settings, dashboardAccent: newColor }) });
+      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...settings, ...update }) });
       onSave?.();
     } catch {}
   };
@@ -299,15 +302,26 @@ export default function SettingsView({
 
   // ── Style tokens ─────────────────────────────────────────────────────────────
   const K = {
-    bg:      isDark ? 'bg-[#0f1117]'                          : 'bg-slate-50',
-    surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200',
-    text:    isDark ? 'text-white'                            : 'text-slate-900',
-    muted:   isDark ? 'text-[#8b92ad]'                       : 'text-slate-500',
-    border:  isDark ? 'border-[#1f2335]'                     : 'border-slate-200',
+    bg:      isDark ? 'bg-[#0f1117]'                          : isLite ? 'bg-[#eef0f7]'                         : 'bg-slate-50',
+    surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : isLite ? 'bg-[#f4f5fb] border border-[#d5d9ee]' : 'bg-white border border-slate-200',
+    text:    isDark ? 'text-white'                            : isLite ? 'text-[#1a1d2e]'                        : 'text-slate-900',
+    muted:   isDark ? 'text-[#8b92ad]'                       : isLite ? 'text-[#6b7296]'                        : 'text-slate-500',
+    border:  isDark ? 'border-[#1f2335]'                     : isLite ? 'border-[#d5d9ee]'                      : 'border-slate-200',
     inp:     isDark
       ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-accent focus:outline-none'
+      : isLite
+      ? 'bg-[#e8eaf5] border-[#d5d9ee] text-[#1a1d2e] placeholder-[#8b92ad] focus:border-accent focus:outline-none'
       : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none',
   };
+
+  const GRADIENT_PRESETS = [
+    { name: 'Sunset',  gradient: 'linear-gradient(135deg,#f97316,#ef4444)', primary: '#f97316' },
+    { name: 'Ocean',   gradient: 'linear-gradient(135deg,#06b6d4,#3b82f6)', primary: '#06b6d4' },
+    { name: 'Aurora',  gradient: 'linear-gradient(135deg,#8b5cf6,#ec4899)', primary: '#8b5cf6' },
+    { name: 'Forest',  gradient: 'linear-gradient(135deg,#10b981,#0ea5e9)', primary: '#10b981' },
+    { name: 'Gold',    gradient: 'linear-gradient(135deg,#f59e0b,#f97316)', primary: '#f59e0b' },
+    { name: 'Indigo',  gradient: 'linear-gradient(135deg,#6366f1,#8b5cf6)', primary: '#6366f1' },
+  ];
 
   const inputCls  = `w-full rounded-xl px-4 py-3 text-sm border transition-colors ${K.inp}`;
   const inputMono = `${inputCls} font-mono text-xs pr-12`;
@@ -331,7 +345,7 @@ export default function SettingsView({
     <div className={`flex flex-1 min-h-0 ${K.bg}`}>
 
       {/* ── Left sidebar ──────────────────────────────────────────────────── */}
-      <div className={`w-52 flex-shrink-0 flex flex-col py-5 px-3 border-r ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+      <div className={`w-52 flex-shrink-0 flex flex-col py-5 px-3 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#d5d9ee]' : 'border-slate-200'}`}>
         <p className={`text-[10px] font-bold uppercase tracking-widest px-3 mb-3 ${K.muted}`}>Settings</p>
 
         <nav className="flex-1 space-y-0.5">
@@ -349,8 +363,9 @@ export default function SettingsView({
               >
                 <div
                   className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
-                    active ? 'bg-accent text-white' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'
+                    active ? 'text-white' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'
                   }`}
+                  style={active ? { background: 'var(--accent-gradient, var(--accent))' } : undefined}
                 >
                   {s.icon}
                 </div>
@@ -376,9 +391,8 @@ export default function SettingsView({
           <button
             onClick={handleSave}
             disabled={isSaving || isSettingsLoading}
-            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-[0.98] ${
-              saved ? 'bg-emerald-500' : 'bg-accent'
-            }`}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-[0.98]"
+            style={{ background: saved ? '#10b981' : 'var(--accent-gradient, var(--accent))' }}
           >
             {isSaving ? <Loader2 size={13} className="animate-spin" /> : saved ? <Check size={13} /> : <Save size={13} />}
             {isSaving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
@@ -411,33 +425,66 @@ export default function SettingsView({
                     <p className={`text-sm font-semibold ${K.text}`}>Appearance</p>
                     <p className={`text-xs mt-1 ${K.muted}`}>Dashboard theme and color preferences.</p>
                   </div>
-                  <div className="md:w-1/2">
+                  <div>
                     <label className={lbl}>Theme</label>
-                    <div className={`flex p-1 rounded-xl ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
-                      {(['light', 'dark'] as const).map(t => (
-                        <button key={t} onClick={() => handleThemeChange(t)}
-                          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all capitalize ${settings.theme === t ? 'bg-accent text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
-                          {t}
-                        </button>
-                      ))}
+                    <div className={`flex p-1 rounded-xl gap-0.5 ${isDark ? 'bg-[#0f1117]' : isLite ? 'bg-[#e0e3f0]' : 'bg-slate-100'}`}>
+                      {([
+                        { id: 'light' as const, label: 'Light', desc: 'Bright' },
+                        { id: 'lite'  as const, label: 'Lite',  desc: 'Soft'   },
+                        { id: 'dark'  as const, label: 'Dark',  desc: 'Night'  },
+                      ]).map(t => {
+                        const active = (settings.theme || 'light') === t.id;
+                        return (
+                          <button key={t.id} onClick={() => handleThemeChange(t.id)}
+                            className={`flex-1 flex flex-col items-center py-2 rounded-lg text-xs font-bold transition-all ${
+                              active ? 'text-white shadow-sm' : isDark ? 'text-[#8b92ad] hover:text-white' : isLite ? 'text-[#6b7296] hover:text-[#1a1d2e]' : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                            style={active ? { background: 'var(--accent-gradient, var(--accent))' } : undefined}
+                          >
+                            <span>{t.label}</span>
+                            <span className={`text-[9px] font-normal mt-0.5 ${active ? 'text-white/70' : isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>{t.desc}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                   <div>
                     <label className={lbl}>Accent Color</label>
-                    <div className="flex items-center gap-2 flex-wrap mt-1">
-                      {ACCENT_PRESETS.map(color => {
-                        const isActive = (settings.dashboardAccent || '#00b900') === color;
-                        return (
-                          <button key={color} onClick={() => handleAccentChange(color)} title={color}
-                            style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : {}) }}
-                            className={`w-7 h-7 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
-                          />
-                        );
-                      })}
-                      <label title="Custom color" className={`w-7 h-7 rounded-full border-2 cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center ${isDark ? 'border-[#1f2335] bg-[#1a1d2e]' : 'border-slate-200 bg-slate-50'}`}>
-                        <input type="color" value={settings.dashboardAccent || '#00b900'} onChange={e => handleAccentChange(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-                        <span className={`text-[13px] font-bold leading-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>
-                      </label>
+                    <div className="space-y-3 mt-1">
+                      {/* Solid presets */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {ACCENT_PRESETS.map(color => {
+                          const isActive = (settings.dashboardAccent || '#00b900') === color && !settings.dashboardAccentGradient;
+                          return (
+                            <button key={color} onClick={() => handleAccentChange(color, null)} title={color}
+                              style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : {}) }}
+                              className={`w-7 h-7 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                            />
+                          );
+                        })}
+                        <label title="Custom color" className={`w-7 h-7 rounded-full border-2 cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center ${isDark ? 'border-[#1f2335] bg-[#1a1d2e]' : 'border-slate-200 bg-slate-50'}`}>
+                          <input type="color" value={settings.dashboardAccent || '#00b900'} onChange={e => handleAccentChange(e.target.value, null)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                          <span className={`text-[13px] font-bold leading-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>
+                        </label>
+                      </div>
+                      {/* Gradient presets */}
+                      <div>
+                        <p className={`text-[9px] font-bold uppercase tracking-widest mb-1.5 ${K.muted}`}>Gradients</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {GRADIENT_PRESETS.map(g => {
+                            const isActive = settings.dashboardAccentGradient === g.gradient;
+                            return (
+                              <button key={g.name} onClick={() => handleAccentChange(g.primary, g.gradient)} title={g.name}
+                                style={{
+                                  background: g.gradient,
+                                  ...(isActive ? { outline: `2.5px solid ${g.primary}`, outlineOffset: '2px' } : {}),
+                                }}
+                                className={`w-7 h-7 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

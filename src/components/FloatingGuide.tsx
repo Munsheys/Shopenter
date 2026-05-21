@@ -25,10 +25,12 @@ export default function FloatingGuide({
   theme,
   onNavigate,
   nudgeUp = false,
+  nudgeLeft = 0,
 }: {
   theme?: 'light' | 'dark';
   onNavigate: (tab: DashTab, section?: string) => void;
   nudgeUp?: boolean;
+  nudgeLeft?: number;
 }) {
   const isDark = theme === 'dark';
 
@@ -296,7 +298,7 @@ export default function FloatingGuide({
     const margin = 20;
     if (corner.includes('t')) s.top = 76; // Offset top coordinates by 76px to stay cleanly below the top navbar
     else s.bottom = nudgeUp ? margin + 70 : margin;
-    if (corner.includes('l')) { s.left = margin; s.alignItems = 'flex-start'; }
+    if (corner.includes('l')) { s.left = margin + nudgeLeft; s.alignItems = 'flex-start'; }
     else { s.right = margin; s.alignItems = 'flex-end'; }
     return s;
   };
