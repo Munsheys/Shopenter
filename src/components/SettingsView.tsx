@@ -7,6 +7,7 @@ import {
   Building2, ChevronRight,
 } from 'lucide-react';
 import NumberStepper from '@/components/NumberStepper';
+import { getAccentText } from '@/lib/accent';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -133,6 +134,8 @@ export default function SettingsView({
   const [isSaving,  setIsSaving]      = useState(false);
   const [saved,     setSaved]         = useState(false);
   const [saveError, setSaveError]     = useState('');
+
+  const [customG, setCustomG] = useState<{ c1: string; c2: string; angle: number | 'radial' }>({ c1: '#8b5cf6', c2: '#ec4899', angle: 135 });
 
   const [showToken,       setShowToken]       = useState(false);
   const [showSecret,      setShowSecret]      = useState(false);
@@ -316,6 +319,7 @@ export default function SettingsView({
 
   // Locally-resolved accent bg so gradient shows immediately without waiting for parent re-fetch
   const localAccentBg = settings?.dashboardAccentGradient || 'var(--accent)';
+  const accentTextColor = getAccentText(settings?.dashboardAccent || '#00b900');
 
   const GRADIENT_PRESETS = [
     { name: 'Sunset',  gradient: 'linear-gradient(135deg,#f97316,#ef4444)', primary: '#f97316' },
@@ -368,7 +372,7 @@ export default function SettingsView({
                   className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
                     active ? 'text-white' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'
                   }`}
-                  style={active ? { background: localAccentBg } : undefined}
+                  style={active ? { background: localAccentBg, color: accentTextColor } : undefined}
                 >
                   {s.icon}
                 </div>
@@ -395,7 +399,7 @@ export default function SettingsView({
             onClick={handleSave}
             disabled={isSaving || isSettingsLoading}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-[0.98]"
-            style={{ background: saved ? '#10b981' : localAccentBg }}
+            style={{ background: saved ? '#10b981' : localAccentBg, color: saved ? '#ffffff' : accentTextColor }}
           >
             {isSaving ? <Loader2 size={13} className="animate-spin" /> : saved ? <Check size={13} /> : <Save size={13} />}
             {isSaving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
@@ -448,7 +452,7 @@ export default function SettingsView({
                                 ? 'border-[#b8c2d8] text-[#5a6285] hover:text-[#1a1d2e] hover:border-[#8892b0]'
                                 : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
                             }`}
-                            style={active ? { background: localAccentBg } : undefined}
+                            style={active ? { background: localAccentBg, color: accentTextColor } : undefined}
                           >
                             {t.label}
                           </button>
@@ -475,7 +479,7 @@ export default function SettingsView({
                           <span className={`text-sm font-bold leading-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>
                         </label>
                       </div>
-                      {/* Gradient — visually self-explanatory, no extra label */}
+                      {/* Gradient presets */}
                       <div className={`h-px w-full ${isDark ? 'bg-[#1f2335]' : isLite ? 'bg-[#b8c2d8]' : 'bg-slate-100'}`} />
                       <div className="flex items-center gap-2 flex-wrap">
                         {GRADIENT_PRESETS.map(g => {
@@ -490,6 +494,73 @@ export default function SettingsView({
                             />
                           );
                         })}
+                      </div>
+
+                      {/* Custom gradient builder */}
+                      <div className={`rounded-xl p-3 space-y-2.5 ${isDark ? 'bg-[#0f1117]' : isLite ? 'bg-[#ccd2e4]' : 'bg-slate-50'}`}>
+                        <p className={`text-[9px] font-bold uppercase tracking-wider ${K.muted}`}>Custom Gradient</p>
+                        <div className="flex items-center gap-2">
+                          {/* Start color */}
+                          <label title="Start color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
+                            style={{ backgroundColor: customG.c1, borderColor: customG.c1 }}>
+                            <input type="color" value={customG.c1} onChange={e => setCustomG(g => ({ ...g, c1: e.target.value }))}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                          </label>
+
+                          {/* Direction buttons */}
+                          <div className="flex gap-1 flex-1 justify-center">
+                            {([
+                              { deg: 90,       icon: '→' },
+                              { deg: 135,      icon: '↘' },
+                              { deg: 180,      icon: '↓' },
+                              { deg: 45,       icon: '↗' },
+                              { deg: 'radial', icon: '○' },
+                            ] as const).map(a => (
+                              <button key={String(a.deg)}
+                                onClick={() => setCustomG(g => ({ ...g, angle: a.deg }))}
+                                title={a.deg === 'radial' ? 'Radial' : `${a.deg}°`}
+                                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all border ${
+                                  customG.angle === a.deg
+                                    ? 'border-transparent'
+                                    : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'
+                                }`}
+                                style={customG.angle === a.deg ? { background: 'var(--accent-gradient)' } : undefined}
+                              >
+                                {a.icon}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* End color */}
+                          <label title="End color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
+                            style={{ backgroundColor: customG.c2, borderColor: customG.c2 }}>
+                            <input type="color" value={customG.c2} onChange={e => setCustomG(g => ({ ...g, c2: e.target.value }))}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                          </label>
+                        </div>
+
+                        {/* Preview + Apply */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-7 rounded-lg"
+                            style={{ background: customG.angle === 'radial'
+                              ? `radial-gradient(circle, ${customG.c1}, ${customG.c2})`
+                              : `linear-gradient(${customG.angle}deg, ${customG.c1}, ${customG.c2})`
+                            }}
+                          />
+                          <button
+                            onClick={() => {
+                              const gradient = customG.angle === 'radial'
+                                ? `radial-gradient(circle,${customG.c1},${customG.c2})`
+                                : `linear-gradient(${customG.angle}deg,${customG.c1},${customG.c2})`;
+                              handleAccentChange(customG.c1, gradient);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all hover:opacity-90 flex-shrink-0 ${
+                              isDark ? 'border-[#1f2335] bg-[#1a1d2e] text-white' : isLite ? 'border-[#b8c2d8] bg-[#e0e5f0] text-[#1a1d2e]' : 'border-slate-200 bg-white text-slate-700'
+                            }`}
+                          >
+                            Apply
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

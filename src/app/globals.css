@@ -30,11 +30,18 @@ body {
 /* Both approaches to cover Tailwind v4 layer cascade edge cases */
 .bg-accent {
   background: var(--accent-gradient, var(--color-accent)) !important;
+  color: var(--accent-text, white) !important;
 }
 .hover\:bg-accent:hover {
   background: var(--accent-gradient, var(--color-accent)) !important;
+  color: var(--accent-text, white) !important;
 }
 
 @utility bg-accent {
   background: var(--accent-gradient, var(--color-accent));
+}
+
+/* All inline style={{ background: 'var(--accent-gradient)' }} elements inherit contrast text */
+[style*="var(--accent-gradient)"] {
+  color: var(--accent-text, white) !important;
 }

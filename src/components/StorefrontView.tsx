@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ShoppingBag, ChevronLeft, Plus, Minus, Trash2, Search, X, CheckCircle, ArrowRight, Package } from 'lucide-react';
 import liff from '@line/liff';
 import { resolvePreset, type StorefrontPreset } from '@/lib/storefrontPresets';
+import { getAccentText } from '@/lib/accent';
 
 type CartItem = { productId: string; name: string; price: number; variantLabel?: string; qty: number; imageUrl?: string };
 type View = 'home' | 'detail' | 'cart' | 'payment';
@@ -87,6 +88,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const sf = shopInfo?.storefront ?? {};
   const p: StorefrontPreset = resolvePreset(sf.preset || 'midnight', sf.accentColor);
   const cardLayout: 'grid' | 'list' = sf.cardLayout || 'grid';
+  const accentText = getAccentText(sf.accentColor || p.accent);
 
   const categories = useMemo(() => {
     const s = new Set<string>();
@@ -162,7 +164,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     header: { background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` } as React.CSSProperties,
     card: { background: p.cardBg, border: `1px solid ${p.cardBorder}` } as React.CSSProperties,
     input: { background: p.inputBg, border: `1px solid ${p.inputBorder}`, color: p.textPrimary } as React.CSSProperties,
-    accent: { background: sf.accentGradient || p.accent, color: p.accentText } as React.CSSProperties,
+    accent: { background: sf.accentGradient || p.accent, color: accentText } as React.CSSProperties,
     pill: (active: boolean): React.CSSProperties => ({ background: active ? p.pillActiveBg : p.pillBg, color: active ? p.pillActiveText : p.textMuted }),
     muted: { color: p.textMuted } as React.CSSProperties,
     sub: { color: p.textSecondary } as React.CSSProperties,
@@ -292,7 +294,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   return (
     <div style={style.page}>
       {sf.announcementEnabled && sf.announcementText && (
-        <div className="px-4 py-1.5 text-xs text-center font-medium text-white" style={{ background: announcementBg }}>{sf.announcementText}</div>
+        <div className="px-4 py-1.5 text-xs text-center font-medium" style={{ background: announcementBg, color: sf.announcementColor === 'accent' ? accentText : '#ffffff' }}>{sf.announcementText}</div>
       )}
       {!sf.announcementEnabled && sf.announcementText && (
         <div className="px-4 py-1.5 text-xs text-center font-medium" style={style.accent}>{sf.announcementText}</div>

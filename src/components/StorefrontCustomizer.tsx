@@ -7,6 +7,7 @@ import {
   Wrench, Image as ImageIcon, ChevronRight, Store,
 } from 'lucide-react';
 import { PRESETS, resolvePreset } from '@/lib/storefrontPresets';
+import { getAccentText } from '@/lib/accent';
 
 interface StorefrontConfig {
   shopName: string;
@@ -168,6 +169,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   const p = resolvePreset(config.preset, config.accentColor);
   const accent = config.accentColor || accentColor;
   const localAccentBg = config.accentGradient || accent;
+  const accentTextColor = getAccentText(accent || '#00b900');
 
   function set<K extends keyof StorefrontConfig>(key: K, value: StorefrontConfig[K]) {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -221,8 +223,8 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   : isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
               }`}
             >
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${active ? 'text-white' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}
-                style={active ? { background: localAccentBg } : undefined}>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${active ? '' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}
+                style={active ? { background: localAccentBg, color: accentTextColor } : undefined}>
                 {tab.icon}
               </div>
               <div className="min-w-0">
@@ -236,8 +238,8 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         {/* Save button */}
         <div className="pt-4">
           <button onClick={handleSave} disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
-            style={{ background: saved ? '#10b981' : localAccentBg }}>
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
+            style={{ background: saved ? '#10b981' : localAccentBg, color: saved ? '#ffffff' : accentTextColor }}>
             {saved ? <><Check size={13} />Saved!</> : saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : <><Save size={13} />Save</>}
           </button>
         </div>

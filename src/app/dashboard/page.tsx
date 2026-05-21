@@ -16,6 +16,7 @@ import FeedbackView from '@/components/FeedbackView';
 import CouponsView from '@/components/CouponsView';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import { type Tier, getTierLabel, checkBooleanFeature } from '@/lib/tiers';
+import { getAccentText } from '@/lib/accent';
 
 type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'coupons' | 'feedback' | 'settings';
 
@@ -251,7 +252,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : isLite ? 'bg-[#d6dae8] text-[#1a1d2e]' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`} style={{ '--accent': accentColor, '--accent-gradient': accentGradient || accentColor } as React.CSSProperties}>
+    <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : isLite ? 'bg-[#d6dae8] text-[#1a1d2e]' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`} style={{ '--accent': accentColor, '--accent-gradient': accentGradient || accentColor, '--accent-text': getAccentText(accentColor) } as React.CSSProperties}>
       <style>{`
         @keyframes navglow {
           0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); opacity: 0.85; }
