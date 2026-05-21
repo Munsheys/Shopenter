@@ -1108,20 +1108,6 @@ export default function SettingsView({
           </div>
         </div>
 
-        {/* ── Persistent save bar ─────────────────────────────────────────── */}
-        <div className={`flex-shrink-0 flex items-center justify-between gap-4 px-6 py-3 border-t ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-white border-slate-200'}`}>
-          <span className={`text-xs ${saveError ? 'text-red-400' : saved ? 'text-emerald-400' : K.muted}`}>
-            {saveError || (saved ? 'All changes saved.' : 'Changes save across all sections.')}
-          </span>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white disabled:opacity-50 active:scale-[0.99] transition-all flex-shrink-0 ${saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-accent hover:opacity-90'}`}
-          >
-            {isSaving ? <Loader2 size={15} className="animate-spin" /> : saved ? <Check size={15} /> : <Save size={15} />}
-            {isSaving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
-          </button>
-        </div>
       </div>
 
     </div>
