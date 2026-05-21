@@ -346,7 +346,7 @@ export async function POST(req: Request) {
           }
 
           // SlipOK payment verification (uses push — independent of reply token)
-          if (matchedSettings?.useSlipok && matchedSettings?.slipokApiKey) {
+          if (matchedSettings?.useSlipok && matchedSettings?.slipokApiKey && matchedSettings?.slipokBranchId) {
             try {
               const imgRes = await fetch(`https://api-data.line.me/v2/bot/message/${event.message.id}/content`, {
                 headers: { Authorization: `Bearer ${channelAccessToken}` }
@@ -357,7 +357,7 @@ export async function POST(req: Request) {
                 formData.append('files', new Blob([await imgRes.arrayBuffer()], { type: 'image/jpeg' }), 'slip.jpg');
                 formData.append('log', 'true');
 
-                const slipRes = await fetch('https://api.slipok.com/api/line/webhook', {
+                const slipRes = await fetch(`https://api.slipok.com/api/line/apikey/${matchedSettings.slipokBranchId}`, {
                   method: 'POST',
                   headers: { 'x-authorization': matchedSettings.slipokApiKey },
                   body: formData
