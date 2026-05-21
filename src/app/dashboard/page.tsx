@@ -291,12 +291,13 @@ export default function DashboardPage() {
         {/* Tab navigation */}
         <nav ref={topNavContainerRef} className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
           <div
-            className={`absolute bottom-0 h-[2px] bg-accent transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
+            className={`absolute bottom-0 h-[2px] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
               topNavStyle.width ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
               left: topNavStyle.left,
               width: topNavStyle.width,
+              background: 'var(--accent-gradient)',
               animation: 'navglow 3s ease-in-out infinite',
             }}
           />
@@ -356,7 +357,7 @@ export default function DashboardPage() {
             >
               <Bell size={15} />
               {unreadNotifCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-accent text-white text-[9px] font-black flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[9px] font-black flex items-center justify-center" style={{ background: 'var(--accent-gradient)' }}>
                   {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
                 </span>
               )}

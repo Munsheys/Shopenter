@@ -343,8 +343,8 @@ export default function FloatingGuide({
           <div className="px-4 pt-3 pb-1">
             <div className={`h-1 rounded-full ${deep}`}>
               <div
-                className="h-1 rounded-full bg-accent transition-all duration-500"
-                style={{ width: `${pct}%` }}
+                className="h-1 rounded-full transition-all duration-500"
+                style={{ background: 'var(--accent-gradient)', width: `${pct}%` }}
               />
             </div>
           </div>
@@ -413,8 +413,8 @@ export default function FloatingGuide({
           <div className="flex items-center gap-2">
             <div className={`w-14 h-1 rounded-full ${deep}`}>
               <div
-                className="h-1 rounded-full bg-accent transition-all duration-500"
-                style={{ width: `${pct}%` }}
+                className="h-1 rounded-full transition-all duration-500"
+                style={{ background: 'var(--accent-gradient)', width: `${pct}%` }}
               />
             </div>
             <span className={`text-[10px] leading-none ${muted}`}>{doneCount}/{steps.length}</span>
@@ -461,7 +461,8 @@ export default function FloatingGuide({
               <button
                 type="button"
                 onClick={confirmDismiss}
-                className="px-6 py-3 rounded-2xl text-xs font-bold bg-accent text-white hover:bg-[#00a300] shadow-md shadow-accent/10 transition-all active:scale-95"
+                className="px-6 py-3 rounded-2xl text-xs font-bold text-white shadow-md shadow-accent/10 transition-all active:scale-95 hover:opacity-90"
+                style={{ background: 'var(--accent-gradient)' }}
               >
                 Yes, Dismiss
               </button>
