@@ -30,6 +30,8 @@ interface StorefrontConfig {
   postCheckoutUrl: string;
   language: string;
   accentGradient?: string;
+  customSolids?: string[];
+  customGradients?: string[];
 }
 
 const DEFAULT_CONFIG: StorefrontConfig = {
@@ -39,6 +41,7 @@ const DEFAULT_CONFIG: StorefrontConfig = {
   announcementText: '', announcementEnabled: false, announcementColor: 'accent',
   maintenanceMode: false, maintenanceMessage: 'We will be back soon.',
   postCheckoutUrl: '', language: 'th', accentGradient: '',
+  customSolids: [], customGradients: [],
 };
 
 interface Props {
@@ -168,14 +171,12 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   );
   const [showCustomGradBuilder, setShowCustomGradBuilder] = useState(false);
   const [customG, setCustomG] = useState<{ c1: string; c2: string; angle: number | 'radial' }>({ c1: '#8b5cf6', c2: '#ec4899', angle: 135 });
-  const [customSolidHex, setCustomSolidHex] = useState(() => {
-    const c = initial?.accentColor ?? '';
-    return c && !SC_ACCENT_PRESETS.includes(c) && !initial?.accentGradient ? c : '';
-  });
-  const [customGradCss, setCustomGradCss] = useState(() => {
-    const g = initial?.accentGradient ?? '';
-    return g && !GRAD_PRESET_VALS.has(g) ? g : '';
-  });
+  const [customSolids, setCustomSolids] = useState<string[]>(() =>
+    Array.isArray(initial?.customSolids) ? initial!.customSolids!.slice(0, 3) : []
+  );
+  const [customGrads, setCustomGrads] = useState<string[]>(() =>
+    Array.isArray(initial?.customGradients) ? initial!.customGradients!.slice(0, 3) : []
+  );
 
   const [slugInput, setSlugInput] = useState(initialSlug ?? '');
   const [slugSaving, setSlugSaving] = useState(false);
@@ -347,43 +348,81 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   ))}
                 </div>
 
-                {/* Solid tab */}
+                {/* ── Solid tab ── */}
                 {accentTab === 'solid' && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {SC_ACCENT_PRESETS.map(color => {
-                      const isActive = !config.accentGradient && config.accentColor === color;
-                      return (
-                        <button key={color} onClick={() => setAccent(color)} title={color}
-                          style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : {}) }}
-                          className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
-                      );
-                    })}
-                    {/* Custom solid slot */}
-                    <label title={customSolidHex || 'Custom color'}
-                      className={`w-8 h-8 rounded-full cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center flex-shrink-0 border-2 ${
-                        customSolidHex ? 'border-transparent' : isDark ? 'border-[#2a2f45] bg-[#0f1117]' : 'border-slate-200 bg-slate-50'
-                      }`}
-                      style={{
-                        ...(customSolidHex ? { backgroundColor: customSolidHex } : {}),
-                        ...(!config.accentGradient && config.accentColor === customSolidHex && !!customSolidHex
-                          ? { outline: `2.5px solid ${customSolidHex}`, outlineOffset: '3px', transform: 'scale(1.1)' } : {}),
-                      }}>
-                      <input type="color" value={customSolidHex || '#8b5cf6'}
-                        onChange={e => { setCustomSolidHex(e.target.value); setAccent(e.target.value); }}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-                      {!customSolidHex && <span className={`text-sm font-bold leading-none pointer-events-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>}
-                    </label>
+                  <div className="space-y-2.5">
+                    <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Presets</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {SC_ACCENT_PRESETS.map(color => {
+                        const isActive = !config.accentGradient && config.accentColor === color;
+                        return (
+                          <button key={color} onClick={() => setAccent(color)} title={color}
+                            style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : {}) }}
+                            className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
+                        );
+                      })}
+                    </div>
+                    <div className={`h-px ${isDark ? 'bg-[#1f2335]' : 'bg-slate-100'}`} />
+                    <div className="flex items-center justify-between">
+                      <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Custom</p>
+                      {customSolids.length < 3 && (
+                        <button
+                          onClick={() => {
+                            const next = [...customSolids, '#8b5cf6'];
+                            setCustomSolids(next);
+                            setConfig(prev => ({ ...prev, customSolids: next }));
+                            setAccent('#8b5cf6');
+                          }}
+                          className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition-all hover:scale-110 ${isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white' : 'bg-slate-100 text-slate-400 hover:text-slate-700'}`}
+                          title="Add custom color"
+                        >+</button>
+                      )}
+                    </div>
+                    {customSolids.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {customSolids.map((color, i) => {
+                          const isActive = !config.accentGradient && config.accentColor === color;
+                          return (
+                            <div key={i} className="relative group flex-shrink-0">
+                              <input
+                                type="color"
+                                value={color}
+                                title={color}
+                                onChange={e => {
+                                  const next = customSolids.map((c, j) => j === i ? e.target.value : c);
+                                  setCustomSolids(next);
+                                  setConfig(prev => ({ ...prev, customSolids: next }));
+                                  setAccent(e.target.value);
+                                }}
+                                className={`w-8 h-8 rounded-lg cursor-pointer border-2 p-0.5 transition-all hover:scale-105 ${isActive ? 'scale-110' : ''} ${isDark ? 'border-[#2a2f45] bg-transparent' : 'border-slate-200 bg-transparent'}`}
+                                style={isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : undefined}
+                              />
+                              <button
+                                onClick={() => {
+                                  const next = customSolids.filter((_, j) => j !== i);
+                                  setCustomSolids(next);
+                                  setConfig(prev => ({ ...prev, customSolids: next }));
+                                }}
+                                className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400 leading-none"
+                                title="Remove"
+                              >×</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     {(config.accentColor || config.accentGradient) && (
                       <button onClick={() => setAccent('')} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
-                        Reset
+                        Reset to theme default
                       </button>
                     )}
                   </div>
                 )}
 
-                {/* Gradient tab */}
+                {/* ── Gradient tab ── */}
                 {accentTab === 'gradient' && (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
+                    <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Presets</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       {GRADIENT_PRESETS.map(preset => {
                         const isActive = config.accentGradient === preset.gradient;
@@ -393,34 +432,49 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                             className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
                         );
                       })}
-                      {/* Custom gradient slot */}
-                      <button
-                        title={customGradCss ? 'Custom gradient' : 'Create custom gradient'}
-                        onClick={() => {
-                          if (customGradCss) setAccent(customG.c1, customGradCss);
-                          setShowCustomGradBuilder(v => !v);
-                        }}
-                        className={`w-8 h-8 rounded-full overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center flex-shrink-0 border-2 ${
-                          customGradCss ? 'border-transparent' : isDark ? 'border-[#2a2f45] bg-[#0f1117]' : 'border-slate-200 bg-slate-50'
-                        }`}
-                        style={{
-                          ...(customGradCss ? { background: customGradCss } : {}),
-                          ...(customGradCss && config.accentGradient === customGradCss
-                            ? { outline: `2.5px solid ${customG.c1}`, outlineOffset: '3px', transform: 'scale(1.1)' } : {}),
-                        }}>
-                        {!customGradCss && <span className={`text-sm font-bold leading-none pointer-events-none ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>+</span>}
-                      </button>
-                      {(config.accentColor || config.accentGradient) && (
-                        <button onClick={() => { setAccent(''); setCustomGradCss(''); setShowCustomGradBuilder(false); }} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
-                          Reset
-                        </button>
+                    </div>
+                    <div className={`h-px ${isDark ? 'bg-[#1f2335]' : 'bg-slate-100'}`} />
+                    <div className="flex items-center justify-between">
+                      <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Custom</p>
+                      {customGrads.length < 3 && (
+                        <button
+                          onClick={() => setShowCustomGradBuilder(v => !v)}
+                          className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition-all hover:scale-110 ${isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white' : 'bg-slate-100 text-slate-400 hover:text-slate-700'}`}
+                          title="Build custom gradient"
+                        >+</button>
                       )}
                     </div>
-
-                    {/* Custom gradient builder (collapsible) */}
+                    {customGrads.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {customGrads.map((css, i) => {
+                          const primary = css.match(/#[0-9a-fA-F]{6}/)?.[0] ?? '#8b5cf6';
+                          const isActive = config.accentGradient === css;
+                          return (
+                            <div key={i} className="relative group flex-shrink-0">
+                              <button
+                                onClick={() => setAccent(primary, css)}
+                                title="Custom gradient"
+                                style={{ background: css, ...(isActive ? { outline: `2.5px solid ${primary}`, outlineOffset: '3px' } : {}) }}
+                                className={`w-8 h-8 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                              />
+                              <button
+                                onClick={() => {
+                                  const next = customGrads.filter((_, j) => j !== i);
+                                  setCustomGrads(next);
+                                  setConfig(prev => ({ ...prev, customGradients: next }));
+                                }}
+                                className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400 leading-none"
+                                title="Remove"
+                              >×</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {/* Builder panel */}
                     {showCustomGradBuilder && (
                       <div className={`rounded-xl p-3 space-y-2.5 ${isDark ? 'bg-[#0f1117]' : 'bg-slate-50'}`}>
-                        <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Custom Gradient</p>
+                        <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Build Gradient</p>
                         <div className="flex items-center gap-2">
                           <label title="Start color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
                             style={{ backgroundColor: customG.c1, borderColor: customG.c1 }}>
@@ -467,7 +521,9 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                               const gradient = customG.angle === 'radial'
                                 ? `radial-gradient(circle,${customG.c1},${customG.c2})`
                                 : `linear-gradient(${customG.angle}deg,${customG.c1},${customG.c2})`;
-                              setCustomGradCss(gradient);
+                              const next = [...customGrads, gradient];
+                              setCustomGrads(next);
+                              setConfig(prev => ({ ...prev, customGradients: next }));
                               setAccent(customG.c1, gradient);
                               setShowCustomGradBuilder(false);
                             }}
@@ -475,10 +531,15 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                               isDark ? 'border-[#2a2f45] bg-[#1a1d2e] text-white' : 'border-slate-200 bg-white text-slate-700'
                             }`}
                           >
-                            Apply
+                            Add
                           </button>
                         </div>
                       </div>
+                    )}
+                    {(config.accentColor || config.accentGradient) && (
+                      <button onClick={() => { setAccent(''); setShowCustomGradBuilder(false); }} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
+                        Reset to theme default
+                      </button>
                     )}
                   </div>
                 )}

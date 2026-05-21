@@ -138,8 +138,8 @@ export default function SettingsView({
   const [customG, setCustomG] = useState<{ c1: string; c2: string; angle: number | 'radial' }>({ c1: '#8b5cf6', c2: '#ec4899', angle: 135 });
   const [accentTab, setAccentTab] = useState<'solid' | 'gradient'>('solid');
   const [showCustomGradBuilder, setShowCustomGradBuilder] = useState(false);
-  const [customSolidHex, setCustomSolidHex] = useState('');
-  const [customGradCss, setCustomGradCss] = useState('');
+  const [customSolids, setCustomSolids] = useState<string[]>([]);
+  const [customGrads, setCustomGrads] = useState<string[]>([]);
   const customInitRef = useRef(false);
 
   const [showToken,       setShowToken]       = useState(false);
@@ -181,20 +181,9 @@ export default function SettingsView({
   useEffect(() => {
     if (!settings || customInitRef.current) return;
     customInitRef.current = true;
-    const presetGrads = new Set([
-      'linear-gradient(135deg,#f97316,#ef4444)',
-      'linear-gradient(135deg,#06b6d4,#3b82f6)',
-      'linear-gradient(135deg,#8b5cf6,#ec4899)',
-      'linear-gradient(135deg,#10b981,#0ea5e9)',
-      'linear-gradient(135deg,#f59e0b,#f97316)',
-      'linear-gradient(135deg,#6366f1,#8b5cf6)',
-    ]);
-    if (settings.dashboardAccentGradient) {
-      if (!presetGrads.has(settings.dashboardAccentGradient)) setCustomGradCss(settings.dashboardAccentGradient);
-      setAccentTab('gradient');
-    } else if (settings.dashboardAccent && !ACCENT_PRESETS.includes(settings.dashboardAccent)) {
-      setCustomSolidHex(settings.dashboardAccent);
-    }
+    if (settings.dashboardAccentGradient) setAccentTab('gradient');
+    if (Array.isArray(settings.dashboardCustomSolids)) setCustomSolids(settings.dashboardCustomSolids.slice(0, 3));
+    if (Array.isArray(settings.dashboardCustomGradients)) setCustomGrads(settings.dashboardCustomGradients.slice(0, 3));
   }, [settings]);
 
   const scrollTo = useCallback((id: string) => {
@@ -312,6 +301,21 @@ export default function SettingsView({
       onSave?.();
     } catch {}
   };
+
+  function saveCustomSolids(arr: string[]) {
+    setCustomSolids(arr);
+    fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dashboardCustomSolids: arr }) }).catch(() => {});
+  }
+
+  function saveCustomGrads(arr: string[]) {
+    setCustomGrads(arr);
+    fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dashboardCustomGradients: arr }) }).catch(() => {});
+  }
+
+  function extractGradientPrimary(css: string): string {
+    const m = css.match(/#[0-9a-fA-F]{6}/);
+    return m ? m[0] : '#8b5cf6';
+  }
 
   const removeCompany = (c: string) => set('shippingCompanies', settings.shippingCompanies.filter((x: string) => x !== c));
   const addCompany = () => {
@@ -501,39 +505,71 @@ export default function SettingsView({
                         ))}
                       </div>
 
-                      {/* Solid tab */}
+                      {/* ── Solid tab ── */}
                       {accentTab === 'solid' && (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {ACCENT_PRESETS.map(color => {
-                            const isActive = (settings.dashboardAccent || '#00b900') === color && !settings.dashboardAccentGradient;
-                            return (
-                              <button key={color} onClick={() => handleAccentChange(color, null)} title={color}
-                                style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : {}) }}
-                                className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`}
-                              />
-                            );
-                          })}
-                          {/* Custom solid slot */}
-                          <label title={customSolidHex || 'Custom color'}
-                            className={`w-8 h-8 rounded-full cursor-pointer overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center flex-shrink-0 border-2 ${
-                              customSolidHex ? 'border-transparent' : isDark ? 'border-[#1f2335] bg-[#1a1d2e]' : isLite ? 'border-[#b8c2d8] bg-[#ccd2e4]' : 'border-slate-200 bg-slate-50'
-                            }`}
-                            style={{
-                              ...(customSolidHex ? { backgroundColor: customSolidHex } : {}),
-                              ...(customSolidHex && (settings.dashboardAccent || '#00b900') === customSolidHex && !settings.dashboardAccentGradient
-                                ? { outline: `2.5px solid ${customSolidHex}`, outlineOffset: '2px', transform: 'scale(1.1)' } : {}),
-                            }}>
-                            <input type="color" value={customSolidHex || '#8b5cf6'}
-                              onChange={e => { setCustomSolidHex(e.target.value); handleAccentChange(e.target.value, null); }}
-                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-                            {!customSolidHex && <span className={`text-sm font-bold leading-none pointer-events-none ${isDark ? 'text-[#8b92ad]' : isLite ? 'text-[#5a6285]' : 'text-slate-400'}`}>+</span>}
-                          </label>
+                        <div className="space-y-2.5">
+                          <p className={`text-[9px] font-bold uppercase tracking-wider ${K.muted}`}>Presets</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {ACCENT_PRESETS.map(color => {
+                              const isActive = (settings.dashboardAccent || '#00b900') === color && !settings.dashboardAccentGradient;
+                              return (
+                                <button key={color} onClick={() => handleAccentChange(color, null)} title={color}
+                                  style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : {}) }}
+                                  className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                                />
+                              );
+                            })}
+                          </div>
+                          <div className={`h-px ${isDark ? 'bg-[#1f2335]' : isLite ? 'bg-[#b8c2d8]' : 'bg-slate-100'}`} />
+                          <div className="flex items-center justify-between">
+                            <p className={`text-[9px] font-bold uppercase tracking-wider ${K.muted}`}>Custom</p>
+                            {customSolids.length < 3 && (
+                              <button
+                                onClick={() => {
+                                  const next = [...customSolids, '#8b5cf6'];
+                                  saveCustomSolids(next);
+                                  handleAccentChange('#8b5cf6', null);
+                                }}
+                                className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition-all hover:scale-110 ${isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white' : isLite ? 'bg-[#b8c2d8] text-[#5a6285] hover:text-[#1a1d2e]' : 'bg-slate-100 text-slate-400 hover:text-slate-700'}`}
+                                title="Add custom color"
+                              >+</button>
+                            )}
+                          </div>
+                          {customSolids.length > 0 && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {customSolids.map((color, i) => {
+                                const isActive = (settings.dashboardAccent || '#00b900') === color && !settings.dashboardAccentGradient;
+                                return (
+                                  <div key={i} className="relative group flex-shrink-0">
+                                    <input
+                                      type="color"
+                                      value={color}
+                                      title={color}
+                                      onChange={e => {
+                                        const next = customSolids.map((c, j) => j === i ? e.target.value : c);
+                                        saveCustomSolids(next);
+                                        handleAccentChange(e.target.value, null);
+                                      }}
+                                      className={`w-8 h-8 rounded-lg cursor-pointer border-2 p-0.5 transition-all hover:scale-105 ${isActive ? 'scale-110' : ''} ${isDark ? 'border-[#1f2335] bg-transparent' : isLite ? 'border-[#b8c2d8] bg-transparent' : 'border-slate-200 bg-transparent'}`}
+                                      style={isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : undefined}
+                                    />
+                                    <button
+                                      onClick={() => saveCustomSolids(customSolids.filter((_, j) => j !== i))}
+                                      className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400 leading-none"
+                                      title="Remove"
+                                    >×</button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
 
-                      {/* Gradient tab */}
+                      {/* ── Gradient tab ── */}
                       {accentTab === 'gradient' && (
-                        <div className="space-y-2">
+                        <div className="space-y-2.5">
+                          <p className={`text-[9px] font-bold uppercase tracking-wider ${K.muted}`}>Presets</p>
                           <div className="flex items-center gap-2 flex-wrap">
                             {GRADIENT_PRESETS.map(g => {
                               const isActive = settings.dashboardAccentGradient === g.gradient;
@@ -544,29 +580,45 @@ export default function SettingsView({
                                 />
                               );
                             })}
-                            {/* Custom gradient slot */}
-                            <button
-                              title={customGradCss ? 'Custom gradient' : 'Create custom gradient'}
-                              onClick={() => {
-                                if (customGradCss) handleAccentChange(customG.c1, customGradCss);
-                                setShowCustomGradBuilder(v => !v);
-                              }}
-                              className={`w-8 h-8 rounded-full overflow-hidden relative hover:scale-105 transition-all flex items-center justify-center flex-shrink-0 border-2 ${
-                                customGradCss ? 'border-transparent' : isDark ? 'border-[#1f2335] bg-[#1a1d2e]' : isLite ? 'border-[#b8c2d8] bg-[#ccd2e4]' : 'border-slate-200 bg-slate-50'
-                              }`}
-                              style={{
-                                ...(customGradCss ? { background: customGradCss } : {}),
-                                ...(customGradCss && settings.dashboardAccentGradient === customGradCss
-                                  ? { outline: `2.5px solid ${customG.c1}`, outlineOffset: '2px', transform: 'scale(1.1)' } : {}),
-                              }}>
-                              {!customGradCss && <span className={`text-sm font-bold leading-none pointer-events-none ${isDark ? 'text-[#8b92ad]' : isLite ? 'text-[#5a6285]' : 'text-slate-400'}`}>+</span>}
-                            </button>
                           </div>
-
-                          {/* Custom gradient builder (collapsible) */}
+                          <div className={`h-px ${isDark ? 'bg-[#1f2335]' : isLite ? 'bg-[#b8c2d8]' : 'bg-slate-100'}`} />
+                          <div className="flex items-center justify-between">
+                            <p className={`text-[9px] font-bold uppercase tracking-wider ${K.muted}`}>Custom</p>
+                            {customGrads.length < 3 && (
+                              <button
+                                onClick={() => setShowCustomGradBuilder(v => !v)}
+                                className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition-all hover:scale-110 ${isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white' : isLite ? 'bg-[#b8c2d8] text-[#5a6285] hover:text-[#1a1d2e]' : 'bg-slate-100 text-slate-400 hover:text-slate-700'}`}
+                                title="Build custom gradient"
+                              >+</button>
+                            )}
+                          </div>
+                          {customGrads.length > 0 && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {customGrads.map((css, i) => {
+                                const primary = extractGradientPrimary(css);
+                                const isActive = settings.dashboardAccentGradient === css;
+                                return (
+                                  <div key={i} className="relative group flex-shrink-0">
+                                    <button
+                                      onClick={() => handleAccentChange(primary, css)}
+                                      title="Custom gradient"
+                                      style={{ background: css, ...(isActive ? { outline: `2.5px solid ${primary}`, outlineOffset: '2px' } : {}) }}
+                                      className={`w-8 h-8 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                                    />
+                                    <button
+                                      onClick={() => saveCustomGrads(customGrads.filter((_, j) => j !== i))}
+                                      className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400 leading-none"
+                                      title="Remove"
+                                    >×</button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {/* Builder panel */}
                           {showCustomGradBuilder && (
                             <div className={`rounded-xl p-3 space-y-2.5 ${isDark ? 'bg-[#0f1117]' : isLite ? 'bg-[#ccd2e4]' : 'bg-slate-50'}`}>
-                              <p className={`text-[9px] font-bold uppercase tracking-wider ${K.muted}`}>Custom Gradient</p>
+                              <p className={`text-[9px] font-bold uppercase tracking-wider ${K.muted}`}>Build Gradient</p>
                               <div className="flex items-center gap-2">
                                 <label title="Start color" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all border-2 flex-shrink-0 overflow-hidden"
                                   style={{ backgroundColor: customG.c1, borderColor: customG.c1 }}>
@@ -613,7 +665,7 @@ export default function SettingsView({
                                     const gradient = customG.angle === 'radial'
                                       ? `radial-gradient(circle,${customG.c1},${customG.c2})`
                                       : `linear-gradient(${customG.angle}deg,${customG.c1},${customG.c2})`;
-                                    setCustomGradCss(gradient);
+                                    saveCustomGrads([...customGrads, gradient]);
                                     handleAccentChange(customG.c1, gradient);
                                     setShowCustomGradBuilder(false);
                                   }}
@@ -621,7 +673,7 @@ export default function SettingsView({
                                     isDark ? 'border-[#1f2335] bg-[#1a1d2e] text-white' : isLite ? 'border-[#b8c2d8] bg-[#e0e5f0] text-[#1a1d2e]' : 'border-slate-200 bg-white text-slate-700'
                                   }`}
                                 >
-                                  Apply
+                                  Add
                                 </button>
                               </div>
                             </div>
