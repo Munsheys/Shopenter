@@ -113,7 +113,6 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatOpen, setChatOpen] = useState(true);
   const [listOpen, setListOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'parcel' | 'history'>('overview');
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [inputText, setInputText] = useState('');
@@ -151,10 +150,14 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
     danger?: boolean;
   }>({ open: false, title: '', message: '', onConfirm: () => {} });
 
+  const [drawerWidth, setDrawerWidth] = useState(320);
+  const [isResizing, setIsResizing] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedRef = useRef<Customer | null>(null);
   selectedRef.current = selectedCustomer;
+  const resizeRef = useRef<number | null>(null);
 
   useEffect(() => {
     const evs = new EventSource('/api/stream');
@@ -193,6 +196,41 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
       setQoCostCurrency(s.importCurrency || 'KRW');
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('chat-drawer-width');
+    if (saved) {
+      const w = parseInt(saved, 10);
+      if (w >= 320 && w <= 600) setDrawerWidth(w);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing || resizeRef.current === null) return;
+      const delta = resizeRef.current - e.clientX;
+      const newWidth = drawerWidth + delta;
+      if (newWidth >= 320 && newWidth <= 600) {
+        setDrawerWidth(newWidth);
+        resizeRef.current = e.clientX;
+      }
+    };
+    const handleMouseUp = () => {
+      if (isResizing) {
+        setIsResizing(false);
+        resizeRef.current = null;
+        localStorage.setItem('chat-drawer-width', String(drawerWidth));
+      }
+    };
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, drawerWidth]);
 
   const loadMessages = useCallback(async (userId: string) => {
     const res = await fetch(`/api/messages/${userId}`);
@@ -711,7 +749,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         </div>
       ) : (
         <>
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative transition-all duration-300" style={{ marginRight: chatDrawerOpen ? drawerWidth : 0 }}>
             {/* Customer header */}
             <div className={`flex items-center justify-between px-8 py-5 border-b ${k.border} ${isDark ? 'bg-[#1a1d2e]' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
               <div className="flex items-center gap-3 min-w-0">
@@ -752,38 +790,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 >
                   <ShoppingCart size={12} /> New Order
                 </button>
-                <button
-                  onClick={() => setChatDrawerOpen(!chatDrawerOpen)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                    chatDrawerOpen
-                      ? 'text-white'
-                      : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                  style={chatDrawerOpen ? { background: 'var(--accent)' } : undefined}
-                >
-                  <MessageCircle size={12} /> Chat
-                </button>
               </div>
-            </div>
-
-            {/* Tab Navigation */}
-            <div className={`flex items-center gap-1 px-8 border-b ${k.border} flex-shrink-0 ${isDark ? 'bg-[#1a1d2e]' : 'bg-white'}`}>
-              {(['overview', 'orders', 'parcel', 'history'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
-                    activeTab === tab
-                      ? 'text-accent border-accent'
-                      : `${k.muted} border-transparent hover:text-accent`
-                  }`}
-                >
-                  {tab === 'overview' && 'Overview'}
-                  {tab === 'orders' && 'Active Orders'}
-                  {tab === 'parcel' && 'Parcels'}
-                  {tab === 'history' && 'History'}
-                </button>
-              ))}
             </div>
 
             {/* Scrollable content */}
@@ -924,12 +931,23 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             </div>
           </div>
 
-          {/* ── Chat Drawer (Fixed Overlay) ── */}
+          {/* ── Chat Drawer ── */}
           <div
-            className={`fixed top-0 right-0 bottom-0 w-80 z-40 transform transition-transform duration-300 ease-out ${
-              chatDrawerOpen ? 'translate-x-0' : 'translate-x-full'
-            } ${k.surface} border-l ${k.border} flex flex-col shadow-2xl`}
+            className={`flex-shrink-0 ${k.surface} border-l ${k.border} flex flex-col transform transition-all duration-300 ease-out overflow-hidden ${
+              chatDrawerOpen ? 'opacity-100' : 'w-0 opacity-0 pointer-events-none'
+            }`}
+            style={{ width: chatDrawerOpen ? drawerWidth : 0 }}
           >
+            {/* Resize Handle */}
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsResizing(true);
+                resizeRef.current = e.clientX;
+              }}
+              className="absolute left-0 top-0 bottom-0 w-1 hover:bg-accent/50 cursor-col-resize transition-colors z-50"
+              aria-label="Resize chat drawer"
+            />
             <div className={`flex items-center justify-between px-4 py-4 border-b ${k.border} flex-shrink-0`}>
               <div className="flex items-center gap-2 min-w-0">
                 <div className={`w-8 h-8 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-xs font-bold flex-shrink-0`}>
@@ -1053,11 +1071,17 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             </div>
           </div>
 
-          {chatDrawerOpen && (
-            <div
-              className="fixed inset-0 z-30 bg-black/20"
-              onClick={() => setChatDrawerOpen(false)}
-            />
+          {/* Persistent Chat Side Button */}
+          {!chatDrawerOpen && (
+            <button
+              onClick={() => setChatDrawerOpen(true)}
+              className={`flex-shrink-0 w-12 h-12 rounded-l-2xl flex items-center justify-center transition-all hover:opacity-90 active:scale-95 shadow-lg`}
+              style={{ background: 'var(--accent-gradient)' }}
+              aria-label="Open chat drawer"
+              title="Open chat"
+            >
+              <MessageCircle size={20} className="text-white" />
+            </button>
           )}
         </>
       )}
