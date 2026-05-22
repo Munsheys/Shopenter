@@ -545,7 +545,6 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         {listOpen ? (
           <>
             <div className={`flex items-center gap-2 px-4 py-3 border-b ${k.border} flex-shrink-0`}>
-              <ChatBubbleIcon />
               <span className={`font-black text-xs flex-1 tracking-wide ${k.text}`}>
                 CUSTOMERS
                 {totalUnread > 0 && (
@@ -645,6 +644,14 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
           </>
         ) : (
           <div className="flex flex-col items-center py-2 gap-2 flex-1 overflow-y-auto">
+            <button
+              onClick={() => setListOpen(true)}
+              aria-label="Expand customer list"
+              title="Expand customer list"
+              className={`w-8 h-8 rounded-xl flex items-center justify-center ${k.muted} ${k.hover} flex-shrink-0 transition-colors`}
+            >
+              <ChevronRight size={14} />
+            </button>
             <button
               onClick={() => setShowFindCustomerModal(true)}
               aria-label="Find customer"
