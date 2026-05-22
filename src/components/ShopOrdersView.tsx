@@ -59,6 +59,7 @@ export default function ShopOrdersView({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [viewMode, setViewMode] = useState<'standard' | 'compact'>('standard');
+  const [orderView, setOrderView] = useState<'new' | 'all'>('all');
 
   const allStatuses = ['pending', 'paid', 'preparing', 'shipped', 'delivered'];
   const newOrderStatuses = ['pending', 'paid'];
@@ -278,12 +279,12 @@ export default function ShopOrdersView({
         />
       </div>
 
-      {/* Filter Toolbar - Redesigned */}
+      {/* Filter Toolbar - Simplified */}
       <div className={cn(
         "rounded-3xl border mb-6 overflow-hidden transition-colors",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
       )}>
-        {/* Row 1: Search + View Mode Toggle */}
+        {/* Row 1: Search + New/All Toggle */}
         <div className="p-4 flex items-center gap-4 border-b transition-colors" style={{
           borderColor: theme === 'dark' ? '#2d324d' : '#e2e5ef'
         }}>
@@ -306,94 +307,78 @@ export default function ShopOrdersView({
             )}
           </div>
 
-          {/* View Mode Toggle - Top Right */}
-          <button
-            onClick={toggleViewMode}
-            className={cn(
-              "px-4 py-3 rounded-xl text-xs font-bold border transition-all whitespace-nowrap",
-              viewMode === 'standard'
-                ? "bg-accent/10 border-accent text-accent"
-                : theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:bg-white/5" : "border-[#e2e5ef] text-[#8b92ad] hover:bg-gray-50"
-            )}
-          >
-            {viewMode === 'standard' ? '🏷️ Standard' : '📋 Compact'}
-          </button>
+          {/* New/All Toggle */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setOrderView('new');
+                setSelectedStatuses(newOrderStatuses);
+              }}
+              className={cn(
+                "px-3 py-2.5 rounded-lg text-xs font-bold transition-all",
+                orderView === 'new'
+                  ? "bg-accent text-white"
+                  : theme === 'dark' ? "border border-[#2d324d] text-[#8b92ad]" : "border border-[#d1d5e8] text-[#8b92ad]"
+              )}
+            >
+              🆕 New
+            </button>
+            <button
+              onClick={() => {
+                setOrderView('all');
+                setSelectedStatuses(allStatuses);
+              }}
+              className={cn(
+                "px-3 py-2.5 rounded-lg text-xs font-bold transition-all",
+                orderView === 'all'
+                  ? "bg-accent text-white"
+                  : theme === 'dark' ? "border border-[#2d324d] text-[#8b92ad]" : "border border-[#d1d5e8] text-[#8b92ad]"
+              )}
+            >
+              📦 All
+            </button>
+          </div>
         </div>
 
         {/* Row 2: Status Pills + Date Range */}
-        <div className="p-4 flex flex-col lg:flex-row items-start lg:items-center gap-4">
-          {/* Status Section */}
-          <div className="flex-1 flex flex-col gap-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b92ad]">Status</span>
+        <div className="p-4 flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6">
+          {/* Status Pills */}
+          <div className="flex flex-wrap items-center gap-2">
+            {allStatuses.map(status => {
+              const isSelected = selectedStatuses.includes(status);
+              const statusConfig = {
+                pending: { label: 'Pending', color: 'amber' },
+                paid: { label: 'Paid', color: 'emerald' },
+                preparing: { label: 'Preparing', color: 'blue' },
+                shipped: { label: 'Shipped', color: 'slate' },
+                delivered: { label: 'Delivered', color: 'green' },
+              }[status];
 
-            {/* Status Pills */}
-            <div className="flex flex-wrap items-center gap-3">
-              {allStatuses.map(status => {
-                const isSelected = selectedStatuses.includes(status);
-                const statusConfig = {
-                  pending: { label: 'Pending', color: 'amber' },
-                  paid: { label: 'Paid', color: 'emerald' },
-                  preparing: { label: 'Preparing', color: 'blue' },
-                  shipped: { label: 'Shipped', color: 'slate' },
-                  delivered: { label: 'Delivered', color: 'green' },
-                }[status];
+              const colorStyles = {
+                amber: isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-transparent text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-500/40',
+                emerald: isSelected ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-transparent text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-500/40',
+                blue: isSelected ? 'bg-blue-500 text-white border-blue-500' : 'bg-transparent text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-500/40',
+                slate: isSelected ? 'bg-slate-500 text-white border-slate-500' : 'bg-transparent text-slate-600 border-slate-300 dark:text-slate-300 dark:border-slate-500/40',
+                green: isSelected ? 'bg-green-500 text-white border-green-500' : 'bg-transparent text-green-600 border-green-300 dark:text-green-400 dark:border-green-500/40',
+              };
 
-                const colorStyles = {
-                  amber: isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-transparent text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-500/40',
-                  emerald: isSelected ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-transparent text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-500/40',
-                  blue: isSelected ? 'bg-blue-500 text-white border-blue-500' : 'bg-transparent text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-500/40',
-                  slate: isSelected ? 'bg-slate-500 text-white border-slate-500' : 'bg-transparent text-slate-600 border-slate-300 dark:text-slate-300 dark:border-slate-500/40',
-                  green: isSelected ? 'bg-green-500 text-white border-green-500' : 'bg-transparent text-green-600 border-green-300 dark:text-green-400 dark:border-green-500/40',
-                };
-
-                return (
-                  <button
-                    key={status}
-                    onClick={() => toggleStatus(status)}
-                    className={cn(
-                      "px-4 py-2.5 rounded-full text-xs font-bold border-2 transition-all active:scale-95 hover:shadow-sm",
-                      colorStyles[statusConfig?.color as keyof typeof colorStyles]
-                    )}
-                  >
-                    {statusConfig?.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Control Buttons */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              <button
-                onClick={selectNewOrdersOnly}
-                className="px-4 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-accent to-blue-500 text-white hover:opacity-90 transition-all active:scale-95 shadow-sm"
-              >
-                📦 New Orders Only
-              </button>
-              <button
-                onClick={selectAllStatuses}
-                className="px-3 py-2 rounded-full text-xs font-bold border-2 transition-all"
-                style={{
-                  borderColor: 'var(--accent)',
-                  color: 'var(--accent)',
-                  background: 'transparent'
-                }}
-              >
-                Select All
-              </button>
-              <button
-                onClick={clearAllStatuses}
-                className={cn(
-                  "px-3 py-2 rounded-full text-xs font-bold border-2 transition-all",
-                  theme === 'dark' ? "border-[#2d324d] text-[#8b92ad] hover:bg-white/5" : "border-[#d1d5e8] text-[#8b92ad] hover:bg-gray-50"
-                )}
-              >
-                Clear
-              </button>
-            </div>
+              return (
+                <button
+                  key={status}
+                  onClick={() => toggleStatus(status)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-[10px] font-bold border-2 transition-all active:scale-95 hover:shadow-sm",
+                    colorStyles[statusConfig?.color as keyof typeof colorStyles]
+                  )}
+                >
+                  {statusConfig?.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Date Range Section */}
-          <div className="flex items-center gap-3 w-full lg:w-auto">
+          <div className="ml-auto flex items-center gap-3">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b92ad] whitespace-nowrap">Date</span>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
@@ -407,7 +392,7 @@ export default function ShopOrdersView({
                 )}
               />
             </div>
-            <span className="text-[#8b92ad] font-bold text-sm">→</span>
+            <span className="text-[#8b92ad] font-bold">→</span>
             <div className="relative">
               <input
                 type="date"
