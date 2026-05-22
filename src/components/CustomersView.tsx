@@ -1332,17 +1332,6 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   );
 }
 
-function ChatBubbleIcon() {
-  return (
-    <div className="w-6 h-6 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0 relative">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent absolute">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-      <span className="text-accent font-bold text-[9px] leading-none z-10">S</span>
-    </div>
-  );
-}
-
 function ConfirmModal({ config, onClose, isDark, k }: { config: any, onClose: () => void, isDark: boolean, k: typeof DK }) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
