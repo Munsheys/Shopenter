@@ -333,15 +333,15 @@ export default function SettingsView({
 
   // ── Style tokens ─────────────────────────────────────────────────────────────
   const K = {
-    bg:      isDark ? 'bg-[#0f1117]'                          : isLite ? 'bg-[#dae0e8]'                         : 'bg-slate-50',
-    surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : isLite ? 'bg-[#eaeef4] border border-[#d2d8e2]' : 'bg-white border border-slate-200',
-    text:    isDark ? 'text-white'                            : isLite ? 'text-[#3f4557]'                        : 'text-slate-900',
-    muted:   isDark ? 'text-[#8b92ad]'                       : isLite ? 'text-[#79859a]'                        : 'text-slate-500',
-    border:  isDark ? 'border-[#1f2335]'                     : isLite ? 'border-[#d2d8e2]'                      : 'border-slate-200',
+    bg:      isDark ? 'bg-[#0f1117]'                          : isLite ? 'bg-[#aeb3ba]'                         : 'bg-slate-50',
+    surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : isLite ? 'bg-[#bbbec3] border border-[#a8adb5]' : 'bg-white border border-slate-200',
+    text:    isDark ? 'text-white'                            : isLite ? 'text-[#323746]'                        : 'text-slate-900',
+    muted:   isDark ? 'text-[#8b92ad]'                       : isLite ? 'text-[#616a7b]'                        : 'text-slate-500',
+    border:  isDark ? 'border-[#1f2335]'                     : isLite ? 'border-[#a8adb5]'                      : 'border-slate-200',
     inp:     isDark
       ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-accent focus:outline-none'
       : isLite
-      ? 'bg-[#f5f7fc] border-[#d2d8e2] text-[#3f4557] placeholder-[#8995aa] focus:border-accent focus:outline-none'
+      ? 'bg-[#c4c6ca] border-[#a8adb5] text-[#323746] placeholder-[#6e7788] focus:border-accent focus:outline-none'
       : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none',
   };
 
@@ -380,7 +380,7 @@ export default function SettingsView({
     <div className={`flex flex-1 min-h-0 ${K.bg}`}>
 
       {/* ── Left sidebar ──────────────────────────────────────────────────── */}
-      <div className={`w-52 flex-shrink-0 flex flex-col py-5 px-3 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#d2d8e2]' : 'border-slate-200'}`}>
+      <div className={`w-52 flex-shrink-0 flex flex-col py-5 px-3 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#a8adb5]' : 'border-slate-200'}`}>
         <p className={`text-[10px] font-bold uppercase tracking-widest px-3 mb-3 ${K.muted}`}>Settings</p>
 
         <nav className="flex-1 space-y-0.5">
