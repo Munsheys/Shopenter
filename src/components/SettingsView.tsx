@@ -333,15 +333,15 @@ export default function SettingsView({
 
   // ── Style tokens ─────────────────────────────────────────────────────────────
   const K = {
-    bg:      isDark ? 'bg-[#0f1117]'                          : isLite ? 'bg-[#d6dae8]'                         : 'bg-slate-50',
-    surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : isLite ? 'bg-[#e0e5f0] border border-[#b8c2d8]' : 'bg-white border border-slate-200',
-    text:    isDark ? 'text-white'                            : isLite ? 'text-[#1a1d2e]'                        : 'text-slate-900',
-    muted:   isDark ? 'text-[#8b92ad]'                       : isLite ? 'text-[#5a6285]'                        : 'text-slate-500',
-    border:  isDark ? 'border-[#1f2335]'                     : isLite ? 'border-[#b8c2d8]'                      : 'border-slate-200',
+    bg:      isDark ? 'bg-[#0f1117]'                          : isLite ? 'bg-[#f5f6f9]'                         : 'bg-slate-50',
+    surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : isLite ? 'bg-[#fafbfc] border border-[#e5e7eb]' : 'bg-white border border-slate-200',
+    text:    isDark ? 'text-white'                            : isLite ? 'text-[#1f2235]'                        : 'text-slate-900',
+    muted:   isDark ? 'text-[#8b92ad]'                       : isLite ? 'text-[#6b7280]'                        : 'text-slate-500',
+    border:  isDark ? 'border-[#1f2335]'                     : isLite ? 'border-[#e5e7eb]'                      : 'border-slate-200',
     inp:     isDark
       ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-accent focus:outline-none'
       : isLite
-      ? 'bg-[#ccd2e4] border-[#b8c2d8] text-[#1a1d2e] placeholder-[#8b92ad] focus:border-accent focus:outline-none'
+      ? 'bg-[#ffffff] border-[#e5e7eb] text-[#1f2235] placeholder-[#9ca3af] focus:border-accent focus:outline-none'
       : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none',
   };
 
@@ -380,7 +380,7 @@ export default function SettingsView({
     <div className={`flex flex-1 min-h-0 ${K.bg}`}>
 
       {/* ── Left sidebar ──────────────────────────────────────────────────── */}
-      <div className={`w-52 flex-shrink-0 flex flex-col py-5 px-3 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#b8c2d8]' : 'border-slate-200'}`}>
+      <div className={`w-52 flex-shrink-0 flex flex-col py-5 px-3 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#e5e7eb]' : 'border-slate-200'}`}>
         <p className={`text-[10px] font-bold uppercase tracking-widest px-3 mb-3 ${K.muted}`}>Settings</p>
 
         <nav className="flex-1 space-y-0.5">
@@ -492,11 +492,11 @@ export default function SettingsView({
                     <label className={lbl}>Accent Color</label>
                     <div className="mt-2 space-y-3">
                       {/* Tab switcher */}
-                      <div className={`flex p-0.5 rounded-lg ${isDark ? 'bg-[#0f1117]' : isLite ? 'bg-[#ccd2e4]' : 'bg-slate-100'}`}>
+                      <div className={`flex p-0.5 rounded-lg ${isDark ? 'bg-[#0f1117]' : isLite ? 'bg-[#eff0f5]' : 'bg-slate-100'}`}>
                         {(['solid', 'gradient'] as const).map(tab => (
                           <button key={tab} onClick={() => setAccentTab(tab)}
                             className={`flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all capitalize ${
-                              accentTab === tab ? '' : isDark ? 'text-[#8b92ad] hover:text-white' : isLite ? 'text-[#5a6285] hover:text-[#1a1d2e]' : 'text-slate-400 hover:text-slate-700'
+                              accentTab === tab ? '' : isDark ? 'text-[#8b92ad] hover:text-white' : isLite ? 'text-[#6b7280] hover:text-[#1f2235]' : 'text-slate-400 hover:text-slate-700'
                             }`}
                             style={accentTab === tab ? { background: 'var(--accent-gradient)', color: 'var(--accent-text, white)' } : undefined}
                           >

@@ -309,34 +309,43 @@ export default function ShopOrdersView({
 
           {/* New/All Toggle */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setOrderView('new');
-                setSelectedStatuses(newOrderStatuses);
-              }}
-              className={cn(
-                "px-3 py-2.5 rounded-lg text-xs font-bold transition-all",
-                orderView === 'new'
-                  ? "bg-accent text-white"
-                  : theme === 'dark' ? "border border-[#2d324d] text-[#8b92ad]" : "border border-[#d1d5e8] text-[#8b92ad]"
-              )}
-            >
-              🆕 New
-            </button>
-            <button
-              onClick={() => {
-                setOrderView('all');
-                setSelectedStatuses(allStatuses);
-              }}
-              className={cn(
-                "px-3 py-2.5 rounded-lg text-xs font-bold transition-all",
-                orderView === 'all'
-                  ? "bg-accent text-white"
-                  : theme === 'dark' ? "border border-[#2d324d] text-[#8b92ad]" : "border border-[#d1d5e8] text-[#8b92ad]"
-              )}
-            >
-              📦 All
-            </button>
+            {(() => {
+              const isNewSelected = selectedStatuses.length === newOrderStatuses.length &&
+                                    newOrderStatuses.every(s => selectedStatuses.includes(s));
+              const isAllSelected = selectedStatuses.length === allStatuses.length &&
+                                    allStatuses.every(s => selectedStatuses.includes(s));
+
+              return (
+                <>
+                  <button
+                    onClick={() => {
+                      setSelectedStatuses(newOrderStatuses);
+                    }}
+                    className={cn(
+                      "px-3 py-2.5 rounded-lg text-xs font-bold transition-all",
+                      isNewSelected
+                        ? "bg-accent text-white"
+                        : theme === 'dark' ? "border border-[#2d324d] text-[#8b92ad]" : "border border-[#d1d5e8] text-[#8b92ad]"
+                    )}
+                  >
+                    🆕 New
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedStatuses(allStatuses);
+                    }}
+                    className={cn(
+                      "px-3 py-2.5 rounded-lg text-xs font-bold transition-all",
+                      isAllSelected
+                        ? "bg-accent text-white"
+                        : theme === 'dark' ? "border border-[#2d324d] text-[#8b92ad]" : "border border-[#d1d5e8] text-[#8b92ad]"
+                    )}
+                  >
+                    📦 All
+                  </button>
+                </>
+              );
+            })()}
           </div>
         </div>
 
