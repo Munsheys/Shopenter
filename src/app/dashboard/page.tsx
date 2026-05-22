@@ -252,7 +252,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : isLite ? 'bg-[#aeb3ba] text-[#323746]' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`} style={{ '--accent': accentColor, '--accent-gradient': accentGradient || accentColor, '--accent-text': getAccentText(accentColor) } as React.CSSProperties}>
+    <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : isLite ? 'bg-[#d9dfe8] text-[#2f3744]' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`} style={{ '--accent': accentColor, '--accent-gradient': accentGradient || accentColor, '--accent-text': getAccentText(accentColor) } as React.CSSProperties}>
       <style>{`
         @keyframes navglow {
           0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); opacity: 0.85; }
@@ -265,16 +265,16 @@ export default function DashboardPage() {
       `}</style>
 
       {/* ── Top navbar ── */}
-      <header className={`flex items-center h-14 border-b flex-shrink-0 ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : isLite ? 'bg-[#bbbec3] border-[#a8adb5]' : 'bg-white border-gray-200'} transition-colors duration-300`}>
+      <header className={`flex items-center h-14 border-b flex-shrink-0 ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-gray-200'} transition-colors duration-300`}>
 
         {/* Brand */}
-        <div className={`flex items-center gap-3 px-5 h-full flex-shrink-0 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#a8adb5]' : 'border-gray-200'}`}>
+        <div className={`flex items-center gap-3 px-5 h-full flex-shrink-0 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-gray-200'}`}>
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm" style={{ background: 'var(--accent-gradient)' }}>
             <MessageCircle size={16} />
           </div>
           <div className="hidden sm:block">
             <div className="flex items-center gap-2">
-              <p className={`text-sm font-semibold leading-tight truncate max-w-[120px] ${isDark ? 'text-white' : isLite ? 'text-[#323746]' : 'text-gray-900'}`}>
+              <p className={`text-sm font-semibold leading-tight truncate max-w-[120px] ${isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-gray-900'}`}>
                 {settings?.shopName || 'My Shop'}
               </p>
               <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider ${TIER_BADGE_COLORS[tier]}`}>
@@ -362,9 +362,9 @@ export default function DashboardPage() {
               )}
             </button>
             {notifOpen && (
-              <div className={`absolute right-0 top-10 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#bbbec3] border-[#a8adb5]' : 'bg-white border-[#e2e5ef]'}`}>
-                <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#a8adb5]' : 'border-[#e2e5ef]'}`}>
-                  <span className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-white' : isLite ? 'text-[#323746]' : 'text-[#3f4557]'}`}>Notifications</span>
+              <div className={`absolute right-0 top-10 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-[#e2e5ef]'}`}>
+                <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-[#e2e5ef]'}`}>
+                  <span className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-[#3f4557]'}`}>Notifications</span>
                   <button onClick={() => setNotifOpen(false)} className="text-[#8b92ad] hover:text-red-400"><X size={14} /></button>
                 </div>
                 <div className="max-h-72 overflow-y-auto">
@@ -378,10 +378,10 @@ export default function DashboardPage() {
                       out_of_stock: <TrendingDown size={13} className="text-red-500" />,
                     };
                     return (
-                      <div key={n._id} className={`flex gap-3 px-4 py-3 border-b last:border-b-0 ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#a8adb5]' : 'border-[#f4f6f9]'} ${!n.read ? isDark ? 'bg-accent/5' : isLite ? 'bg-accent/5' : 'bg-accent/[3%]' : ''}`}>
-                        <div className={`w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center ${isDark ? 'bg-[#1a1d2e]' : isLite ? 'bg-[#aaafb7]' : 'bg-[#f4f6f9]'}`}>{icons[n.type] ?? <Bell size={13} />}</div>
+                      <div key={n._id} className={`flex gap-3 px-4 py-3 border-b last:border-b-0 ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#dce1ea]' : 'border-[#f4f6f9]'} ${!n.read ? isDark ? 'bg-accent/5' : isLite ? 'bg-accent/5' : 'bg-accent/[3%]' : ''}`}>
+                        <div className={`w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center ${isDark ? 'bg-[#1a1d2e]' : isLite ? 'bg-[#d9dfe8]' : 'bg-[#f4f6f9]'}`}>{icons[n.type] ?? <Bell size={13} />}</div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[11px] leading-snug ${isDark ? 'text-white' : isLite ? 'text-[#323746]' : 'text-[#1a1d2e]'}`}>{n.message}</p>
+                          <p className={`text-[11px] leading-snug ${isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-[#1a1d2e]'}`}>{n.message}</p>
                           <p className="text-[10px] text-[#8b92ad] mt-0.5">{new Date(n.createdAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</p>
                         </div>
                       </div>
@@ -392,7 +392,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className={`flex items-center gap-1 pl-3 border-l ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#a8adb5]' : 'border-gray-200'}`}>
+          <div className={`flex items-center gap-1 pl-3 border-l ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-gray-200'}`}>
             <button
               onClick={() => setActiveTab('feedback')}
               title="Feedback"
@@ -419,7 +419,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className={`flex items-center gap-2 pl-3 border-l ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#a8adb5]' : 'border-gray-200'}`}>
+          <div className={`flex items-center gap-2 pl-3 border-l ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-gray-200'}`}>
             <button
               onClick={handleLogout}
               title="Sign out"
