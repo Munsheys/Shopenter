@@ -278,161 +278,147 @@ export default function ShopOrdersView({
         />
       </div>
 
-      {/* Filter Toolbar */}
+      {/* Filter Toolbar - Redesigned */}
       <div className={cn(
-        "p-4 rounded-3xl border mb-6 flex flex-col gap-4 transition-colors",
+        "rounded-3xl border mb-6 overflow-hidden transition-colors",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
       )}>
-        {/* Search Row */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
-          <input
-            type="text"
-            placeholder="Search customer, tracking, or products..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={cn(
-              "w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition-all focus:ring-2 focus:ring-accent/20",
-              theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-accent" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-accent"
-            )}
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-red-500">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Status Pills Row */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b92ad] mr-2">Status:</span>
-          {allStatuses.map(status => {
-            const isSelected = selectedStatuses.includes(status);
-            const statusConfig = {
-              pending: { label: 'Pending', color: 'amber' },
-              paid: { label: 'Paid', color: 'emerald' },
-              preparing: { label: 'Preparing', color: 'blue' },
-              shipped: { label: 'Shipped', color: 'slate' },
-              delivered: { label: 'Delivered', color: 'green' },
-            }[status];
-
-            const colorStyles = {
-              amber: isSelected ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400',
-              emerald: isSelected ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400',
-              blue: isSelected ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400',
-              slate: isSelected ? 'bg-slate-500 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300',
-              green: isSelected ? 'bg-green-500 text-white' : 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400',
-            };
-
-            return (
-              <button
-                key={status}
-                onClick={() => toggleStatus(status)}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all active:scale-95",
-                  isSelected
-                    ? colorStyles[statusConfig?.color as keyof typeof colorStyles]
-                    : `${colorStyles[statusConfig?.color as keyof typeof colorStyles]} opacity-50 hover:opacity-75`
-                )}
-              >
-                {statusConfig?.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Controls Row */}
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={selectNewOrdersOnly}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-accent to-blue-500 text-white hover:opacity-90 transition-all active:scale-95 shadow-md"
-          >
-            📦 New Orders Only
-          </button>
-          <button
-            onClick={selectAllStatuses}
-            className="px-3 py-2 rounded-xl text-xs font-bold border transition-all"
-            style={{
-              borderColor: 'var(--accent)',
-              color: 'var(--accent)',
-              background: 'transparent'
-            }}
-          >
-            Select All
-          </button>
-          <button
-            onClick={clearAllStatuses}
-            className={cn(
-              "px-3 py-2 rounded-xl text-xs font-bold border transition-all",
-              theme === 'dark' ? "border-[#1f2335] text-[#8b92ad]" : "border-[#e2e5ef] text-[#8b92ad]"
-            )}
-          >
-            Clear
-          </button>
-
-          <div className="flex-1" />
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleViewMode}
-              className={cn(
-                "px-3 py-2 rounded-xl text-xs font-bold border transition-all",
-                viewMode === 'standard'
-                  ? "bg-accent/10 border-accent text-accent"
-                  : theme === 'dark' ? "border-[#1f2335] text-[#8b92ad]" : "border-[#e2e5ef] text-[#8b92ad]"
-              )}
-            >
-              {viewMode === 'standard' ? '🏷️ Standard' : '📋 Compact'}
-            </button>
-          </div>
-
-          {/* Page Size Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase text-[#8b92ad]">Per page:</span>
-            {[25, 50, 100, 'all'].map(size => (
-              <button
-                key={size}
-                onClick={() => changePageSize(size)}
-                className={cn(
-                  "px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all",
-                  pageSize === (size === 'all' ? Infinity : Number(size))
-                    ? "bg-accent/10 border-accent text-accent"
-                    : theme === 'dark' ? "border-[#1f2335] text-[#8b92ad]" : "border-[#e2e5ef] text-[#8b92ad]"
-                )}
-              >
-                {size === 'all' ? 'All' : size}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Date Range Row */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b92ad]">Date:</span>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
+        {/* Row 1: Search + View Mode Toggle */}
+        <div className="p-4 flex items-center gap-4 border-b transition-colors" style={{
+          borderColor: theme === 'dark' ? '#2d324d' : '#e2e5ef'
+        }}>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={16} />
             <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              type="text"
+              placeholder="Search customer, tracking, or products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className={cn(
-                "pl-9 pr-3 py-2.5 rounded-xl text-xs font-bold outline-none border transition-all",
-                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
+                "w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none border transition-all focus:ring-2 focus:ring-accent/20",
+                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-accent" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-accent"
               )}
             />
+            {searchTerm && (
+              <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] hover:text-red-500">
+                <X size={14} />
+              </button>
+            )}
           </div>
-          <span className="text-[#8b92ad] font-bold">→</span>
-          <div className="relative">
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className={cn(
-                "pl-4 pr-3 py-2.5 rounded-xl text-xs font-bold outline-none border transition-all",
-                theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
-              )}
-            />
+
+          {/* View Mode Toggle - Top Right */}
+          <button
+            onClick={toggleViewMode}
+            className={cn(
+              "px-4 py-3 rounded-xl text-xs font-bold border transition-all whitespace-nowrap",
+              viewMode === 'standard'
+                ? "bg-accent/10 border-accent text-accent"
+                : theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:bg-white/5" : "border-[#e2e5ef] text-[#8b92ad] hover:bg-gray-50"
+            )}
+          >
+            {viewMode === 'standard' ? '🏷️ Standard' : '📋 Compact'}
+          </button>
+        </div>
+
+        {/* Row 2: Status Pills + Date Range */}
+        <div className="p-4 flex flex-col lg:flex-row items-start lg:items-center gap-4">
+          {/* Status Section */}
+          <div className="flex-1 flex flex-col gap-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b92ad]">Status</span>
+
+            {/* Status Pills */}
+            <div className="flex flex-wrap items-center gap-3">
+              {allStatuses.map(status => {
+                const isSelected = selectedStatuses.includes(status);
+                const statusConfig = {
+                  pending: { label: 'Pending', color: 'amber' },
+                  paid: { label: 'Paid', color: 'emerald' },
+                  preparing: { label: 'Preparing', color: 'blue' },
+                  shipped: { label: 'Shipped', color: 'slate' },
+                  delivered: { label: 'Delivered', color: 'green' },
+                }[status];
+
+                const colorStyles = {
+                  amber: isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-transparent text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-500/40',
+                  emerald: isSelected ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-transparent text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-500/40',
+                  blue: isSelected ? 'bg-blue-500 text-white border-blue-500' : 'bg-transparent text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-500/40',
+                  slate: isSelected ? 'bg-slate-500 text-white border-slate-500' : 'bg-transparent text-slate-600 border-slate-300 dark:text-slate-300 dark:border-slate-500/40',
+                  green: isSelected ? 'bg-green-500 text-white border-green-500' : 'bg-transparent text-green-600 border-green-300 dark:text-green-400 dark:border-green-500/40',
+                };
+
+                return (
+                  <button
+                    key={status}
+                    onClick={() => toggleStatus(status)}
+                    className={cn(
+                      "px-4 py-2.5 rounded-full text-xs font-bold border-2 transition-all active:scale-95 hover:shadow-sm",
+                      colorStyles[statusConfig?.color as keyof typeof colorStyles]
+                    )}
+                  >
+                    {statusConfig?.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Control Buttons */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={selectNewOrdersOnly}
+                className="px-4 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-accent to-blue-500 text-white hover:opacity-90 transition-all active:scale-95 shadow-sm"
+              >
+                📦 New Orders Only
+              </button>
+              <button
+                onClick={selectAllStatuses}
+                className="px-3 py-2 rounded-full text-xs font-bold border-2 transition-all"
+                style={{
+                  borderColor: 'var(--accent)',
+                  color: 'var(--accent)',
+                  background: 'transparent'
+                }}
+              >
+                Select All
+              </button>
+              <button
+                onClick={clearAllStatuses}
+                className={cn(
+                  "px-3 py-2 rounded-full text-xs font-bold border-2 transition-all",
+                  theme === 'dark' ? "border-[#2d324d] text-[#8b92ad] hover:bg-white/5" : "border-[#d1d5e8] text-[#8b92ad] hover:bg-gray-50"
+                )}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {/* Date Range Section */}
+          <div className="flex items-center gap-3 w-full lg:w-auto">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b92ad] whitespace-nowrap">Date</span>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className={cn(
+                  "pl-9 pr-3 py-2.5 rounded-xl text-xs font-bold outline-none border transition-all",
+                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
+                )}
+              />
+            </div>
+            <span className="text-[#8b92ad] font-bold text-sm">→</span>
+            <div className="relative">
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className={cn(
+                  "pl-4 pr-3 py-2.5 rounded-xl text-xs font-bold outline-none border transition-all",
+                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
+                )}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -567,45 +553,81 @@ export default function ShopOrdersView({
           </div>
         )}
 
-        {/* Pagination Footer */}
+        {/* Pagination Footer - Redesigned */}
         {!isLoading && selectedStatuses.length > 0 && filteredOrders.length > 0 && (
           <div className={cn(
-            "px-6 py-4 border-t flex items-center justify-between text-[10px] font-bold transition-colors",
-            theme === 'dark' ? "bg-[#1f2335] text-[#8b92ad] border-[#2d324d]" : "bg-[#f8f9fc] text-[#8b92ad] border-[#e2e5ef]"
+            "px-6 py-5 border-t transition-colors",
+            theme === 'dark' ? "bg-[#1f2335] border-[#2d324d]" : "bg-[#f8f9fc] border-[#e2e5ef]"
           )}>
-            <span>
-              Showing {Math.min((currentPage - 1) * pageSize + 1, filteredOrders.length)}-
-              {Math.min(currentPage * pageSize, filteredOrders.length)} of {filteredOrders.length}
-            </span>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    borderColor: currentPage === 1 ? '#8b92ad' : 'var(--accent)',
-                    color: currentPage === 1 ? '#8b92ad' : 'var(--accent)'
-                  }}
-                >
-                  ← Prev
-                </button>
-                <span className="px-2">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    borderColor: currentPage === totalPages ? '#8b92ad' : 'var(--accent)',
-                    color: currentPage === totalPages ? '#8b92ad' : 'var(--accent)'
-                  }}
-                >
-                  Next →
-                </button>
+            {/* Order Count */}
+            <div className="text-[11px] font-bold text-[#8b92ad] mb-3 text-center">
+              Showing {Math.min((currentPage - 1) * pageSize + 1, filteredOrders.length)}–
+              {Math.min(currentPage * pageSize, filteredOrders.length)} of {filteredOrders.length} orders
+            </div>
+
+            {/* Pagination & Per-Page Controls */}
+            <div className="flex items-center justify-between">
+              {/* Centered Pagination Controls */}
+              <div className="flex-1 flex items-center justify-center gap-4">
+                {totalPages > 1 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 rounded-lg text-xs font-bold border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-sm"
+                      style={{
+                        borderColor: currentPage === 1 ? '#8b92ad' : 'var(--accent)',
+                        color: currentPage === 1 ? '#8b92ad' : 'var(--accent)',
+                        background: 'transparent'
+                      }}
+                    >
+                      ← Prev
+                    </button>
+
+                    <span className={cn(
+                      "text-xs font-bold px-3 py-2",
+                      theme === 'dark' ? "text-white" : "text-[#1a1d2e]"
+                    )}>
+                      Page {currentPage} of {totalPages}
+                    </span>
+
+                    <button
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 rounded-lg text-xs font-bold border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-sm"
+                      style={{
+                        borderColor: currentPage === totalPages ? '#8b92ad' : 'var(--accent)',
+                        color: currentPage === totalPages ? '#8b92ad' : 'var(--accent)',
+                        background: 'transparent'
+                      }}
+                    >
+                      Next →
+                    </button>
+                  </>
+                )}
               </div>
-            )}
+
+              {/* Per-Page Selector - Right Aligned */}
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b92ad] whitespace-nowrap">Per page</span>
+                <div className="flex items-center gap-2">
+                  {[25, 50, 100, 'all'].map(size => (
+                    <button
+                      key={size}
+                      onClick={() => changePageSize(size)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all",
+                        pageSize === (size === 'all' ? Infinity : Number(size))
+                          ? "bg-accent/10 border-accent text-accent"
+                          : theme === 'dark' ? "border-[#2d324d] text-[#8b92ad] hover:border-accent/50" : "border-[#d1d5e8] text-[#8b92ad] hover:border-accent/50"
+                      )}
+                    >
+                      {size === 'all' ? 'All' : size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
