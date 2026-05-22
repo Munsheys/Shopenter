@@ -64,25 +64,6 @@ export default function ShopOrdersView({
   const allStatuses = ['pending', 'paid', 'preparing', 'shipped', 'delivered'];
   const newOrderStatuses = ['pending', 'paid'];
 
-  // Initialize from URL on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const statusesParam = params.get('statuses');
-      const pageSizeParam = params.get('pageSize');
-      const viewModeParam = params.get('viewMode');
-
-      if (statusesParam) {
-        setSelectedStatuses(statusesParam.split(','));
-      }
-      if (pageSizeParam && ['25', '50', '100', 'all'].includes(pageSizeParam)) {
-        setPageSize(pageSizeParam === 'all' ? Infinity : parseInt(pageSizeParam));
-      }
-      if (viewModeParam && ['standard', 'compact'].includes(viewModeParam)) {
-        setViewMode(viewModeParam as 'standard' | 'compact');
-      }
-    }
-  }, []);
 
   // Restore from localStorage
   useEffect(() => {
@@ -124,17 +105,6 @@ export default function ShopOrdersView({
     return () => clearTimeout(timer);
   }, [fetchOrders]);
 
-  // Update URL when filters change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams();
-      if (selectedStatuses.length > 0 && selectedStatuses.length < allStatuses.length) {
-        params.append('statuses', selectedStatuses.join(','));
-      }
-      const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-    }
-  }, [selectedStatuses]);
 
   const handleExportCSV = () => {
     if (!orders || orders.length === 0) return;

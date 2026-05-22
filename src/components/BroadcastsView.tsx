@@ -79,6 +79,15 @@ const DK = {
   muted: 'text-[#8b92ad]',
   input: 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-accent focus:outline-none',
 };
+const LITK = {
+  bg: 'bg-[#d9dfe8]',
+  surface: 'bg-[#e7ecf3] border border-[#cdd3dd]',
+  surfaceDeep: 'bg-[#dce1ea]',
+  border: 'border-[#cdd3dd]',
+  text: 'text-[#2f3744]',
+  muted: 'text-[#6d7a8c]',
+  input: 'bg-[#f0f3f8] border-[#cdd3dd] text-[#2f3744] placeholder-[#7a8598] focus:border-accent focus:outline-none',
+};
 const LK = {
   bg: 'bg-slate-50',
   surface: 'bg-white border border-slate-200',
@@ -122,13 +131,13 @@ const AUDIENCE_LABELS: Record<string, string> = {
 // ── Upload zone (drag-and-drop + click) ──────────────────────────────────────
 
 function UploadZone({
-  accept, maxMB, value, onUploaded, isDark, previewType = 'image',
+  accept, maxMB, value, onUploaded, isDark, isLite, previewType = 'image',
 }: {
   accept: string; maxMB: number; value?: string;
   onUploaded: (url: string, duration?: number) => void;
-  isDark: boolean; previewType?: 'image' | 'audio' | 'video';
+  isDark: boolean; isLite?: boolean; previewType?: 'image' | 'audio' | 'video';
 }) {
-  const k = isDark ? DK : LK;
+  const k = isDark ? DK : isLite ? LITK : LK;
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState('');
   const [dragging, setDragging] = useState(false);
@@ -214,8 +223,8 @@ function UploadZone({
 
 // ── Message block composer ────────────────────────────────────────────────────
 
-function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onChange: (b: LineBlock[]) => void; isDark: boolean }) {
-  const k = isDark ? DK : LK;
+function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock[]; onChange: (b: LineBlock[]) => void; isDark: boolean; isLite?: boolean }) {
+  const k = isDark ? DK : isLite ? LITK : LK;
   // Per-block: track whether user wants to paste a URL instead of uploading
   const [urlMode, setUrlMode] = useState<Record<number, boolean>>({});
 
@@ -270,7 +279,7 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
                 {block.originalContentUrl && <img src={block.originalContentUrl} alt="" className="w-full max-h-40 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = 'none')} />}
               </div>
             ) : (
-              <UploadZone accept="image/jpeg,image/png,image/gif,image/webp" maxMB={1} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url, previewImageUrl: url })} isDark={isDark} previewType="image" />
+              <UploadZone accept="image/jpeg,image/png,image/gif,image/webp" maxMB={1} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url, previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
             )
           )}
 
@@ -283,10 +292,10 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
               </div>
             ) : (
               <div className="space-y-3">
-                <UploadZone accept="video/mp4,video/quicktime" maxMB={200} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url })} isDark={isDark} previewType="video" />
+                <UploadZone accept="video/mp4,video/quicktime" maxMB={200} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url })} isDark={isDark} isLite={isLite} previewType="video" />
                 <div>
                   <p className={`text-[11px] font-semibold uppercase tracking-widest mb-1.5 ${k.muted}`}>Thumbnail (required by LINE)</p>
-                  <UploadZone accept="image/jpeg,image/png,image/webp" maxMB={1} value={block.previewImageUrl} onUploaded={url => update(i, { previewImageUrl: url })} isDark={isDark} previewType="image" />
+                  <UploadZone accept="image/jpeg,image/png,image/webp" maxMB={1} value={block.previewImageUrl} onUploaded={url => update(i, { previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
                 </div>
               </div>
             )
@@ -299,7 +308,7 @@ function BlockComposer({ blocks, onChange, isDark }: { blocks: LineBlock[]; onCh
                 <input type="url" value={block.originalContentUrl ?? ''} onChange={e => update(i, { originalContentUrl: e.target.value })} placeholder="https://example.com/audio.m4a" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
               </div>
             ) : (
-              <UploadZone accept="audio/mpeg,audio/mp4,audio/m4a,audio/aac,audio/wav,audio/ogg" maxMB={1} value={block.originalContentUrl} onUploaded={(url, dur) => update(i, { originalContentUrl: url, duration: dur })} isDark={isDark} previewType="audio" />
+              <UploadZone accept="audio/mpeg,audio/mp4,audio/m4a,audio/aac,audio/wav,audio/ogg" maxMB={1} value={block.originalContentUrl} onUploaded={(url, dur) => update(i, { originalContentUrl: url, duration: dur })} isDark={isDark} isLite={isLite} previewType="audio" />
             )
           )}
 
@@ -588,7 +597,8 @@ function RmButtonEditor({ index, btn, onChange, isDark, k }: {
 
 export default function BroadcastsView({ theme, accentColor = '#00b900', onLimitHit }: BroadcastsViewProps) {
   const isDark = theme === 'dark';
-  const k = isDark ? DK : LK;
+  const isLite = theme === 'lite';
+  const k = isDark ? DK : isLite ? LITK : LK;
 
   const [section, setSection] = useState<'campaigns' | 'auto-reply' | 'greeting' | 'rich-menu'>('campaigns');
   const [lineStatus, setLineStatus] = useState<LineStatus | null>(null);
@@ -927,7 +937,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
 
             <div>
               <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message Content</label>
-              <BlockComposer blocks={bMessages} onChange={setBMessages} isDark={isDark} />
+              <BlockComposer blocks={bMessages} onChange={setBMessages} isDark={isDark} isLite={isLite} />
             </div>
 
             {bResult && (
@@ -1012,7 +1022,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
             {showQueuedForm && !activeCampaign && (
               <div className="space-y-4">
                 <input type="text" value={qName} onChange={e => setQName(e.target.value)} placeholder="Campaign name (optional)" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
-                <BlockComposer blocks={qMessages} onChange={setQMessages} isDark={isDark} />
+                <BlockComposer blocks={qMessages} onChange={setQMessages} isDark={isDark} isLite={isLite} />
                 <div>
                   <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Valid for</label>
                   <div className="flex gap-2 flex-wrap">
@@ -1131,7 +1141,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
           </div>
 
           {greeting.greetingEnabled && (
-            <BlockComposer blocks={greeting.greetingMessages.length > 0 ? greeting.greetingMessages : [{ type: 'text', text: '' }]} onChange={msgs => setGreeting(g => ({ ...g, greetingMessages: msgs }))} isDark={isDark} />
+            <BlockComposer blocks={greeting.greetingMessages.length > 0 ? greeting.greetingMessages : [{ type: 'text', text: '' }]} onChange={msgs => setGreeting(g => ({ ...g, greetingMessages: msgs }))} isDark={isDark} isLite={isLite} />
           )}
 
           <button onClick={handleSaveGreeting} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style={{ background: 'var(--accent-gradient)' }}>
@@ -1236,7 +1246,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               <div>
                 <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-1 ${k.muted}`}>Background Image</label>
                 <p className={`text-xs ${k.muted} mb-3`}>JPEG or PNG · max 1 MB · {rmSize === 'large' ? '2500×1686' : '2500×843'} px recommended</p>
-                <UploadZone accept="image/jpeg,image/png" maxMB={1} value={rmImageUrl} onUploaded={url => setRmImageUrl(url)} isDark={isDark} previewType="image" />
+                <UploadZone accept="image/jpeg,image/png" maxMB={1} value={rmImageUrl} onUploaded={url => setRmImageUrl(url)} isDark={isDark} isLite={isLite} previewType="image" />
               </div>
 
               {/* Button action editors */}
@@ -1288,7 +1298,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               </div>
               <div>
                 <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Reply Messages</label>
-                <BlockComposer blocks={rMessages} onChange={setRMessages} isDark={isDark} />
+                <BlockComposer blocks={rMessages} onChange={setRMessages} isDark={isDark} isLite={isLite} />
               </div>
             </div>
             <div className={`flex gap-2 px-6 py-4 border-t ${k.border}`}>

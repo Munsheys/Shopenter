@@ -80,20 +80,31 @@ const DK = {
   hover: 'hover:bg-white/5 transition-all duration-300',
   input: 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-accent',
 };
+const LITK = {
+  bg: 'bg-[#d9dfe8]',
+  surface: 'bg-[#e7ecf3] border border-[#cdd3dd]',
+  surfaceDeep: 'bg-[#dce1ea]',
+  border: 'border-[#cdd3dd]',
+  text: 'text-[#2f3744]',
+  muted: 'text-[#6d7a8c]',
+  hover: 'hover:bg-[#dce1ea] transition-all duration-300',
+  input: 'bg-[#f0f3f8] border-[#cdd3dd] text-[#2f3744] placeholder-[#7a8598] focus:border-accent',
+};
 const LK = {
-  bg: 'bg-slate-50', 
-  surface: 'bg-white shadow-sm border-slate-200/60', 
+  bg: 'bg-slate-50',
+  surface: 'bg-white shadow-sm border-slate-200/60',
   surfaceDeep: 'bg-slate-100/50',
-  border: 'border-slate-200', 
-  text: 'text-slate-900', 
+  border: 'border-slate-200',
+  text: 'text-slate-900',
   muted: 'text-slate-500',
-  hover: 'hover:bg-slate-50 transition-all duration-300', 
+  hover: 'hover:bg-slate-50 transition-all duration-300',
   input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent',
 };
 
 export default function CustomersView({ theme, onLimitHit }: { theme: string; onLimitHit?: (feature: string, limit?: number, current?: number) => void }) {
   const isDark = theme === 'dark';
-  const k = isDark ? DK : LK;
+  const isLite = theme === 'lite';
+  const k = isDark ? DK : isLite ? LITK : LK;
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
