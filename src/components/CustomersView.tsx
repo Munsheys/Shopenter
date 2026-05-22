@@ -545,9 +545,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         {listOpen ? (
           <>
             <div className={`flex items-center gap-2 px-4 py-3 border-b ${k.border} flex-shrink-0`}>
-              <div className="w-6 h-6 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-                <MessageCircle size={13} className="text-accent" />
-              </div>
+              <ChatBubbleIcon />
               <span className={`font-black text-xs flex-1 tracking-wide ${k.text}`}>
                 CUSTOMERS
                 {totalUnread > 0 && (
@@ -1323,6 +1321,17 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
       )}
 
       <ConfirmModal config={confirm} onClose={() => setConfirm(v => ({ ...v, open: false }))} isDark={isDark} k={k} />
+    </div>
+  );
+}
+
+function ChatBubbleIcon() {
+  return (
+    <div className="w-6 h-6 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0 relative">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent absolute">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <span className="text-accent font-bold text-[9px] leading-none z-10">S</span>
     </div>
   );
 }
