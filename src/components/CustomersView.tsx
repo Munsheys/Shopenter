@@ -113,6 +113,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatOpen, setChatOpen] = useState(true);
   const [listOpen, setListOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'parcel' | 'history'>('overview');
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
@@ -738,11 +740,42 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 >
                   <ShoppingCart size={12} /> New Order
                 </button>
+                <button
+                  onClick={() => setChatDrawerOpen(!chatDrawerOpen)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                    chatDrawerOpen
+                      ? 'text-white'
+                      : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  style={chatDrawerOpen ? { background: 'var(--accent)' } : undefined}
+                >
+                  <MessageCircle size={12} /> Chat
+                </button>
               </div>
             </div>
 
+            {/* Tab Navigation */}
+            <div className={`flex items-center gap-1 px-8 border-b ${k.border} flex-shrink-0 ${isDark ? 'bg-[#1a1d2e]' : 'bg-white'}`}>
+              {(['overview', 'orders', 'parcel', 'history'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
+                    activeTab === tab
+                      ? 'text-accent border-accent'
+                      : `${k.muted} border-transparent hover:text-accent`
+                  }`}
+                >
+                  {tab === 'overview' && 'Overview'}
+                  {tab === 'orders' && 'Active Orders'}
+                  {tab === 'parcel' && 'Parcels'}
+                  {tab === 'history' && 'History'}
+                </button>
+              ))}
+            </div>
+
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto relative">
               <div className="p-10 space-y-10 max-w-5xl mx-auto">
 
                 {/* Active Orders */}
@@ -879,27 +912,42 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             </div>
           </div>
 
-          {/* ── Chat panel ── */}
-          {chatOpen && (
-            <div
-              onMouseDown={startChatResize}
-              className={`w-1 flex-shrink-0 cursor-col-resize transition-colors hover:bg-accent/40 ${isDark ? 'bg-[#1f2335]' : 'bg-slate-200'}`}
-              title="Drag to resize"
-            />
-          )}
+          {/* ── Chat Drawer (Fixed Overlay) ── */}
           <div
-            className={`flex-shrink-0 flex border-l ${k.border}`}
-            style={{ width: chatOpen ? chatWidth + 32 : 32 }}
+            className={`fixed top-0 right-0 bottom-0 w-80 z-40 transform transition-transform duration-300 ease-out ${
+              chatDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+            } ${k.surface} border-l ${k.border} flex flex-col shadow-2xl`}
           >
-            <button
-              onClick={() => setChatOpen(v => !v)}
-              aria-label={chatOpen ? 'Collapse chat' : 'Expand chat'}
-              className={`w-8 flex-shrink-0 flex items-center justify-center ${k.muted} ${k.hover} border-r ${k.border} transition-colors`}
-            >
-              {chatOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-            </button>
-            {chatOpen && (
-              <div className={`flex-1 flex flex-col min-w-0 ${k.surface}`}>
+            <div className={`flex items-center justify-between px-4 py-4 border-b ${k.border} flex-shrink-0`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-8 h-8 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-xs font-bold flex-shrink-0`}>
+                  {(selectedCustomer.displayName || '?')[0].toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-xs font-bold truncate ${k.text}`}>{selectedCustomer.displayName}</p>
+                  <p className={`text-[10px] ${k.muted}`}>LINE Chat</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setChatDrawerOpen(false)}
+                className={`p-1.5 rounded-lg ${k.muted} hover:text-accent transition-colors`}
+                aria-label="Close chat"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {selectedCustomer.unreadCount > 0 && (
+              <div className={`px-4 py-2 border-b ${k.border} flex-shrink-0`}>
+                <button
+                  onClick={markAsRead}
+                  className="w-full text-[10px] px-2 py-1.5 rounded-lg bg-accent/10 text-accent font-bold hover:bg-accent/20 transition-colors whitespace-nowrap"
+                >
+                  Mark as read
+                </button>
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+              <div className={`flex-1 flex flex-col min-w-0`}>
                 <div className={`flex items-center gap-2.5 px-3 py-3 border-b ${k.border} flex-shrink-0`}>
                   <div className={`w-7 h-7 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0`}>
                     {(selectedCustomer.displayName || '?')[0].toUpperCase()}
@@ -988,31 +1036,37 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                       </div>
                     );
                   })}
-                  {messages.length === 0 && <p className={`text-[11px] text-center ${k.muted} pt-6`}>No messages yet</p>}
-                  <div ref={messagesEndRef} />
-                </div>
-                <div className={`flex items-center gap-2 px-3 py-2.5 border-t ${k.border} flex-shrink-0`}>
-                  <input
-                    value={inputText}
-                    onChange={e => setInputText(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                    placeholder="Type a message..."
-                    aria-label="Chat message input"
-                    className={`flex-1 text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all ${k.input}`}
-                  />
-                  <button
-                    onClick={sendMessage}
-                    disabled={!inputText.trim() || sending}
-                    aria-label="Send message"
-                    className="hover:opacity-90 disabled:opacity-40 text-white rounded-xl w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
-                    style={{ background: 'var(--accent-gradient)' }}
-                  >
-                    <Send size={13} />
-                  </button>
-                </div>
+                {messages.length === 0 && <p className={`text-[11px] text-center ${k.muted} pt-6`}>No messages yet</p>}
+              <div ref={messagesEndRef} />
               </div>
-            )}
+            </div>
+            <div className={`flex items-center gap-2 px-4 py-3 border-t ${k.border} flex-shrink-0`}>
+              <input
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder="Type a message..."
+                aria-label="Chat message input"
+                className={`flex-1 text-xs rounded-lg px-3 py-2 border outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all ${k.input}`}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!inputText.trim() || sending}
+                aria-label="Send message"
+                className="hover:opacity-90 disabled:opacity-40 text-white rounded-lg w-8 h-8 flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                <Send size={13} />
+              </button>
+            </div>
           </div>
+
+          {chatDrawerOpen && (
+            <div
+              className="fixed inset-0 z-30 bg-black/20"
+              onClick={() => setChatDrawerOpen(false)}
+            />
+          )}
         </>
       )}
 
