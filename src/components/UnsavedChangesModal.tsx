@@ -33,26 +33,26 @@ export default function UnsavedChangesModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className={cn(
         "rounded-2xl border shadow-2xl p-6 max-w-md w-full mx-4 space-y-4",
-        isDark ? "bg-[#161925] border-[#1f2335]" : isLite ? "bg-[#fafbfc] border-[#e5e7eb]" : "bg-white border-gray-200"
+        isDark ? "bg-[#161925] border-[#1f2335]" : isLite ? "bg-[#f2f3f7] border-[#d4d7e0]" : "bg-white border-gray-200"
       )}>
         {/* Icon + Title */}
         <div className="flex items-start gap-4">
           <div className={cn(
             "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-            isDark ? "bg-amber-500/20 text-amber-500" : isLite ? "bg-amber-100 text-amber-600" : "bg-amber-100 text-amber-600"
+            isDark ? "bg-amber-500/20 text-amber-500" : isLite ? "bg-amber-200 text-amber-700" : "bg-amber-100 text-amber-600"
           )}>
             <AlertTriangle size={20} />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className={cn(
               "text-base font-bold",
-              isDark ? "text-white" : isLite ? "text-[#1f2235]" : "text-gray-900"
+              isDark ? "text-white" : isLite ? "text-[#2a2d3a]" : "text-gray-900"
             )}>
               Unsaved Changes
             </h3>
             <p className={cn(
               "text-sm mt-1",
-              isDark ? "text-[#8b92ad]" : isLite ? "text-[#6b7280]" : "text-gray-500"
+              isDark ? "text-[#8b92ad]" : isLite ? "text-[#737982]" : "text-gray-500"
             )}>
               Do you want to save your changes before leaving?
             </p>
@@ -69,7 +69,7 @@ export default function UnsavedChangesModal({
               isDark
                 ? "border-[#1f2335] text-[#8b92ad] hover:bg-white/5 disabled:opacity-50"
                 : isLite
-                ? "border-[#e5e7eb] text-[#6b7280] hover:bg-gray-50 disabled:opacity-50"
+                ? "border-[#d4d7e0] text-[#737982] hover:bg-[#dfe2eb] disabled:opacity-50"
                 : "border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
             )}
           >
@@ -83,7 +83,7 @@ export default function UnsavedChangesModal({
               isDark
                 ? "border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
                 : isLite
-                ? "border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                ? "border-red-400 text-red-700 hover:bg-red-100 disabled:opacity-50"
                 : "border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
             )}
           >

@@ -252,7 +252,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : isLite ? 'bg-[#f5f6f9] text-[#1f2235]' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`} style={{ '--accent': accentColor, '--accent-gradient': accentGradient || accentColor, '--accent-text': getAccentText(accentColor) } as React.CSSProperties}>
+    <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : isLite ? 'bg-[#e8eaee] text-[#2a2d3a]' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`} style={{ '--accent': accentColor, '--accent-gradient': accentGradient || accentColor, '--accent-text': getAccentText(accentColor) } as React.CSSProperties}>
       <style>{`
         @keyframes navglow {
           0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); opacity: 0.85; }
@@ -265,7 +265,7 @@ export default function DashboardPage() {
       `}</style>
 
       {/* ── Top navbar ── */}
-      <header className={`flex items-center h-14 border-b flex-shrink-0 ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : isLite ? 'bg-[#fafbfc] border-[#e5e7eb]' : 'bg-white border-gray-200'} transition-colors duration-300`}>
+      <header className={`flex items-center h-14 border-b flex-shrink-0 ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : isLite ? 'bg-[#f2f3f7] border-[#d4d7e0]' : 'bg-white border-gray-200'} transition-colors duration-300`}>
 
         {/* Brand */}
         <div className={`flex items-center gap-3 px-5 h-full flex-shrink-0 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#e5e7eb]' : 'border-gray-200'}`}>
@@ -362,7 +362,7 @@ export default function DashboardPage() {
               )}
             </button>
             {notifOpen && (
-              <div className={`absolute right-0 top-10 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#fafbfc] border-[#e5e7eb]' : 'bg-white border-[#e2e5ef]'}`}>
+              <div className={`absolute right-0 top-10 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#f2f3f7] border-[#d4d7e0]' : 'bg-white border-[#e2e5ef]'}`}>
                 <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#e5e7eb]' : 'border-[#e2e5ef]'}`}>
                   <span className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>Notifications</span>
                   <button onClick={() => setNotifOpen(false)} className="text-[#8b92ad] hover:text-red-400"><X size={14} /></button>

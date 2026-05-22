@@ -333,15 +333,15 @@ export default function SettingsView({
 
   // ── Style tokens ─────────────────────────────────────────────────────────────
   const K = {
-    bg:      isDark ? 'bg-[#0f1117]'                          : isLite ? 'bg-[#f5f6f9]'                         : 'bg-slate-50',
-    surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : isLite ? 'bg-[#fafbfc] border border-[#e5e7eb]' : 'bg-white border border-slate-200',
-    text:    isDark ? 'text-white'                            : isLite ? 'text-[#1f2235]'                        : 'text-slate-900',
+    bg:      isDark ? 'bg-[#0f1117]'                          : isLite ? 'bg-[#e8eaee]'                         : 'bg-slate-50',
+    surface: isDark ? 'bg-[#161925] border border-[#1f2335]' : isLite ? 'bg-[#f2f3f7] border border-[#d4d7e0]' : 'bg-white border border-slate-200',
+    text:    isDark ? 'text-white'                            : isLite ? 'text-[#2a2d3a]'                        : 'text-slate-900',
     muted:   isDark ? 'text-[#8b92ad]'                       : isLite ? 'text-[#6b7280]'                        : 'text-slate-500',
-    border:  isDark ? 'border-[#1f2335]'                     : isLite ? 'border-[#e5e7eb]'                      : 'border-slate-200',
+    border:  isDark ? 'border-[#1f2335]'                     : isLite ? 'border-[#d4d7e0]'                      : 'border-slate-200',
     inp:     isDark
       ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad] focus:border-accent focus:outline-none'
       : isLite
-      ? 'bg-[#ffffff] border-[#e5e7eb] text-[#1f2235] placeholder-[#9ca3af] focus:border-accent focus:outline-none'
+      ? 'bg-[#f7f8fa] border-[#d4d7e0] text-[#2a2d3a] placeholder-[#8a8f9d] focus:border-accent focus:outline-none'
       : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none',
   };
 
@@ -492,7 +492,7 @@ export default function SettingsView({
                     <label className={lbl}>Accent Color</label>
                     <div className="mt-2 space-y-3">
                       {/* Tab switcher */}
-                      <div className={`flex p-0.5 rounded-lg ${isDark ? 'bg-[#0f1117]' : isLite ? 'bg-[#eff0f5]' : 'bg-slate-100'}`}>
+                      <div className={`flex p-0.5 rounded-lg ${isDark ? 'bg-[#0f1117]' : isLite ? 'bg-[#dfe2eb]' : 'bg-slate-100'}`}>
                         {(['solid', 'gradient'] as const).map(tab => (
                           <button key={tab} onClick={() => setAccentTab(tab)}
                             className={`flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all capitalize ${
