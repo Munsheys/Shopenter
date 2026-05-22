@@ -61,6 +61,10 @@ export default function ShopOrdersView({
   const [viewMode, setViewMode] = useState<'standard' | 'compact'>('standard');
   const [orderView, setOrderView] = useState<'new' | 'all'>('all');
 
+  // Sorting
+  const [sortField, setSortField] = useState<'createdAt' | 'soldTHB' | 'status' | 'displayName' | null>('createdAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
   const allStatuses = ['pending', 'paid', 'preparing', 'shipped', 'delivered'];
   const newOrderStatuses = ['pending', 'paid'];
 
@@ -142,11 +146,31 @@ export default function ShopOrdersView({
   // Filter orders based on selected statuses
   const filteredOrders = orders?.filter(o => selectedStatuses.includes(o.status)) || [];
 
+  // Sort orders
+  const sortedOrders = React.useMemo(() => {
+    if (!sortField) return filteredOrders;
+    return [...filteredOrders].sort((a, b) => {
+      let av: any = a[sortField as keyof Order];
+      let bv: any = b[sortField as keyof Order];
+      // Status uses fixed workflow order
+      if (sortField === 'status') {
+        const order = ['pending', 'paid', 'preparing', 'shipped', 'delivered'];
+        av = order.indexOf(av);
+        bv = order.indexOf(bv);
+      }
+      if (typeof av === 'string') av = av.toLowerCase();
+      if (typeof bv === 'string') bv = bv.toLowerCase();
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredOrders, sortField, sortDir]);
+
   // Pagination
-  const totalPages = pageSize === Infinity ? 1 : Math.ceil(filteredOrders.length / pageSize);
+  const totalPages = pageSize === Infinity ? 1 : Math.ceil(sortedOrders.length / pageSize);
   const paginatedOrders = pageSize === Infinity
-    ? filteredOrders
-    : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    ? sortedOrders
+    : sortedOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const stats = {
     revenue:   filteredOrders.reduce((sum, o) => sum + (o.soldTHB || 0), 0) || 0,
@@ -189,6 +213,41 @@ export default function ShopOrdersView({
     setCurrentPage(1);
   };
 
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const SortHeader = ({ field, label, align = 'left' }: { field: typeof sortField, label: string, align?: 'left' | 'right' }) => {
+    const active = sortField === field;
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className={cn(
+          "px-6 py-5 cursor-pointer select-none hover:opacity-75 transition-opacity",
+          align === 'right' ? 'text-right' : ''
+        )}
+      >
+        <div className={cn("flex items-center gap-2", align === 'right' ? 'justify-end' : 'justify-start')}>
+          <span>{label}</span>
+          <span className="flex flex-col -space-y-1 leading-none">
+            <ChevronUp
+              size={9}
+              className={active && sortDir === 'asc' ? 'text-accent' : 'opacity-30'}
+            />
+            <ChevronDown
+              size={9}
+              className={active && sortDir === 'desc' ? 'text-accent' : 'opacity-30'}
+            />
+          </span>
+        </div>
+      </th>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 pb-12">
@@ -399,15 +458,15 @@ export default function ShopOrdersView({
                 "text-[10px] font-black uppercase tracking-widest border-b transition-colors",
                 theme === 'dark' ? "bg-[#1f2335] text-[#8b92ad] border-[#2d324d]" : "bg-[#f8f9fc] text-[#8b92ad] border-[#e2e5ef]"
               )}>
-                <th className="px-6 py-5">Order Details</th>
+                <SortHeader field="createdAt" label="Order Details" />
                 {viewMode === 'standard' && (
                   <>
-                    <th className="px-6 py-5">Customer</th>
+                    <SortHeader field="displayName" label="Customer" />
                     <th className="px-6 py-5">Items</th>
                   </>
                 )}
-                <th className="px-6 py-5">Total</th>
-                <th className="px-6 py-5 text-center">Status</th>
+                <SortHeader field="soldTHB" label="Total" align="left" />
+                <SortHeader field="status" label="Status" align="left" />
                 <th className="px-6 py-5 text-right">Actions</th>
               </tr>
             </thead>
@@ -645,18 +704,37 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+function ChevronUp(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m18 15-6-6-6 6"/>
+    </svg>
+  );
+}
+
 function ChevronDown(props: any) {
   return (
-    <svg 
-      {...props} 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
       strokeLinejoin="round"
     >
       <path d="m6 9 6 6 6-6"/>

@@ -140,6 +140,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   const [qoSubmitting, setQoSubmitting] = useState(false);
 
   const [selectedAddressIdx, setSelectedAddressIdx] = useState(0);
+  const [showFindCustomerModal, setShowFindCustomerModal] = useState(false);
+  const [findCustomerSearch, setFindCustomerSearch] = useState('');
 
   const [confirm, setConfirm] = useState<{
     open: boolean;
@@ -526,6 +528,10 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
     !customerSearch || c.displayName.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
+  const findCustomerResults = customers.filter(c =>
+    !findCustomerSearch || c.displayName.toLowerCase().includes(findCustomerSearch.toLowerCase())
+  );
+
   const totalUnread = customers.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   return (
@@ -642,11 +648,12 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         ) : (
           <div className="flex flex-col items-center py-2 gap-2 flex-1 overflow-y-auto">
             <button
-              onClick={() => setListOpen(true)}
-              aria-label="Expand customer list"
+              onClick={() => setShowFindCustomerModal(true)}
+              aria-label="Find customer"
+              title="Find customer"
               className={`w-8 h-8 rounded-xl flex items-center justify-center ${k.muted} ${k.hover} flex-shrink-0 transition-colors`}
             >
-              <ChevronRight size={14} />
+              <Search size={14} />
             </button>
             {customers.map(c => {
               const ac = avatarColor(c.displayName);
@@ -1194,6 +1201,125 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
           theme={isDark ? 'dark' : 'light'}
           quickOrderMode={true}
         />
+      )}
+
+      {/* Find Customer Modal */}
+      {showFindCustomerModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${isDark ? 'bg-[#161925]' : 'bg-white'}`}>
+            {/* Modal Header */}
+            <div className={`px-6 py-5 border-b ${k.border} flex-shrink-0 text-center`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 ${isDark ? 'bg-accent/10' : 'bg-accent/5'}`}>
+                <Package size={24} className="text-accent" />
+              </div>
+              <h3 className={`text-lg font-black ${k.text}`}>Finding customers...</h3>
+            </div>
+
+            {/* Search Input */}
+            <div className={`px-6 py-3 border-b ${k.border} flex-shrink-0`}>
+              <div className="relative">
+                <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${k.muted}`} />
+                <input
+                  autoFocus
+                  type="text"
+                  value={findCustomerSearch}
+                  onChange={(e) => setFindCustomerSearch(e.target.value)}
+                  placeholder="Search customer name..."
+                  className={`w-full text-sm rounded-xl pl-10 pr-4 py-3 border outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all ${k.input}`}
+                />
+              </div>
+            </div>
+
+            {/* Results List */}
+            <div className="flex-1 overflow-y-auto">
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 py-8 text-[#8b92ad]">
+                  <div className="w-5 h-5 border-2 border-t-transparent border-accent rounded-full animate-spin" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Syncing customers...</span>
+                </div>
+              ) : findCustomerResults.length === 0 && findCustomerSearch ? (
+                <div className={`text-center px-4 py-8 text-xs ${k.muted}`}>
+                  No results for "{findCustomerSearch}"
+                </div>
+              ) : findCustomerResults.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full px-4 gap-3 py-8">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'}`}>
+                    <MessageCircle size={20} className={`${k.muted} opacity-40`} />
+                  </div>
+                  <p className={`text-xs font-semibold ${k.text}`}>No customers yet</p>
+                </div>
+              ) : (
+                <div className="divide-y" style={{ borderColor: k.border.split('border-')[1] }}>
+                  {findCustomerResults.map((c) => {
+                    const ac = avatarColor(c.displayName);
+                    const isSelected = selectedCustomer?._id === c._id;
+                    return (
+                      <button
+                        key={c._id}
+                        onClick={() => {
+                          selectCustomer(c);
+                          setShowFindCustomerModal(false);
+                          setFindCustomerSearch('');
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3.5 transition-all text-left hover:bg-accent/5 active:bg-accent/10 ${
+                          isSelected ? (isDark ? 'bg-accent/10' : 'bg-accent/5') : ''
+                        }`}
+                      >
+                        <div className="relative flex-shrink-0">
+                          {c.pictureUrl ? (
+                            <img src={c.pictureUrl} alt={c.displayName} className="w-10 h-10 rounded-full object-cover" />
+                          ) : (
+                            <div className={`w-10 h-10 rounded-full ${ac} text-white flex items-center justify-center text-xs font-bold`}>
+                              {(c.displayName || '?')[0].toUpperCase()}
+                            </div>
+                          )}
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-bold truncate ${k.text}`}>{c.displayName}</p>
+                          <p className={`text-[10px] mt-0.5 ${k.muted}`}>
+                            Last updated: {new Date(c.lastSeen).toLocaleDateString()}
+                          </p>
+                        </div>
+                        {c.unreadCount > 0 && (
+                          <span className="flex-shrink-0 w-6 h-6 bg-green-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                            {c.unreadCount > 9 ? '9+' : c.unreadCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className={`px-6 py-4 border-t ${k.border} flex-shrink-0 flex items-center gap-3 justify-end`}>
+              <button
+                onClick={() => {
+                  setShowFindCustomerModal(false);
+                  setFindCustomerSearch('');
+                }}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                  isDark ? 'text-[#8b92ad] hover:text-white' : 'text-[#6b7280] hover:text-[#1f2937]'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!selectedCustomer}
+                onClick={() => {
+                  setShowFindCustomerModal(false);
+                  setFindCustomerSearch('');
+                }}
+                className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <ConfirmModal config={confirm} onClose={() => setConfirm(v => ({ ...v, open: false }))} isDark={isDark} k={k} />
