@@ -947,26 +947,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               </div>
             )}
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-              <div className={`flex-1 flex flex-col min-w-0`}>
-                <div className={`flex items-center gap-2.5 px-3 py-3 border-b ${k.border} flex-shrink-0`}>
-                  <div className={`w-7 h-7 rounded-full ${avatarColor(selectedCustomer.displayName)} text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0`}>
-                    {(selectedCustomer.displayName || '?')[0].toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-bold truncate ${k.text}`}>{selectedCustomer.displayName}</p>
-                    <p className={`text-[10px] ${k.muted}`}>LINE Chat</p>
-                  </div>
-                  {selectedCustomer.unreadCount > 0 && (
-                    <button
-                      onClick={markAsRead}
-                      className="text-[10px] px-2 py-1 rounded-full bg-accent/10 text-accent font-bold hover:bg-accent/20 transition-colors whitespace-nowrap"
-                    >
-                      Mark read
-                    </button>
-                  )}
-                </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-                  {messages.map(msg => {
+              {messages.map(msg => {
                     const timeStr = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     if (msg.sender === 'system') {
                       const t = msg.text;
@@ -1035,10 +1016,9 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                         </div>
                       </div>
                     );
-                  })}
-                {messages.length === 0 && <p className={`text-[11px] text-center ${k.muted} pt-6`}>No messages yet</p>}
+              })}
+              {messages.length === 0 && <p className={`text-[11px] text-center ${k.muted} pt-6`}>No messages yet</p>}
               <div ref={messagesEndRef} />
-              </div>
             </div>
             <div className={`flex items-center gap-2 px-4 py-3 border-t ${k.border} flex-shrink-0`}>
               <input
