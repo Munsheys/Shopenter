@@ -438,7 +438,7 @@ export default function DashboardPage() {
         </div>
 
         <div key={`orders-${refreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
-          <ShopOrdersView theme={theme} t={{}} onLimitHit={handleLimitHit} />
+          <ShopOrdersView theme={theme} t={{}} onLimitHit={handleLimitHit} onViewCustomer={() => setActiveTab('customers')} />
         </div>
 
         <div key={`products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto' : 'hidden'}>
@@ -493,7 +493,7 @@ export default function DashboardPage() {
               ...settings?.storefront,
             }}
             theme={theme}
-            accentColor={accentColor}
+            dashboardAccentColor={accentColor}
             onSave={handleSaveStorefront}
             onSaveSlug={handleSaveSlug}
           />

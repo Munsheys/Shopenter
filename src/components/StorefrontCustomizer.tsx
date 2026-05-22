@@ -49,7 +49,7 @@ interface Props {
   slug?: string | null;
   initial?: Partial<StorefrontConfig>;
   theme?: 'light' | 'dark';
-  accentColor?: string;
+  dashboardAccentColor?: string;
   onSave: (config: StorefrontConfig) => Promise<void>;
   onSaveSlug: (slug: string) => Promise<{ ok: boolean; error?: string }>;
 }
@@ -159,7 +159,7 @@ function Card({ title, description, icon, children, isDark }: { title: string; d
   );
 }
 
-export default function StorefrontCustomizer({ shopName, slug: initialSlug, initial, theme = 'light', accentColor = '#00b900', onSave, onSaveSlug }: Props) {
+export default function StorefrontCustomizer({ shopName, slug: initialSlug, initial, theme = 'light', dashboardAccentColor = '#00b900', onSave, onSaveSlug }: Props) {
   const isDark = theme === 'dark';
   const [config, setConfig] = useState<StorefrontConfig>({ ...DEFAULT_CONFIG, ...initial });
   const [saving, setSaving] = useState(false);
@@ -183,9 +183,11 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   const [slugError, setSlugError] = useState('');
 
   const p = resolvePreset(config.preset, config.accentColor);
-  const accent = config.accentColor || accentColor;
+  const dashboardAccent = dashboardAccentColor;
+  const dashboardAccentText = getAccentText(dashboardAccent);
+  const accent = config.accentColor || '#00b900';
   const localAccentBg = config.accentGradient || accent;
-  const accentTextColor = getAccentText(accent || '#00b900');
+  const accentTextColor = getAccentText(accent);
 
   function set<K extends keyof StorefrontConfig>(key: K, value: StorefrontConfig[K]) {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -213,7 +215,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   }
 
   const lbl = `text-xs font-medium block mb-1.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`;
-  const inputCls = `w-full border rounded-xl px-3 py-2.5 text-sm bg-transparent focus:outline-none focus:ring-2 transition-all ${isDark ? 'border-[#2a2f45] text-white placeholder-[#4a5068] focus:border-accent focus:ring-accent/20' : 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent focus:ring-accent/20'}`;
+  const inputCls = `w-full border rounded-xl px-3 py-2.5 text-sm bg-transparent focus:outline-none focus:ring-2 transition-all ${isDark ? 'border-[#2a2f45] text-white placeholder-[#4a5068]' : 'border-slate-200 text-slate-900 placeholder-slate-400'}`;
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'identity', label: 'Identity',  icon: <User size={14} />,            desc: 'Name, logo & timezone'     },
@@ -240,13 +242,13 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
               }`}
             >
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${active ? '' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}
-                style={active ? { background: localAccentBg, color: accentTextColor } : undefined}>
+                style={active ? { background: dashboardAccent, color: dashboardAccentText } : undefined}>
                 {tab.icon}
               </div>
               <div className="min-w-0">
                 <p className={`text-xs font-semibold leading-tight truncate ${active ? isDark ? 'text-white' : 'text-slate-900' : isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>{tab.label}</p>
               </div>
-              {active && <ChevronRight size={12} className="ml-auto flex-shrink-0" style={{ color: accent }} />}
+              {active && <ChevronRight size={12} className="ml-auto flex-shrink-0" style={{ color: dashboardAccent }} />}
             </button>
           );
         })}
@@ -255,7 +257,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         <div className="pt-4">
           <button onClick={handleSave} disabled={saving}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
-            style={{ background: saved ? '#10b981' : localAccentBg, color: saved ? '#ffffff' : accentTextColor }}>
+            style={{ background: saved ? '#10b981' : dashboardAccent, color: saved ? '#ffffff' : dashboardAccentText }}>
             {saved ? <><Check size={13} />Saved!</> : saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : <><Save size={13} />Save</>}
           </button>
         </div>
@@ -282,7 +284,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             </Card>
 
             <Card title="Shop Logo" description="Square images work best. Shown in your store header." icon={<ImageIcon size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
-              <LogoUpload value={config.shopLogoUrl} onChange={url => set('shopLogoUrl', url)} isDark={isDark} accent={accent} />
+              <LogoUpload value={config.shopLogoUrl} onChange={url => set('shopLogoUrl', url)} isDark={isDark} accent={dashboardAccent} />
             </Card>
 
             <Card title="Timezone" description="Used for business hours and scheduled messages." icon={<Globe size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
@@ -310,7 +312,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   return (
                     <button key={preset.id} onClick={() => set('preset', preset.id)}
                       className={`relative rounded-xl border-2 overflow-hidden text-left transition-all hover:scale-[1.02] ${active ? 'shadow-lg' : 'border-transparent hover:border-white/10'}`}
-                      style={active ? { borderColor: accent, boxShadow: `0 8px 20px -4px ${accent}40` } : undefined}>
+                      style={active ? { borderColor: dashboardAccent, boxShadow: `0 8px 20px -4px ${dashboardAccent}40` } : undefined}>
                       <div className="h-14 flex gap-1 p-2" style={{ background: preset.pageBg }}>
                         <div className="flex-1 rounded-md" style={{ background: preset.cardBg, border: `1px solid ${preset.cardBorder}` }} />
                         <div className="flex-1 rounded-md" style={{ background: preset.cardBg, border: `1px solid ${preset.cardBorder}` }} />
@@ -321,7 +323,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                         <p className="text-[10px]" style={{ color: preset.textMuted }}>{preset.description}</p>
                       </div>
                       {active && (
-                        <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: accent }}>
+                        <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: dashboardAccent }}>
                           <Check size={10} className="text-white" />
                         </div>
                       )}
@@ -340,7 +342,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                       className={`flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all capitalize ${
                         accentTab === tab ? '' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'
                       }`}
-                      style={accentTab === tab ? { background: localAccentBg, color: accentTextColor } : undefined}
+                      style={accentTab === tab ? { background: dashboardAccent, color: dashboardAccentText } : undefined}
                     >
                       {tab}
                     </button>
@@ -504,7 +506,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                                     ? 'border-transparent'
                                     : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'
                                 }`}
-                                style={customG.angle === a.deg ? { background: localAccentBg, color: accentTextColor } : undefined}
+                                style={customG.angle === a.deg ? { background: dashboardAccent, color: dashboardAccentText } : undefined}
                               >
                                 {a.icon}
                               </button>
@@ -535,7 +537,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                               setShowCustomGradBuilder(false);
                             }}
                             className="px-3 py-1 rounded-lg text-[10px] font-bold flex-shrink-0 hover:opacity-90 transition-opacity"
-                            style={{ background: localAccentBg, color: accentTextColor }}
+                            style={{ background: dashboardAccent, color: dashboardAccentText }}
                           >
                             Add
                           </button>
@@ -581,7 +583,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>Enable announcement</p>
                     <p className={`text-xs mt-0.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Show a message bar above everything</p>
                   </div>
-                  <Toggle enabled={config.announcementEnabled} onChange={v => set('announcementEnabled', v)} accent={accent} />
+                  <Toggle enabled={config.announcementEnabled} onChange={v => set('announcementEnabled', v)} accent={dashboardAccent} />
                 </div>
                 {config.announcementEnabled && (
                   <>
@@ -616,7 +618,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
                       config.cardLayout === opt.id ? 'text-white shadow-md' : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:border-[#3a3f55]' : 'border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
-                    style={config.cardLayout === opt.id ? { backgroundColor: accent, borderColor: accent } : undefined}>
+                    style={config.cardLayout === opt.id ? { backgroundColor: dashboardAccent, borderColor: dashboardAccent } : undefined}>
                     {opt.icon}
                     <div>
                       <p className="text-sm font-semibold">{opt.label}</p>
@@ -640,7 +642,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                       <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{label}</p>
                       <p className={`text-xs ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>{desc}</p>
                     </div>
-                    <Toggle enabled={!!config[key]} onChange={v => set(key, v as any)} accent={accent} />
+                    <Toggle enabled={!!config[key]} onChange={v => set(key, v as any)} accent={dashboardAccent} />
                   </div>
                 ))}
               </div>
@@ -675,7 +677,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 </div>
                 <button onClick={handleSaveSlug} disabled={slugSaving || !slugInput.trim()}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
-                  style={{ backgroundColor: slugSaved ? '#10b981' : accent }}>
+                  style={{ backgroundColor: slugSaved ? '#10b981' : dashboardAccent }}>
                   {slugSaved ? <><Check size={14} />Handle saved</> : slugSaving ? 'Saving…' : <><Link size={14} />Apply handle</>}
                 </button>
                 {slugError && <p className="text-xs text-red-400">{slugError}</p>}
@@ -696,7 +698,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>Store offline</p>
                     <p className={`text-xs mt-0.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Visitors see a maintenance page instead of products</p>
                   </div>
-                  <Toggle enabled={config.maintenanceMode} onChange={v => set('maintenanceMode', v)} accent={accent} />
+                  <Toggle enabled={config.maintenanceMode} onChange={v => set('maintenanceMode', v)} accent={dashboardAccent} />
                 </div>
                 {config.maintenanceMode && (
                   <div className={`rounded-xl p-4 border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>

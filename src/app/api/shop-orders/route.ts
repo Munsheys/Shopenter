@@ -13,7 +13,12 @@ export async function GET(req: NextRequest) {
   const filter: any = { merchantId: merchant.merchantId };
 
   if (searchParams.get('customerId')) filter.lineUserId = searchParams.get('customerId');
-  if (searchParams.get('status')) filter.status = searchParams.get('status');
+
+  const statusParam = searchParams.get('status');
+  if (statusParam) {
+    const statuses = statusParam.split(',').map(s => s.trim());
+    filter.status = statuses.length === 1 ? statuses[0] : { $in: statuses };
+  }
 
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
