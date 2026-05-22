@@ -110,12 +110,14 @@ export default function SettingsView({
   onThemeChange,
   onAccentChange,
   scrollTrigger,
+  onDirtyChange,
 }: {
   theme?: 'light' | 'lite' | 'dark';
   onSave?: () => void;
   onThemeChange?: (newTheme: 'light' | 'lite' | 'dark') => void;
   onAccentChange?: (newColor: string, gradient?: string | null) => void;
   scrollTrigger?: { section: string; id: number } | null;
+  onDirtyChange?: (isDirty: boolean) => void;
 }) {
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
@@ -134,6 +136,7 @@ export default function SettingsView({
   const [isSaving,  setIsSaving]      = useState(false);
   const [saved,     setSaved]         = useState(false);
   const [saveError, setSaveError]     = useState('');
+  const [originalSettings, setOriginalSettings] = useState<any>(null);
 
   const [customG, setCustomG] = useState<{ c1: string; c2: string; angle: number | 'radial' }>({ c1: '#8b5cf6', c2: '#ec4899', angle: 135 });
   const [accentTab, setAccentTab] = useState<'solid' | 'gradient'>('solid');
@@ -181,10 +184,26 @@ export default function SettingsView({
   useEffect(() => {
     if (!settings || customInitRef.current) return;
     customInitRef.current = true;
+    setOriginalSettings(settings);
     if (settings.dashboardAccentGradient) setAccentTab('gradient');
     if (Array.isArray(settings.dashboardCustomSolids)) setCustomSolids(settings.dashboardCustomSolids.slice(0, 3));
     if (Array.isArray(settings.dashboardCustomGradients)) setCustomGrads(settings.dashboardCustomGradients.slice(0, 3));
   }, [settings]);
+
+  // Track unsaved changes (excluding theme and accent which auto-save)
+  useEffect(() => {
+    if (!settings || !originalSettings) {
+      onDirtyChange?.(false);
+      return;
+    }
+
+    const isModified = Object.keys(settings).some(key => {
+      if (['theme', 'dashboardAccent', 'dashboardAccentGradient'].includes(key)) return false;
+      return JSON.stringify(settings[key]) !== JSON.stringify(originalSettings[key]);
+    });
+
+    onDirtyChange?.(isModified);
+  }, [settings, originalSettings, onDirtyChange]);
 
   const scrollTo = useCallback((id: string) => {
     const container = containerRef.current;

@@ -15,6 +15,7 @@ import FloatingGuide from '@/components/FloatingGuide';
 import FeedbackView from '@/components/FeedbackView';
 import CouponsView from '@/components/CouponsView';
 import UpgradePrompt from '@/components/UpgradePrompt';
+import UnsavedChangesModal from '@/components/UnsavedChangesModal';
 import { type Tier, getTierLabel, checkBooleanFeature } from '@/lib/tiers';
 import { getAccentText } from '@/lib/accent';
 
@@ -53,6 +54,10 @@ export default function DashboardPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const [pendingTab, setPendingTab] = useState<Tab | null>(null);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const [topNavStyle, setTopNavStyle] = useState<React.CSSProperties>({});
   const topNavContainerRef = useRef<HTMLElement>(null);
@@ -210,6 +215,44 @@ export default function DashboardPage() {
     setUpgradePrompt({ feature, limit, current });
   }, []);
 
+  const handleSaveSettings = useCallback(async () => {
+    setIsSavingSettings(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+      if (res.ok) {
+        setSettingsDirty(false);
+        if (pendingTab) {
+          setActiveTab(pendingTab);
+          setPendingTab(null);
+        }
+        setShowUnsavedModal(false);
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  }, [settings, pendingTab]);
+
+  const handleDiscardSettings = useCallback(() => {
+    setSettingsDirty(false);
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
+    setShowUnsavedModal(false);
+    refreshSettings();
+  }, [pendingTab, refreshSettings]);
+
+  const handleCancelNavigation = useCallback(() => {
+    setShowUnsavedModal(false);
+    setPendingTab(null);
+  }, []);
+
   useEffect(() => {
     const updateTopNav = () => {
       if (!topNavContainerRef.current) return;
@@ -305,7 +348,14 @@ export default function DashboardPage() {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                if (activeTab === 'settings' && settingsDirty && tab.id !== 'settings') {
+                  setPendingTab(tab.id);
+                  setShowUnsavedModal(true);
+                } else {
+                  setActiveTab(tab.id);
+                }
+              }}
               className={`relative flex items-center gap-2 px-3 h-full text-[13px] font-bold transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? `${isDark ? 'text-white' : 'text-gray-900'}`
@@ -459,7 +509,7 @@ export default function DashboardPage() {
         </div>
 
         <div key={`settings-${refreshKey}`} className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-          <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} />
+          <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} onDirtyChange={setSettingsDirty} />
         </div>
 
         <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6' : 'hidden'}>
@@ -519,6 +569,15 @@ export default function DashboardPage() {
           onClose={() => setUpgradePrompt(null)}
         />
       )}
+
+      <UnsavedChangesModal
+        isOpen={showUnsavedModal}
+        theme={theme}
+        onSave={handleSaveSettings}
+        onDiscard={handleDiscardSettings}
+        onCancel={handleCancelNavigation}
+        isSaving={isSavingSettings}
+      />
     </div>
   );
 }
