@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 interface BroadcastsViewProps {
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'lite' | 'dark';
   t: any;
   accentColor?: string;
   onLimitHit?: (feature: string, limit?: number, current?: number) => void;
