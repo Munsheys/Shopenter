@@ -48,6 +48,7 @@ export default function DashboardPage() {
   const [settingsScroll, setSettingsScroll] = useState<{ section: string; id: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [settingsRefreshKey, setSettingsRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<{ feature: string; limit?: number; current?: number } | null>(null);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
@@ -225,6 +226,7 @@ export default function DashboardPage() {
       });
       if (res.ok) {
         setSettingsDirty(false);
+        setSettingsRefreshKey(k => k + 1);
         if (pendingTab) {
           setActiveTab(pendingTab);
           setPendingTab(null);
@@ -245,8 +247,8 @@ export default function DashboardPage() {
       setPendingTab(null);
     }
     setShowUnsavedModal(false);
-    refreshSettings();
-  }, [pendingTab, refreshSettings]);
+    setSettingsRefreshKey(k => k + 1);
+  }, [pendingTab]);
 
   const handleCancelNavigation = useCallback(() => {
     setShowUnsavedModal(false);
@@ -509,7 +511,7 @@ export default function DashboardPage() {
         </div>
 
         <div key={`settings-${refreshKey}`} className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-          <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} onDirtyChange={setSettingsDirty} />
+          <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} onDirtyChange={setSettingsDirty} refreshTrigger={settingsRefreshKey} />
         </div>
 
         <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6' : 'hidden'}>

@@ -111,6 +111,7 @@ export default function SettingsView({
   onAccentChange,
   scrollTrigger,
   onDirtyChange,
+  refreshTrigger,
 }: {
   theme?: 'light' | 'lite' | 'dark';
   onSave?: () => void;
@@ -118,6 +119,7 @@ export default function SettingsView({
   onAccentChange?: (newColor: string, gradient?: string | null) => void;
   scrollTrigger?: { section: string; id: number } | null;
   onDirtyChange?: (isDirty: boolean) => void;
+  refreshTrigger?: number;
 }) {
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
@@ -179,7 +181,7 @@ export default function SettingsView({
     fetch('/api/merchant/me').then(r => r.ok ? r.json() : null).then(d => { if (d) setMerchantPlan({ tier: d.tier, paymentStatus: d.paymentStatus }); }).catch(() => {});
     setWebhookUrl(`${window.location.origin}/api/webhook`);
     checkLine();
-  }, [checkLine]);
+  }, [checkLine, refreshTrigger]);
 
   useEffect(() => {
     if (!settings || customInitRef.current) return;

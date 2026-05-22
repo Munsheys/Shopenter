@@ -976,13 +976,12 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                             <div
                               className={`px-3 py-2 rounded-2xl text-xs leading-relaxed ${
                                 isAdmin
-                                  ? 'text-white rounded-br-sm'
+                                  ? isDark ? 'bg-white text-black rounded-br-sm' : 'bg-black text-white rounded-br-sm'
                                   : isDark ? 'bg-[#1f2540] text-gray-100 rounded-bl-sm border border-[#2a2e45]' : 'bg-white shadow-sm border border-[#e2e5ef] text-[#1a1d2e] rounded-bl-sm'
                               }`}
-                              style={isAdmin ? { background: 'var(--accent-gradient)' } : undefined}
                             >
                               <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.text}</p>
-                              <p className={`text-[9px] mt-1 ${isAdmin ? 'text-green-100/80' : k.muted}`}>{timeStr}</p>
+                              <p className={`text-[9px] mt-1 ${isAdmin ? isDark ? 'text-gray-600' : 'text-gray-400' : k.muted}`}>{timeStr}</p>
                             </div>
                           )}
                         </div>
