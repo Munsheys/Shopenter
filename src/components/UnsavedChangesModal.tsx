@@ -33,7 +33,7 @@ export default function UnsavedChangesModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className={cn(
         "rounded-2xl border shadow-2xl p-6 max-w-md w-full mx-4 space-y-4",
-        isDark ? "bg-[#161925] border-[#1f2335]" : isLite ? "bg-[#f2f3f7] border-[#d4d7e0]" : "bg-white border-gray-200"
+        isDark ? "bg-[#161925] border-[#1f2335]" : isLite ? "bg-[#eaeef4] border-[#d2d8e2]" : "bg-white border-gray-200"
       )}>
         {/* Icon + Title */}
         <div className="flex items-start gap-4">
@@ -46,13 +46,13 @@ export default function UnsavedChangesModal({
           <div className="flex-1 min-w-0">
             <h3 className={cn(
               "text-base font-bold",
-              isDark ? "text-white" : isLite ? "text-[#2a2d3a]" : "text-gray-900"
+              isDark ? "text-white" : isLite ? "text-[#3f4557]" : "text-gray-900"
             )}>
               Unsaved Changes
             </h3>
             <p className={cn(
               "text-sm mt-1",
-              isDark ? "text-[#8b92ad]" : isLite ? "text-[#737982]" : "text-gray-500"
+              isDark ? "text-[#8b92ad]" : isLite ? "text-[#79859a]" : "text-gray-500"
             )}>
               Do you want to save your changes before leaving?
             </p>
@@ -69,7 +69,7 @@ export default function UnsavedChangesModal({
               isDark
                 ? "border-[#1f2335] text-[#8b92ad] hover:bg-white/5 disabled:opacity-50"
                 : isLite
-                ? "border-[#d4d7e0] text-[#737982] hover:bg-[#dfe2eb] disabled:opacity-50"
+                ? "border-[#d2d8e2] text-[#79859a] hover:bg-[#dde2ea] disabled:opacity-50"
                 : "border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
             )}
           >
