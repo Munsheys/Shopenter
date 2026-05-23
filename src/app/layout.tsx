@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "Shopenter — All-in-One LINE OA Store Management Platform",
   description: "Turn your LINE Official Account into a full store. Manage products, orders, customers, broadcasts, and payments from one dashboard built for Thai LINE merchants.",
   icons: {
-    icon: '/logo.png',
+    icon: '/favicon.ico',
   },
   robots: "index, follow",
   openGraph: {
