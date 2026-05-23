@@ -242,31 +242,33 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   }, [isResizing, drawerWidth]);
 
   useEffect(() => {
+    let currentY = chatButtonY;
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDraggingButton || !dragButtonRef.current || !containerRef.current) return;
       const delta = e.clientY - dragButtonRef.current.startY;
       const newY = dragButtonRef.current.startPos + delta;
       const container = containerRef.current;
       const maxY = Math.max(0, container.clientHeight - 48);
-      const constrainedY = Math.max(60, Math.min(newY, maxY));
-      setChatButtonY(constrainedY);
+      currentY = Math.max(60, Math.min(newY, maxY));
+      setChatButtonY(currentY);
     };
     const handleMouseUp = () => {
       if (isDraggingButton) {
         setIsDraggingButton(false);
         dragButtonRef.current = null;
-        localStorage.setItem('chat-button-y-position', String(chatButtonY));
+        localStorage.setItem('chat-button-y-position', String(currentY));
       }
     };
     if (isDraggingButton) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMouseMove, false);
+      document.addEventListener('mouseup', handleMouseUp, false);
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mousemove', handleMouseMove, false);
+        document.removeEventListener('mouseup', handleMouseUp, false);
       };
     }
-  }, [isDraggingButton, chatButtonY]);
+  }, [isDraggingButton]);
 
   const loadMessages = useCallback(async (userId: string) => {
     const res = await fetch(`/api/messages/${userId}`);
@@ -788,7 +790,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         </div>
       ) : (
         <>
-          <div ref={containerRef} className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+          <div ref={containerRef} className="flex-1 flex flex-col min-w-0 overflow-hidden relative transition-all duration-300" style={{ marginRight: chatDrawerOpen ? drawerWidth : 0 }}>
             {/* Customer header */}
             <div className={`flex items-center justify-between px-8 py-5 border-b ${k.border} ${isDark ? 'bg-[#1a1d2e]' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
               <div className="flex items-center gap-3 min-w-0">
@@ -1122,7 +1124,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 };
               }}
               onClick={() => setChatDrawerOpen(true)}
-              className="absolute right-4 w-12 h-12 rounded-l-2xl flex items-center justify-center transition-all hover:opacity-90 active:scale-95 shadow-lg cursor-grab active:cursor-grabbing"
+              className="absolute right-0 w-12 h-12 rounded-l-2xl flex items-center justify-center transition-all hover:opacity-90 active:scale-95 shadow-lg cursor-grab active:cursor-grabbing"
               style={{
                 background: 'var(--accent-gradient)',
                 zIndex: 35,
@@ -1135,13 +1137,6 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             </button>
           )}
 
-          {/* Overlay when drawer is open */}
-          {chatDrawerOpen && (
-            <div
-              className="fixed inset-0 z-30 bg-black/20"
-              onClick={() => setChatDrawerOpen(false)}
-            />
-          )}
         </>
       )}
 
