@@ -152,12 +152,16 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
 
   const [drawerWidth, setDrawerWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
+  const [chatButtonY, setChatButtonY] = useState(200);
+  const [isDraggingButton, setIsDraggingButton] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedRef = useRef<Customer | null>(null);
   selectedRef.current = selectedCustomer;
   const resizeRef = useRef<number | null>(null);
+  const dragButtonRef = useRef<{ startY: number; startPos: number }| null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const evs = new EventSource('/api/stream');
@@ -203,6 +207,11 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
       const w = parseInt(saved, 10);
       if (w >= 320 && w <= 600) setDrawerWidth(w);
     }
+    const savedY = localStorage.getItem('chat-button-y-position');
+    if (savedY) {
+      const y = parseInt(savedY, 10);
+      if (y >= 0) setChatButtonY(y);
+    }
   }, []);
 
   useEffect(() => {
@@ -231,6 +240,33 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
       };
     }
   }, [isResizing, drawerWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingButton || !dragButtonRef.current || !containerRef.current) return;
+      const delta = e.clientY - dragButtonRef.current.startY;
+      const newY = dragButtonRef.current.startPos + delta;
+      const container = containerRef.current;
+      const maxY = Math.max(0, container.clientHeight - 48);
+      const constrainedY = Math.max(60, Math.min(newY, maxY));
+      setChatButtonY(constrainedY);
+    };
+    const handleMouseUp = () => {
+      if (isDraggingButton) {
+        setIsDraggingButton(false);
+        dragButtonRef.current = null;
+        localStorage.setItem('chat-button-y-position', String(chatButtonY));
+      }
+    };
+    if (isDraggingButton) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDraggingButton, chatButtonY]);
 
   const loadMessages = useCallback(async (userId: string) => {
     const res = await fetch(`/api/messages/${userId}`);
@@ -592,9 +628,11 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               <button
                 onClick={() => setListOpen(false)}
                 aria-label="Collapse customer list"
-                className={`p-1 rounded-lg ${k.muted} ${k.hover} flex-shrink-0 transition-colors`}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 transition-all hover:scale-105 active:scale-95 shadow-md`}
+                style={{ background: 'var(--accent-gradient)' }}
+                title="Collapse list"
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft size={18} />
               </button>
             </div>
 
@@ -686,9 +724,10 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               onClick={() => setListOpen(true)}
               aria-label="Expand customer list"
               title="Expand customer list"
-              className={`w-8 h-8 rounded-xl flex items-center justify-center ${k.muted} ${k.hover} flex-shrink-0 transition-colors`}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 transition-all hover:scale-105 active:scale-95 shadow-md`}
+              style={{ background: 'var(--accent-gradient)' }}
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={18} />
             </button>
             <button
               onClick={() => setShowFindCustomerModal(true)}
@@ -749,7 +788,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         </div>
       ) : (
         <>
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+          <div ref={containerRef} className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
             {/* Customer header */}
             <div className={`flex items-center justify-between px-8 py-5 border-b ${k.border} ${isDark ? 'bg-[#1a1d2e]' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
               <div className="flex items-center gap-3 min-w-0">
@@ -1071,14 +1110,26 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             </div>
           </div>
 
-          {/* Persistent Chat Side Button */}
+          {/* Persistent Chat Side Button (Draggable within container) */}
           {!chatDrawerOpen && (
             <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsDraggingButton(true);
+                dragButtonRef.current = {
+                  startY: e.clientY,
+                  startPos: chatButtonY
+                };
+              }}
               onClick={() => setChatDrawerOpen(true)}
-              className="fixed right-0 top-1/2 -translate-y-1/2 w-12 h-12 rounded-l-2xl flex items-center justify-center transition-all hover:opacity-90 active:scale-95 shadow-lg"
-              style={{ background: 'var(--accent-gradient)', zIndex: 35 }}
-              aria-label="Open chat drawer"
-              title="Open chat"
+              className="absolute right-4 w-12 h-12 rounded-l-2xl flex items-center justify-center transition-all hover:opacity-90 active:scale-95 shadow-lg cursor-grab active:cursor-grabbing"
+              style={{
+                background: 'var(--accent-gradient)',
+                zIndex: 35,
+                top: `${chatButtonY}px`
+              }}
+              aria-label="Open chat drawer (drag to move)"
+              title="Click to open chat, drag to move"
             >
               <MessageCircle size={20} className="text-white" />
             </button>
