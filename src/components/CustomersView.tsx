@@ -749,7 +749,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         </div>
       ) : (
         <>
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative transition-all duration-300" style={{ marginRight: chatDrawerOpen ? drawerWidth : 0 }}>
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
             {/* Customer header */}
             <div className={`flex items-center justify-between px-8 py-5 border-b ${k.border} ${isDark ? 'bg-[#1a1d2e]' : 'bg-white shadow-sm'} flex-shrink-0 z-20`}>
               <div className="flex items-center gap-3 min-w-0">
@@ -931,12 +931,12 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             </div>
           </div>
 
-          {/* ── Chat Drawer ── */}
+          {/* ── Chat Drawer (Fixed Overlay) ── */}
           <div
-            className={`flex-shrink-0 ${k.surface} border-l ${k.border} flex flex-col transform transition-all duration-300 ease-out overflow-hidden ${
-              chatDrawerOpen ? 'opacity-100' : 'w-0 opacity-0 pointer-events-none'
-            }`}
-            style={{ width: chatDrawerOpen ? drawerWidth : 0 }}
+            className={`fixed top-0 right-0 bottom-0 z-40 transform transition-transform duration-300 ease-out ${
+              chatDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+            } ${k.surface} border-l ${k.border} flex flex-col shadow-2xl`}
+            style={{ width: drawerWidth }}
           >
             {/* Resize Handle */}
             <div
@@ -1075,13 +1075,21 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
           {!chatDrawerOpen && (
             <button
               onClick={() => setChatDrawerOpen(true)}
-              className={`flex-shrink-0 w-12 h-12 rounded-l-2xl flex items-center justify-center transition-all hover:opacity-90 active:scale-95 shadow-lg`}
-              style={{ background: 'var(--accent-gradient)' }}
+              className="fixed right-0 top-1/2 -translate-y-1/2 w-12 h-12 rounded-l-2xl flex items-center justify-center transition-all hover:opacity-90 active:scale-95 shadow-lg"
+              style={{ background: 'var(--accent-gradient)', zIndex: 35 }}
               aria-label="Open chat drawer"
               title="Open chat"
             >
               <MessageCircle size={20} className="text-white" />
             </button>
+          )}
+
+          {/* Overlay when drawer is open */}
+          {chatDrawerOpen && (
+            <div
+              className="fixed inset-0 z-30 bg-black/20"
+              onClick={() => setChatDrawerOpen(false)}
+            />
           )}
         </>
       )}
