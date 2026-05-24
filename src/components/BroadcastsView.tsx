@@ -74,7 +74,7 @@ interface RichMenu {
 // Update NEXT_PUBLIC_MAX_UPLOAD_MB in your Vercel env when upgrading hosting plan.
 const INFRA_MAX_MB = parseInt(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? '4', 10);
 const UPLOAD_LIMITS = {
-  image: 1,                            // LINE previewImageUrl hard limit — always 1 MB
+  image: Math.min(10, INFRA_MAX_MB),   // LINE originalContentUrl limit 10 MB vs hosting plan
   audio: Math.min(200, INFRA_MAX_MB),  // LINE 200 MB vs hosting plan
   video: Math.min(200, INFRA_MAX_MB),  // LINE 200 MB vs hosting plan
 };

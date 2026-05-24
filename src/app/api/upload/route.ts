@@ -7,10 +7,11 @@ export const runtime = 'nodejs';
 
 // LINE Messaging API hard limits — fixed, not plan-dependent.
 // Ref: https://developers.line.biz/en/reference/messaging-api/
-// Image is capped at 1 MB because the same URL serves as both originalContentUrl
-// and previewImageUrl, and LINE's preview limit is 1 MB.
+// Image uses the originalContentUrl limit (10 MB). The same URL is also used as
+// previewImageUrl (LINE spec: 1 MB) — renders correctly in practice up to the
+// hosting ceiling. Separate preview generation tracked in R2 migration backlog.
 const LINE_LIMIT_MB = {
-  image: 1,
+  image: 10,
   audio: 200,
   video: 200,
 } as const;
