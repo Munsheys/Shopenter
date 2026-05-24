@@ -5,7 +5,7 @@ import {
   Megaphone, Zap, Clock, MessageSquare, Hand, LayoutGrid,
   Plus, Trash2, Edit2, Check, X, AlertTriangle,
   RefreshCw, Send, Pause, Play, Ban, Loader2, ExternalLink,
-  Image as ImageIcon, Video, Music, Smile, Type, Info, Upload, Link,
+  Image as ImageIcon, Video, Smile, Type, Info, Upload, Link,
 } from 'lucide-react';
 
 interface BroadcastsViewProps {
@@ -16,7 +16,7 @@ interface BroadcastsViewProps {
 }
 
 interface LineBlock {
-  type: 'text' | 'image' | 'video' | 'audio' | 'sticker';
+  type: 'text' | 'image' | 'video' | 'sticker';
   text?: string;
   originalContentUrl?: string;
   previewImageUrl?: string;
@@ -69,6 +69,14 @@ interface RichMenu {
   chatBarText: string;
   size: { width: number; height: number };
 }
+
+// Mirrors the server-side limit logic in /api/upload/route.ts.
+// Update NEXT_PUBLIC_MAX_UPLOAD_MB in your Vercel env when upgrading hosting plan.
+const INFRA_MAX_MB = parseInt(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? '4', 10);
+const UPLOAD_LIMITS = {
+  image: Math.min(10, INFRA_MAX_MB),  // LINE originalContentUrl limit 10 MB vs hosting plan
+  video: Math.min(200, INFRA_MAX_MB), // LINE 200 MB vs hosting plan
+};
 
 const DK = {
   bg: 'bg-[#0f1117]',
@@ -135,7 +143,7 @@ function UploadZone({
 }: {
   accept: string; maxMB: number; value?: string;
   onUploaded: (url: string, duration?: number) => void;
-  isDark: boolean; isLite?: boolean; previewType?: 'image' | 'audio' | 'video';
+  isDark: boolean; isLite?: boolean; previewType?: 'image' | 'video';
 }) {
   const k = isDark ? DK : isLite ? LITK : LK;
   const [uploading, setUploading] = useState(false);
@@ -152,9 +160,7 @@ function UploadZone({
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (res.ok) {
-        // For audio, estimate duration from file size (rough: ~128kbps)
-        const duration = previewType === 'audio' ? Math.round((file.size / 16000) * 1000) : undefined;
-        onUploaded(data.url, duration);
+        onUploaded(data.url);
       } else {
         setErr(data.error ?? 'Upload failed');
       }
@@ -173,9 +179,6 @@ function UploadZone({
       <div className="space-y-2">
         {previewType === 'image' && (
           <img src={value} alt="" className="w-full max-h-48 object-cover rounded-xl border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />
-        )}
-        {previewType === 'audio' && (
-          <audio src={value} controls className="w-full h-10" />
         )}
         {previewType === 'video' && (
           <video src={value} controls className="w-full max-h-48 rounded-xl border border-white/10" />
@@ -248,7 +251,7 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className={`text-[11px] font-bold uppercase tracking-widest ${k.muted}`}>{block.type}</span>
-              {(block.type === 'image' || block.type === 'audio' || block.type === 'video') && (
+              {(block.type === 'image' || block.type === 'video') && (
                 <button
                   onClick={() => setUrlMode(m => ({ ...m, [i]: !m[i] }))}
                   className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${urlMode[i] ? 'border-accent/40 text-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'}`}
@@ -279,7 +282,7 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
                 {block.originalContentUrl && <img src={block.originalContentUrl} alt="" className="w-full max-h-40 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = 'none')} />}
               </div>
             ) : (
-              <UploadZone accept="image/jpeg,image/png,image/gif,image/webp" maxMB={1} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url, previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
+              <UploadZone accept="image/jpeg,image/png,image/gif,image/webp" maxMB={UPLOAD_LIMITS.image} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url, previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
             )
           )}
 
@@ -292,23 +295,17 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
               </div>
             ) : (
               <div className="space-y-3">
-                <UploadZone accept="video/mp4,video/quicktime" maxMB={200} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url })} isDark={isDark} isLite={isLite} previewType="video" />
+                <UploadZone accept="video/mp4,video/quicktime" maxMB={UPLOAD_LIMITS.video} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url })} isDark={isDark} isLite={isLite} previewType="video" />
+                {UPLOAD_LIMITS.video < 200 && (
+                  <p className={`text-[11px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                    Short clips only — up to {UPLOAD_LIMITS.video} MB on current hosting plan. LINE supports up to 200 MB.
+                  </p>
+                )}
                 <div>
                   <p className={`text-[11px] font-semibold uppercase tracking-widest mb-1.5 ${k.muted}`}>Thumbnail (required by LINE)</p>
-                  <UploadZone accept="image/jpeg,image/png,image/webp" maxMB={1} value={block.previewImageUrl} onUploaded={url => update(i, { previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
+                  <UploadZone accept="image/jpeg,image/png,image/webp" maxMB={UPLOAD_LIMITS.image} value={block.previewImageUrl} onUploaded={url => update(i, { previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
                 </div>
               </div>
-            )
-          )}
-
-          {/* Audio */}
-          {block.type === 'audio' && (
-            urlMode[i] ? (
-              <div className="space-y-2">
-                <input type="url" value={block.originalContentUrl ?? ''} onChange={e => update(i, { originalContentUrl: e.target.value })} placeholder="https://example.com/audio.m4a" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
-              </div>
-            ) : (
-              <UploadZone accept="audio/mpeg,audio/mp4,audio/m4a,audio/aac,audio/wav,audio/ogg" maxMB={1} value={block.originalContentUrl} onUploaded={(url, dur) => update(i, { originalContentUrl: url, duration: dur })} isDark={isDark} isLite={isLite} previewType="audio" />
             )
           )}
 
@@ -334,7 +331,6 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
             { type: 'text' as const, icon: <Type size={12} />, label: 'Text' },
             { type: 'image' as const, icon: <ImageIcon size={12} />, label: 'Image' },
             { type: 'video' as const, icon: <Video size={12} />, label: 'Video' },
-            { type: 'audio' as const, icon: <Music size={12} />, label: 'Audio' },
             { type: 'sticker' as const, icon: <Smile size={12} />, label: 'Sticker' },
           ].map(({ type, icon, label }) => (
             <button
@@ -614,13 +610,17 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [bName, setBName] = useState('');
   const [bSending, setBSending] = useState(false);
   const [bResult, setBResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+  const [bError, setBError] = useState('');
 
   // Queued campaign form
   const [qMessages, setQMessages] = useState<LineBlock[]>([{ type: 'text', text: '' }]);
   const [qName, setQName] = useState('');
   const [qDays, setQDays] = useState(7);
   const [qCreating, setQCreating] = useState(false);
+  const [qError, setQError] = useState('');
   const [showQueuedForm, setShowQueuedForm] = useState(false);
+
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
 
   // Auto-reply form
   const [showRuleModal, setShowRuleModal] = useState(false);
@@ -703,9 +703,11 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   }
 
   async function handleInstantSend() {
+    setShowSendConfirm(false);
     if (bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)) return;
     setBSending(true);
     setBResult(null);
+    setBError('');
     try {
       const res = await fetch('/api/broadcasts/instant', {
         method: 'POST',
@@ -716,14 +718,18 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
       if (res.ok) {
         setBResult(data);
         await loadCampaigns();
+      } else {
+        setBError(data?.error ?? 'Broadcast failed. Please try again.');
       }
-    } catch { /* ignore */ }
-    finally { setBSending(false); }
+    } catch {
+      setBError('Could not reach the server. Check your connection and try again.');
+    } finally { setBSending(false); }
   }
 
   async function handleCreateQueued() {
     if (qMessages.every(b => !b.text && !b.originalContentUrl)) return;
     setQCreating(true);
+    setQError('');
     try {
       const res = await fetch('/api/campaigns', {
         method: 'POST',
@@ -737,10 +743,15 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
         await loadCampaigns();
       } else {
         const err = await res.json().catch(() => ({}));
-        if (err?.error === 'TIER_LIMIT_REACHED') onLimitHit?.(err.feature, err.limit, err.current);
+        if (err?.error === 'TIER_LIMIT_REACHED') {
+          onLimitHit?.(err.feature, err.limit, err.current);
+        } else {
+          setQError(err?.error ?? 'Failed to create campaign. Please try again.');
+        }
       }
-    } catch { /* ignore */ }
-    finally { setQCreating(false); }
+    } catch {
+      setQError('Could not reach the server. Check your connection and try again.');
+    } finally { setQCreating(false); }
   }
 
   async function handleCampaignStatus(id: string, status: string) {
@@ -947,8 +958,15 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               </div>
             )}
 
+            {bError && (
+              <div className={`rounded-2xl p-4 ${isDark ? 'bg-[#161925] border border-red-500/20' : 'bg-red-50 border border-red-200'} flex items-start gap-3`}>
+                <AlertTriangle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                <p className={`text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>{bError}</p>
+              </div>
+            )}
+
             <button
-              onClick={handleInstantSend}
+              onClick={() => setShowSendConfirm(true)}
               disabled={bSending || bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: 'var(--accent-gradient)' }}
@@ -1037,6 +1055,12 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                   <Info size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
                   <p className={`text-xs ${k.muted}`}>Delivery is gradual — customers receive this message the next time they message your bot (free via reply token). Not suitable for time-sensitive campaigns.</p>
                 </div>
+                {qError && (
+                  <div className={`rounded-2xl p-4 ${isDark ? 'bg-[#161925] border border-red-500/20' : 'bg-red-50 border border-red-200'} flex items-start gap-3`}>
+                    <AlertTriangle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className={`text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>{qError}</p>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button onClick={handleCreateQueued} disabled={qCreating} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
                     {qCreating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Launch
@@ -1246,7 +1270,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               <div>
                 <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-1 ${k.muted}`}>Background Image</label>
                 <p className={`text-xs ${k.muted} mb-3`}>JPEG or PNG · max 1 MB · {rmSize === 'large' ? '2500×1686' : '2500×843'} px recommended</p>
-                <UploadZone accept="image/jpeg,image/png" maxMB={1} value={rmImageUrl} onUploaded={url => setRmImageUrl(url)} isDark={isDark} isLite={isLite} previewType="image" />
+                <UploadZone accept="image/jpeg,image/png" maxMB={UPLOAD_LIMITS.image} value={rmImageUrl} onUploaded={url => setRmImageUrl(url)} isDark={isDark} isLite={isLite} previewType="image" />
               </div>
 
               {/* Button action editors */}
@@ -1267,6 +1291,53 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                 {rmSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
                 {rmSaving ? 'Publishing…' : 'Publish Rich Menu'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Send confirmation ── */}
+      {showSendConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border}`}>
+              <p className={`text-sm font-semibold ${k.text}`}>Confirm Broadcast</p>
+              <button onClick={() => setShowSendConfirm(false)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}><X size={16} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className={`rounded-2xl p-4 ${isDark ? 'bg-[#0f1117] border border-amber-500/20' : 'bg-amber-50 border border-amber-200'} flex items-start gap-3`}>
+                <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>This cannot be undone</p>
+                  <p className={`text-xs ${k.muted}`}>Messages will be sent immediately to every customer in the selected audience. LINE does not support recall.</p>
+                </div>
+              </div>
+              <div className={`rounded-xl px-4 py-3 space-y-2 ${isDark ? 'bg-[#0f1117]' : 'bg-slate-50'}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold uppercase tracking-widest ${k.muted}`}>Audience</span>
+                  <span className={`text-sm font-medium ${k.text}`}>{AUDIENCE_LABELS[bAudience] ?? bAudience}</span>
+                </div>
+                {bName && (
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold uppercase tracking-widest ${k.muted}`}>Campaign</span>
+                    <span className={`text-sm font-medium ${k.text}`}>{bName}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold uppercase tracking-widest ${k.muted}`}>Blocks</span>
+                  <span className={`text-sm font-medium ${k.text}`}>{bMessages.length} message{bMessages.length !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+            </div>
+            <div className={`flex gap-2 px-6 py-4 border-t ${k.border}`}>
+              <button
+                onClick={handleInstantSend}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                <Send size={14} /> Send Now
+              </button>
+              <button onClick={() => setShowSendConfirm(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
             </div>
           </div>
         </div>
