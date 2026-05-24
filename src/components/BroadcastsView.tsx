@@ -610,12 +610,14 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [bName, setBName] = useState('');
   const [bSending, setBSending] = useState(false);
   const [bResult, setBResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+  const [bError, setBError] = useState('');
 
   // Queued campaign form
   const [qMessages, setQMessages] = useState<LineBlock[]>([{ type: 'text', text: '' }]);
   const [qName, setQName] = useState('');
   const [qDays, setQDays] = useState(7);
   const [qCreating, setQCreating] = useState(false);
+  const [qError, setQError] = useState('');
   const [showQueuedForm, setShowQueuedForm] = useState(false);
 
   const [showSendConfirm, setShowSendConfirm] = useState(false);
@@ -705,6 +707,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
     if (bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)) return;
     setBSending(true);
     setBResult(null);
+    setBError('');
     try {
       const res = await fetch('/api/broadcasts/instant', {
         method: 'POST',
@@ -715,14 +718,18 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
       if (res.ok) {
         setBResult(data);
         await loadCampaigns();
+      } else {
+        setBError(data?.error ?? 'Broadcast failed. Please try again.');
       }
-    } catch { /* ignore */ }
-    finally { setBSending(false); }
+    } catch {
+      setBError('Could not reach the server. Check your connection and try again.');
+    } finally { setBSending(false); }
   }
 
   async function handleCreateQueued() {
     if (qMessages.every(b => !b.text && !b.originalContentUrl)) return;
     setQCreating(true);
+    setQError('');
     try {
       const res = await fetch('/api/campaigns', {
         method: 'POST',
@@ -736,10 +743,15 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
         await loadCampaigns();
       } else {
         const err = await res.json().catch(() => ({}));
-        if (err?.error === 'TIER_LIMIT_REACHED') onLimitHit?.(err.feature, err.limit, err.current);
+        if (err?.error === 'TIER_LIMIT_REACHED') {
+          onLimitHit?.(err.feature, err.limit, err.current);
+        } else {
+          setQError(err?.error ?? 'Failed to create campaign. Please try again.');
+        }
       }
-    } catch { /* ignore */ }
-    finally { setQCreating(false); }
+    } catch {
+      setQError('Could not reach the server. Check your connection and try again.');
+    } finally { setQCreating(false); }
   }
 
   async function handleCampaignStatus(id: string, status: string) {
@@ -946,6 +958,13 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               </div>
             )}
 
+            {bError && (
+              <div className={`rounded-2xl p-4 ${isDark ? 'bg-[#161925] border border-red-500/20' : 'bg-red-50 border border-red-200'} flex items-start gap-3`}>
+                <AlertTriangle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                <p className={`text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>{bError}</p>
+              </div>
+            )}
+
             <button
               onClick={() => setShowSendConfirm(true)}
               disabled={bSending || bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)}
@@ -1036,6 +1055,12 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                   <Info size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
                   <p className={`text-xs ${k.muted}`}>Delivery is gradual — customers receive this message the next time they message your bot (free via reply token). Not suitable for time-sensitive campaigns.</p>
                 </div>
+                {qError && (
+                  <div className={`rounded-2xl p-4 ${isDark ? 'bg-[#161925] border border-red-500/20' : 'bg-red-50 border border-red-200'} flex items-start gap-3`}>
+                    <AlertTriangle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className={`text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>{qError}</p>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button onClick={handleCreateQueued} disabled={qCreating} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
                     {qCreating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Launch
