@@ -70,6 +70,15 @@ interface RichMenu {
   size: { width: number; height: number };
 }
 
+// Mirrors the server-side limit logic in /api/upload/route.ts.
+// Update NEXT_PUBLIC_MAX_UPLOAD_MB in your Vercel env when upgrading hosting plan.
+const INFRA_MAX_MB = parseInt(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? '4', 10);
+const UPLOAD_LIMITS = {
+  image: 1,                            // LINE previewImageUrl hard limit — always 1 MB
+  audio: Math.min(200, INFRA_MAX_MB),  // LINE 200 MB vs hosting plan
+  video: Math.min(200, INFRA_MAX_MB),  // LINE 200 MB vs hosting plan
+};
+
 const DK = {
   bg: 'bg-[#0f1117]',
   surface: 'bg-[#161925] border border-[#1f2335]',
@@ -279,7 +288,7 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
                 {block.originalContentUrl && <img src={block.originalContentUrl} alt="" className="w-full max-h-40 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = 'none')} />}
               </div>
             ) : (
-              <UploadZone accept="image/jpeg,image/png,image/gif,image/webp" maxMB={1} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url, previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
+              <UploadZone accept="image/jpeg,image/png,image/gif,image/webp" maxMB={UPLOAD_LIMITS.image} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url, previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
             )
           )}
 
@@ -292,10 +301,15 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
               </div>
             ) : (
               <div className="space-y-3">
-                <UploadZone accept="video/mp4,video/quicktime" maxMB={200} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url })} isDark={isDark} isLite={isLite} previewType="video" />
+                <UploadZone accept="video/mp4,video/quicktime" maxMB={UPLOAD_LIMITS.video} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url })} isDark={isDark} isLite={isLite} previewType="video" />
+                {UPLOAD_LIMITS.video < 200 && (
+                  <p className={`text-[11px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                    Short clips only — up to {UPLOAD_LIMITS.video} MB on current hosting plan. LINE supports up to 200 MB.
+                  </p>
+                )}
                 <div>
                   <p className={`text-[11px] font-semibold uppercase tracking-widest mb-1.5 ${k.muted}`}>Thumbnail (required by LINE)</p>
-                  <UploadZone accept="image/jpeg,image/png,image/webp" maxMB={1} value={block.previewImageUrl} onUploaded={url => update(i, { previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
+                  <UploadZone accept="image/jpeg,image/png,image/webp" maxMB={UPLOAD_LIMITS.image} value={block.previewImageUrl} onUploaded={url => update(i, { previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />
                 </div>
               </div>
             )
@@ -308,7 +322,7 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
                 <input type="url" value={block.originalContentUrl ?? ''} onChange={e => update(i, { originalContentUrl: e.target.value })} placeholder="https://example.com/audio.m4a" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
               </div>
             ) : (
-              <UploadZone accept="audio/mpeg,audio/mp4,audio/m4a,audio/aac,audio/wav,audio/ogg" maxMB={1} value={block.originalContentUrl} onUploaded={(url, dur) => update(i, { originalContentUrl: url, duration: dur })} isDark={isDark} isLite={isLite} previewType="audio" />
+              <UploadZone accept="audio/mpeg,audio/mp4,audio/m4a,audio/aac,audio/wav,audio/ogg" maxMB={UPLOAD_LIMITS.audio} value={block.originalContentUrl} onUploaded={(url, dur) => update(i, { originalContentUrl: url, duration: dur })} isDark={isDark} isLite={isLite} previewType="audio" />
             )
           )}
 
@@ -1246,7 +1260,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               <div>
                 <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-1 ${k.muted}`}>Background Image</label>
                 <p className={`text-xs ${k.muted} mb-3`}>JPEG or PNG · max 1 MB · {rmSize === 'large' ? '2500×1686' : '2500×843'} px recommended</p>
-                <UploadZone accept="image/jpeg,image/png" maxMB={1} value={rmImageUrl} onUploaded={url => setRmImageUrl(url)} isDark={isDark} isLite={isLite} previewType="image" />
+                <UploadZone accept="image/jpeg,image/png" maxMB={UPLOAD_LIMITS.image} value={rmImageUrl} onUploaded={url => setRmImageUrl(url)} isDark={isDark} isLite={isLite} previewType="image" />
               </div>
 
               {/* Button action editors */}

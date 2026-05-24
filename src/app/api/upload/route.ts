@@ -5,27 +5,52 @@ import { MediaFile } from '@/models';
 
 export const runtime = 'nodejs';
 
-const ALLOWED_TYPES: Record<string, string> = {
+// LINE Messaging API hard limits — fixed, not plan-dependent.
+// Ref: https://developers.line.biz/en/reference/messaging-api/
+// Image is capped at 1 MB because the same URL serves as both originalContentUrl
+// and previewImageUrl, and LINE's preview limit is 1 MB.
+const LINE_LIMIT_MB = {
+  image: 1,
+  audio: 200,
+  video: 200,
+} as const;
+
+// Hosting plan ceiling — controlled by MAX_UPLOAD_MB in your deployment environment.
+// Default: 4 MB (safe margin under Vercel Hobby/Pro's 4.5 MB request body limit).
+// To raise: update MAX_UPLOAD_MB + NEXT_PUBLIC_MAX_UPLOAD_MB in Vercel dashboard,
+// then redeploy. No code change needed.
+const INFRA_MAX_MB = parseInt(process.env.MAX_UPLOAD_MB ?? '4', 10);
+
+type MediaKind = keyof typeof LINE_LIMIT_MB;
+
+const ALLOWED_TYPES: Record<string, MediaKind> = {
   'image/jpeg': 'image',
-  'image/jpg': 'image',
-  'image/png': 'image',
-  'image/gif': 'image',
+  'image/jpg':  'image',
+  'image/png':  'image',
+  'image/gif':  'image',
   'image/webp': 'image',
   'audio/mpeg': 'audio',
-  'audio/mp4': 'audio',
-  'audio/m4a': 'audio',
-  'audio/aac': 'audio',
-  'audio/wav': 'audio',
-  'audio/ogg': 'audio',
-  'video/mp4': 'video',
-  'video/quicktime': 'video',
+  'audio/mp4':  'audio',
+  'audio/m4a':  'audio',
+  'audio/aac':  'audio',
+  'audio/wav':  'audio',
+  'audio/ogg':  'audio',
+  'video/mp4':      'video',
+  'video/quicktime':'video',
 };
 
-const MAX_BYTES: Record<string, number> = {
-  image: 1 * 1024 * 1024,   // 1 MB — LINE image limit
-  audio: 1 * 1024 * 1024,   // 1 MB — LINE audio limit
-  video: 200 * 1024 * 1024, // 200 MB — LINE video limit
-};
+function effectiveLimitMB(kind: MediaKind): number {
+  return Math.min(LINE_LIMIT_MB[kind], INFRA_MAX_MB);
+}
+
+function limitReason(kind: MediaKind): string {
+  const lineMB  = LINE_LIMIT_MB[kind];
+  const effective = Math.min(lineMB, INFRA_MAX_MB);
+  if (effective === lineMB) {
+    return `${lineMB} MB (LINE API limit)`;
+  }
+  return `${effective} MB (current hosting plan limit — LINE supports up to ${lineMB} MB)`;
+}
 
 export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
@@ -46,10 +71,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
   }
 
-  const maxBytes = MAX_BYTES[mediaKind];
+  const maxBytes = effectiveLimitMB(mediaKind) * 1024 * 1024;
   if (file.size > maxBytes) {
-    const maxMB = maxBytes / (1024 * 1024);
-    return NextResponse.json({ error: `File too large. ${mediaKind} must be under ${maxMB} MB.` }, { status: 400 });
+    return NextResponse.json(
+      { error: `File too large. ${mediaKind} files must be under ${limitReason(mediaKind)}.` },
+      { status: 400 }
+    );
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -62,10 +89,11 @@ export async function POST(req: NextRequest) {
     data: buffer,
   });
 
-  // Build absolute URL so LINE can fetch it
-  const origin = req.headers.get('origin') || req.headers.get('x-forwarded-host')
-    ? `https://${req.headers.get('x-forwarded-host')}`
-    : new URL(req.url).origin;
+  // Correctly build the absolute public URL across local dev, Vercel preview, and production.
+  // Previous logic had an operator-precedence bug that produced "https://null" in some environments.
+  const proto  = req.headers.get('x-forwarded-proto') ?? 'https';
+  const host   = req.headers.get('x-forwarded-host') ?? new URL(req.url).host;
+  const origin = `${proto}://${host}`;
 
   const url = `${origin}/api/media/${media._id}`;
   return NextResponse.json({ url, id: media._id.toString(), contentType: file.type });
