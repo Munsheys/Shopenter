@@ -56,13 +56,28 @@ export async function POST(req: NextRequest) {
   const userIds = await resolveAudience(merchant.merchantId, audience);
   if (userIds.length === 0) return NextResponse.json({ error: 'No recipients in selected audience' }, { status: 400 });
 
-  const retryKey = randomUUID();
+  // Create the record before sending so a mid-send crash still leaves an auditable trail.
+  const campaign = await Campaign.create({
+    merchantId: merchant.merchantId,
+    name,
+    deliveryMode: 'instant',
+    messages,
+    status: 'sending',
+    audience,
+    recipientCount: 0,
+    totalTargeted: userIds.length,
+    sentAt: new Date(),
+  });
+
   const CHUNK = 500;
   let sent = 0;
   let failed = 0;
 
   for (let i = 0; i < userIds.length; i += CHUNK) {
     const chunk = userIds.slice(i, i + CHUNK);
+    // Each chunk is a separate LINE API request — it needs its own retry key so LINE
+    // can deduplicate retries of that specific chunk without affecting the others.
+    const retryKey = randomUUID();
     try {
       const res = await fetch('https://api.line.me/v2/bot/message/multicast', {
         method: 'POST',
@@ -86,17 +101,9 @@ export async function POST(req: NextRequest) {
     if (i + CHUNK < userIds.length) await new Promise(r => setTimeout(r, 200));
   }
 
-  await Campaign.create({
-    merchantId: merchant.merchantId,
-    name,
-    deliveryMode: 'instant',
-    messages,
-    status: 'completed',
-    audience,
+  await Campaign.findByIdAndUpdate(campaign._id, {
+    status: failed === userIds.length ? 'failed' : 'completed',
     recipientCount: sent,
-    sentAt: new Date(),
-    retryKey,
-    totalTargeted: userIds.length,
   });
 
   return NextResponse.json({ sent, failed, total: userIds.length });
