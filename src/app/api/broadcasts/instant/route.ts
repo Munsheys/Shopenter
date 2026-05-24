@@ -11,8 +11,8 @@ async function resolveAudience(merchantId: string, audience: string): Promise<st
   if (audience === 'active_30d' || audience === 'active_60d') {
     const days = audience === 'active_30d' ? 30 : 60;
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const ids = await Order.find({ merchantId, createdAt: { $gte: since } }).distinct('lineUserId');
-    return (ids as string[]).filter(Boolean);
+    const customers = await Customer.find({ merchantId, lastSeen: { $gte: since }, status: { $ne: 'blocked' } }).select('userId').lean() as any[];
+    return customers.map((c: any) => c.userId).filter(Boolean);
   }
   if (audience === 'ordered') {
     const ids = await Order.find({ merchantId }).distinct('lineUserId');
