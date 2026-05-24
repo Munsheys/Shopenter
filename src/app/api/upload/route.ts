@@ -12,7 +12,6 @@ export const runtime = 'nodejs';
 // hosting ceiling. Separate preview generation tracked in R2 migration backlog.
 const LINE_LIMIT_MB = {
   image: 10,
-  audio: 200,
   video: 200,
 } as const;
 
@@ -30,12 +29,6 @@ const ALLOWED_TYPES: Record<string, MediaKind> = {
   'image/png':  'image',
   'image/gif':  'image',
   'image/webp': 'image',
-  'audio/mpeg': 'audio',
-  'audio/mp4':  'audio',
-  'audio/m4a':  'audio',
-  'audio/aac':  'audio',
-  'audio/wav':  'audio',
-  'audio/ogg':  'audio',
   'video/mp4':      'video',
   'video/quicktime':'video',
 };

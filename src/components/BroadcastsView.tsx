@@ -5,7 +5,7 @@ import {
   Megaphone, Zap, Clock, MessageSquare, Hand, LayoutGrid,
   Plus, Trash2, Edit2, Check, X, AlertTriangle,
   RefreshCw, Send, Pause, Play, Ban, Loader2, ExternalLink,
-  Image as ImageIcon, Video, Music, Smile, Type, Info, Upload, Link,
+  Image as ImageIcon, Video, Smile, Type, Info, Upload, Link,
 } from 'lucide-react';
 
 interface BroadcastsViewProps {
@@ -16,7 +16,7 @@ interface BroadcastsViewProps {
 }
 
 interface LineBlock {
-  type: 'text' | 'image' | 'video' | 'audio' | 'sticker';
+  type: 'text' | 'image' | 'video' | 'sticker';
   text?: string;
   originalContentUrl?: string;
   previewImageUrl?: string;
@@ -74,9 +74,8 @@ interface RichMenu {
 // Update NEXT_PUBLIC_MAX_UPLOAD_MB in your Vercel env when upgrading hosting plan.
 const INFRA_MAX_MB = parseInt(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? '4', 10);
 const UPLOAD_LIMITS = {
-  image: Math.min(10, INFRA_MAX_MB),   // LINE originalContentUrl limit 10 MB vs hosting plan
-  audio: Math.min(200, INFRA_MAX_MB),  // LINE 200 MB vs hosting plan
-  video: Math.min(200, INFRA_MAX_MB),  // LINE 200 MB vs hosting plan
+  image: Math.min(10, INFRA_MAX_MB),  // LINE originalContentUrl limit 10 MB vs hosting plan
+  video: Math.min(200, INFRA_MAX_MB), // LINE 200 MB vs hosting plan
 };
 
 const DK = {
@@ -144,7 +143,7 @@ function UploadZone({
 }: {
   accept: string; maxMB: number; value?: string;
   onUploaded: (url: string, duration?: number) => void;
-  isDark: boolean; isLite?: boolean; previewType?: 'image' | 'audio' | 'video';
+  isDark: boolean; isLite?: boolean; previewType?: 'image' | 'video';
 }) {
   const k = isDark ? DK : isLite ? LITK : LK;
   const [uploading, setUploading] = useState(false);
@@ -161,9 +160,7 @@ function UploadZone({
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (res.ok) {
-        // For audio, estimate duration from file size (rough: ~128kbps)
-        const duration = previewType === 'audio' ? Math.round((file.size / 16000) * 1000) : undefined;
-        onUploaded(data.url, duration);
+        onUploaded(data.url);
       } else {
         setErr(data.error ?? 'Upload failed');
       }
@@ -182,9 +179,6 @@ function UploadZone({
       <div className="space-y-2">
         {previewType === 'image' && (
           <img src={value} alt="" className="w-full max-h-48 object-cover rounded-xl border border-white/10" onError={e => (e.currentTarget.style.display = 'none')} />
-        )}
-        {previewType === 'audio' && (
-          <audio src={value} controls className="w-full h-10" />
         )}
         {previewType === 'video' && (
           <video src={value} controls className="w-full max-h-48 rounded-xl border border-white/10" />
@@ -257,7 +251,7 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className={`text-[11px] font-bold uppercase tracking-widest ${k.muted}`}>{block.type}</span>
-              {(block.type === 'image' || block.type === 'audio' || block.type === 'video') && (
+              {(block.type === 'image' || block.type === 'video') && (
                 <button
                   onClick={() => setUrlMode(m => ({ ...m, [i]: !m[i] }))}
                   className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${urlMode[i] ? 'border-accent/40 text-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'}`}
@@ -315,17 +309,6 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
             )
           )}
 
-          {/* Audio */}
-          {block.type === 'audio' && (
-            urlMode[i] ? (
-              <div className="space-y-2">
-                <input type="url" value={block.originalContentUrl ?? ''} onChange={e => update(i, { originalContentUrl: e.target.value })} placeholder="https://example.com/audio.m4a" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
-              </div>
-            ) : (
-              <UploadZone accept="audio/mpeg,audio/mp4,audio/m4a,audio/aac,audio/wav,audio/ogg" maxMB={UPLOAD_LIMITS.audio} value={block.originalContentUrl} onUploaded={(url, dur) => update(i, { originalContentUrl: url, duration: dur })} isDark={isDark} isLite={isLite} previewType="audio" />
-            )
-          )}
-
           {/* Sticker */}
           {block.type === 'sticker' && (
             <div className="space-y-2">
@@ -348,7 +331,6 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
             { type: 'text' as const, icon: <Type size={12} />, label: 'Text' },
             { type: 'image' as const, icon: <ImageIcon size={12} />, label: 'Image' },
             { type: 'video' as const, icon: <Video size={12} />, label: 'Video' },
-            { type: 'audio' as const, icon: <Music size={12} />, label: 'Audio' },
             { type: 'sticker' as const, icon: <Smile size={12} />, label: 'Sticker' },
           ].map(({ type, icon, label }) => (
             <button
