@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMerchantFromRequest } from '@/lib/auth';
 import dbConnect from '@/lib/db';
-import { Campaign, Customer, Order, Merchant } from '@/models';
+import { Campaign, Customer, Order } from '@/models';
 import mongoose from 'mongoose';
-import { checkCountLimit, type Tier } from '@/lib/tiers';
 
 export const runtime = 'nodejs';
 
@@ -46,17 +45,6 @@ export async function POST(req: NextRequest) {
   }
 
   await dbConnect();
-
-  const merchantDoc = await Merchant.findById(merchant.merchantId).select('tier').lean() as any;
-  const tier = (merchantDoc?.tier ?? 'free') as Tier;
-  const campaignCount = await Campaign.countDocuments({ merchantId: merchant.merchantId });
-  const check = checkCountLimit(tier, 'campaigns', campaignCount);
-  if (!check.allowed) {
-    return NextResponse.json(
-      { error: 'TIER_LIMIT_REACHED', feature: 'campaigns', limit: check.limit, current: campaignCount, requiredTier: 'pro' },
-      { status: 403 }
-    );
-  }
 
   // Enforce one active queued campaign per merchant
   const existing = await Campaign.findOne({

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { getAnalyticsWindowDays, type Tier } from '@/lib/tiers';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -35,6 +36,7 @@ interface ReportsViewProps {
   theme?: 'light' | 'dark';
   t: any;
   accentColor?: string;
+  tier?: Tier;
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -132,7 +134,7 @@ const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ReportsView({ theme, t, accentColor = '#00b900' }: ReportsViewProps) {
+export default function ReportsView({ theme, t, accentColor = '#00b900', tier = 'free' }: ReportsViewProps) {
   const isDark = theme === 'dark';
   const [orders,   setOrders]   = useState<any[]>([]);
   const [coupons,  setCoupons]  = useState<any[]>([]);
@@ -497,11 +499,12 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   const muted   = 'text-[#8b92ad]';
   const heading = isDark ? 'text-white' : 'text-[#1a1d2e]';
 
+  const analyticsWindowDays = getAnalyticsWindowDays(tier);
   const rangeLabels = [
-    { id: '7d',    label: 'Last 7 days' },
-    { id: '30d',   label: 'Last 30 days' },
-    { id: 'month', label: 'This month' },
-    { id: 'all',   label: 'All time' },
+    { id: '7d',    label: 'Last 7 days',  minDays: 7 },
+    { id: '30d',   label: 'Last 30 days', minDays: 30 },
+    { id: 'month', label: 'This month',   minDays: 31 },
+    { id: 'all',   label: 'All time',     minDays: Infinity },
   ] as const;
 
   return (
@@ -525,16 +528,25 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
           <div className={cn('flex p-1 rounded-2xl border flex-1 md:flex-none', surface)}>
-            {rangeLabels.map(r => (
-              <button
-                key={r.id}
-                onClick={() => setDateRange(r.id)}
-                className={cn(
-                  'px-3 py-1.5 rounded-xl text-[10px] font-black transition-all',
-                  dateRange === r.id ? 'bg-accent text-white shadow-sm' : `${muted} hover:text-accent`,
-                )}
-              >{r.label}</button>
-            ))}
+            {rangeLabels.map(r => {
+              const locked = r.minDays > analyticsWindowDays;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => !locked && setDateRange(r.id)}
+                  disabled={locked}
+                  title={locked ? 'Upgrade your plan to unlock this range' : undefined}
+                  className={cn(
+                    'px-3 py-1.5 rounded-xl text-[10px] font-black transition-all',
+                    locked
+                      ? 'opacity-30 cursor-not-allowed'
+                      : dateRange === r.id
+                        ? 'bg-accent text-white shadow-sm'
+                        : `${muted} hover:text-accent`,
+                  )}
+                >{r.label}{locked ? ' 🔒' : ''}</button>
+              );
+            })}
           </div>
           <button
             onClick={handleExport}

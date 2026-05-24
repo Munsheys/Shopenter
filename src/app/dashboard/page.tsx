@@ -498,7 +498,7 @@ export default function DashboardPage() {
         </div>
 
         <div key={`reports-${refreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
-          <ReportsView theme={theme} t={{}} accentColor={accentColor} />
+          <ReportsView theme={theme} t={{}} accentColor={accentColor} tier={tier} />
         </div>
 
         <div key={`broadcasts-${refreshKey}`} className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col' : 'hidden'}>

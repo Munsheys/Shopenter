@@ -7,6 +7,7 @@ export const TIER_LIMITS = {
     csvExport: true,
     discountCodes: true,
     loyalty: true,
+    analyticsWindowDays: 30,
   },
   pro: {
     products: -1,
@@ -16,6 +17,7 @@ export const TIER_LIMITS = {
     csvExport: true,
     discountCodes: true,
     loyalty: true,
+    analyticsWindowDays: 365,
   },
   enterprise: {
     products: -1,
@@ -25,6 +27,7 @@ export const TIER_LIMITS = {
     csvExport: true,
     discountCodes: true,
     loyalty: true,
+    analyticsWindowDays: Infinity,
   },
 } as const;
 
@@ -48,6 +51,10 @@ export function checkBooleanFeature(
   feature: 'csvExport' | 'discountCodes' | 'loyalty'
 ): boolean {
   return true;
+}
+
+export function getAnalyticsWindowDays(tier: Tier): number {
+  return TIER_LIMITS[tier]?.analyticsWindowDays ?? 30;
 }
 
 export function getTierLabel(tier: Tier): string {
