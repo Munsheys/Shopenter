@@ -618,6 +618,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [qCreating, setQCreating] = useState(false);
   const [showQueuedForm, setShowQueuedForm] = useState(false);
 
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
+
   // Auto-reply form
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [editingRule, setEditingRule] = useState<AutoReplyRule | null>(null);
@@ -699,6 +701,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   }
 
   async function handleInstantSend() {
+    setShowSendConfirm(false);
     if (bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)) return;
     setBSending(true);
     setBResult(null);
@@ -944,7 +947,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
             )}
 
             <button
-              onClick={handleInstantSend}
+              onClick={() => setShowSendConfirm(true)}
               disabled={bSending || bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: 'var(--accent-gradient)' }}
@@ -1263,6 +1266,53 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                 {rmSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
                 {rmSaving ? 'Publishing…' : 'Publish Rich Menu'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Send confirmation ── */}
+      {showSendConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border}`}>
+              <p className={`text-sm font-semibold ${k.text}`}>Confirm Broadcast</p>
+              <button onClick={() => setShowSendConfirm(false)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}><X size={16} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className={`rounded-2xl p-4 ${isDark ? 'bg-[#0f1117] border border-amber-500/20' : 'bg-amber-50 border border-amber-200'} flex items-start gap-3`}>
+                <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>This cannot be undone</p>
+                  <p className={`text-xs ${k.muted}`}>Messages will be sent immediately to every customer in the selected audience. LINE does not support recall.</p>
+                </div>
+              </div>
+              <div className={`rounded-xl px-4 py-3 space-y-2 ${isDark ? 'bg-[#0f1117]' : 'bg-slate-50'}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold uppercase tracking-widest ${k.muted}`}>Audience</span>
+                  <span className={`text-sm font-medium ${k.text}`}>{AUDIENCE_LABELS[bAudience] ?? bAudience}</span>
+                </div>
+                {bName && (
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold uppercase tracking-widest ${k.muted}`}>Campaign</span>
+                    <span className={`text-sm font-medium ${k.text}`}>{bName}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold uppercase tracking-widest ${k.muted}`}>Blocks</span>
+                  <span className={`text-sm font-medium ${k.text}`}>{bMessages.length} message{bMessages.length !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+            </div>
+            <div className={`flex gap-2 px-6 py-4 border-t ${k.border}`}>
+              <button
+                onClick={handleInstantSend}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                <Send size={14} /> Send Now
+              </button>
+              <button onClick={() => setShowSendConfirm(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
             </div>
           </div>
         </div>
