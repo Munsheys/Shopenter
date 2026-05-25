@@ -5,7 +5,7 @@ const MerchantSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   shopName: { type: String, required: true },
   slug: { type: String, unique: true, sparse: true, lowercase: true },
-  tier: { type: String, enum: ['free', 'pro', 'enterprise'], default: 'free' },
+  tier: { type: String, enum: ['free', 'pro', 'enterprise'], default: 'enterprise' },
   paymentStatus: { type: String, enum: ['paid', 'trialing', 'unpaid'], default: 'trialing' },
   createdAt: { type: Date, default: Date.now }
 });

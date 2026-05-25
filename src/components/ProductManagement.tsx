@@ -15,6 +15,10 @@ import {
   EyeOff,
   BarChart2,
   FileSpreadsheet,
+  Upload,
+  CheckCircle,
+  AlertCircle,
+  ChevronDown as ChevronDownIcon,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -803,6 +807,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importGuideOpen, setImportGuideOpen] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number; errors: string[] } | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [isStockSaving, setIsStockSaving] = useState(false);
 
@@ -945,6 +953,67 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     } catch (err) { console.error(err); } finally { setIsStockSaving(false); }
   };
 
+  const handleImportCSV = async (file: File) => {
+    const text = await file.text();
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return;
+
+    // Parse header row, strip BOM
+    const header = lines[0].replace(/^﻿/, '').split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
+    const col = (row: string[], name: string) => {
+      const i = header.findIndex(h => h.includes(name));
+      return i >= 0 ? (row[i] ?? '').replace(/"/g, '').trim() : '';
+    };
+
+    const rows = lines.slice(1).map(line => {
+      // Simple CSV split — handles quoted fields with commas
+      const cells: string[] = [];
+      let cur = '', inQ = false;
+      for (const ch of line) {
+        if (ch === '"') { inQ = !inQ; }
+        else if (ch === ',' && !inQ) { cells.push(cur); cur = ''; }
+        else { cur += ch; }
+      }
+      cells.push(cur);
+      return cells;
+    });
+
+    setImportProgress({ done: 0, total: rows.length, errors: [] });
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const name = col(row, 'name');
+      const priceStr = col(row, 'price');
+      const price = parseFloat(priceStr.replace(/[^0-9.]/g, ''));
+
+      if (!name) { errors.push(`Row ${i + 2}: missing name`); setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] }); continue; }
+      if (isNaN(price)) { errors.push(`Row ${i + 2}: invalid price "${priceStr}"`); setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] }); continue; }
+
+      const body: any = {
+        name,
+        price,
+        description: col(row, 'description') || col(row, 'desc'),
+        brand: col(row, 'brand'),
+        categories: col(row, 'categor') ? col(row, 'categor').split(';').map((c: string) => c.trim()).filter(Boolean) : [],
+        isActive: col(row, 'active').toLowerCase() !== 'no',
+      };
+
+      try {
+        const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          errors.push(`Row ${i + 2} "${name}": ${d.error ?? 'failed'}`);
+        }
+      } catch {
+        errors.push(`Row ${i + 2} "${name}": network error`);
+      }
+      setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] });
+    }
+
+    loadProducts();
+  };
+
   const toggleVisibility = async (p: Product) => {
     try {
       await fetch(`/api/products/${p._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret }, body: JSON.stringify({ isActive: !p.isActive }) });
@@ -966,9 +1035,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           <button
             onClick={() => {
               const bom = '﻿';
-              const header = 'Name,Brand,Category,Price (THB),Variants,Active\n';
+              const header = 'Name,Description,Brand,Category,Price (THB),Active\n';
               const rows = filteredProducts.map(p =>
-                [p.name, p.brand, (p.categories || []).join(';'), p.price, p.variants?.length ?? 0, p.isActive ? 'Yes' : 'No'].join(',')
+                [p.name, p.description ?? '', p.brand, (p.categories || []).join(';'), p.price, p.isActive ? 'Yes' : 'No']
+                  .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
               ).join('\n');
               const blob = new Blob([bom + header + rows], { type: 'text/csv;charset=utf-8;' });
               const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -978,6 +1048,13 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             title="Export products as CSV"
           >
             <FileSpreadsheet size={16} />
+          </button>
+          <button
+            onClick={() => { setShowImport(true); setImportProgress(null); setImportGuideOpen(false); }}
+            className={cn("px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 border transition-all active:scale-95", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e]")}
+            title="Import products from CSV"
+          >
+            <Upload size={16} />
           </button>
           <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
             className="flex-1 md:flex-none text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
@@ -1059,6 +1136,113 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
 
       {stockProduct && (
         <StockModal product={stockProduct} onClose={() => setStockProduct(null)} onSave={handleStockSave} isSaving={isStockSaving} theme={theme} />
+      )}
+
+      {/* ── CSV Import modal ── */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={cn('w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden', theme === 'dark' ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white')}>
+            <div className={cn('flex items-center justify-between px-6 py-4 border-b', theme === 'dark' ? 'border-[#1f2335]' : 'border-slate-200')}>
+              <p className={cn('text-sm font-semibold', theme === 'dark' ? 'text-white' : 'text-slate-900')}>Import Products from CSV</p>
+              <button onClick={() => setShowImport(false)} className="text-[#8b92ad] hover:text-white transition-colors"><X size={16} /></button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+
+              {/* Guide toggle */}
+              <button
+                onClick={() => setImportGuideOpen(o => !o)}
+                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold border transition-colors', theme === 'dark' ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800')}
+              >
+                <span>CSV Format Guide</span>
+                <ChevronDownIcon size={14} className={cn('transition-transform', importGuideOpen && 'rotate-180')} />
+              </button>
+
+              {importGuideOpen && (
+                <div className={cn('rounded-xl p-4 space-y-3 text-xs', theme === 'dark' ? 'bg-[#0f1117]' : 'bg-slate-50')}>
+                  <p className={cn('font-semibold', theme === 'dark' ? 'text-white' : 'text-slate-800')}>Required columns</p>
+                  <div className="space-y-1 font-mono">
+                    {[
+                      { col: 'Name', note: 'Required. Product name.' },
+                      { col: 'Price (THB)', note: 'Required. Number only, e.g. 299' },
+                      { col: 'Description', note: 'Optional. Plain text.' },
+                      { col: 'Brand', note: 'Optional.' },
+                      { col: 'Category', note: 'Optional. Use semicolons for multiple: Food;Drink' },
+                      { col: 'Active', note: 'Optional. Yes or No. Defaults to Yes.' },
+                    ].map(({ col, note }) => (
+                      <div key={col} className="flex gap-2">
+                        <span className="text-accent w-28 flex-shrink-0">{col}</span>
+                        <span className={theme === 'dark' ? 'text-[#8b92ad]' : 'text-slate-500'}>{note}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className={cn('text-[10px]', theme === 'dark' ? 'text-[#8b92ad]' : 'text-slate-400')}>
+                    Variants cannot be imported via CSV — add them after import using the product editor. Images must be added manually.
+                  </p>
+                  <button
+                    onClick={() => {
+                      const template = '﻿Name,Description,Brand,Category,Price (THB),Active\nExample Bag,A stylish tote,MyBrand,Bags;Fashion,599,Yes\n';
+                      const a = document.createElement('a');
+                      a.href = URL.createObjectURL(new Blob([template], { type: 'text/csv;charset=utf-8;' }));
+                      a.download = 'product_import_template.csv'; a.click();
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-accent border border-accent/30 hover:bg-accent/5 transition-colors"
+                  >
+                    <FileSpreadsheet size={12} /> Download template
+                  </button>
+                </div>
+              )}
+
+              {/* File picker */}
+              {!importProgress && (
+                <div
+                  onClick={() => importFileRef.current?.click()}
+                  className={cn('border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors', theme === 'dark' ? 'border-[#1f2335] hover:border-accent/50' : 'border-slate-200 hover:border-accent/50')}
+                >
+                  <Upload size={24} className="text-[#8b92ad] mx-auto mb-2" />
+                  <p className={cn('text-sm font-medium', theme === 'dark' ? 'text-white' : 'text-slate-700')}>Click to select your CSV file</p>
+                  <p className="text-[11px] text-[#8b92ad] mt-1">or drag and drop</p>
+                  <input ref={importFileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImportCSV(f); }} />
+                </div>
+              )}
+
+              {/* Progress */}
+              {importProgress && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={theme === 'dark' ? 'text-white' : 'text-slate-800'}>
+                      {importProgress.done < importProgress.total ? `Importing… ${importProgress.done} / ${importProgress.total}` : `Done — ${importProgress.total - importProgress.errors.length} imported, ${importProgress.errors.length} errors`}
+                    </span>
+                  </div>
+                  <div className={cn('w-full rounded-full h-2', theme === 'dark' ? 'bg-[#1f2335]' : 'bg-slate-100')}>
+                    <div className="h-2 rounded-full bg-accent transition-all" style={{ width: `${(importProgress.done / importProgress.total) * 100}%` }} />
+                  </div>
+                  {importProgress.errors.length > 0 && (
+                    <div className={cn('rounded-xl p-3 space-y-1 max-h-32 overflow-y-auto', theme === 'dark' ? 'bg-[#0f1117]' : 'bg-red-50')}>
+                      {importProgress.errors.map((e, i) => (
+                        <div key={i} className="flex items-start gap-2 text-[11px]">
+                          <AlertCircle size={11} className="text-red-400 mt-0.5 flex-shrink-0" />
+                          <span className={theme === 'dark' ? 'text-red-300' : 'text-red-700'}>{e}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {importProgress.done === importProgress.total && importProgress.errors.length === 0 && (
+                    <div className="flex items-center gap-2 text-emerald-400 text-xs">
+                      <CheckCircle size={14} /> All products imported successfully.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className={cn('px-6 py-4 border-t', theme === 'dark' ? 'border-[#1f2335]' : 'border-slate-200')}>
+              {importProgress?.done === importProgress?.total ? (
+                <button onClick={() => setShowImport(false)} className="w-full py-2 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-all" style={{ background: 'var(--accent-gradient)' }}>Done</button>
+              ) : (
+                <button onClick={() => setShowImport(false)} className={cn('w-full py-2 rounded-xl text-sm border transition-colors', theme === 'dark' ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500')}>Cancel</button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {deleteConfirm && (
