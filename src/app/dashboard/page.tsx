@@ -286,7 +286,7 @@ export default function DashboardPage() {
   const accentColor = settings?.dashboardAccent || '#00b900';
   const accentGradient: string | null = settings?.dashboardAccentGradient || null;
   const shopInitial = (settings?.shopName || merchant?.email || 'S')[0].toUpperCase();
-  const tier = merchant?.tier ?? 'enterprise';
+  const tier = merchant?.tier ?? 'free';
   const tierLabel = getTierLabel(tier);
   const couponsUnlocked = checkBooleanFeature(tier, 'discountCodes');
 
