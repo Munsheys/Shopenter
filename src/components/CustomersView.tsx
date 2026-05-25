@@ -624,21 +624,12 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         {listOpen ? (
           <>
             <div className={`flex items-center gap-2 px-4 py-3 border-b ${k.border} flex-shrink-0`}>
-              <span className={`font-black text-xs tracking-wide ${k.text}`}>
+              <span className={`font-black text-xs flex-1 tracking-wide ${k.text}`}>
                 CUSTOMERS
                 {totalUnread > 0 && (
                   <span className="ml-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{totalUnread}</span>
                 )}
               </span>
-              <div className="flex gap-1 flex-1 justify-center">
-                {(['all', 'line', 'instagram'] as const).map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setPlatformFilter(p)}
-                    className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition-colors ${platformFilter === p ? 'bg-accent text-white' : `${k.muted} hover:text-accent`}`}
-                  >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : 'IG'}</button>
-                ))}
-              </div>
               <button
                 onClick={() => setListOpen(false)}
                 aria-label="Collapse customer list"
@@ -648,6 +639,16 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
               >
                 <ChevronLeft size={18} />
               </button>
+            </div>
+
+            <div className={`flex gap-1.5 px-3 py-2 border-b ${k.border} flex-shrink-0`}>
+              {(['all', 'line', 'instagram'] as const).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPlatformFilter(p)}
+                  className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-colors ${platformFilter === p ? 'bg-accent text-white' : `${k.muted} hover:text-accent`}`}
+                >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : 'Instagram'}</button>
+              ))}
             </div>
 
             <div className={`px-3 py-2 border-b ${k.border} flex-shrink-0`}>
