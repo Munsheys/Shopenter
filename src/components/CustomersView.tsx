@@ -127,6 +127,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   const [listWidth, setListWidth] = useState(300);
   const [chatWidth, setChatWidth] = useState(280);
   const [platformFilter, setPlatformFilter] = useState<'all' | 'line' | 'instagram'>('all');
+  const [findPlatformFilter, setFindPlatformFilter] = useState<'all' | 'line' | 'instagram'>('all');
 
   const [qoMode, setQoMode] = useState<'existing' | 'new'>('existing');
   const [qoSearch, setQoSearch] = useState('');
@@ -607,9 +608,10 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
     return !customerSearch || c.displayName.toLowerCase().includes(customerSearch.toLowerCase());
   });
 
-  const findCustomerResults = customers.filter(c =>
-    !findCustomerSearch || c.displayName.toLowerCase().includes(findCustomerSearch.toLowerCase())
-  );
+  const findCustomerResults = customers.filter(c => {
+    if (findPlatformFilter !== 'all' && (c.platform ?? 'line') !== findPlatformFilter) return false;
+    return !findCustomerSearch || c.displayName.toLowerCase().includes(findCustomerSearch.toLowerCase());
+  });
 
   const totalUnread = customers.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
@@ -1314,7 +1316,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             </div>
 
             {/* Search Input */}
-            <div className={`px-6 py-3 border-b ${k.border} flex-shrink-0`}>
+            <div className={`px-6 py-3 border-b ${k.border} flex-shrink-0 space-y-2`}>
               <div className="relative">
                 <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${k.muted}`} />
                 <input
@@ -1325,6 +1327,15 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                   placeholder="Search customer name..."
                   className={`w-full text-sm rounded-xl pl-10 pr-4 py-3 border outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-all ${k.input}`}
                 />
+              </div>
+              <div className="flex gap-1.5">
+                {(['all', 'line', 'instagram'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setFindPlatformFilter(p)}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-colors ${findPlatformFilter === p ? 'bg-accent text-white' : `${k.muted} hover:text-accent`}`}
+                  >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : 'Instagram'}</button>
+                ))}
               </div>
             </div>
 
