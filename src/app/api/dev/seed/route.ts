@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       userId: `mock-${mid}-alice`,
       displayName: 'Alice (Mock)',
       pictureUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alice',
-      // Multiple addresses to demo address section
+      platform: 'line',
       addresses: [
         '88/2 Sukhumvit Soi 11, Bangkok 10110',
         '45/9 Thonglor 13, Watthana, Bangkok 10110',
@@ -29,12 +29,14 @@ export async function POST(req: NextRequest) {
       userId: `mock-${mid}-bob`,
       displayName: 'Bob (Mock)',
       pictureUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
+      platform: 'line',
       addresses: ['45 Nimman Rd, Chiang Mai 50200'],
     },
     {
       userId: `mock-${mid}-charlie`,
       displayName: 'Charlie (Mock)',
       pictureUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie',
+      platform: 'line',
       addresses: [],
     },
   ];
