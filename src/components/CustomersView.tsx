@@ -12,6 +12,7 @@ import NumberStepper from '@/components/NumberStepper';
 type Customer = {
   _id: string; userId: string; displayName: string; pictureUrl?: string;
   addresses: string[]; lastSeen: string; unreadCount: number;
+  platform?: 'line' | 'instagram';
 };
 type OrderItem = { productId?: string; name: string; variantLabel?: string; price: number; qty: number };
 type Order = {
@@ -125,6 +126,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   const [batchActing, setBatchActing] = useState(false);
   const [listWidth, setListWidth] = useState(300);
   const [chatWidth, setChatWidth] = useState(280);
+  const [platformFilter, setPlatformFilter] = useState<'all' | 'line' | 'instagram'>('all');
 
   const [qoMode, setQoMode] = useState<'existing' | 'new'>('existing');
   const [qoSearch, setQoSearch] = useState('');
@@ -567,7 +569,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   }
 
   const customerOrders = selectedCustomer
-    ? allOrders.filter(o => o.lineUserId === selectedCustomer.userId)
+    ? allOrders.filter(o => o.lineUserId === selectedCustomer.userId || (o as any).userId === selectedCustomer.userId)
     : [];
   const activeOrders = customerOrders.filter(o => ['pending', 'paid'].includes(o.status));
   const pendingOrders = activeOrders.filter(o => o.status === 'pending');
@@ -600,9 +602,10 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
     };
   }, [products]);
 
-  const visibleCustomers = customers.filter(c =>
-    !customerSearch || c.displayName.toLowerCase().includes(customerSearch.toLowerCase())
-  );
+  const visibleCustomers = customers.filter(c => {
+    if (platformFilter !== 'all' && (c.platform ?? 'line') !== platformFilter) return false;
+    return !customerSearch || c.displayName.toLowerCase().includes(customerSearch.toLowerCase());
+  });
 
   const findCustomerResults = customers.filter(c =>
     !findCustomerSearch || c.displayName.toLowerCase().includes(findCustomerSearch.toLowerCase())
@@ -653,6 +656,15 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                     <X size={11} />
                   </button>
                 )}
+              </div>
+              <div className="flex gap-1 mt-2">
+                {(['all', 'line', 'instagram'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPlatformFilter(p)}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold capitalize transition-colors ${platformFilter === p ? 'bg-accent text-white' : `${k.muted} hover:text-accent`}`}
+                  >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : 'Instagram'}</button>
+                ))}
               </div>
             </div>
 
@@ -711,7 +723,9 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                           <span className={`text-[10px] flex-shrink-0 ${k.muted}`}>{timeAgo(c.lastSeen)}</span>
                         </div>
                         <p className={`text-[10px] truncate mt-0.5 ${c.unreadCount > 0 ? 'text-accent font-medium' : k.muted}`}>
-                          {c.unreadCount > 0 ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}` : 'LINE customer'}
+                          {c.unreadCount > 0
+                            ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}`
+                            : (c.platform ?? 'line') === 'instagram' ? 'Instagram' : 'LINE'}
                         </p>
                       </div>
                     </button>
@@ -996,7 +1010,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-bold truncate ${k.text}`}>{selectedCustomer.displayName}</p>
-                  <p className={`text-[10px] ${k.muted}`}>LINE Chat</p>
+                  <p className={`text-[10px] ${k.muted}`}>{(selectedCustomer.platform ?? 'line') === 'instagram' ? 'Instagram DM' : 'LINE Chat'}</p>
                 </div>
               </div>
               <button
