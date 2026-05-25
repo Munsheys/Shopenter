@@ -167,6 +167,7 @@ const ProductSchema = new mongoose.Schema({
 const CustomerSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   userId: { type: String, required: true, index: true },
+  platform: { type: String, enum: ['line', 'instagram'], index: true },
   displayName: String,
   pictureUrl: String,
   addresses: [String],
@@ -178,6 +179,22 @@ const CustomerSchema = new mongoose.Schema({
   loyaltyPoints: { type: Number, default: 0 },
 });
 CustomerSchema.index({ merchantId: 1, userId: 1 }, { unique: true });
+
+// CustomerProfile links platform-specific Customer records for the same real person (by phone)
+const CustomerProfileSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  phone: { type: String, default: '' },
+  displayName: { type: String, default: '' },
+  linkedAccounts: [{
+    platform: { type: String, enum: ['line', 'instagram'], required: true },
+    userId: { type: String, required: true },
+    displayName: { type: String, default: '' },
+    pictureUrl: { type: String, default: '' },
+  }],
+  createdAt: { type: Date, default: Date.now },
+});
+CustomerProfileSchema.index({ merchantId: 1, phone: 1 });
+CustomerProfileSchema.index({ merchantId: 1, 'linkedAccounts.userId': 1 });
 
 const OrderSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
@@ -335,6 +352,7 @@ export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', M
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
 export const Customer = mongoose.models.Customer || mongoose.model('Customer', CustomerSchema);
+export const CustomerProfile = mongoose.models.CustomerProfile || mongoose.model('CustomerProfile', CustomerProfileSchema);
 export const Order = mongoose.models.Order || mongoose.model('Order', OrderSchema);
 export const Message = mongoose.models.Message || mongoose.model('Message', MessageSchema);
 export const ProcessedEvent = mongoose.models.ProcessedEvent || mongoose.model('ProcessedEvent', ProcessedEventSchema);
