@@ -298,44 +298,44 @@ export default function ShopOrdersView({
       </div>
 
       {/* Stats Ribbon — click any card to filter orders below */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-        <StatsCard icon={<TrendingUp size={20} />} label="Total Revenue"
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
+        <StatsCard icon={<TrendingUp size={14} />} label="Total Revenue"
           value={`฿${stats.revenue.toLocaleString()}`} subLabel={`${stats.count} orders total`}
           color="emerald" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(allStatuses)}
           active={selectedStatuses.length === allStatuses.length}
         />
-        <StatsCard icon={<DollarSign size={20} />} label="Total Profit"
+        <StatsCard icon={<DollarSign size={14} />} label="Total Profit"
           value={`฿${stats.profit.toLocaleString()}`} subLabel={`฿${stats.avg.toLocaleString()} avg / order`}
           color="indigo" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['shipped', 'delivered'])}
           active={selectedStatuses.length === 2 && selectedStatuses.includes('delivered') && selectedStatuses.includes('shipped')}
         />
-        <StatsCard icon={<Clock size={20} />} label="Pending Payments"
+        <StatsCard icon={<Clock size={14} />} label="Pending Payments"
           value={stats.pending.toString()} subLabel="Awaiting payment"
           color="amber" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['pending'])}
           active={selectedStatuses.length === 1 && selectedStatuses.includes('pending')}
         />
-        <StatsCard icon={<Package size={20} />} label="In Fulfillment"
+        <StatsCard icon={<Package size={14} />} label="In Fulfillment"
           value={stats.preparing.toString()} subLabel="Preparing + shipped"
           color="blue" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['preparing', 'shipped'])}
           active={selectedStatuses.length === 2 && selectedStatuses.includes('preparing') && selectedStatuses.includes('shipped')}
         />
-        <StatsCard icon={<CheckCircle2 size={20} />} label="Delivered"
+        <StatsCard icon={<CheckCircle2 size={14} />} label="Delivered"
           value={stats.delivered.toString()} subLabel="Successfully fulfilled"
           color="emerald" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['delivered'])}
           active={selectedStatuses.length === 1 && selectedStatuses.includes('delivered')}
         />
-        <StatsCard icon={<BarChart2 size={20} />} label="Avg Order Value"
+        <StatsCard icon={<BarChart2 size={14} />} label="Avg Order Value"
           value={`฿${stats.avg.toLocaleString()}`} subLabel="Across all orders"
           color="indigo" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(allStatuses)}
           active={false}
         />
-        <StatsCard icon={<X size={20} />} label="Cancelled"
+        <StatsCard icon={<X size={14} />} label="Cancelled"
           value={stats.cancelled.toString()} subLabel="Voided orders"
           color="rose" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['cancelled'])}
@@ -399,14 +399,13 @@ export default function ShopOrdersView({
                 pending: 'Pending', paid: 'Paid', preparing: 'Preparing',
                 shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
               };
-              // Unselected: semantic tint. Selected: unified dark/accent fill — no rainbow.
-              const unselected: Record<string, string> = {
-                pending:   'text-amber-700 border-amber-200 dark:text-amber-400 dark:border-amber-500/30',
-                paid:      'text-sky-700 border-sky-200 dark:text-sky-400 dark:border-sky-500/30',
-                preparing: 'text-indigo-700 border-indigo-200 dark:text-indigo-400 dark:border-indigo-500/30',
-                shipped:   'text-violet-700 border-violet-200 dark:text-violet-400 dark:border-violet-500/30',
-                delivered: 'text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-500/30',
-                cancelled: 'text-rose-700 border-rose-200 dark:text-rose-400 dark:border-rose-500/30',
+              const pillColors: Record<string, { off: string; on: string }> = {
+                pending:   { off: 'text-amber-600 border-amber-200 dark:text-amber-400 dark:border-amber-500/30',   on: 'bg-amber-500 text-white border-amber-500' },
+                paid:      { off: 'text-sky-600 border-sky-200 dark:text-sky-400 dark:border-sky-500/30',           on: 'bg-sky-500 text-white border-sky-500' },
+                preparing: { off: 'text-indigo-600 border-indigo-200 dark:text-indigo-400 dark:border-indigo-500/30', on: 'bg-indigo-500 text-white border-indigo-500' },
+                shipped:   { off: 'text-violet-600 border-violet-200 dark:text-violet-400 dark:border-violet-500/30', on: 'bg-violet-500 text-white border-violet-500' },
+                delivered: { off: 'text-emerald-600 border-emerald-200 dark:text-emerald-400 dark:border-emerald-500/30', on: 'bg-emerald-500 text-white border-emerald-500' },
+                cancelled: { off: 'text-rose-600 border-rose-200 dark:text-rose-400 dark:border-rose-500/30',       on: 'bg-rose-500 text-white border-rose-500' },
               };
               return (
                 <button
@@ -414,9 +413,7 @@ export default function ShopOrdersView({
                   onClick={() => toggleStatus(status)}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all active:scale-95",
-                    isSelected
-                      ? "bg-[#1a1d2e] text-white border-transparent dark:bg-white dark:text-[#1a1d2e]"
-                      : unselected[status]
+                    isSelected ? pillColors[status].on : pillColors[status].off
                   )}
                 >
                   {labels[status]}
@@ -683,23 +680,23 @@ function StatsCard({ icon, label, value, subLabel, color, theme, isLoading, onCl
     <button
       onClick={onClick}
       className={cn(
-        "p-5 rounded-3xl border transition-all shadow-sm flex flex-col gap-3 text-left w-full",
+        "p-3 rounded-2xl border transition-all shadow-sm flex flex-col gap-2 text-left w-full",
         active ? "ring-2 ring-accent border-accent/40" : "",
         onClick ? "cursor-pointer hover:shadow-md active:scale-[0.98]" : "",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
       )}
     >
-      <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", colorMap[color])}>
+      <div className={cn("w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0", colorMap[color])}>
         {icon}
       </div>
-      <div>
-        <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
+      <div className="min-w-0">
+        <div className="text-[#8b92ad] text-[9px] font-bold uppercase tracking-wider mb-0.5 truncate">{label}</div>
         {isLoading ? (
-          <div className="w-5 h-5 border-2 border-t-transparent border-accent rounded-full animate-spin mt-1" />
+          <div className="w-4 h-4 border-2 border-t-transparent border-accent rounded-full animate-spin mt-1" />
         ) : (
           <>
-            <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
-            {subLabel && <div className="text-[9px] text-[#8b92ad] mt-0.5">{subLabel}</div>}
+            <div className={cn("text-base font-black leading-tight", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+            {subLabel && <div className="text-[8px] text-[#8b92ad] mt-0.5 truncate">{subLabel}</div>}
           </>
         )}
       </div>
