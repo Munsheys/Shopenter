@@ -633,15 +633,6 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                   <span className="ml-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{totalUnread}</span>
                 )}
               </span>
-              <div className="flex gap-1 flex-1 justify-center">
-                {(['all', 'line', 'instagram'] as const).map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setPlatformFilter(p)}
-                    className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition-colors ${platformFilter === p ? 'bg-accent text-white' : `${k.muted} hover:text-accent`}`}
-                  >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : 'IG'}</button>
-                ))}
-              </div>
               <button
                 onClick={() => setListOpen(false)}
                 aria-label="Collapse customer list"
@@ -733,12 +724,17 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
-                          <p className={`text-xs font-semibold truncate ${k.text}`}>{c.displayName}</p>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <p className={`text-xs font-semibold truncate ${k.text}`}>{c.displayName}</p>
+                            {isBlocked && (
+                              <span className="flex-shrink-0 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 border border-red-500/30 uppercase tracking-wide">Blocked</span>
+                            )}
+                          </div>
                           <span className={`text-[10px] flex-shrink-0 ${k.muted}`}>{timeAgo(c.lastSeen)}</span>
                         </div>
                         <p className={`text-[10px] truncate mt-0.5 ${!isBlocked && c.unreadCount > 0 ? 'text-accent font-medium' : k.muted}`}>
                           {isBlocked
-                            ? 'Blocked / Unfollowed'
+                            ? 'Unfollowed — messages won\'t deliver'
                             : c.unreadCount > 0
                               ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}`
                               : c.platform === 'instagram' ? 'Instagram' : c.platform === 'line' ? 'LINE' : 'No platform'}
@@ -832,9 +828,14 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h2 className={`font-black text-sm truncate ${k.text}`}>{selectedCustomer.displayName}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className={`font-black text-sm truncate ${k.text}`}>{selectedCustomer.displayName}</h2>
+                    {selectedCustomer.status === 'blocked' && (
+                      <span className="flex-shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full bg-red-500/15 text-red-500 border border-red-500/30 uppercase tracking-wide">Blocked</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                    <span className={`text-[10px] ${k.muted}`}>LINE Customer</span>
+                    <span className={`text-[10px] ${k.muted}`}>{selectedCustomer.platform === 'instagram' ? 'Instagram' : 'LINE'} Customer</span>
                     {activeOrders.length > 0 && (
                       <span className="text-[10px] bg-orange-100 text-orange-600 border border-orange-200 px-1.5 py-0.5 rounded-full font-bold">
                         {activeOrders.length} active
@@ -854,6 +855,14 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
+                {selectedCustomer.unreadCount > 0 && (
+                  <button
+                    onClick={markAsRead}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${isDark ? 'border-[#2a3050] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-[#e2e5ef] text-[#8b92ad] hover:border-accent hover:text-accent'}`}
+                  >
+                    <CheckCircle size={12} /> Mark as read
+                  </button>
+                )}
                 <button
                   onClick={() => setShowModal(true)}
                   className="flex items-center gap-1.5 px-3 py-2 hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
@@ -1968,7 +1977,33 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
           </p>
           <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(currentSold)}</p>
         </div>
-        <div className="flex items-center ml-4 flex-shrink-0">
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            const w = window.open('', '_blank', 'width=480,height=600');
+            if (!w) return;
+            w.document.write(`<html><head><title>Order Receipt</title><style>body{font-family:sans-serif;padding:24px;font-size:13px}h2{margin:0 0 4px}p{margin:4px 0}hr{border:none;border-top:1px solid #ddd;margin:12px 0}.label{color:#888;font-size:11px}</style></head><body>
+              <h2>${order.product}</h2>
+              <p class="label">${new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              <hr/>
+              ${order.tracking ? `<p><b>Courier:</b> ${order.courier || ''} · ${order.tracking}</p>` : ''}
+              ${order.address ? `<p><b>Address:</b> ${order.address}</p>` : ''}
+              <hr/>
+              <p><b>Sales:</b> ${sc} ${fmt(currentSold)}</p>
+              <p><b>Cost:</b> ${cc} ${fmt(currentCostKRW)} (${sc} ${fmt(Math.round(currentCostTHB))})</p>
+              ${order.shipCostTHB ? `<p><b>Shipping:</b> ${sc} ${fmt(order.shipCostTHB)}</p>` : ''}
+              <p><b>Profit:</b> ${sc} ${fmt(Math.round(currentProfit))}</p>
+              <script>window.onload=()=>window.print()</script>
+            </body></html>`);
+            w.document.close();
+          }}
+          className={`p-2 ml-2 rounded-lg flex-shrink-0 transition-colors ${k.muted} hover:text-accent`}
+          title="Print receipt"
+          aria-label="Print order receipt"
+        >
+          <Printer size={14} />
+        </button>
+        <div className="flex items-center ml-1 flex-shrink-0">
           <ChevronDown size={14} className={`${k.muted} transition-transform ${open ? 'rotate-180' : ''}`} />
         </div>
       </button>
