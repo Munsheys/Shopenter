@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
   const { userId } = await params;
   try {
     await dbConnect();
-    const messages = await Message.find({ merchantId: merchant.merchantId, lineUserId: userId })
+    const messages = await Message.find({ merchantId: merchant.merchantId, userId })
       .sort({ createdAt: 1 })
       .lean();
     return NextResponse.json(messages);

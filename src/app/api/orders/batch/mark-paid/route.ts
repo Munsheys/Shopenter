@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'LINE access token not configured' }, { status: 400 });
     }
 
-    const lineUserId = orders[0].lineUserId;
+    const userId = orders[0].userId;
     const totalTHB = orders.reduce((sum, o) => sum + (o.soldTHB || 0), 0);
     const combinedProducts = orders.map(o => `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${o.product?.replace(/^\d+x\s/, '')}`).join(', ');
 
@@ -39,13 +39,14 @@ export async function POST(req: NextRequest) {
     const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.lineChannelAccessToken}` },
-      body: JSON.stringify({ to: lineUserId, messages: [{ type: 'text', text: messageText }] })
+      body: JSON.stringify({ to: userId, messages: [{ type: 'text', text: messageText }] })
     });
     if (!lineRes.ok) console.error('[LINE push batch-mark-paid]', await lineRes.text());
 
     await Message.create({
       merchantId: merchant.merchantId,
-      lineUserId,
+      userId,
+      platform: orders[0].platform || 'line',
       type: 'system',
       text: '✅ Batch Payment Confirmed',
       metadata: { amount: totalTHB, product: combinedProducts },

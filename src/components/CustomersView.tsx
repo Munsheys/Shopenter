@@ -16,7 +16,7 @@ type Customer = {
 };
 type OrderItem = { productId?: string; name: string; variantLabel?: string; price: number; qty: number };
 type Order = {
-  _id: string; lineUserId: string; displayName: string; product: string;
+  _id: string; userId: string; platform?: 'line' | 'instagram'; displayName: string; product: string;
   quantity: number; items: OrderItem[]; soldTHB: number; costKRW: number;
   costTHB: number; profit: number; shipCostTHB: number;
   costCurrency?: string; soldCurrency?: string;
@@ -27,7 +27,7 @@ type Order = {
   statusBeforeParcel?: string;
 };
 type Message = {
-  _id: string; lineUserId: string;
+  _id: string; userId: string; platform?: 'line' | 'instagram';
   type: 'text' | 'image' | 'sticker' | 'audio' | 'video' | 'system';
   text: string; sender: 'user' | 'admin' | 'system'; createdAt: string;
   messageId?: string;
@@ -433,7 +433,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lineUserId: selectedCustomer.userId,
+          userId: selectedCustomer.userId,
           displayName: selectedCustomer.displayName,
           product: `${qoQty > 1 ? `${qoQty}x ` : ''}${product.name}`,
           quantity: qoQty,
@@ -570,7 +570,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   }
 
   const customerOrders = selectedCustomer
-    ? allOrders.filter(o => o.lineUserId === selectedCustomer.userId || (o as any).userId === selectedCustomer.userId)
+    ? allOrders.filter(o => o.userId === selectedCustomer.userId)
     : [];
   const activeOrders = customerOrders.filter(o => ['pending', 'paid'].includes(o.status));
   const pendingOrders = activeOrders.filter(o => o.status === 'pending');

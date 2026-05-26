@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Whitelist updatable fields to prevent arbitrary field injection
     const ALLOWED_FIELDS = ['status', 'tracking', 'courier', 'shipCostTHB', 'costKRW', 'costTHB',
       'soldTHB', 'profit', 'rateUsed', 'paymentQrSent', 'trackingSent', 'statusBeforeParcel',
-      'address', 'displayName', 'product', 'quantity', 'items', 'lineUserId'];
+      'address', 'displayName', 'product', 'quantity', 'items', 'userId', 'platform'];
     const safeUpdate: Record<string, any> = {};
     for (const key of ALLOWED_FIELDS) {
       if (key in body) safeUpdate[key] = body[key];
@@ -49,18 +49,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const settings = needsSettings ? await Settings.findOne({ merchantId: merchant.merchantId }) : null;
 
     // Auto-earn loyalty points when order is marked paid
-    if (newStatus === 'paid' && before.status !== 'paid' && order.lineUserId && order.soldTHB > 0) {
+    if (newStatus === 'paid' && before.status !== 'paid' && order.userId && order.soldTHB > 0) {
       const loyalty = settings?.loyalty;
       if (loyalty?.enabled && loyalty.pointsPerBaht > 0) {
         const earned = Math.floor(order.soldTHB * loyalty.pointsPerBaht);
         if (earned > 0) {
           await Customer.findOneAndUpdate(
-            { merchantId: merchant.merchantId, userId: order.lineUserId },
+            { merchantId: merchant.merchantId, userId: order.userId },
             { $inc: { loyaltyPoints: earned } }
           );
           await LoyaltyTransaction.create({
             merchantId: merchant.merchantId,
-            lineUserId: order.lineUserId,
+            userId: order.userId,
+            platform: order.platform || 'line',
             orderId: order._id,
             type: 'earn',
             points: earned,
@@ -70,10 +71,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    if (flag && before.status !== newStatus && !before[flag] && order.lineUserId) {
+    if (flag && before.status !== newStatus && !before[flag] && order.userId) {
       const stage = settings?.orderNotifications?.[newStatus];
 
-      if (stage?.enabled && stage.template && settings?.lineChannelAccessToken) {
+      if (stage?.enabled && stage.template && settings?.lineChannelAccessToken && (!order.platform || order.platform === 'line')) {
         const productText = order.product || order.items?.map((i: any) => i.name).join(', ') || '';
         const templateData = {
           product:  productText,
@@ -95,12 +96,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
         const sent = await sendFlexMessage(
           settings.lineChannelAccessToken,
-          order.lineUserId,
+          order.userId,
           interpolateTemplate(stage.template, templateData),
           flexContent
         ) || await sendLineMessage(
           settings.lineChannelAccessToken,
-          order.lineUserId,
+          order.userId,
           interpolateTemplate(stage.template, templateData)
         );
 
@@ -108,7 +109,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           await Order.findByIdAndUpdate(id, { [flag]: true });
           await Message.create({
             merchantId: merchant.merchantId,
-            lineUserId: order.lineUserId,
+            userId: order.userId,
+            platform: order.platform || 'line',
             type: 'system',
             text: interpolateTemplate(stage.template, templateData),
             sender: 'system',

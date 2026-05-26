@@ -33,13 +33,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.lineChannelAccessToken}` },
-      body: JSON.stringify({ to: order.lineUserId, messages: [{ type: 'text', text: messageText }] })
+      body: JSON.stringify({ to: order.userId, messages: [{ type: 'text', text: messageText }] })
     });
     if (!lineRes.ok) console.error('[LINE push mark-paid]', await lineRes.text());
 
     await Message.create({
       merchantId: merchant.merchantId,
-      lineUserId: order.lineUserId,
+      userId: order.userId,
+      platform: order.platform || 'line',
       type: 'system',
       text: '✅ Payment Confirmed',
       metadata: { amount: order.soldTHB, product: order.product },

@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
 
     const newMessage = await Message.create({
       merchantId: merchant.merchantId,
-      lineUserId: userId,
+      userId,
+      platform: 'line',
       text,
       sender: 'admin',
       createdAt: new Date()

@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
     const customer = await Customer.findOne({ merchantId: merchant.merchantId, userId });
     if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const orders = await Order.find({ merchantId: merchant.merchantId, lineUserId: userId }).sort({ createdAt: -1 });
+    const orders = await Order.find({ merchantId: merchant.merchantId, userId }).sort({ createdAt: -1 });
     return NextResponse.json({ customer, orders });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch customer' }, { status: 500 });

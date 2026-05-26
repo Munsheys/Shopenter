@@ -49,7 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.lineChannelAccessToken}` },
-      body: JSON.stringify({ to: order.lineUserId, messages: [flexMessage, instructionMessage] })
+      body: JSON.stringify({ to: order.userId, messages: [flexMessage, instructionMessage] })
     });
     if (!lineRes.ok) {
       console.error('[LINE push send-qr]', await lineRes.text());
@@ -61,7 +61,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     await Message.create({
       merchantId: merchant.merchantId,
-      lineUserId: order.lineUserId,
+      userId: order.userId,
+      platform: order.platform || 'line',
       type: 'system',
       text: '🏦 QR Code Sent',
       metadata: { amount: order.soldTHB, product: order.product },

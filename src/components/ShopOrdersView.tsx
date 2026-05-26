@@ -23,7 +23,8 @@ function cn(...inputs: ClassValue[]) {
 
 interface Order {
   _id: string;
-  lineUserId: string;
+  userId: string;
+  platform?: 'line' | 'instagram';
   displayName: string;
   address: string;
   product: string;
@@ -523,7 +524,7 @@ export default function ShopOrdersView({
                   <td className="px-6 py-5">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={() => onViewCustomer?.(o.lineUserId)}
+                        onClick={() => onViewCustomer?.(o.userId)}
                         className={cn(
                           "flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all active:scale-95 shadow-sm",
                           theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white hover:border-accent" : "bg-white border-[#e2e5ef] text-[#1a1d2e] hover:border-accent"

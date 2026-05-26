@@ -7,9 +7,9 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest, { params }: { params: Promise<{ merchantId: string }> }) {
   const { merchantId } = await params;
   const { searchParams } = new URL(req.url);
-  const lineUserId = searchParams.get('lineUserId');
+  const userId = searchParams.get('userId');
 
-  if (!lineUserId) return NextResponse.json({ error: 'lineUserId required' }, { status: 400 });
+  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
 
   await dbConnect();
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ merc
 
   if (!loyalty?.enabled) return NextResponse.json({ enabled: false, points: 0 });
 
-  const customer = await Customer.findOne({ merchantId, userId: lineUserId }).select('loyaltyPoints').lean() as any;
+  const customer = await Customer.findOne({ merchantId, userId }).select('loyaltyPoints').lean() as any;
 
   return NextResponse.json({
     enabled: true,
