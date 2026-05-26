@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const [settingsDirty, setSettingsDirty] = useState(false);
+  const [jumpToUserId, setJumpToUserId] = useState<string | null>(null);
   const [pendingTab, setPendingTab] = useState<Tab | null>(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -486,11 +487,11 @@ export default function DashboardPage() {
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <div key={`customers-${refreshKey}`} className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-          <CustomersView theme={theme} onLimitHit={handleLimitHit} />
+          <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} />
         </div>
 
         <div key={`orders-${refreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
-          <ShopOrdersView theme={theme} t={{}} onLimitHit={handleLimitHit} onViewCustomer={() => setActiveTab('customers')} />
+          <ShopOrdersView theme={theme} t={{}} onLimitHit={handleLimitHit} onViewCustomer={(userId) => { setJumpToUserId(userId); setActiveTab('customers'); }} />
         </div>
 
         <div key={`products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto' : 'hidden'}>

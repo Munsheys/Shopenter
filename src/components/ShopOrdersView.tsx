@@ -1,17 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  ShoppingCart, 
-  FileSpreadsheet, 
-  Check, 
-  Search, 
-  Calendar, 
-  Filter, 
-  ExternalLink, 
-  TrendingUp, 
-  Clock, 
-  Package, 
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  ShoppingCart,
+  FileSpreadsheet,
+  Check,
+  Search,
+  Calendar,
+  Filter,
+  ExternalLink,
+  TrendingUp,
+  Clock,
+  Package,
   CheckCircle2,
-  X
+  X,
+  DollarSign,
+  BarChart2,
 } from 'lucide-react';
 import LoadingView from './LoadingView';
 import { clsx, type ClassValue } from 'clsx';
@@ -31,9 +33,11 @@ interface Order {
   quantity: number;
   items: any[];
   soldTHB: number;
-  status: 'pending' | 'paid' | 'preparing' | 'shipped' | 'delivered';
+  profit?: number;
+  status: 'pending' | 'paid' | 'preparing' | 'shipped' | 'delivered' | 'cancelled';
   createdAt: string;
   tracking?: string;
+  courier?: string;
 }
 
 export default function ShopOrdersView({
@@ -66,7 +70,11 @@ export default function ShopOrdersView({
   const [sortField, setSortField] = useState<'createdAt' | 'soldTHB' | 'status' | 'displayName' | null>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  const allStatuses = ['pending', 'paid', 'preparing', 'shipped', 'delivered'];
+  // Date picker refs — lets the whole container trigger showPicker()
+  const startDateRef = useRef<HTMLInputElement>(null);
+  const endDateRef = useRef<HTMLInputElement>(null);
+
+  const allStatuses = ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'];
   const newOrderStatuses = ['pending', 'paid'];
 
 
@@ -82,26 +90,27 @@ export default function ShopOrdersView({
     }
   }, []);
 
+  // Status filter is purely client-side — never sent to API.
+  // Only search text and date range trigger a re-fetch.
   const fetchOrders = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
-      if (selectedStatuses.length > 0) params.append('status', selectedStatuses.join(','));
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
       const res = await fetch(`/api/shop-orders?${params.toString()}`);
       const data = await res.json();
       setOrders(Array.isArray(data) ? data : []);
-      setCurrentPage(1); // Reset to first page on new filter
+      setCurrentPage(1);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
       setOrders([]);
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, selectedStatuses, startDate, endDate]);
+  }, [searchTerm, startDate, endDate]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -173,11 +182,15 @@ export default function ShopOrdersView({
     ? sortedOrders
     : sortedOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  // Stats always computed from all loaded orders, not just the status-filtered view.
+  const allOrders = orders || [];
   const stats = {
-    revenue:   filteredOrders.reduce((sum, o) => sum + (o.soldTHB || 0), 0) || 0,
-    pending:   filteredOrders.filter(o => o.status === 'pending').length || 0,
-    preparing: filteredOrders.filter(o => o.status === 'preparing').length || 0,
-    delivered: filteredOrders.filter(o => o.status === 'delivered').length || 0,
+    revenue:   allOrders.reduce((sum, o) => sum + (o.soldTHB || 0), 0),
+    profit:    allOrders.reduce((sum, o) => sum + (o.profit || 0), 0),
+    pending:   allOrders.filter(o => o.status === 'pending').length,
+    preparing: allOrders.filter(o => ['preparing', 'shipped'].includes(o.status)).length,
+    delivered: allOrders.filter(o => o.status === 'delivered').length,
+    avg:       allOrders.length ? Math.round(allOrders.reduce((s, o) => s + (o.soldTHB || 0), 0) / allOrders.length) : 0,
   };
 
   // Handler functions
@@ -273,39 +286,51 @@ export default function ShopOrdersView({
         </button>
       </div>
 
-      {/* Stats Ribbon */}
+      {/* Stats Ribbon — click to filter */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatsCard 
-          icon={<TrendingUp size={20} />} 
-          label={t.total_revenue || "Total Revenue"} 
-          value={`฿${stats.revenue.toLocaleString()}`} 
-          color="emerald" 
-          theme={theme} 
+        <StatsCard
+          icon={<TrendingUp size={20} />}
+          label="Total Revenue"
+          value={`฿${stats.revenue.toLocaleString()}`}
+          subLabel="All orders"
+          color="emerald"
+          theme={theme}
           isLoading={isLoading || orders === null}
-        />
-        <StatsCard 
-          icon={<Clock size={20} />} 
-          label={t.pending_payments || "Pending Payments"} 
-          value={stats.pending.toString()} 
-          color="amber" 
-          theme={theme} 
-          isLoading={isLoading || orders === null}
-        />
-        <StatsCard 
-          icon={<Package size={20} />} 
-          label={t.awaiting_delivery || "Awaiting Delivery"} 
-          value={stats.preparing.toString()} 
-          color="blue" 
-          theme={theme} 
-          isLoading={isLoading || orders === null}
+          onClick={() => setSelectedStatuses(allStatuses)}
+          active={selectedStatuses.length === allStatuses.length}
         />
         <StatsCard
-          icon={<CheckCircle2 size={20} />}
-          label="Delivered"
-          value={stats.delivered.toString()}
+          icon={<DollarSign size={20} />}
+          label="Total Profit"
+          value={`฿${stats.profit.toLocaleString()}`}
+          subLabel={`Avg ฿${stats.avg.toLocaleString()} / order`}
           color="indigo"
           theme={theme}
           isLoading={isLoading || orders === null}
+          onClick={() => setSelectedStatuses(['delivered', 'shipped'])}
+          active={selectedStatuses.length === 2 && selectedStatuses.includes('delivered') && selectedStatuses.includes('shipped')}
+        />
+        <StatsCard
+          icon={<Clock size={20} />}
+          label="Pending Payments"
+          value={stats.pending.toString()}
+          subLabel="Awaiting payment"
+          color="amber"
+          theme={theme}
+          isLoading={isLoading || orders === null}
+          onClick={() => setSelectedStatuses(['pending'])}
+          active={selectedStatuses.length === 1 && selectedStatuses.includes('pending')}
+        />
+        <StatsCard
+          icon={<Package size={20} />}
+          label="In Fulfillment"
+          value={stats.preparing.toString()}
+          subLabel="Preparing + shipped"
+          color="blue"
+          theme={theme}
+          isLoading={isLoading || orders === null}
+          onClick={() => setSelectedStatuses(['preparing', 'shipped'])}
+          active={selectedStatuses.length === 2 && selectedStatuses.includes('preparing') && selectedStatuses.includes('shipped')}
         />
       </div>
 
@@ -337,42 +362,18 @@ export default function ShopOrdersView({
             )}
           </div>
 
-          {/* New/All Toggle */}
+          {/* New / All / Clear */}
           <div className="flex items-center gap-2">
             {(() => {
-              const isNewSelected = selectedStatuses.length === newOrderStatuses.length &&
-                                    newOrderStatuses.every(s => selectedStatuses.includes(s));
-              const isAllSelected = selectedStatuses.length === allStatuses.length &&
-                                    allStatuses.every(s => selectedStatuses.includes(s));
-
+              const isNewSelected = selectedStatuses.length === newOrderStatuses.length && newOrderStatuses.every(s => selectedStatuses.includes(s));
+              const isAllSelected = selectedStatuses.length === allStatuses.length && allStatuses.every(s => selectedStatuses.includes(s));
+              const btnBase = "px-3 py-2.5 rounded-lg text-xs font-bold transition-all border";
+              const inactive = theme === 'dark' ? "border-[#2d324d] text-[#8b92ad] hover:border-accent/50" : "border-[#d1d5e8] text-[#8b92ad] hover:border-accent/50";
               return (
                 <>
-                  <button
-                    onClick={() => {
-                      setSelectedStatuses(newOrderStatuses);
-                    }}
-                    className={cn(
-                      "px-3 py-2.5 rounded-lg text-xs font-bold transition-all",
-                      isNewSelected
-                        ? "bg-accent text-white"
-                        : theme === 'dark' ? "border border-[#2d324d] text-[#8b92ad]" : "border border-[#d1d5e8] text-[#8b92ad]"
-                    )}
-                  >
-                    🆕 New
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedStatuses(allStatuses);
-                    }}
-                    className={cn(
-                      "px-3 py-2.5 rounded-lg text-xs font-bold transition-all",
-                      isAllSelected
-                        ? "bg-accent text-white"
-                        : theme === 'dark' ? "border border-[#2d324d] text-[#8b92ad]" : "border border-[#d1d5e8] text-[#8b92ad]"
-                    )}
-                  >
-                    📦 All
-                  </button>
+                  <button onClick={() => setSelectedStatuses(newOrderStatuses)} className={cn(btnBase, isNewSelected ? "bg-accent text-white border-accent" : inactive)}>New</button>
+                  <button onClick={() => setSelectedStatuses(allStatuses)} className={cn(btnBase, isAllSelected ? "bg-accent text-white border-accent" : inactive)}>All</button>
+                  <button onClick={() => setSelectedStatuses([])} className={cn(btnBase, selectedStatuses.length === 0 ? "bg-red-500/10 text-red-500 border-red-300" : inactive)}>Clear</button>
                 </>
               );
             })()}
@@ -385,32 +386,31 @@ export default function ShopOrdersView({
           <div className="flex flex-wrap items-center gap-2">
             {allStatuses.map(status => {
               const isSelected = selectedStatuses.includes(status);
-              const statusConfig = {
-                pending: { label: 'Pending', color: 'amber' },
-                paid: { label: 'Paid', color: 'emerald' },
+              type PillColor = 'amber'|'emerald'|'blue'|'violet'|'green'|'red';
+              const statusConfig: Record<string, { label: string; color: PillColor }> = {
+                pending:   { label: 'Pending',   color: 'amber' },
+                paid:      { label: 'Paid',      color: 'emerald' },
                 preparing: { label: 'Preparing', color: 'blue' },
-                shipped: { label: 'Shipped', color: 'slate' },
+                shipped:   { label: 'Shipped',   color: 'violet' },
                 delivered: { label: 'Delivered', color: 'green' },
-              }[status];
-
-              const colorStyles = {
-                amber: isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-transparent text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-500/40',
-                emerald: isSelected ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-transparent text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-500/40',
-                blue: isSelected ? 'bg-blue-500 text-white border-blue-500' : 'bg-transparent text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-500/40',
-                slate: isSelected ? 'bg-slate-500 text-white border-slate-500' : 'bg-transparent text-slate-600 border-slate-300 dark:text-slate-300 dark:border-slate-500/40',
-                green: isSelected ? 'bg-green-500 text-white border-green-500' : 'bg-transparent text-green-600 border-green-300 dark:text-green-400 dark:border-green-500/40',
+                cancelled: { label: 'Cancelled', color: 'red' },
               };
-
+              const colorStyles: Record<PillColor, string> = {
+                amber:   isSelected ? 'bg-amber-500 text-white border-amber-500'   : 'text-amber-700 border-amber-400 dark:text-amber-400 dark:border-amber-500/40',
+                emerald: isSelected ? 'bg-emerald-500 text-white border-emerald-500' : 'text-emerald-700 border-emerald-400 dark:text-emerald-400 dark:border-emerald-500/40',
+                blue:    isSelected ? 'bg-blue-500 text-white border-blue-500'     : 'text-blue-700 border-blue-400 dark:text-blue-400 dark:border-blue-500/40',
+                violet:  isSelected ? 'bg-violet-500 text-white border-violet-500' : 'text-violet-700 border-violet-400 dark:text-violet-400 dark:border-violet-500/40',
+                green:   isSelected ? 'bg-green-500 text-white border-green-500'   : 'text-green-700 border-green-400 dark:text-green-400 dark:border-green-500/40',
+                red:     isSelected ? 'bg-red-500 text-white border-red-500'       : 'text-red-700 border-red-400 dark:text-red-400 dark:border-red-500/40',
+              };
+              const cfg = statusConfig[status];
               return (
                 <button
                   key={status}
                   onClick={() => toggleStatus(status)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-[10px] font-bold border-2 transition-all active:scale-95 hover:shadow-sm",
-                    colorStyles[statusConfig?.color as keyof typeof colorStyles]
-                  )}
+                  className={cn("px-3 py-1.5 rounded-full text-[10px] font-bold border-2 transition-all active:scale-95 hover:shadow-sm", colorStyles[cfg.color])}
                 >
-                  {statusConfig?.label}
+                  {cfg.label}
                 </button>
               );
             })}
@@ -419,30 +419,22 @@ export default function ShopOrdersView({
           {/* Date Range Section */}
           <div className="ml-auto flex items-center gap-3">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b92ad] whitespace-nowrap">Date</span>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad]" size={14} />
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className={cn(
-                  "pl-9 pr-3 py-2.5 rounded-xl text-xs font-bold outline-none border transition-all",
-                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
-                )}
+            <div className="relative cursor-pointer" onClick={() => { try { (startDateRef.current as any)?.showPicker(); } catch {} }}>
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
+              <input ref={startDateRef} type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                className={cn("pl-9 pr-3 py-2.5 rounded-xl text-xs font-bold outline-none border transition-all cursor-pointer", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]")}
               />
             </div>
             <span className="text-[#8b92ad] font-bold">→</span>
-            <div className="relative">
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className={cn(
-                  "pl-4 pr-3 py-2.5 rounded-xl text-xs font-bold outline-none border transition-all",
-                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
-                )}
+            <div className="relative cursor-pointer" onClick={() => { try { (endDateRef.current as any)?.showPicker(); } catch {} }}>
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
+              <input ref={endDateRef} type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                className={cn("pl-9 pr-3 py-2.5 rounded-xl text-xs font-bold outline-none border transition-all cursor-pointer", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]")}
               />
             </div>
+            {(startDate || endDate) && (
+              <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[#8b92ad] hover:text-red-500 transition-colors"><X size={14} /></button>
+            )}
           </div>
         </div>
       </div>
@@ -659,19 +651,23 @@ export default function ShopOrdersView({
   );
 }
 
-function StatsCard({ icon, label, value, color, theme, isLoading }: any) {
+function StatsCard({ icon, label, value, subLabel, color, theme, isLoading, onClick, active }: any) {
   const colorMap: any = {
     emerald: "text-emerald-500 bg-emerald-500/10",
-    amber: "text-amber-500 bg-amber-500/10",
-    blue: "text-blue-500 bg-blue-500/10",
-    indigo: "text-indigo-500 bg-indigo-500/10",
+    amber:   "text-amber-500 bg-amber-500/10",
+    blue:    "text-blue-500 bg-blue-500/10",
+    indigo:  "text-indigo-500 bg-indigo-500/10",
   };
-
   return (
-    <div className={cn(
-      "p-5 rounded-3xl border transition-all shadow-sm flex flex-col gap-3",
-      theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
-    )}>
+    <button
+      onClick={onClick}
+      className={cn(
+        "p-5 rounded-3xl border transition-all shadow-sm flex flex-col gap-3 text-left w-full",
+        active ? "ring-2 ring-accent border-accent/40" : "",
+        onClick ? "cursor-pointer hover:shadow-md active:scale-[0.98]" : "",
+        theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+      )}
+    >
       <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", colorMap[color])}>
         {icon}
       </div>
@@ -680,20 +676,24 @@ function StatsCard({ icon, label, value, color, theme, isLoading }: any) {
         {isLoading ? (
           <div className="w-5 h-5 border-2 border-t-transparent border-accent rounded-full animate-spin mt-1" />
         ) : (
-          <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+          <>
+            <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+            {subLabel && <div className="text-[9px] text-[#8b92ad] mt-0.5">{subLabel}</div>}
+          </>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 
 function StatusPill({ status }: { status: string }) {
   const configs: any = {
-    pending:   { label: 'PENDING',   bg: 'bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40' },
-    paid:      { label: 'PAID',      bg: 'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40' },
-    preparing: { label: 'PREPARING', bg: 'bg-blue-100 text-blue-600 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/40' },
-    shipped:   { label: 'SHIPPED',   bg: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/40' },
-    delivered: { label: 'DELIVERED', bg: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/40' },
+    pending:   { label: 'PENDING',   bg: 'bg-amber-200 text-amber-800 border-amber-300 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40' },
+    paid:      { label: 'PAID',      bg: 'bg-emerald-200 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40' },
+    preparing: { label: 'PREPARING', bg: 'bg-blue-200 text-blue-800 border-blue-300 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/40' },
+    shipped:   { label: 'SHIPPED',   bg: 'bg-violet-200 text-violet-800 border-violet-300 dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/40' },
+    delivered: { label: 'DELIVERED', bg: 'bg-green-200 text-green-800 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/40' },
+    cancelled: { label: 'CANCELLED', bg: 'bg-red-200 text-red-800 border-red-300 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/40' },
   };
 
   const config = configs[status] || configs.pending;

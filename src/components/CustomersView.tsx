@@ -103,7 +103,7 @@ const LK = {
   input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent',
 };
 
-export default function CustomersView({ theme, onLimitHit }: { theme: string; onLimitHit?: (feature: string, limit?: number, current?: number) => void }) {
+export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpConsumed }: { theme: string; onLimitHit?: (feature: string, limit?: number, current?: number) => void; jumpToUserId?: string | null; onJumpConsumed?: () => void }) {
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
   const k = isDark ? DK : isLite ? LITK : LK;
@@ -184,6 +184,16 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
     };
     return () => evs.close();
   }, []);
+
+  // Auto-select customer when navigating from Orders "View in Chat"
+  useEffect(() => {
+    if (!jumpToUserId || customers.length === 0) return;
+    const target = customers.find(c => c.userId === jumpToUserId);
+    if (target) {
+      selectCustomer(target);
+      onJumpConsumed?.();
+    }
+  }, [jumpToUserId, customers]);
 
   const refreshOrders = useCallback(async () => {
     const res = await fetch('/api/orders');
