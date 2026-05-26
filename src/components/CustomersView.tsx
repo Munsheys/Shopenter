@@ -696,7 +696,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                     <p className={`text-xs font-semibold ${k.text}`}>No customers yet</p>
                     <p className={`text-[10px] mt-0.5 ${k.muted}`}>They appear when they message your LINE OA</p>
                   </div>
-                  <SeedButton isDark={isDark} k={k} />
+                  <SeedButton isDark={isDark} k={k} onDone={refreshOrders} />
                 </div>
               ) : visibleCustomers.length === 0 ? (
                 <div className={`text-center px-4 py-8 text-xs ${k.muted}`}>No results for "{customerSearch}"</div>
@@ -2006,14 +2006,15 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
 }
 
 // ── Seed Button ───────────────────────────────────────────────────────────────
-function SeedButton({ isDark, k }: { isDark: boolean; k: typeof DK }) {
+function SeedButton({ isDark, k, onDone }: { isDark: boolean; k: typeof DK; onDone?: () => void }) {
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
 
   async function seed() {
     setState('loading');
     try {
       const res = await fetch('/api/dev/seed', { method: 'POST' });
-      setState(res.ok ? 'done' : 'error');
+      if (res.ok) { setState('done'); onDone?.(); }
+      else setState('error');
     } catch { setState('error'); }
   }
 
