@@ -680,26 +680,24 @@ function StatsCard({ icon, label, value, subLabel, color, theme, isLoading, onCl
     <button
       onClick={onClick}
       className={cn(
-        "p-3 rounded-2xl border transition-all shadow-sm flex flex-col gap-2 text-left w-full",
+        "px-3 py-2.5 rounded-2xl border transition-all shadow-sm flex flex-col gap-1 text-left w-full",
         active ? "ring-2 ring-accent border-accent/40" : "",
         onClick ? "cursor-pointer hover:shadow-md active:scale-[0.98]" : "",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
       )}
     >
-      <div className={cn("w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0", colorMap[color])}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <div className="text-[#8b92ad] text-[9px] font-bold uppercase tracking-wider mb-0.5 truncate">{label}</div>
+      <div className="text-[#8b92ad] text-[8px] font-bold uppercase tracking-wider truncate">{label}</div>
+      <div className="flex items-center gap-2 min-w-0">
+        <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0", colorMap[color])}>
+          {icon}
+        </div>
         {isLoading ? (
-          <div className="w-4 h-4 border-2 border-t-transparent border-accent rounded-full animate-spin mt-1" />
+          <div className="w-4 h-4 border-2 border-t-transparent border-accent rounded-full animate-spin" />
         ) : (
-          <>
-            <div className={cn("text-base font-black leading-tight", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
-            {subLabel && <div className="text-[8px] text-[#8b92ad] mt-0.5 truncate">{subLabel}</div>}
-          </>
+          <div className={cn("text-sm font-black leading-none truncate", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
         )}
       </div>
+      {!isLoading && subLabel && <div className="text-[8px] text-[#8b92ad] truncate">{subLabel}</div>}
     </button>
   );
 }
