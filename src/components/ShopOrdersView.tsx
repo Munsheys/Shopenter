@@ -54,9 +54,13 @@ export default function ShopOrdersView({
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filters
+  // Define status lists before state so we can use allStatuses as default
+  const allStatuses = ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'];
+  const newOrderStatuses = ['pending', 'paid'];
+
+  // Filters — default to ALL statuses including cancelled
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['pending', 'paid', 'preparing', 'shipped', 'delivered']);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(allStatuses);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -73,9 +77,6 @@ export default function ShopOrdersView({
   // Date picker refs — lets the whole container trigger showPicker()
   const startDateRef = useRef<HTMLInputElement>(null);
   const endDateRef = useRef<HTMLInputElement>(null);
-
-  const allStatuses = ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'];
-  const newOrderStatuses = ['pending', 'paid'];
 
 
   // Restore from localStorage
@@ -184,14 +185,24 @@ export default function ShopOrdersView({
 
   // Stats always computed from all loaded orders, not just the status-filtered view.
   const allOrders = orders || [];
+  const totalRevenue = allOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
   const stats = {
-    revenue:   allOrders.reduce((sum, o) => sum + (o.soldTHB || 0), 0),
-    profit:    allOrders.reduce((sum, o) => sum + (o.profit || 0), 0),
+    revenue:   totalRevenue,
+    profit:    allOrders.reduce((s, o) => s + (o.profit || 0), 0),
+    count:     allOrders.length,
+    avg:       allOrders.length ? Math.round(totalRevenue / allOrders.length) : 0,
     pending:   allOrders.filter(o => o.status === 'pending').length,
     preparing: allOrders.filter(o => ['preparing', 'shipped'].includes(o.status)).length,
     delivered: allOrders.filter(o => o.status === 'delivered').length,
-    avg:       allOrders.length ? Math.round(allOrders.reduce((s, o) => s + (o.soldTHB || 0), 0) / allOrders.length) : 0,
+    cancelled: allOrders.filter(o => o.status === 'cancelled').length,
   };
+
+  async function cancelOrder(id: string) {
+    setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: 'cancelled' as const } : o) ?? prev);
+    try {
+      await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' }) });
+    } catch { /* optimistic update stays */ }
+  }
 
   // Handler functions
   const toggleStatus = (status: string) => {
@@ -286,51 +297,49 @@ export default function ShopOrdersView({
         </button>
       </div>
 
-      {/* Stats Ribbon — click to filter */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatsCard
-          icon={<TrendingUp size={20} />}
-          label="Total Revenue"
-          value={`฿${stats.revenue.toLocaleString()}`}
-          subLabel="All orders"
-          color="emerald"
-          theme={theme}
-          isLoading={isLoading || orders === null}
+      {/* Stats Ribbon — click any card to filter orders below */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+        <StatsCard icon={<TrendingUp size={20} />} label="Total Revenue"
+          value={`฿${stats.revenue.toLocaleString()}`} subLabel={`${stats.count} orders total`}
+          color="emerald" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(allStatuses)}
           active={selectedStatuses.length === allStatuses.length}
         />
-        <StatsCard
-          icon={<DollarSign size={20} />}
-          label="Total Profit"
-          value={`฿${stats.profit.toLocaleString()}`}
-          subLabel={`Avg ฿${stats.avg.toLocaleString()} / order`}
-          color="indigo"
-          theme={theme}
-          isLoading={isLoading || orders === null}
-          onClick={() => setSelectedStatuses(['delivered', 'shipped'])}
+        <StatsCard icon={<DollarSign size={20} />} label="Total Profit"
+          value={`฿${stats.profit.toLocaleString()}`} subLabel={`฿${stats.avg.toLocaleString()} avg / order`}
+          color="indigo" theme={theme} isLoading={isLoading || orders === null}
+          onClick={() => setSelectedStatuses(['shipped', 'delivered'])}
           active={selectedStatuses.length === 2 && selectedStatuses.includes('delivered') && selectedStatuses.includes('shipped')}
         />
-        <StatsCard
-          icon={<Clock size={20} />}
-          label="Pending Payments"
-          value={stats.pending.toString()}
-          subLabel="Awaiting payment"
-          color="amber"
-          theme={theme}
-          isLoading={isLoading || orders === null}
+        <StatsCard icon={<Clock size={20} />} label="Pending Payments"
+          value={stats.pending.toString()} subLabel="Awaiting payment"
+          color="amber" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['pending'])}
           active={selectedStatuses.length === 1 && selectedStatuses.includes('pending')}
         />
-        <StatsCard
-          icon={<Package size={20} />}
-          label="In Fulfillment"
-          value={stats.preparing.toString()}
-          subLabel="Preparing + shipped"
-          color="blue"
-          theme={theme}
-          isLoading={isLoading || orders === null}
+        <StatsCard icon={<Package size={20} />} label="In Fulfillment"
+          value={stats.preparing.toString()} subLabel="Preparing + shipped"
+          color="blue" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['preparing', 'shipped'])}
           active={selectedStatuses.length === 2 && selectedStatuses.includes('preparing') && selectedStatuses.includes('shipped')}
+        />
+        <StatsCard icon={<CheckCircle2 size={20} />} label="Delivered"
+          value={stats.delivered.toString()} subLabel="Successfully fulfilled"
+          color="emerald" theme={theme} isLoading={isLoading || orders === null}
+          onClick={() => setSelectedStatuses(['delivered'])}
+          active={selectedStatuses.length === 1 && selectedStatuses.includes('delivered')}
+        />
+        <StatsCard icon={<BarChart2 size={20} />} label="Avg Order Value"
+          value={`฿${stats.avg.toLocaleString()}`} subLabel="Across all orders"
+          color="indigo" theme={theme} isLoading={isLoading || orders === null}
+          onClick={() => setSelectedStatuses(allStatuses)}
+          active={false}
+        />
+        <StatsCard icon={<X size={20} />} label="Cancelled"
+          value={stats.cancelled.toString()} subLabel="Voided orders"
+          color="rose" theme={theme} isLoading={isLoading || orders === null}
+          onClick={() => setSelectedStatuses(['cancelled'])}
+          active={selectedStatuses.length === 1 && selectedStatuses.includes('cancelled')}
         />
       </div>
 
@@ -515,6 +524,17 @@ export default function ShopOrdersView({
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {o.status !== 'cancelled' && o.status !== 'delivered' && (
+                        <button
+                          onClick={() => cancelOrder(o._id)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all active:scale-95",
+                            theme === 'dark' ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/10" : "border-rose-200 text-rose-600 hover:bg-rose-50"
+                          )}
+                        >
+                          <X size={12} /> Cancel
+                        </button>
+                      )}
                       <button
                         onClick={() => onViewCustomer?.(o.userId)}
                         className={cn(
@@ -657,6 +677,7 @@ function StatsCard({ icon, label, value, subLabel, color, theme, isLoading, onCl
     amber:   "text-amber-500 bg-amber-500/10",
     blue:    "text-blue-500 bg-blue-500/10",
     indigo:  "text-indigo-500 bg-indigo-500/10",
+    rose:    "text-rose-500 bg-rose-500/10",
   };
   return (
     <button

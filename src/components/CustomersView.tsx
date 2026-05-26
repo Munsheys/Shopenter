@@ -588,7 +588,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const selectedTotal = activeOrders.filter(o => selectedOrderIds.has(o._id)).reduce((s, o) => s + (o.soldTHB || 0), 0);
   const allPendingSelected = pendingOrders.length > 0 && pendingOrders.every(o => selectedOrderIds.has(o._id));
   const parcelOrders = customerOrders.filter(o => o.status === 'preparing');
-  const shippedOrders = customerOrders.filter(o => o.status === 'shipped' || o.status === 'delivered');
+  const shippedOrders = customerOrders.filter(o => ['shipped', 'delivered', 'cancelled'].includes(o.status));
 
   const totalSpent = customerOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
   const totalProfit = shippedOrders.reduce((s, o) => s + (o.profit || 0), 0);
@@ -938,6 +938,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       {activeOrders.map(order => (
                         <ActiveOrderCard key={order._id} order={order} isDark={isDark} k={k}
                           onDelete={() => confirmDeleteOrder(order._id)}
+                          onCancel={() => patchOrder(order._id, { status: 'cancelled' })}
                           onSendQR={() => sendQR(order._id)}
                           onMarkPaid={() => markPaid(order._id)}
                           onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
@@ -1542,7 +1543,7 @@ const STATUS_LABEL: Record<string, string> = {
   shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
 };
 
-function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSendQR, onMarkPaid, onMoveToParcel, selected, onToggleSelect, isActing }: {
+function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSendQR, onMarkPaid, onMoveToParcel, onCancel, selected, onToggleSelect, isActing }: {
   order: Order; isDark: boolean; k: typeof DK;
   editable?: boolean;
   onDelete: () => void;
@@ -1550,6 +1551,7 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
   onSendQR?: () => void;
   onMarkPaid?: () => void;
   onMoveToParcel?: () => void;
+  onCancel?: () => void;
   selected?: boolean;
   onToggleSelect?: () => void;
   isActing?: boolean;
@@ -1640,9 +1642,14 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
           )}
         </div>
         <div className="flex items-center gap-1">
-          {!editable && (
+          {!editable && order.status !== 'cancelled' && (
             <button onClick={() => setIsEditing(!isEditing)} aria-label="Edit order" className={`p-1 rounded-md transition-colors ${isEditing ? 'text-accent bg-accent/10' : 'text-[#8b92ad] hover:text-accent'}`}>
               <Pencil size={12} />
+            </button>
+          )}
+          {onCancel && !['cancelled', 'delivered'].includes(order.status) && (
+            <button onClick={onCancel} aria-label="Cancel order" title="Cancel order" className="text-[#8b92ad] hover:text-rose-500 transition-colors p-1">
+              <X size={13} />
             </button>
           )}
           <button onClick={onDelete} aria-label="Delete order" className="text-[#8b92ad] hover:text-red-500 transition-colors p-1">
@@ -1788,6 +1795,7 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
             k={k}
             editable={true}
             onDelete={() => onCancelParcel(order._id)}
+            onCancel={() => onPatch(order._id, { status: 'cancelled' })}
             onPatch={(patch) => onPatch(order._id, patch)}
           />
         ))}
