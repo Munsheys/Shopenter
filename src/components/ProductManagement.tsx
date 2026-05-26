@@ -813,6 +813,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const importFileRef = useRef<HTMLInputElement>(null);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [isStockSaving, setIsStockSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
@@ -904,6 +905,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   }, [products, searchTerm, brandFilter, categoryFilter, sortOrder]);
 
   const stats = useMemo(() => ({ total: products.length, active: products.filter(p => p.isActive).length }), [products]);
+  const normalizedEditingProduct = useMemo(() => editingProduct ? normalizeToForm(editingProduct) : null, [editingProduct]);
 
   const handleSave = async (form: ProductForm) => {
     setIsSaving(true);
@@ -1014,6 +1016,17 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     loadProducts();
   };
 
+  const handleDelete = async (id: string) => {
+    setIsDeleting(true);
+    try {
+      await fetch(`/api/products/${id}`, { method: 'DELETE', headers: { 'x-admin-secret': secret } });
+      loadProducts();
+    } catch (err) { console.error(err); } finally {
+      setIsDeleting(false);
+      setDeleteConfirm(null);
+    }
+  };
+
   const toggleVisibility = async (p: Product) => {
     try {
       await fetch(`/api/products/${p._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret }, body: JSON.stringify({ isActive: !p.isActive }) });
@@ -1065,8 +1078,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-8">
-        <StatsCard icon={<BarChart2 size={20} />} label={t.total_catalog || "Total Catalog"} value={stats.total.toString()} color="indigo" theme={theme} isLoading={isLoading} />
-        <StatsCard icon={<Eye size={20} />} label={t.active_storefront || "Active Storefront"} value={stats.active.toString()} color="emerald" theme={theme} isLoading={isLoading} />
+        <StatsCard icon={<BarChart2 size={16} />} label={t.total_catalog || "Total Catalog"} value={stats.total.toString()} color="indigo" theme={theme} isLoading={isLoading} />
+        <StatsCard icon={<Eye size={16} />} label={t.active_storefront || "Active Storefront"} value={stats.active.toString()} color="emerald" theme={theme} isLoading={isLoading} />
       </div>
 
       <div className={cn("p-4 rounded-3xl border mb-6 flex flex-col lg:flex-row gap-4", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
@@ -1116,21 +1129,33 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
               onToggleVisibility={() => toggleVisibility(p)}
               onManageStock={() => setStockProduct(p)} />
           ))}
-          {filteredProducts.length === 0 && (
+          {filteredProducts.length === 0 && products.length === 0 && (
             <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
-              <div className="w-16 h-16 bg-[#f8f9fc] rounded-3xl flex items-center justify-center"><Search size={32} className="opacity-20" /></div>
+              <div className="w-16 h-16 bg-[#f8f9fc] dark:bg-[#1a1d2e] rounded-3xl flex items-center justify-center"><Package size={32} className="opacity-20" /></div>
               <div className="text-center">
-                <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No products found</p>
+                <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No products yet</p>
+                <p className="text-xs mt-1">Add your first product to get started</p>
+              </div>
+              <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="text-white text-xs font-bold px-4 py-2 rounded-xl" style={{ background: 'var(--accent-gradient)' }}>
+                Add Product
+              </button>
+            </div>
+          )}
+          {filteredProducts.length === 0 && products.length > 0 && (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
+              <div className="w-16 h-16 bg-[#f8f9fc] dark:bg-[#1a1d2e] rounded-3xl flex items-center justify-center"><Search size={32} className="opacity-20" /></div>
+              <div className="text-center">
+                <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No products match</p>
                 <p className="text-xs mt-1">Try adjusting your filters</p>
               </div>
-              <button onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setSortOrder('newest'); }} className="text-accent text-xs font-bold hover:underline">Clear all filters</button>
+              <button onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setSortOrder('newest'); }} className="text-accent text-xs font-bold hover:underline">Clear filters</button>
             </div>
           )}
         </div>
       )}
 
       <ProductModal theme={theme} isOpen={isModalOpen}
-        initialData={useMemo(() => editingProduct ? normalizeToForm(editingProduct) : null, [editingProduct])}
+        initialData={normalizedEditingProduct}
         onSave={handleSave} onClose={() => setIsModalOpen(false)} isSaving={isSaving}
         existingOptions={existingOptions} suggestedOptions={suggestedOptions} />
 
@@ -1255,8 +1280,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             <h3 className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete Product?</h3>
             <p className="text-sm text-[#8b92ad] mb-6">This will remove it from the catalog permanently.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className={cn("flex-1 py-3 text-sm font-bold rounded-xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>Cancel</button>
-              <button onClick={() => { fetch(`/api/products/${deleteConfirm}`, { method: 'DELETE', headers: { 'x-admin-secret': secret } }).then(() => { loadProducts(); setDeleteConfirm(null); }); }} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl">Delete</button>
+              <button onClick={() => setDeleteConfirm(null)} disabled={isDeleting} className={cn("flex-1 py-3 text-sm font-bold rounded-xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>Cancel</button>
+              <button onClick={() => handleDelete(deleteConfirm!)} disabled={isDeleting} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl disabled:opacity-50">{isDeleting ? 'Deleting…' : 'Delete'}</button>
             </div>
           </div>
         </div>
@@ -1293,7 +1318,7 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
 
       <div className="flex-1">
         <div className="text-[10px] font-black text-accent uppercase tracking-wider truncate mb-1">
-          {product.brand} {product.modelLine && `• ${product.modelLine}`}
+          {[product.brand, product.modelLine].filter(Boolean).join(' • ') || <span className="text-[#8b92ad] font-normal normal-case">No brand</span>}
         </div>
         <h3 className={cn("font-bold text-base mb-1", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{product.name}</h3>
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -1310,7 +1335,7 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
         </div>
       </div>
 
-      <div className={cn("flex gap-2 mt-5 pt-5 border-t opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
+      <div className={cn("flex gap-2 mt-5 pt-5 border-t", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
         <button onClick={onEdit} className={cn("flex-1 py-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-2", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>
           <Edit2 size={12} /> EDIT
         </button>
@@ -1330,14 +1355,14 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
 function StatsCard({ icon, label, value, color, theme, isLoading }: any) {
   const colorMap: any = { emerald: "text-emerald-500 bg-emerald-500/10", amber: "text-amber-500 bg-amber-500/10", blue: "text-blue-500 bg-blue-500/10", indigo: "text-indigo-500 bg-indigo-500/10" };
   return (
-    <div className={cn("p-5 rounded-3xl border shadow-sm flex flex-col gap-3", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
-      <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", colorMap[color])}>{icon}</div>
-      <div>
-        <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider mb-1">{label}</div>
+    <div className={cn("px-3 py-2.5 rounded-2xl border shadow-sm flex flex-col gap-1", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+      <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider truncate">{label}</div>
+      <div className="flex items-center gap-2">
+        <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0", colorMap[color])}>{icon}</div>
         {isLoading ? (
-          <div className="w-5 h-5 border-2 border-t-transparent border-accent rounded-full animate-spin mt-1" />
+          <div className="w-4 h-4 border-2 border-t-transparent border-accent rounded-full animate-spin" />
         ) : (
-          <div className={cn("text-xl font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+          <div className={cn("text-lg font-black leading-none", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
         )}
       </div>
     </div>
