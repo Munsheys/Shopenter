@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Order, Settings, Customer, LoyaltyTransaction, Message } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
-import { sendLineMessage, sendFlexMessage, buildOrderStatusFlex, interpolateTemplate } from '@/lib/line';
+import { sendLineMessage, sendFlexMessage, buildOrderStatusFlex, interpolateTemplate } from '@/lib/platforms/line';
 
 export const runtime = 'nodejs';
 

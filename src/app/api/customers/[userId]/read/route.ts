@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Customer, Settings } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
-import { messagingApi } from '@line/bot-sdk';
+import { markLineMessagesAsRead } from '@/lib/platforms/line';
 
 export const runtime = 'nodejs';
 
@@ -23,17 +23,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const channelAccessToken = (settings?.lineChannelAccessToken || process.env.LINE_CHANNEL_ACCESS_TOKEN || '').trim();
 
     if (channelAccessToken && userId && !userId.startsWith('mock-')) {
-      const client = new messagingApi.MessagingApiClient({ channelAccessToken });
-      try {
-        await client.markMessagesAsRead({
-          chat: {
-            userId: userId
-          }
-        });
-        console.log(`[LINE API] Marked messages as read for user ${userId}`);
-      } catch (lineErr) {
-        console.error(`[LINE API] Failed to mark as read for user ${userId}:`, lineErr);
-      }
+      await markLineMessagesAsRead(channelAccessToken, userId);
     }
 
     return NextResponse.json({ success: true });

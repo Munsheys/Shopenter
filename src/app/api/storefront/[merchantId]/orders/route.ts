@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Message } from '@/models';
-import { messagingApi } from '@line/bot-sdk';
+import { sendLineMessage } from '@/lib/platforms/line';
 import { notifyMerchant } from '@/lib/notifyMerchant';
 
 export const runtime = 'nodejs';
@@ -98,10 +98,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
       const merchantSettings = await Settings.findOne({ merchantId }).lean() as any;
       if (merchantSettings?.lineChannelAccessToken) {
         try {
-          const client = new messagingApi.MessagingApiClient({ channelAccessToken: merchantSettings.lineChannelAccessToken });
           const itemsSummary = order.items?.map((i: any) => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n') || order.product;
           const confirmMsg = `📦 สั่งซื้อแล้ว!\n${itemsSummary}\n\nรวม ฿${order.soldTHB.toLocaleString()}\n\nขอบคุณที่ใช้บริการครับ 🙏`;
-          await client.pushMessage({ to: userId, messages: [{ type: 'text', text: confirmMsg }] });
+          await sendLineMessage(merchantSettings.lineChannelAccessToken, userId, confirmMsg);
           await Message.create({ merchantId, userId, platform: 'line', type: 'system', text: confirmMsg, sender: 'system' });
         } catch (err) { console.error('[storefront order push]', err); }
       }

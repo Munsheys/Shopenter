@@ -3,7 +3,7 @@ import dbConnect from '@/lib/db';
 import { Order, Settings, Merchant } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
-import { sendLineMessage } from '@/lib/line';
+import { sendLineMessage } from '@/lib/platforms/line';
 
 export const runtime = 'nodejs';
 
