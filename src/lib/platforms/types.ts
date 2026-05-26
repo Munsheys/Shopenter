@@ -5,4 +5,4 @@ export interface PlatformAdapter {
   sendRichMessage(token: string, userId: string, altText: string, content: object): Promise<boolean>;
 }
 
-export type Platform = 'line' | 'instagram';
+export type Platform = 'line' | 'instagram' | 'telegram';

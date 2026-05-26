@@ -167,7 +167,7 @@ const ProductSchema = new mongoose.Schema({
 const CustomerSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   userId: { type: String, required: true, index: true },
-  platform: { type: String, enum: ['line', 'instagram'], index: true },
+  platform: { type: String, enum: ['line', 'instagram', 'telegram'], index: true },
   displayName: String,
   pictureUrl: String,
   addresses: [String],
@@ -186,7 +186,7 @@ const CustomerProfileSchema = new mongoose.Schema({
   phone: { type: String, default: '' },
   displayName: { type: String, default: '' },
   linkedAccounts: [{
-    platform: { type: String, enum: ['line', 'instagram'], required: true },
+    platform: { type: String, enum: ['line', 'instagram', 'telegram'], required: true },
     userId: { type: String, required: true },
     displayName: { type: String, default: '' },
     pictureUrl: { type: String, default: '' },
@@ -199,7 +199,7 @@ CustomerProfileSchema.index({ merchantId: 1, 'linkedAccounts.userId': 1 });
 const OrderSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   userId: { type: String, index: true },
-  platform: { type: String, enum: ['line', 'instagram'], default: 'line' },
+  platform: { type: String, enum: ['line', 'instagram', 'telegram'], default: 'line' },
   displayName: String,
   address: String,
   product: String,
@@ -243,7 +243,7 @@ const OrderSchema = new mongoose.Schema({
 const MessageSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   userId: { type: String, required: true, index: true },
-  platform: { type: String, enum: ['line', 'instagram'], default: 'line' },
+  platform: { type: String, enum: ['line', 'instagram', 'telegram'], default: 'line' },
   type: { type: String, enum: ['text', 'image', 'sticker', 'system'], default: 'text' },
   messageId: String,
   text: { type: String, required: true },
@@ -342,7 +342,7 @@ CouponSchema.index({ merchantId: 1, code: 1 }, { unique: true });
 const LoyaltyTransactionSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   userId: { type: String, required: true, index: true },
-  platform: { type: String, enum: ['line', 'instagram'], default: 'line' },
+  platform: { type: String, enum: ['line', 'instagram', 'telegram'], default: 'line' },
   orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
   type: { type: String, enum: ['earn', 'redeem'], required: true },
   points: { type: Number, required: true },

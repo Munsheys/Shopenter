@@ -12,7 +12,7 @@ import NumberStepper from '@/components/NumberStepper';
 type Customer = {
   _id: string; userId: string; displayName: string; pictureUrl?: string;
   addresses: string[]; lastSeen: string; unreadCount: number;
-  platform?: 'line' | 'instagram';
+  platform?: 'line' | 'instagram' | 'telegram';
   status?: 'active' | 'blocked';
 };
 type OrderItem = { productId?: string; name: string; variantLabel?: string; price: number; qty: number };
@@ -127,8 +127,8 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
   const [batchActing, setBatchActing] = useState(false);
   const [listWidth, setListWidth] = useState(300);
   const [chatWidth, setChatWidth] = useState(280);
-  const [platformFilter, setPlatformFilter] = useState<'all' | 'line' | 'instagram'>('all');
-  const [findPlatformFilter, setFindPlatformFilter] = useState<'all' | 'line' | 'instagram'>('all');
+  const [platformFilter, setPlatformFilter] = useState<'all' | 'line' | 'instagram' | 'telegram'>('all');
+  const [findPlatformFilter, setFindPlatformFilter] = useState<'all' | 'line' | 'instagram' | 'telegram'>('all');
 
   const [qoMode, setQoMode] = useState<'existing' | 'new'>('existing');
   const [qoSearch, setQoSearch] = useState('');
@@ -645,12 +645,12 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
             </div>
 
             <div className={`flex gap-1.5 px-3 py-2 border-b ${k.border} flex-shrink-0`}>
-              {(['all', 'line', 'instagram'] as const).map(p => (
+              {(['all', 'line', 'instagram', 'telegram'] as const).map(p => (
                 <button
                   key={p}
                   onClick={() => setPlatformFilter(p)}
                   className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-colors ${platformFilter === p ? 'bg-accent text-white' : `${k.muted} hover:text-accent`}`}
-                >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : 'Instagram'}</button>
+                >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : p === 'instagram' ? 'IG' : 'TG'}</button>
               ))}
             </div>
 
@@ -737,7 +737,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                             ? 'Unfollowed — messages won\'t deliver'
                             : c.unreadCount > 0
                               ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}`
-                              : c.platform === 'instagram' ? 'Instagram' : c.platform === 'line' ? 'LINE' : 'No platform'}
+                              : c.platform === 'instagram' ? 'Instagram' : c.platform === 'telegram' ? 'Telegram' : c.platform === 'line' ? 'LINE' : 'No platform'}
                         </p>
                       </div>
                     </button>
@@ -835,7 +835,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                    <span className={`text-[10px] ${k.muted}`}>{selectedCustomer.platform === 'instagram' ? 'Instagram' : 'LINE'} Customer</span>
+                    <span className={`text-[10px] ${k.muted}`}>{selectedCustomer.platform === 'instagram' ? 'Instagram' : selectedCustomer.platform === 'telegram' ? 'Telegram' : 'LINE'} Customer</span>
                     {activeOrders.length > 0 && (
                       <span className="text-[10px] bg-orange-100 text-orange-600 border border-orange-200 px-1.5 py-0.5 rounded-full font-bold">
                         {activeOrders.length} active
@@ -1035,7 +1035,7 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-bold truncate ${k.text}`}>{selectedCustomer.displayName}</p>
-                  <p className={`text-[10px] ${k.muted}`}>{selectedCustomer.platform === 'instagram' ? 'Instagram DM' : selectedCustomer.platform === 'line' ? 'LINE Chat' : 'Chat'}</p>
+                  <p className={`text-[10px] ${k.muted}`}>{selectedCustomer.platform === 'instagram' ? 'Instagram DM' : selectedCustomer.platform === 'telegram' ? 'Telegram Chat' : 'LINE Chat'}</p>
                 </div>
               </div>
               <button
@@ -1356,12 +1356,12 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 />
               </div>
               <div className="flex gap-1.5">
-                {(['all', 'line', 'instagram'] as const).map(p => (
+                {(['all', 'line', 'instagram', 'telegram'] as const).map(p => (
                   <button
                     key={p}
                     onClick={() => setFindPlatformFilter(p)}
                     className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-colors ${findPlatformFilter === p ? 'bg-accent text-white' : `${k.muted} hover:text-accent`}`}
-                  >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : 'Instagram'}</button>
+                  >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : p === 'instagram' ? 'IG' : 'TG'}</button>
                 ))}
               </div>
             </div>

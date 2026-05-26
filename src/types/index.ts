@@ -11,7 +11,7 @@ export interface Customer {
 export interface Order {
   _id: string;
   userId: string;
-  platform?: 'line' | 'instagram';
+  platform?: 'line' | 'instagram' | 'telegram';
   displayName: string;
   product: string;
   soldTHB: number;

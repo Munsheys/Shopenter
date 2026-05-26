@@ -24,7 +24,7 @@ function cn(...inputs: ClassValue[]) {
 interface Order {
   _id: string;
   userId: string;
-  platform?: 'line' | 'instagram';
+  platform?: 'line' | 'instagram' | 'telegram';
   displayName: string;
   address: string;
   product: string;
