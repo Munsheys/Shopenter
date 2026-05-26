@@ -299,43 +299,43 @@ export default function ShopOrdersView({
 
       {/* Stats Ribbon — click any card to filter orders below */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
-        <StatsCard icon={<TrendingUp size={14} />} label="Total Revenue"
+        <StatsCard icon={<TrendingUp size={16} />} label="Total Revenue"
           value={`฿${stats.revenue.toLocaleString()}`} subLabel={`${stats.count} orders total`}
           color="emerald" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(allStatuses)}
           active={selectedStatuses.length === allStatuses.length}
         />
-        <StatsCard icon={<DollarSign size={14} />} label="Total Profit"
+        <StatsCard icon={<DollarSign size={16} />} label="Total Profit"
           value={`฿${stats.profit.toLocaleString()}`} subLabel={`฿${stats.avg.toLocaleString()} avg / order`}
           color="indigo" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['shipped', 'delivered'])}
           active={selectedStatuses.length === 2 && selectedStatuses.includes('delivered') && selectedStatuses.includes('shipped')}
         />
-        <StatsCard icon={<Clock size={14} />} label="Pending Payments"
+        <StatsCard icon={<Clock size={16} />} label="Pending Payments"
           value={stats.pending.toString()} subLabel="Awaiting payment"
           color="amber" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['pending'])}
           active={selectedStatuses.length === 1 && selectedStatuses.includes('pending')}
         />
-        <StatsCard icon={<Package size={14} />} label="In Fulfillment"
+        <StatsCard icon={<Package size={16} />} label="In Fulfillment"
           value={stats.preparing.toString()} subLabel="Preparing + shipped"
           color="blue" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['preparing', 'shipped'])}
           active={selectedStatuses.length === 2 && selectedStatuses.includes('preparing') && selectedStatuses.includes('shipped')}
         />
-        <StatsCard icon={<CheckCircle2 size={14} />} label="Delivered"
+        <StatsCard icon={<CheckCircle2 size={16} />} label="Delivered"
           value={stats.delivered.toString()} subLabel="Successfully fulfilled"
           color="emerald" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['delivered'])}
           active={selectedStatuses.length === 1 && selectedStatuses.includes('delivered')}
         />
-        <StatsCard icon={<BarChart2 size={14} />} label="Avg Order Value"
+        <StatsCard icon={<BarChart2 size={16} />} label="Avg Order Value"
           value={`฿${stats.avg.toLocaleString()}`} subLabel="Across all orders"
           color="indigo" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(allStatuses)}
           active={false}
         />
-        <StatsCard icon={<X size={14} />} label="Cancelled"
+        <StatsCard icon={<X size={16} />} label="Cancelled"
           value={stats.cancelled.toString()} subLabel="Voided orders"
           color="rose" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['cancelled'])}
@@ -686,18 +686,18 @@ function StatsCard({ icon, label, value, subLabel, color, theme, isLoading, onCl
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
       )}
     >
-      <div className="text-[#8b92ad] text-[8px] font-bold uppercase tracking-wider truncate">{label}</div>
+      <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider truncate">{label}</div>
       <div className="flex items-center gap-2 min-w-0">
-        <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0", colorMap[color])}>
+        <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0", colorMap[color])}>
           {icon}
         </div>
         {isLoading ? (
           <div className="w-4 h-4 border-2 border-t-transparent border-accent rounded-full animate-spin" />
         ) : (
-          <div className={cn("text-sm font-black leading-none truncate", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
+          <div className={cn("text-lg font-black leading-none truncate", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
         )}
       </div>
-      {!isLoading && subLabel && <div className="text-[8px] text-[#8b92ad] truncate">{subLabel}</div>}
+      {!isLoading && subLabel && <div className="text-[9px] text-[#8b92ad] truncate">{subLabel}</div>}
     </button>
   );
 }
