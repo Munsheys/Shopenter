@@ -1529,43 +1529,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 // ── Active Order Card ─────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, any> = {
-  pending: {
-    bg: 'bg-amber-500',
-    text: 'text-amber-500',
-    border: 'border-amber-500/30',
-    lightBg: 'bg-amber-500/10',
-    glow: 'glow-amber',
-  },
-  paid: {
-    bg: 'bg-blue-500',
-    text: 'text-blue-500',
-    border: 'border-blue-500/30',
-    lightBg: 'bg-blue-500/10',
-    glow: 'box-shadow: 0 0 20px rgba(59, 130, 246, 0.15)',
-  },
-  preparing: {
-    bg: 'bg-emerald-500',
-    text: 'text-emerald-500',
-    border: 'border-emerald-500/30',
-    lightBg: 'bg-emerald-500/10',
-    glow: 'glow-emerald',
-  },
-  shipped: {
-    bg: 'bg-slate-500',
-    text: 'text-slate-500',
-    border: 'border-slate-500/30',
-    lightBg: 'bg-slate-500/10',
-  },
-  delivered: {
-    bg: 'bg-green-500',
-    text: 'text-green-600',
-    border: 'border-green-500/30',
-    lightBg: 'bg-green-500/10',
-  },
+  pending:   { bg: 'bg-amber-500',   text: 'text-amber-600',   border: 'border-amber-200',   lightBg: 'bg-amber-50'   },
+  paid:      { bg: 'bg-sky-500',     text: 'text-sky-600',     border: 'border-sky-200',     lightBg: 'bg-sky-50'     },
+  preparing: { bg: 'bg-indigo-500',  text: 'text-indigo-600',  border: 'border-indigo-200',  lightBg: 'bg-indigo-50'  },
+  shipped:   { bg: 'bg-violet-500',  text: 'text-violet-600',  border: 'border-violet-200',  lightBg: 'bg-violet-50'  },
+  delivered: { bg: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-200', lightBg: 'bg-emerald-50' },
+  cancelled: { bg: 'bg-rose-500',    text: 'text-rose-600',    border: 'border-rose-200',    lightBg: 'bg-rose-50'    },
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: 'New Order', paid: 'Paid', preparing: 'In Parcel', shipped: 'Shipped', delivered: 'Delivered',
+  pending: 'New Order', paid: 'Paid', preparing: 'In Parcel',
+  shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
 };
 
 function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSendQR, onMarkPaid, onMoveToParcel, selected, onToggleSelect, isActing }: {

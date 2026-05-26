@@ -386,31 +386,31 @@ export default function ShopOrdersView({
           <div className="flex flex-wrap items-center gap-2">
             {allStatuses.map(status => {
               const isSelected = selectedStatuses.includes(status);
-              type PillColor = 'amber'|'emerald'|'blue'|'violet'|'green'|'red';
-              const statusConfig: Record<string, { label: string; color: PillColor }> = {
-                pending:   { label: 'Pending',   color: 'amber' },
-                paid:      { label: 'Paid',      color: 'emerald' },
-                preparing: { label: 'Preparing', color: 'blue' },
-                shipped:   { label: 'Shipped',   color: 'violet' },
-                delivered: { label: 'Delivered', color: 'green' },
-                cancelled: { label: 'Cancelled', color: 'red' },
+              const labels: Record<string, string> = {
+                pending: 'Pending', paid: 'Paid', preparing: 'Preparing',
+                shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
               };
-              const colorStyles: Record<PillColor, string> = {
-                amber:   isSelected ? 'bg-amber-500 text-white border-amber-500'   : 'text-amber-700 border-amber-400 dark:text-amber-400 dark:border-amber-500/40',
-                emerald: isSelected ? 'bg-emerald-500 text-white border-emerald-500' : 'text-emerald-700 border-emerald-400 dark:text-emerald-400 dark:border-emerald-500/40',
-                blue:    isSelected ? 'bg-blue-500 text-white border-blue-500'     : 'text-blue-700 border-blue-400 dark:text-blue-400 dark:border-blue-500/40',
-                violet:  isSelected ? 'bg-violet-500 text-white border-violet-500' : 'text-violet-700 border-violet-400 dark:text-violet-400 dark:border-violet-500/40',
-                green:   isSelected ? 'bg-green-500 text-white border-green-500'   : 'text-green-700 border-green-400 dark:text-green-400 dark:border-green-500/40',
-                red:     isSelected ? 'bg-red-500 text-white border-red-500'       : 'text-red-700 border-red-400 dark:text-red-400 dark:border-red-500/40',
+              // Unselected: semantic tint. Selected: unified dark/accent fill — no rainbow.
+              const unselected: Record<string, string> = {
+                pending:   'text-amber-700 border-amber-200 dark:text-amber-400 dark:border-amber-500/30',
+                paid:      'text-sky-700 border-sky-200 dark:text-sky-400 dark:border-sky-500/30',
+                preparing: 'text-indigo-700 border-indigo-200 dark:text-indigo-400 dark:border-indigo-500/30',
+                shipped:   'text-violet-700 border-violet-200 dark:text-violet-400 dark:border-violet-500/30',
+                delivered: 'text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-500/30',
+                cancelled: 'text-rose-700 border-rose-200 dark:text-rose-400 dark:border-rose-500/30',
               };
-              const cfg = statusConfig[status];
               return (
                 <button
                   key={status}
                   onClick={() => toggleStatus(status)}
-                  className={cn("px-3 py-1.5 rounded-full text-[10px] font-bold border-2 transition-all active:scale-95 hover:shadow-sm", colorStyles[cfg.color])}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all active:scale-95",
+                    isSelected
+                      ? "bg-[#1a1d2e] text-white border-transparent dark:bg-white dark:text-[#1a1d2e]"
+                      : unselected[status]
+                  )}
                 >
-                  {cfg.label}
+                  {labels[status]}
                 </button>
               );
             })}
@@ -688,12 +688,12 @@ function StatsCard({ icon, label, value, subLabel, color, theme, isLoading, onCl
 
 function StatusPill({ status }: { status: string }) {
   const configs: any = {
-    pending:   { label: 'PENDING',   bg: 'bg-amber-200 text-amber-800 border-amber-300 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40' },
-    paid:      { label: 'PAID',      bg: 'bg-emerald-200 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40' },
-    preparing: { label: 'PREPARING', bg: 'bg-blue-200 text-blue-800 border-blue-300 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/40' },
-    shipped:   { label: 'SHIPPED',   bg: 'bg-violet-200 text-violet-800 border-violet-300 dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/40' },
-    delivered: { label: 'DELIVERED', bg: 'bg-green-200 text-green-800 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/40' },
-    cancelled: { label: 'CANCELLED', bg: 'bg-red-200 text-red-800 border-red-300 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/40' },
+    pending:   { label: 'PENDING',   bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30' },
+    paid:      { label: 'PAID',      bg: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30' },
+    preparing: { label: 'PREPARING', bg: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/30' },
+    shipped:   { label: 'SHIPPED',   bg: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30' },
+    delivered: { label: 'DELIVERED', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30' },
+    cancelled: { label: 'CANCELLED', bg: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30' },
   };
 
   const config = configs[status] || configs.pending;
