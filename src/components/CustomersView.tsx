@@ -22,7 +22,7 @@ type Order = {
   costTHB: number; profit: number; shipCostTHB: number;
   costCurrency?: string; soldCurrency?: string;
   tracking?: string; courier?: string; address?: string;
-  status: 'pending' | 'paid' | 'preparing' | 'shipped' | 'delivered';
+  status: 'pending' | 'paid' | 'preparing' | 'shipped' | 'delivered' | 'cancelled';
   paymentQrSent: boolean; createdAt: string;
   rateUsed?: number;
   statusBeforeParcel?: string;
