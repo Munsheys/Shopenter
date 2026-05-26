@@ -1,5 +1,105 @@
 # LineOA SaaS - Multi-Tenant Transformation Roadmap
 
+---
+
+## CURRENT DEVELOPMENT PLAN (2026)
+
+> Phases 1–6 below are complete. Active work is tracked here.
+
+### Stage A — Dashboard page-by-page review (IN PROGRESS)
+Fix UI/UX bugs and edge cases on every page before any new feature work.
+
+- [x] Customers page
+- [ ] Orders page
+- [ ] Products page
+- [ ] Reports page
+- [ ] Broadcasts page
+- [ ] Storefront page
+- [ ] Coupons page
+
+---
+
+### Stage B — Auto-Reply / Product Intent (PLANNED)
+
+Detect customer buy-intent messages on any platform, fuzzy-match against the product catalog, and reply with a product card that deep-links to the storefront. No AI API required.
+
+#### Detection pipeline
+1. **Intent gate** — bilingual keyword set (Thai + English). If no intent keyword found → silence, do not touch catalog.
+2. **Token extraction** — strip intent words + stop words, keep product signal tokens.
+3. **Fuzzy search** — `fuse.js` against `product.name`, `product.brand`, `product.categories`.
+4. **Confidence gate** — controlled by merchant settings (see below).
+5. **No match → silence** — never send a card if no product found above threshold.
+
+#### Product card behaviour
+- Single "View Product" URI button on every card → `/shop?merchantId=xxx&productId=yyy`
+- Storefront reads `?productId` on load and scrolls to / highlights that product
+- Customer selects their own variants/options on the storefront and checks out there
+- No order creation, no stateful conversation, no variant guessing
+
+#### Platform card formats
+| Platform | Format | Button type |
+|---|---|---|
+| LINE | Flex Message carousel (max 12 bubbles) | `uri` → storefront |
+| Telegram | `sendPhoto` + InlineKeyboardMarkup | `url` → storefront |
+| Instagram | Generic template carousel | `web_url` → storefront |
+
+#### Merchant-configurable settings (new dashboard page: **Auto-Reply**)
+| Setting | Options |
+|---|---|
+| Enable auto-reply | Toggle on/off |
+| Match mode | Exact only (score ≥ 0.90) · Top N matches (1–12, merchant sets N) |
+| Fire timing | Immediate · After N minutes of merchant silence (merchant sets N, e.g. 5/10/15/30 min) |
+
+#### New files
+```
+src/lib/autoReply/
+  intent.ts      — bilingual keyword intent classifier
+  extract.ts     — strip noise, extract product query tokens
+  catalog.ts     — fuse.js search against Product collection
+  builder.ts     — normalised ProductCard → platform-specific rich message
+  index.ts       — runAutoReply(message, merchantId, platform) entry point
+
+src/app/api/settings/auto-reply/route.ts   — GET/PATCH auto-reply settings
+src/components/AutoReplyView.tsx           — new dashboard page
+```
+
+#### Settings schema addition (models/index.ts — Settings)
+```ts
+autoReply: {
+  enabled:       Boolean, default false
+  matchMode:     'exact' | 'top_n', default 'exact'
+  topN:          Number, default 3, min 1, max 12
+  fireMode:      'immediate' | 'delayed', default 'immediate'
+  delayMinutes:  Number, default 10
+}
+```
+
+#### Storefront change required
+`/shop` page reads `?productId` query param on mount, scrolls to and highlights that product.
+
+---
+
+### Stage C — Instagram + Telegram integration (PLANNED, do together)
+
+Platform types, schema enums, and stub adapters are already in place.
+Remaining work per platform:
+
+**Instagram**
+- Webhook route for Meta `messaging` events
+- Instagram OAuth / account linking flow (storefront auth)
+- Settings tab: Instagram Business token + page ID
+- Generic template builder in `src/lib/platforms/instagram.ts`
+
+**Telegram**
+- Webhook route for Telegram Bot updates (`/api/webhook/telegram`)
+- `sendMessage` + `sendPhoto` + InlineKeyboard in `src/lib/platforms/telegram.ts`
+- Settings tab: Bot token + webhook registration
+- Deep-link storefront entry (`t.me/botname?start=shop`)
+
+Both platforms share the existing `userId` + `platform` data model, `PlatformAdapter` interface, and cross-platform message guards already in place.
+
+---
+
 ## Architecture Decision: Path-Based Routing
 
 We're starting with **path-based routing** for simplicity:
