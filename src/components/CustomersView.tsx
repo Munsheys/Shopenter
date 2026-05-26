@@ -13,6 +13,7 @@ type Customer = {
   _id: string; userId: string; displayName: string; pictureUrl?: string;
   addresses: string[]; lastSeen: string; unreadCount: number;
   platform?: 'line' | 'instagram';
+  status?: 'active' | 'blocked';
 };
 type OrderItem = { productId?: string; name: string; variantLabel?: string; price: number; qty: number };
 type Order = {
@@ -703,27 +704,28 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 visibleCustomers.map(c => {
                   const isSelected = selectedCustomer?._id === c._id;
                   const ac = avatarColor(c.displayName);
+                  const isBlocked = c.status === 'blocked';
                   return (
                     <button
                       key={c._id}
                       onClick={() => selectCustomer(c)}
                       aria-pressed={isSelected}
-                      aria-label={`Customer ${c.displayName}${c.unreadCount > 0 ? `, ${c.unreadCount} unread` : ''}`}
+                      aria-label={`Customer ${c.displayName}${isBlocked ? ', blocked' : ''}${c.unreadCount > 0 ? `, ${c.unreadCount} unread` : ''}`}
                       className={`w-full flex items-center gap-2.5 px-3 py-2.5 transition-all border-l-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                         isSelected
                           ? isDark ? 'bg-accent/10 border-l-accent' : 'bg-accent/5 border-l-accent'
                           : `border-l-transparent ${k.hover}`
-                      }`}
+                      } ${isBlocked ? 'opacity-50' : ''}`}
                     >
                       <div className="relative flex-shrink-0">
                         {c.pictureUrl ? (
-                          <img src={c.pictureUrl} alt={c.displayName} className="w-8 h-8 rounded-full object-cover" />
+                          <img src={c.pictureUrl} alt={c.displayName} className={`w-8 h-8 rounded-full object-cover ${isBlocked ? 'grayscale' : ''}`} />
                         ) : (
                           <div className={`w-8 h-8 rounded-full ${ac} text-white flex items-center justify-center text-xs font-bold`}>
                             {(c.displayName || '?')[0].toUpperCase()}
                           </div>
                         )}
-                        {c.unreadCount > 0 && (
+                        {c.unreadCount > 0 && !isBlocked && (
                           <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[8px] font-bold min-w-[14px] h-3.5 rounded-full flex items-center justify-center px-0.5 leading-none">
                             {c.unreadCount > 9 ? '9+' : c.unreadCount}
                           </span>
@@ -734,10 +736,12 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                           <p className={`text-xs font-semibold truncate ${k.text}`}>{c.displayName}</p>
                           <span className={`text-[10px] flex-shrink-0 ${k.muted}`}>{timeAgo(c.lastSeen)}</span>
                         </div>
-                        <p className={`text-[10px] truncate mt-0.5 ${c.unreadCount > 0 ? 'text-accent font-medium' : k.muted}`}>
-                          {c.unreadCount > 0
-                            ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}`
-                            : c.platform === 'instagram' ? 'Instagram' : c.platform === 'line' ? 'LINE' : 'No platform'}
+                        <p className={`text-[10px] truncate mt-0.5 ${!isBlocked && c.unreadCount > 0 ? 'text-accent font-medium' : k.muted}`}>
+                          {isBlocked
+                            ? 'Blocked / Unfollowed'
+                            : c.unreadCount > 0
+                              ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}`
+                              : c.platform === 'instagram' ? 'Instagram' : c.platform === 'line' ? 'LINE' : 'No platform'}
                         </p>
                       </div>
                     </button>
@@ -1041,6 +1045,11 @@ export default function CustomersView({ theme, onLimitHit }: { theme: string; on
                 >
                   Mark as read
                 </button>
+              </div>
+            )}
+            {selectedCustomer.status === 'blocked' && (
+              <div className={`mx-3 mt-2 px-3 py-2 rounded-xl border text-[10px] font-medium flex-shrink-0 ${isDark ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                ⚠️ This customer has blocked or unfollowed your account. Messages cannot be delivered.
               </div>
             )}
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
