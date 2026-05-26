@@ -10,7 +10,8 @@ export interface Customer {
 
 export interface Order {
   _id: string;
-  lineUserId: string;
+  userId: string;
+  platform?: 'line' | 'instagram';
   displayName: string;
   product: string;
   soldTHB: number;

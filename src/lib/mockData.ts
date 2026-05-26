@@ -11,7 +11,7 @@ export const MOCK_ORDERS = [
   {
     _id: 'order-pending-01',
     displayName: 'Alice Suparat',
-    lineUserId: 'U001',
+    userId: 'U001',
     address: '123 Sukhumvit Rd, Bangkok 10110',
     product: 'Product A',
     quantity: 1,
@@ -26,7 +26,7 @@ export const MOCK_ORDERS = [
   {
     _id: 'order-pending-multi-02',
     displayName: 'Bob Thanakorn',
-    lineUserId: 'U002',
+    userId: 'U002',
     address: '456 Silom, Bangkok 10500',
     product: 'Product B, 2x Product C',
     quantity: 3,
@@ -44,7 +44,7 @@ export const MOCK_ORDERS = [
   {
     _id: 'order-paid-03',
     displayName: 'Chanya Rattana',
-    lineUserId: 'U003',
+    userId: 'U003',
     address: '789 Chatuchak, Bangkok 10900',
     product: 'Product D',
     quantity: 1,
@@ -59,7 +59,7 @@ export const MOCK_ORDERS = [
   {
     _id: 'order-paid-coupon-04',
     displayName: 'Danai Wongchai',
-    lineUserId: 'U004',
+    userId: 'U004',
     address: '12 Ratchada, Bangkok 10310',
     product: 'Product E',
     quantity: 2,
@@ -74,7 +74,7 @@ export const MOCK_ORDERS = [
   {
     _id: 'order-paid-points-05',
     displayName: 'Erin Malee',
-    lineUserId: 'U005',
+    userId: 'U005',
     address: '33 Ladprao, Bangkok 10230',
     product: 'Product F',
     quantity: 1,
@@ -89,7 +89,7 @@ export const MOCK_ORDERS = [
   {
     _id: 'order-preparing-06',
     displayName: 'Fon Apinya',
-    lineUserId: 'U006',
+    userId: 'U006',
     address: '99 Nawamin, Bangkok 10240',
     product: 'Product G, Product H',
     quantity: 2,
@@ -107,7 +107,7 @@ export const MOCK_ORDERS = [
   {
     _id: 'order-shipped-07',
     displayName: 'Gun Siripong',
-    lineUserId: 'U007',
+    userId: 'U007',
     address: '55 Bangna, Samut Prakan 10540',
     product: '2x Product I',
     quantity: 2,
@@ -123,7 +123,7 @@ export const MOCK_ORDERS = [
   {
     _id: 'order-delivered-08',
     displayName: 'Hathai Somboon',
-    lineUserId: 'U008',
+    userId: 'U008',
     address: '8 Thonburi, Bangkok 10600',
     product: 'Product J',
     quantity: 1,
@@ -139,7 +139,7 @@ export const MOCK_ORDERS = [
   {
     _id: 'order-cancelled-09',
     displayName: 'Ittipol Charoenwong',
-    lineUserId: 'U009',
+    userId: 'U009',
     address: '22 Pinklao, Bangkok 10700',
     product: 'Product K',
     quantity: 1,

@@ -156,6 +156,7 @@ export async function POST(req: Request) {
           await Customer.findOneAndUpdate(
             { merchantId, userId },
             {
+              platform: 'line',
               displayName: profile.displayName,
               pictureUrl: profile.pictureUrl,
               lastSeen: new Date(),
@@ -188,7 +189,7 @@ export async function POST(req: Request) {
           if (greetingSent) {
             const logTexts = matchedSettings.greetingMessages.slice(0, 5).map(blockToLogText).filter(Boolean);
             if (logTexts.length > 0) {
-              await Message.insertMany(logTexts.map((text: string) => ({ merchantId, lineUserId: userId, type: 'system', text, sender: 'system' })));
+              await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
             }
           }
         }
@@ -211,7 +212,7 @@ export async function POST(req: Request) {
           const profile = await client.getProfile(userId);
           await Customer.findOneAndUpdate(
             { merchantId, userId },
-            { displayName: profile.displayName, pictureUrl: profile.pictureUrl, lastSeen: new Date(), profileCachedAt: new Date() },
+            { platform: 'line', displayName: profile.displayName, pictureUrl: profile.pictureUrl, lastSeen: new Date(), profileCachedAt: new Date() },
             { upsert: true, new: true, setDefaultsOnInsert: true }
           );
         } else {
@@ -233,7 +234,7 @@ export async function POST(req: Request) {
               await client.replyMessage({ replyToken: event.replyToken, messages: rule.messages.slice(0, 5).map(toLineMessage) });
               const logTexts = rule.messages.slice(0, 5).map(blockToLogText).filter(Boolean);
               if (logTexts.length > 0) {
-                await Message.insertMany(logTexts.map((text: string) => ({ merchantId, lineUserId: userId, type: 'system', text, sender: 'system' })));
+                await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
               }
             } catch (err) { console.error('[postback reply]', err); }
           }
@@ -245,7 +246,7 @@ export async function POST(req: Request) {
       if (event.type === 'message') {
         // ── Text message ─────────────────────────────────────────────────────
         if (event.message?.type === 'text') {
-          await Message.create({ merchantId, lineUserId: userId, text: event.message.text, sender: 'user' });
+          await Message.create({ merchantId, userId, platform: 'line', text: event.message.text, sender: 'user' });
           await Customer.updateOne({ merchantId, userId }, { $inc: { unreadCount: 1 } });
 
           // Suppress auto-reply for order confirmations sent via LIFF checkout
@@ -260,7 +261,7 @@ export async function POST(req: Request) {
             if (closedMsg && event.replyToken) {
               try {
                 await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: closedMsg }] });
-                await Message.create({ merchantId, lineUserId: userId, type: 'system', text: closedMsg, sender: 'system' });
+                await Message.create({ merchantId, userId, platform: 'line', type: 'system', text: closedMsg, sender: 'system' });
               } catch (err) { console.error('[closed reply]', err); }
             }
             continue;
@@ -308,7 +309,7 @@ export async function POST(req: Request) {
               if (rule) {
                 const logTexts = rule.messages.slice(0, 5).map(blockToLogText).filter(Boolean);
                 if (logTexts.length > 0) {
-                  await Message.insertMany(logTexts.map((text: string) => ({ merchantId, lineUserId: userId, type: 'system', text, sender: 'system' })));
+                  await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
                 }
               }
             } catch (err) { console.error('[text reply]', err); }
@@ -316,7 +317,7 @@ export async function POST(req: Request) {
 
         // ── Image message ─────────────────────────────────────────────────────
         } else if (event.message?.type === 'image') {
-          await Message.create({ merchantId, lineUserId: userId, type: 'image', messageId: event.message.id, text: '📸 Image Uploaded', sender: 'user' });
+          await Message.create({ merchantId, userId, platform: 'line', type: 'image', messageId: event.message.id, text: '📸 Image Uploaded', sender: 'user' });
           await Customer.updateOne({ merchantId, userId }, { $inc: { unreadCount: 1 } });
 
           // Piggyback campaign on image messages too (via reply)
@@ -367,7 +368,7 @@ export async function POST(req: Request) {
                   const slipData = await slipRes.json();
                   if (slipData.success && slipData.data?.amount) {
                     const amountPaid = slipData.data.amount;
-                    const pendingOrders = await Order.find({ merchantId, lineUserId: userId, status: 'pending' }).sort({ createdAt: 1 });
+                    const pendingOrders = await Order.find({ merchantId, userId, status: 'pending' }).sort({ createdAt: 1 });
                     let remaining = amountPaid;
                     const toMark: any[] = [];
 
@@ -386,31 +387,31 @@ export async function POST(req: Request) {
                       let msg = matchedSettings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
                       msg = msg.replace(/{product}/g, combinedProducts).replace(/{amount}/g, amountPaid.toLocaleString()).replace(/{name}/g, customer?.displayName || 'Customer');
                       await client.pushMessage({ to: userId, messages: [{ type: 'text', text: msg }] });
-                      await Message.create({ merchantId, lineUserId: userId, type: 'system', text: msg, metadata: { amount: amountPaid, products: combinedProducts }, sender: 'system' });
+                      await Message.create({ merchantId, userId, platform: 'line', type: 'system', text: msg, metadata: { amount: amountPaid, products: combinedProducts }, sender: 'system' });
                       // Type A: merchant alert
-                      await notifyMerchant({ merchantId, type: 'slip_verified', message: `💰 Slip verified!\n\nCustomer: ${customer?.displayName || userId}\nAmount: ฿${amountPaid.toLocaleString()}\nItems: ${combinedProducts}`, metadata: { amount: amountPaid, lineUserId: userId }, settings: matchedSettings });
+                      await notifyMerchant({ merchantId, type: 'slip_verified', message: `💰 Slip verified!\n\nCustomer: ${customer?.displayName || userId}\nAmount: ฿${amountPaid.toLocaleString()}\nItems: ${combinedProducts}`, metadata: { amount: amountPaid, userId }, settings: matchedSettings });
                     }
                   } else {
                     // Slip scan failed (invalid or unreadable slip) — Type A: merchant only, customer stays silent
                     const customer = await Customer.findOne({ merchantId, userId }).lean() as any;
-                    await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip scan failed\n\nCustomer: ${customer?.displayName || userId}\nThe image could not be verified. Please check manually.`, metadata: { lineUserId: userId }, settings: matchedSettings });
+                    await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip scan failed\n\nCustomer: ${customer?.displayName || userId}\nThe image could not be verified. Please check manually.`, metadata: { userId }, settings: matchedSettings });
                   }
                 } else {
                   // SlipOK API error — Type A: merchant only
                   const customer = await Customer.findOne({ merchantId, userId }).lean() as any;
-                  await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip verification error\n\nCustomer: ${customer?.displayName || userId}\nSlipOK API returned an error. Please verify payment manually.`, metadata: { lineUserId: userId }, settings: matchedSettings });
+                  await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip verification error\n\nCustomer: ${customer?.displayName || userId}\nSlipOK API returned an error. Please verify payment manually.`, metadata: { userId }, settings: matchedSettings });
                 }
               }
             } catch (err) {
               console.error('[SlipOK]', err);
               // Network/unexpected error — Type A: merchant only
-              await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip verification failed (network error)\n\nPlease verify payment manually.`, metadata: { lineUserId: userId }, settings: matchedSettings });
+              await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip verification failed (network error)\n\nPlease verify payment manually.`, metadata: { userId }, settings: matchedSettings });
             }
           }
 
         // ── Sticker message ───────────────────────────────────────────────────
         } else if (event.message?.type === 'sticker') {
-          await Message.create({ merchantId, lineUserId: userId, type: 'sticker', text: '🎭 Sticker', sender: 'user' });
+          await Message.create({ merchantId, userId, platform: 'line', type: 'sticker', text: '🎭 Sticker', sender: 'user' });
           await Customer.updateOne({ merchantId, userId }, { $inc: { unreadCount: 1 } });
         }
       }

@@ -15,18 +15,18 @@ async function resolveAudience(merchantId: string, audience: string): Promise<st
     return customers.map((c: any) => c.userId).filter(Boolean);
   }
   if (audience === 'ordered') {
-    const ids = await Order.find({ merchantId }).distinct('lineUserId');
+    const ids = await Order.find({ merchantId }).distinct('userId');
     return (ids as string[]).filter(Boolean);
   }
   if (audience === 'never_ordered') {
-    const orderedIds = new Set((await Order.find({ merchantId }).distinct('lineUserId') as string[]).filter(Boolean));
+    const orderedIds = new Set((await Order.find({ merchantId }).distinct('userId') as string[]).filter(Boolean));
     const customers = await Customer.find({ merchantId, status: { $ne: 'blocked' } }).select('userId').lean() as any[];
     return customers.map((c: any) => c.userId).filter((uid: string) => uid && !orderedIds.has(uid));
   }
   if (audience === 'high_value') {
     const result = await Order.aggregate([
       { $match: { merchantId: new mongoose.Types.ObjectId(merchantId) } },
-      { $group: { _id: '$lineUserId', total: { $sum: '$soldTHB' } } },
+      { $group: { _id: '$userId', total: { $sum: '$soldTHB' } } },
       { $match: { total: { $gte: 5000 }, _id: { $ne: null } } },
     ]);
     return result.map((r: any) => r._id).filter(Boolean);

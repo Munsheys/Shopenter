@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const filter: any = { merchantId: merchant.merchantId };
 
-  if (searchParams.get('customerId')) filter.lineUserId = searchParams.get('customerId');
+  if (searchParams.get('customerId')) filter.userId = searchParams.get('customerId');
 
   const statusParam = searchParams.get('status');
   if (statusParam) {
@@ -55,7 +55,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const order = await Order.create({
       merchantId: merchant.merchantId,
-      lineUserId: body.lineUserId,
+      userId: body.userId || body.lineUserId,
+      platform: body.platform || 'line',
       displayName: body.displayName,
       soldTHB: body.totalTHB,
       items: body.items,

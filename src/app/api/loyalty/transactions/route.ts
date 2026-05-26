@@ -10,11 +10,11 @@ export async function GET(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const lineUserId = searchParams.get('lineUserId');
+  const userId = searchParams.get('userId');
 
   await dbConnect();
   const query: any = { merchantId: merchant.merchantId };
-  if (lineUserId) query.lineUserId = lineUserId;
+  if (userId) query.userId = userId;
 
   const transactions = await LoyaltyTransaction.find(query)
     .sort({ createdAt: -1 })

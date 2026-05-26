@@ -135,7 +135,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lineUserId: customer.userId, displayName: customer.displayName, address, items,
+          userId: customer.userId, platform: 'line', displayName: customer.displayName, address, items,
           product: items.map(i => `${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}`).join(', '),
           quantity: items.reduce((s, i) => s + i.qty, 0), soldTHB: cartTotal,
           couponCode: couponCode || undefined,
@@ -410,7 +410,7 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
 
   useEffect(() => {
     if (customer?.userId) {
-      fetch(`/api/storefront/${merchantId}/loyalty?lineUserId=${customer.userId}`)
+      fetch(`/api/storefront/${merchantId}/loyalty?userId=${customer.userId}`)
         .then(r => r.ok ? r.json() : null)
         .then(data => { if (data?.enabled) setLoyalty(data); })
         .catch(() => {});

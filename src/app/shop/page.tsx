@@ -220,7 +220,8 @@ export default function Shop() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lineUserId: customer?.userId,
+          userId: customer?.userId,
+          platform: 'line',
           displayName: customer?.displayName,
           pictureUrl: customer?.pictureUrl,
           items: cart,

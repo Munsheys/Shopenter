@@ -167,6 +167,7 @@ const ProductSchema = new mongoose.Schema({
 const CustomerSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   userId: { type: String, required: true, index: true },
+  platform: { type: String, enum: ['line', 'instagram'], index: true },
   displayName: String,
   pictureUrl: String,
   addresses: [String],
@@ -179,9 +180,26 @@ const CustomerSchema = new mongoose.Schema({
 });
 CustomerSchema.index({ merchantId: 1, userId: 1 }, { unique: true });
 
+// CustomerProfile links platform-specific Customer records for the same real person (by phone)
+const CustomerProfileSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  phone: { type: String, default: '' },
+  displayName: { type: String, default: '' },
+  linkedAccounts: [{
+    platform: { type: String, enum: ['line', 'instagram'], required: true },
+    userId: { type: String, required: true },
+    displayName: { type: String, default: '' },
+    pictureUrl: { type: String, default: '' },
+  }],
+  createdAt: { type: Date, default: Date.now },
+});
+CustomerProfileSchema.index({ merchantId: 1, phone: 1 });
+CustomerProfileSchema.index({ merchantId: 1, 'linkedAccounts.userId': 1 });
+
 const OrderSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
-  lineUserId: String,
+  userId: { type: String, index: true },
+  platform: { type: String, enum: ['line', 'instagram'], default: 'line' },
   displayName: String,
   address: String,
   product: String,
@@ -224,7 +242,8 @@ const OrderSchema = new mongoose.Schema({
 
 const MessageSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
-  lineUserId: { type: String, required: true, index: true },
+  userId: { type: String, required: true, index: true },
+  platform: { type: String, enum: ['line', 'instagram'], default: 'line' },
   type: { type: String, enum: ['text', 'image', 'sticker', 'system'], default: 'text' },
   messageId: String,
   text: { type: String, required: true },
@@ -240,7 +259,7 @@ const ProcessedEventSchema = new mongoose.Schema({
 });
 
 // Shared message block sub-schema (used in Campaign and AutoReply)
-const LineMessageBlockSchema = new mongoose.Schema({
+const MessageBlockSchema = new mongoose.Schema({
   type: { type: String, required: true }, // text | image | video | audio | sticker
   text: String,
   originalContentUrl: String,
@@ -255,7 +274,7 @@ const CampaignSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   name: { type: String, default: '' },
   deliveryMode: { type: String, enum: ['instant', 'queued'], required: true },
-  messages: { type: [LineMessageBlockSchema], default: [] },
+  messages: { type: [MessageBlockSchema], default: [] },
   status: { type: String, enum: ['active', 'paused', 'completed', 'cancelled'], default: 'active' },
   // Instant-specific
   audience: { type: String, enum: ['all', 'active_30d', 'active_60d', 'ordered', 'never_ordered', 'high_value'], default: 'all' },
@@ -275,7 +294,7 @@ const AutoReplySchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   keyword: { type: String, required: true },
   matchType: { type: String, enum: ['exact', 'contains', 'starts_with', 'default'], required: true },
-  messages: { type: [LineMessageBlockSchema], default: [] },
+  messages: { type: [MessageBlockSchema], default: [] },
   isActive: { type: Boolean, default: true },
   priority: { type: Number, default: 0 },
   lastTriggeredAt: { type: Date, default: null },
@@ -322,7 +341,8 @@ CouponSchema.index({ merchantId: 1, code: 1 }, { unique: true });
 
 const LoyaltyTransactionSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
-  lineUserId: { type: String, required: true, index: true },
+  userId: { type: String, required: true, index: true },
+  platform: { type: String, enum: ['line', 'instagram'], default: 'line' },
   orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
   type: { type: String, enum: ['earn', 'redeem'], required: true },
   points: { type: Number, required: true },
@@ -335,6 +355,7 @@ export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', M
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
 export const Customer = mongoose.models.Customer || mongoose.model('Customer', CustomerSchema);
+export const CustomerProfile = mongoose.models.CustomerProfile || mongoose.model('CustomerProfile', CustomerProfileSchema);
 export const Order = mongoose.models.Order || mongoose.model('Order', OrderSchema);
 export const Message = mongoose.models.Message || mongoose.model('Message', MessageSchema);
 export const ProcessedEvent = mongoose.models.ProcessedEvent || mongoose.model('ProcessedEvent', ProcessedEventSchema);

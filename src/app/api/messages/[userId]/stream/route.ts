@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
       };
 
       try {
-        const initial = await Message.find({ merchantId: merchant.merchantId, lineUserId: userId }).sort({ createdAt: 1 }).lean();
+        const initial = await Message.find({ merchantId: merchant.merchantId, userId }).sort({ createdAt: 1 }).lean();
         send(initial);
       } catch (err) {
         console.error('[SSE messages] initial fetch', err);
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
 
       const interval = setInterval(async () => {
         try {
-          const latest = await Message.find({ merchantId: merchant.merchantId, lineUserId: userId }).sort({ createdAt: 1 }).lean();
+          const latest = await Message.find({ merchantId: merchant.merchantId, userId }).sort({ createdAt: 1 }).lean();
           send(latest);
         } catch (err) {
           console.error('[SSE messages] poll error', err);

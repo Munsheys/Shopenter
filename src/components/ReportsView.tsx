@@ -216,7 +216,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
 
       const customerMap = new Map<string, number>();
       arr.forEach(o => {
-        const id = o.lineUserId || o.displayName || 'anon';
+        const id = o.userId || o.displayName || 'anon';
         customerMap.set(id, (customerMap.get(id) || 0) + 1);
       });
       const uniqueCustomers = customerMap.size;
@@ -364,7 +364,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   const topCustomers = useMemo(() => {
     const map = new Map<string, { name: string; orders: number; revenue: number }>();
     filteredOrders.forEach(o => {
-      const key = o.lineUserId || o.displayName || 'anon';
+      const key = o.userId || o.displayName || 'anon';
       const e = map.get(key) || { name: o.displayName || 'Unknown', orders: 0, revenue: 0 };
       e.orders++;
       e.revenue += o.soldTHB || 0;

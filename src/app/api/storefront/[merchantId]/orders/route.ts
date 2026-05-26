@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Message } from '@/models';
-import { messagingApi } from '@line/bot-sdk';
+import { sendLineMessage } from '@/lib/platforms/line';
 import { notifyMerchant } from '@/lib/notifyMerchant';
 
 export const runtime = 'nodejs';
@@ -14,7 +14,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     if (!merchantExists) return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
 
     const body = await req.json();
-    const { couponCode, redeemPoints, lineUserId, isLiffClient, ...orderData } = body;
+    const { couponCode, redeemPoints, lineUserId, userId: bodyUserId, isLiffClient, ...orderData } = body;
+    const userId = bodyUserId || lineUserId; // accept both field names during transition
 
     let discountAmount = 0;
     let appliedCouponCode = '';
@@ -43,13 +44,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     }
 
     // Validate and apply loyalty point redemption
-    if (redeemPoints && lineUserId) {
+    if (redeemPoints && userId) {
       const loyaltySettings = await Settings.findOne({ merchantId }).select('loyalty').lean() as any;
       const loyalty = loyaltySettings?.loyalty;
 
       if (loyalty?.enabled && loyalty.redeemRate > 0) {
         loyaltyRedeemRate = loyalty.redeemRate;
-        const customer = await Customer.findOne({ merchantId, userId: lineUserId }).select('loyaltyPoints').lean() as any;
+        const customer = await Customer.findOne({ merchantId, userId }).select('loyaltyPoints').lean() as any;
         const availablePoints = customer?.loyaltyPoints ?? 0;
         const pointsToRedeem = Math.min(Number(redeemPoints), availablePoints);
 
@@ -65,7 +66,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
 
     const order = await Order.create({
       ...orderData,
-      lineUserId: lineUserId || orderData.lineUserId,
+      userId,
+      platform: 'line',
       merchantId,
       soldTHB: finalTotal,
       discountAmount,
@@ -74,14 +76,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     });
 
     // Deduct redeemed points from customer
-    if (redeemedPoints > 0 && lineUserId) {
+    if (redeemedPoints > 0 && userId) {
       await Customer.findOneAndUpdate(
-        { merchantId, userId: lineUserId },
+        { merchantId, userId },
         { $inc: { loyaltyPoints: -redeemedPoints } }
       );
       await LoyaltyTransaction.create({
         merchantId,
-        lineUserId,
+        userId,
+        platform: 'line',
         orderId: order._id,
         type: 'redeem',
         points: redeemedPoints,
@@ -91,15 +94,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
 
     // ── Type B: order confirmation message to customer ────────────────────────
     // LIFF client sends via liff.sendMessages(); external browser gets a push
-    if (!isLiffClient && lineUserId) {
+    if (!isLiffClient && userId) {
       const merchantSettings = await Settings.findOne({ merchantId }).lean() as any;
       if (merchantSettings?.lineChannelAccessToken) {
         try {
-          const client = new messagingApi.MessagingApiClient({ channelAccessToken: merchantSettings.lineChannelAccessToken });
           const itemsSummary = order.items?.map((i: any) => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n') || order.product;
           const confirmMsg = `📦 สั่งซื้อแล้ว!\n${itemsSummary}\n\nรวม ฿${order.soldTHB.toLocaleString()}\n\nขอบคุณที่ใช้บริการครับ 🙏`;
-          await client.pushMessage({ to: lineUserId, messages: [{ type: 'text', text: confirmMsg }] });
-          await Message.create({ merchantId, lineUserId, type: 'system', text: confirmMsg, sender: 'system' });
+          await sendLineMessage(merchantSettings.lineChannelAccessToken, userId, confirmMsg);
+          await Message.create({ merchantId, userId, platform: 'line', type: 'system', text: confirmMsg, sender: 'system' });
         } catch (err) { console.error('[storefront order push]', err); }
       }
     }
@@ -108,7 +110,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     const settingsForNotif = await Settings.findOne({ merchantId }).lean() as any;
     const customerName = orderData.displayName || 'Customer';
     const itemsSummary = order.items?.map((i: any) => `${i.qty}x ${i.name}`).join(', ') || order.product;
-    await notifyMerchant({ merchantId, type: 'new_order', message: `🛒 New order from ${customerName}!\n${itemsSummary}\nTotal: ฿${order.soldTHB.toLocaleString()}`, metadata: { orderId: order._id.toString(), lineUserId }, settings: settingsForNotif });
+    await notifyMerchant({ merchantId, type: 'new_order', message: `🛒 New order from ${customerName}!\n${itemsSummary}\nTotal: ฿${order.soldTHB.toLocaleString()}`, metadata: { orderId: order._id.toString(), userId }, settings: settingsForNotif });
 
     // Attribute to most recent broadcast in last 48 hours
     const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
