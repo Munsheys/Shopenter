@@ -89,6 +89,7 @@ export interface ProductForm {
   variants: ProductVariant[];
   isActive: boolean;
   trackStock: boolean;
+  simpleStock: string; // stock qty for simple products (no variants)
 }
 
 // --- Helpers ---
@@ -104,13 +105,16 @@ function cartesian(options: ProductOption[]): Record<string, string>[] {
 
 export function normalizeToForm(raw: any): ProductForm {
   const images: string[] = raw.images?.length ? raw.images : (raw.imageUrl ? [raw.imageUrl] : []);
+  const base = {
+    name: raw.name || '', brand: raw.brand || '', modelLine: raw.modelLine || '',
+    description: raw.description || '', price: String(raw.price || ''),
+    categories: raw.categories || [], images,
+    isActive: raw.isActive !== false, trackStock: !!raw.trackStock,
+  };
 
   if (raw.options?.length) {
     return {
-      name: raw.name || '', brand: raw.brand || '', modelLine: raw.modelLine || '',
-      description: raw.description || '', price: String(raw.price || ''),
-      categories: raw.categories || [],
-      images,
+      ...base,
       options: raw.options,
       variants: (raw.variants || []).map((v: any) => ({
         combination: v.combination || {},
@@ -119,13 +123,18 @@ export function normalizeToForm(raw: any): ProductForm {
         cost: v.cost != null ? String(v.cost) : '',
         stock: String(v.stock ?? 0),
       })),
-      isActive: raw.isActive !== false,
-      trackStock: !!raw.trackStock,
+      simpleStock: '0',
     };
   }
 
-  // Legacy variantName/colors → convert to option groups
-  const oldVariants = raw.variants || [];
+  const allVariants: any[] = raw.variants || [];
+  // Phantom variant: combination:{} with no variantName — used for simple product stock
+  const phantomVariant = allVariants.find(v =>
+    v.combination && Object.keys(v.combination).length === 0 && !v.variantName
+  );
+  // Legacy variantName/colors variants (filter out phantom)
+  const oldVariants = allVariants.filter(v => v.variantName || (v.colors && v.colors.length > 0));
+
   const optGroups: ProductOption[] = [];
   const variantNames = [...new Set(oldVariants.map((v: any) => v.variantName).filter(Boolean))] as string[];
   if (variantNames.length) optGroups.push({ name: 'Variant', values: variantNames });
@@ -160,11 +169,10 @@ export function normalizeToForm(raw: any): ProductForm {
   }
 
   return {
-    name: raw.name || '', brand: raw.brand || '', modelLine: raw.modelLine || '',
-    description: raw.description || '', price: String(raw.price || ''),
-    categories: raw.categories || [], images, options: optGroups, variants: newVariants,
-    isActive: raw.isActive !== false,
-    trackStock: !!raw.trackStock,
+    ...base,
+    options: optGroups,
+    variants: newVariants,
+    simpleStock: String(phantomVariant?.stock ?? 0),
   };
 }
 
@@ -173,6 +181,7 @@ const EMPTY_FORM: ProductForm = {
   price: '', categories: [], images: [], options: [], variants: [],
   isActive: true,
   trackStock: false,
+  simpleStock: '0',
 };
 
 // --- Reusable Components ---
@@ -737,6 +746,34 @@ export function ProductModal({
                 </button>
               )}
             </div>
+
+            {/* Inline stock qty for simple products */}
+            {form.trackStock && form.options.length === 0 && !quickOrderMode && (
+              <div className={cn("border rounded-xl px-4 py-3.5", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Current Stock</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateForm({ simpleStock: String(Math.max(0, (parseInt(form.simpleStock) || 0) - 1)) })}
+                    className={cn("w-9 h-9 rounded-xl border text-lg font-bold flex items-center justify-center transition-colors active:scale-95",
+                      theme === 'dark' ? "border-[#1f2335] text-white hover:bg-[#2d324d]" : "border-[#e2e5ef] text-[#1a1d2e] hover:bg-[#f4f6f9]")}
+                  >−</button>
+                  <input
+                    type="number" min="0"
+                    value={form.simpleStock}
+                    onChange={e => updateForm({ simpleStock: e.target.value })}
+                    className={cn("flex-1 border rounded-xl px-3 py-2 text-sm font-bold text-center outline-none focus:border-accent",
+                      theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateForm({ simpleStock: String((parseInt(form.simpleStock) || 0) + 1) })}
+                    className={cn("w-9 h-9 rounded-xl border text-lg font-bold flex items-center justify-center transition-colors active:scale-95",
+                      theme === 'dark' ? "border-[#1f2335] text-white hover:bg-[#2d324d]" : "border-[#e2e5ef] text-[#1a1d2e] hover:bg-[#f4f6f9]")}
+                  >+</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column: Options & Variants */}
@@ -855,7 +892,7 @@ export function ProductModal({
                     </table>
                   </div>
                 </div>
-                <p className="text-[10px] text-[#8b92ad] mt-1.5">Stock is managed from the catalog after saving.</p>
+                <p className="text-[10px] text-[#8b92ad] mt-1.5">After saving, click the <strong>STOCK</strong> button on the product card to set quantities per variant.</p>
               </div>
             )}
 
@@ -1101,20 +1138,26 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const stats = useMemo(() => ({ total: products.length, active: products.filter(p => p.isActive).length }), [products]);
   const normalizedEditingProduct = useMemo(() => editingProduct ? normalizeToForm(editingProduct) : null, [editingProduct]);
 
-  const buildPayload = (form: ProductForm) => ({
-    ...form,
-    price: parseFloat(form.price as any) || 0,
-    imageUrl: form.images[0] || '',
-    images: form.images,
-    options: form.options,
-    variants: form.variants.map(v => ({
+  const buildPayload = (form: ProductForm) => {
+    const isSimple = form.options.length === 0 && form.variants.length === 0;
+    const mappedVariants = form.variants.map(v => ({
       combination: v.combination,
       imageUrl: v.imageUrl || '',
       price: v.price !== '' ? parseFloat(v.price) : null,
       cost: v.cost !== '' ? parseFloat(v.cost) : null,
       stock: parseInt(v.stock as any) || 0,
-    })),
-  });
+    }));
+    return {
+      ...form,
+      price: parseFloat(form.price as any) || 0,
+      imageUrl: form.images[0] || '',
+      images: form.images,
+      options: form.options,
+      variants: isSimple && form.trackStock
+        ? [{ combination: {}, imageUrl: '', price: null, cost: null, stock: parseInt(form.simpleStock) || 0 }]
+        : mappedVariants,
+    };
+  };
 
   const handleSave = async (form: ProductForm) => {
     if (editingProduct) {
@@ -1141,6 +1184,16 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           })),
           isActive: form.isActive,
           trackStock: form.trackStock,
+          variants: form.variants.length > 0
+            ? form.variants.map(v => ({
+                combination: v.combination, imageUrl: v.imageUrl || '',
+                price: v.price !== '' ? parseFloat(v.price) : null,
+                cost: v.cost !== '' ? parseFloat(v.cost) : null,
+                stock: parseInt(v.stock as any) || 0,
+              }))
+            : (form.trackStock
+                ? [{ combination: {}, imageUrl: '', price: null, cost: null, stock: parseInt(form.simpleStock) || 0 }]
+                : []),
         };
       }));
       setPendingEdits(prev => ({ ...prev, [editingProduct._id]: form }));
