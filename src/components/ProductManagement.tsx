@@ -412,6 +412,11 @@ function ColorOptionEditor({ values, onAdd, onRemove, theme }: {
   const presetNames = COLOR_PRESETS.map(c => c.name);
   const customValues = values.filter(v => !presetNames.includes(v));
   const isHexVal = (s: string) => /^#[0-9A-F]{6}$/i.test(s);
+  const colorForSwatch = (v: string) => {
+    if (isHexVal(v)) return v;
+    const preset = COLOR_PRESETS.find(p => p.name.toLowerCase() === v.toLowerCase());
+    return preset ? preset.hex : v; // falls back to CSS color name (e.g. "blue")
+  };
 
   const toggle = (name: string) => values.includes(name) ? onRemove(name) : onAdd(name);
 
@@ -463,9 +468,7 @@ function ColorOptionEditor({ values, onAdd, onRemove, theme }: {
             onClick={() => onRemove(v)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all border-accent bg-accent/10 text-accent"
           >
-            {isHexVal(v) && (
-              <span className="w-3.5 h-3.5 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: v }} />
-            )}
+            <span className="w-3.5 h-3.5 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: colorForSwatch(v) }} />
             {isHexVal(v) ? v.toUpperCase() : v}
             <X size={9} />
           </button>
@@ -596,12 +599,14 @@ export function ImageUploader({ value, onChange }: { value: string; onChange: (u
 
 export function ProductModal({
   isOpen, initialData, onSave, onClose, isSaving,
-  existingOptions, suggestedOptions, theme = 'light', quickOrderMode = false, defaultTrackStock = false, onSaveAsDefault,
+  existingOptions, suggestedOptions, theme = 'light', quickOrderMode = false, defaultTrackStock = false,
+  defaultSoldCurrency = 'THB', defaultCostCurrency = 'THB', onSaveAsDefault,
 }: {
   isOpen: boolean; initialData: ProductForm | null;
   onSave: (data: ProductForm) => void; onClose: () => void; isSaving: boolean;
   existingOptions: { brands: string[], modelLines: string[], categories: string[], optionNames: string[], optionValues: string[] };
   suggestedOptions?: ProductOption[]; theme?: 'light' | 'dark'; quickOrderMode?: boolean; defaultTrackStock?: boolean;
+  defaultSoldCurrency?: string; defaultCostCurrency?: string;
   onSaveAsDefault?: (val: boolean) => void;
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
@@ -614,7 +619,7 @@ export function ProductModal({
       if (!initialData) {
         const initOpts = suggestedOptions ?? [];
         const initVariants = cartesian(initOpts).map(combo => ({ combination: combo, imageUrl: '', price: '', cost: '', stock: '0' }));
-        setForm({ ...EMPTY_FORM, trackStock: defaultTrackStock, options: initOpts, variants: initVariants });
+        setForm({ ...EMPTY_FORM, trackStock: defaultTrackStock, soldCurrency: defaultSoldCurrency, costCurrency: defaultCostCurrency, options: initOpts, variants: initVariants });
         prevOptionsRef.current = JSON.stringify(initOpts);
         prevIdRef.current = null;
       } else {
@@ -1108,6 +1113,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [sortOrder, setSortOrder] = useState('newest');
 
   const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') || '' : '';
+  const [merchantCurrencies, setMerchantCurrencies] = useState({ sold: 'THB', cost: 'THB' });
 
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
@@ -1116,6 +1122,17 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       const data = await res.json();
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) { console.error(err); } finally { setIsLoading(false); }
+  }, [secret]);
+
+  useEffect(() => {
+    fetch('/api/settings', { headers: { 'x-admin-secret': secret } })
+      .then(r => r.json())
+      .then(s => {
+        if (s?.localCurrency || s?.importCurrency) {
+          setMerchantCurrencies({ sold: s.localCurrency || 'THB', cost: s.importCurrency || 'THB' });
+        }
+      })
+      .catch(() => {});
   }, [secret]);
 
   useEffect(() => { loadProducts(); }, [loadProducts]);
@@ -1337,24 +1354,33 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const name = col(row, 'name');
-      const priceStr = col(row, 'price');
+      // Support both new ("Sold Price") and legacy ("Price (THB)") column names
+      const colExact = (row: string[], exact: string) => {
+        const i = header.findIndex(h => h === exact.toLowerCase());
+        return i >= 0 ? (row[i] ?? '').replace(/"/g, '').trim() : '';
+      };
+      const priceStr = colExact(row, 'sold price') || col(row, 'price');
       const price = parseFloat(priceStr.replace(/[^0-9.]/g, ''));
 
       if (!name) { errors.push(`Row ${i + 2}: missing name`); setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] }); continue; }
       if (isNaN(price)) { errors.push(`Row ${i + 2}: invalid price "${priceStr}"`); setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] }); continue; }
 
-      const costStr = col(row, 'cost');
+      const soldCurrency = colExact(row, 'sold currency') || col(row, 'soldcurrency') || '';
+      const costStr = colExact(row, 'cost price') || col(row, 'cost');
       const cost = costStr ? parseFloat(costStr.replace(/[^0-9.]/g, '')) : null;
+      const costCurrency = colExact(row, 'cost currency') || col(row, 'costcurrency') || '';
       const colorsRaw = col(row, 'color');
       const colors = colorsRaw ? colorsRaw.split(';').map((c: string) => c.trim()).filter(Boolean) : [];
-      const trackStockRaw = col(row, 'trackstock') || col(row, 'track stock') || col(row, 'track');
+      const trackStockRaw = colExact(row, 'track stock') || col(row, 'trackstock') || col(row, 'track');
       const trackStock = trackStockRaw ? trackStockRaw.toLowerCase() === 'yes' || trackStockRaw === '1' || trackStockRaw.toLowerCase() === 'true' : false;
-      const imageUrlRaw = col(row, 'imageurl') || col(row, 'image url') || col(row, 'image');
+      const imageUrlRaw = colExact(row, 'image url') || col(row, 'imageurl') || col(row, 'image');
       const imageUrls = imageUrlRaw ? imageUrlRaw.split(';').map((u: string) => u.trim()).filter(Boolean) : [];
-      const modelLine = col(row, 'modelline') || col(row, 'model line') || col(row, 'model');
+      const modelLine = colExact(row, 'model line') || col(row, 'modelline') || col(row, 'model');
       const body: any = {
         name,
         price,
+        ...(soldCurrency && { soldCurrency }),
+        ...(costCurrency && { costCurrency }),
         description: col(row, 'description') || col(row, 'desc'),
         brand: col(row, 'brand'),
         modelLine: modelLine || '',
@@ -1651,6 +1677,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         onSave={handleSave} onClose={() => setIsModalOpen(false)} isSaving={isSaving}
         existingOptions={existingOptions} suggestedOptions={suggestedOptions}
         defaultTrackStock={defaultTrackStock}
+        defaultSoldCurrency={merchantCurrencies.sold}
+        defaultCostCurrency={merchantCurrencies.cost}
         onSaveAsDefault={(val) => { setDefaultTrackStock(val); localStorage.setItem('defaultTrackStock', String(val)); }} />
 
       {stockProduct && (
@@ -1682,8 +1710,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
                   <div className="space-y-1 font-mono">
                     {[
                       { col: 'Name', note: 'Required. Product display name.' },
-                      { col: 'Price (THB)', note: 'Required. Selling price, number only, e.g. 299' },
-                      { col: 'Cost (THB)', note: 'Optional. Cost price for profit tracking.' },
+                      { col: 'Sold Price', note: 'Required. Selling price, number only, e.g. 299' },
+                      { col: 'Sold Currency', note: 'Optional. e.g. THB, USD. Defaults to your local currency.' },
+                      { col: 'Cost Price', note: 'Optional. Cost price for profit tracking.' },
+                      { col: 'Cost Currency', note: 'Optional. e.g. KRW, USD. Defaults to your import currency.' },
                       { col: 'Description', note: 'Optional. Plain text description.' },
                       { col: 'Brand', note: 'Optional. Brand name.' },
                       { col: 'Model Line', note: 'Optional. Product line / sub-brand, e.g. Air Max' },
@@ -1704,7 +1734,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
                   </p>
                   <button
                     onClick={() => {
-                      const template = '﻿Name,Description,Brand,Model Line,Category,Price (THB),Cost (THB),Colors,Track Stock,Image URL,Active\nExample Bag,A stylish tote,MyBrand,Classic,Bags;Fashion,599,300,Black;White;Navy,No,,Yes\n';
+                      const template = '﻿Name,Description,Brand,Model Line,Category,Sold Price,Sold Currency,Cost Price,Cost Currency,Colors,Track Stock,Image URL,Active\nExample Bag,A stylish tote,MyBrand,Classic,Bags;Fashion,599,THB,300,KRW,Black;White;Navy,No,,Yes\n';
                       const a = document.createElement('a');
                       a.href = URL.createObjectURL(new Blob([template], { type: 'text/csv;charset=utf-8;' }));
                       a.download = 'product_import_template.csv'; a.click();
