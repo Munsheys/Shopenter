@@ -396,15 +396,17 @@ function ColorOptionEditor({ values, onAdd, onRemove, theme }: {
   values: string[]; onAdd: (v: string) => void; onRemove: (v: string) => void; theme: 'light' | 'dark';
 }) {
   const [customInput, setCustomInput] = useState('');
+  const [customHex, setCustomHex] = useState('#6366f1');
   const [showCustom, setShowCustom] = useState(false);
 
   const presetNames = COLOR_PRESETS.map(c => c.name);
   const customValues = values.filter(v => !presetNames.includes(v));
+  const isHexVal = (s: string) => /^#[0-9A-F]{6}$/i.test(s);
 
   const toggle = (name: string) => values.includes(name) ? onRemove(name) : onAdd(name);
 
   const addCustom = () => {
-    const val = customInput.trim();
+    const val = customInput.trim() || customHex;
     if (!val || values.includes(val)) return;
     onAdd(val);
     setCustomInput('');
@@ -449,31 +451,41 @@ function ColorOptionEditor({ values, onAdd, onRemove, theme }: {
             key={v}
             type="button"
             onClick={() => onRemove(v)}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all border-accent bg-accent/10 text-accent"
-            )}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all border-accent bg-accent/10 text-accent"
           >
-            {v}
+            {isHexVal(v) && (
+              <span className="w-3.5 h-3.5 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: v }} />
+            )}
+            {isHexVal(v) ? v.toUpperCase() : v}
             <X size={9} />
           </button>
         ))}
 
         {/* Add custom */}
         {showCustom ? (
-          <div className="flex items-center gap-1">
+          <div className={cn("flex items-center gap-2 p-2 rounded-xl border", theme === 'dark' ? "border-[#1f2335] bg-[#1a1d2e]" : "border-[#e2e5ef] bg-[#f8f9fc]")}>
+            <div className="relative flex-shrink-0">
+              <input
+                type="color"
+                value={customHex}
+                onChange={e => setCustomHex(e.target.value)}
+                className="w-8 h-8 rounded-lg cursor-pointer border-0 p-0.5 bg-transparent"
+                title="Pick a color"
+              />
+            </div>
             <input
               autoFocus
               type="text"
               value={customInput}
               onChange={e => setCustomInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addCustom(); if (e.key === 'Escape') setShowCustom(false); }}
-              placeholder="Custom name…"
+              placeholder="Name (optional)"
               className={cn(
-                "w-28 border rounded-xl px-2.5 py-1.5 text-[10px] outline-none focus:border-accent",
+                "w-24 border rounded-lg px-2 py-1 text-[10px] outline-none focus:border-accent",
                 theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
               )}
             />
-            <button type="button" onClick={addCustom} className="text-accent text-[10px] font-bold hover:underline">Add</button>
+            <button type="button" onClick={addCustom} className="text-accent text-[10px] font-bold hover:underline whitespace-nowrap">Add</button>
             <button type="button" onClick={() => setShowCustom(false)} className="text-[#8b92ad] text-[10px] hover:text-red-400">✕</button>
           </div>
         ) : (
@@ -583,7 +595,6 @@ export function ProductModal({
   onSaveAsDefault?: (val: boolean) => void;
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
-  const [defaultPrice, setDefaultPrice] = useState('');
   const [defaultCost, setDefaultCost] = useState('');
   const [imagePickerRow, setImagePickerRow] = useState<number | null>(null);
   const prevIdRef = useRef<string | null>(null);
@@ -597,7 +608,7 @@ export function ProductModal({
         setForm({ ...EMPTY_FORM, trackStock: defaultTrackStock, options: initOpts, variants: initVariants });
         prevOptionsRef.current = JSON.stringify(initOpts);
         prevIdRef.current = null;
-        setDefaultPrice(''); setDefaultCost('');
+        setDefaultCost('');
       } else {
         const currentId = (initialData as any)?._id;
         if (currentId !== prevIdRef.current) {
@@ -621,7 +632,7 @@ export function ProductModal({
     form.variants.forEach(v => existingMap.set(JSON.stringify(v.combination), v));
     const newVariants = combinations.map(combo => {
       const key = JSON.stringify(combo);
-      return existingMap.get(key) || { combination: combo, imageUrl: '', price: defaultPrice, cost: defaultCost, stock: '0' };
+      return existingMap.get(key) || { combination: combo, imageUrl: '', price: form.price || '', cost: defaultCost, stock: '0' };
     });
     setForm(prev => ({ ...prev, variants: newVariants }));
   }, [form.options]);
@@ -687,16 +698,22 @@ export function ProductModal({
             </div>
 
             {/* Base Price + Base Cost */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Base Price (THB)</label>
-                <input type="number" value={defaultPrice} onChange={e => setDefaultPrice(e.target.value)} placeholder="Inherited by variants"
-                  className={cn("w-full border rounded-xl px-3 py-2.5 text-sm font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Price &amp; Cost</label>
+                <span className="text-[9px] text-[#8b92ad]">Variants can override individually</span>
               </div>
-              <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Base Cost</label>
-                <input type="number" value={defaultCost} onChange={e => setDefaultCost(e.target.value)} placeholder="Inherited by variants"
-                  className={cn("w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[9px] text-[#8b92ad] mb-1 block">Base Price (THB) *</label>
+                  <input type="number" value={form.price} onChange={e => updateForm({ price: e.target.value })} placeholder="e.g. 299"
+                    className={cn("w-full border rounded-xl px-3 py-2.5 text-sm font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
+                </div>
+                <div>
+                  <label className="text-[9px] text-[#8b92ad] mb-1 block">Base Cost (THB)</label>
+                  <input type="number" value={defaultCost} onChange={e => setDefaultCost(e.target.value)} placeholder="e.g. 150"
+                    className={cn("w-full border rounded-xl px-3 py-2.5 text-sm font-bold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                </div>
               </div>
             </div>
 
@@ -835,6 +852,7 @@ export function ProductModal({
                           {form.images.length > 0 && <th className="px-2 py-2 text-left">Photo</th>}
                           <th className="px-2 py-2 text-left">Price</th>
                           <th className="px-2 py-2 text-left">Cost</th>
+                          {form.trackStock && <th className="px-2 py-2 text-left">Stock</th>}
                         </tr>
                       </thead>
                       <tbody className={cn("divide-y", theme === 'dark' ? "divide-[#1f2335]" : "divide-[#f4f6f9]")}>
@@ -879,7 +897,7 @@ export function ProductModal({
                             )}
                             <td className="px-1.5 py-1">
                               <input type="number" value={v.price} onChange={e => updateVariant(idx, 'price', e.target.value)}
-                                placeholder={defaultPrice || '—'}
+                                placeholder={form.price || '—'}
                                 className={cn("w-20 border rounded-lg px-2 py-1 text-xs font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
                             </td>
                             <td className="px-1.5 py-1">
@@ -887,13 +905,20 @@ export function ProductModal({
                                 placeholder={defaultCost || '—'}
                                 className={cn("w-20 border rounded-lg px-2 py-1 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
                             </td>
+                            {form.trackStock && (
+                              <td className="px-1.5 py-1">
+                                <input type="number" min="0" value={v.stock} onChange={e => updateVariant(idx, 'stock', e.target.value)}
+                                  placeholder="0"
+                                  className={cn("w-16 border rounded-lg px-2 py-1 text-xs font-bold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-emerald-400" : "bg-white border-[#e2e5ef] text-emerald-600")} />
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 </div>
-                <p className="text-[10px] text-[#8b92ad] mt-1.5">After saving, click the <strong>STOCK</strong> button on the product card to set quantities per variant.</p>
+                <p className="text-[10px] text-[#8b92ad] mt-1.5">{form.trackStock ? 'Set stock quantities per variant above.' : 'Enable Track Stock to set quantities per variant.'}</p>
               </div>
             )}
 
