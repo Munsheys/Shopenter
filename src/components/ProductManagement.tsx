@@ -565,12 +565,13 @@ export function ImageUploader({ value, onChange }: { value: string; onChange: (u
 
 export function ProductModal({
   isOpen, initialData, onSave, onClose, isSaving,
-  existingOptions, suggestedOptions, theme = 'light', quickOrderMode = false, defaultTrackStock = false,
+  existingOptions, suggestedOptions, theme = 'light', quickOrderMode = false, defaultTrackStock = false, onSaveAsDefault,
 }: {
   isOpen: boolean; initialData: ProductForm | null;
   onSave: (data: ProductForm) => void; onClose: () => void; isSaving: boolean;
   existingOptions: { brands: string[], modelLines: string[], categories: string[], optionNames: string[], optionValues: string[] };
   suggestedOptions?: ProductOption[]; theme?: 'light' | 'dark'; quickOrderMode?: boolean; defaultTrackStock?: boolean;
+  onSaveAsDefault?: (val: boolean) => void;
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const [defaultPrice, setDefaultPrice] = useState('');
@@ -701,21 +702,40 @@ export function ProductModal({
                 className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent resize-none", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
             </div>
 
-            <div className={cn("flex items-center justify-between border rounded-xl px-4 py-3.5", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
-              <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-0.5 block">Track stock</label>
-                <p className="text-[9.5px] text-[#8b92ad]">Enable stock count tracking and low/out-of-stock alerts for this product</p>
+            <div className={cn("border rounded-xl px-4 py-3.5 space-y-2", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-0.5 block">Track stock</label>
+                  <p className="text-[9.5px] text-[#8b92ad]">Enable stock count and low/out-of-stock alerts</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateForm({ trackStock: !form.trackStock })}
+                  className={cn(
+                    "relative w-11 h-6 rounded-full transition-colors flex-shrink-0",
+                    form.trackStock ? "bg-accent" : (theme === 'dark' ? "bg-[#2a2f45]" : "bg-slate-300")
+                  )}
+                >
+                  <span className={cn("absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform", form.trackStock && "translate-x-5")} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => updateForm({ trackStock: !form.trackStock })}
-                className={cn(
-                  "relative w-11 h-6 rounded-full transition-colors flex-shrink-0",
-                  form.trackStock ? "bg-accent" : (theme === 'dark' ? "bg-[#2a2f45]" : "bg-slate-300")
-                )}
-              >
-                <span className={cn("absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform", form.trackStock && "translate-x-5")} />
-              </button>
+              {onSaveAsDefault && (
+                <button
+                  type="button"
+                  onClick={() => onSaveAsDefault(form.trackStock)}
+                  className={cn(
+                    "text-[9px] font-medium transition-colors",
+                    form.trackStock === defaultTrackStock
+                      ? "text-[#8b92ad] cursor-default"
+                      : "text-accent hover:underline"
+                  )}
+                >
+                  {form.trackStock === defaultTrackStock
+                    ? `Default for new products: ${defaultTrackStock ? 'ON' : 'OFF'} ✓`
+                    : `Save "${form.trackStock ? 'ON' : 'OFF'}" as default for new products`
+                  }
+                </button>
+              )}
             </div>
           </div>
 
@@ -879,7 +899,11 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
 
   useEffect(() => {
     const init: Record<number, string> = {};
-    product.variants.forEach((v, i) => { init[i] = String(v.stock ?? 0); });
+    if (product.variants.length === 0) {
+      init[0] = '0';
+    } else {
+      product.variants.forEach((v, i) => { init[i] = String(v.stock ?? 0); });
+    }
     setStocks(init);
   }, [product]);
 
@@ -910,7 +934,18 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
 
         <div className="px-8 py-6 space-y-3 max-h-[60vh] overflow-y-auto">
           {product.variants.length === 0 ? (
-            <p className="text-sm text-[#8b92ad] text-center py-6">No variants defined. Add options to the product first.</p>
+            <div className="flex items-center justify-between gap-4 py-2">
+              <div className="flex-1">
+                <span className={cn("text-sm font-medium", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Total Stock</span>
+                <p className="text-[10px] text-[#8b92ad] mt-0.5">Simple product · no variants configured</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="text-[10px] font-bold text-[#8b92ad] uppercase">Qty</span>
+                <input type="number" min="0" value={stocks[0] ?? '0'}
+                  onChange={e => setStocks(prev => ({ ...prev, [0]: e.target.value }))}
+                  className={cn("w-24 border rounded-xl px-3 py-2 text-sm font-bold text-center outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+              </div>
+            </div>
           ) : product.variants.map((v, i) => (
             <div key={i} className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -931,7 +966,15 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
 
         <div className={cn("px-8 pb-8 pt-4 border-t flex gap-3", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <button onClick={onClose} className={cn("flex-1 py-3 text-sm font-bold rounded-2xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f8f9fc] text-[#8b92ad]")}>Cancel</button>
-          <button disabled={isSaving} onClick={() => onSave(product.variants.map((v, i) => ({ ...v, stock: parseInt(stocks[i] ?? '0') || 0 })))}
+          <button
+            disabled={isSaving}
+            onClick={() => {
+              if (product.variants.length === 0) {
+                onSave([{ combination: {}, imageUrl: '', price: null, cost: null, stock: parseInt(stocks[0] ?? '0') || 0 }]);
+              } else {
+                onSave(product.variants.map((v, i) => ({ ...v, stock: parseInt(stocks[i] ?? '0') || 0 })));
+              }
+            }}
             className="flex-1 py-3 text-sm font-bold text-white rounded-2xl shadow-lg disabled:opacity-40"
             style={{ background: 'var(--accent-gradient)' }}>
             {isSaving ? 'Saving...' : 'Save Stock'}
@@ -1288,17 +1331,6 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <button
             onClick={() => {
-              const next = !defaultTrackStock;
-              setDefaultTrackStock(next);
-              localStorage.setItem('defaultTrackStock', String(next));
-            }}
-            className={cn("px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 border transition-all active:scale-95", defaultTrackStock ? "border-accent text-accent bg-accent/10" : theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e]")}
-            title="Default Track Stock for new products"
-          >
-            <Layers size={14} /> Track Stock: {defaultTrackStock ? 'ON' : 'OFF'}
-          </button>
-          <button
-            onClick={() => {
               const bom = '﻿';
               const header = 'Name,Description,Brand,Category,Price (THB),Cost (THB),Active\n';
               const rows = filteredProducts.map(p => {
@@ -1487,7 +1519,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         initialData={normalizedEditingProduct}
         onSave={handleSave} onClose={() => setIsModalOpen(false)} isSaving={isSaving}
         existingOptions={existingOptions} suggestedOptions={suggestedOptions}
-        defaultTrackStock={defaultTrackStock} />
+        defaultTrackStock={defaultTrackStock}
+        onSaveAsDefault={(val) => { setDefaultTrackStock(val); localStorage.setItem('defaultTrackStock', String(val)); }} />
 
       {stockProduct && (
         <StockModal product={stockProduct} onClose={() => setStockProduct(null)} onSave={handleStockSave} isSaving={isStockSaving} theme={theme} />
@@ -1711,11 +1744,9 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
         <button onClick={e => { e.stopPropagation(); onEdit(); }} className={cn("flex-1 py-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-2", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>
           <Edit2 size={12} /> EDIT
         </button>
-        {product.variants?.length > 0 && (
-          <button onClick={e => { e.stopPropagation(); onManageStock(); }} className={cn("py-3 px-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-1.5", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]")} title="Manage Stock">
-            <Layers size={12} /> STOCK
-          </button>
-        )}
+        <button onClick={e => { e.stopPropagation(); onManageStock(); }} className={cn("py-3 px-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-1.5", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]")} title="Manage Stock">
+          <Layers size={12} /> STOCK
+        </button>
         <button onClick={e => { e.stopPropagation(); onDelete(); }} className={cn("p-3 rounded-2xl active:scale-95 flex items-center justify-center", theme === 'dark' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100")}>
           <Trash2 size={14} />
         </button>
