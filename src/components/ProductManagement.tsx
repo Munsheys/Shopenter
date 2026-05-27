@@ -17,6 +17,7 @@ import {
   BarChart2,
   FileSpreadsheet,
   Upload,
+  Check,
   CheckCircle,
   AlertCircle,
   ChevronDown as ChevronDownIcon,
