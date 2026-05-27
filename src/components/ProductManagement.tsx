@@ -1320,19 +1320,28 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       const cost = costStr ? parseFloat(costStr.replace(/[^0-9.]/g, '')) : null;
       const colorsRaw = col(row, 'color');
       const colors = colorsRaw ? colorsRaw.split(';').map((c: string) => c.trim()).filter(Boolean) : [];
+      const trackStockRaw = col(row, 'trackstock') || col(row, 'track stock') || col(row, 'track');
+      const trackStock = trackStockRaw ? trackStockRaw.toLowerCase() === 'yes' || trackStockRaw === '1' || trackStockRaw.toLowerCase() === 'true' : false;
+      const imageUrlRaw = col(row, 'imageurl') || col(row, 'image url') || col(row, 'image');
+      const imageUrls = imageUrlRaw ? imageUrlRaw.split(';').map((u: string) => u.trim()).filter(Boolean) : [];
+      const modelLine = col(row, 'modelline') || col(row, 'model line') || col(row, 'model');
       const body: any = {
         name,
         price,
         description: col(row, 'description') || col(row, 'desc'),
         brand: col(row, 'brand'),
+        modelLine: modelLine || '',
         categories: col(row, 'categor') ? col(row, 'categor').split(';').map((c: string) => c.trim()).filter(Boolean) : [],
         isActive: col(row, 'active').toLowerCase() !== 'no',
+        trackStock,
+        imageUrl: imageUrls[0] || '',
+        images: imageUrls,
         ...(colors.length > 0 && {
           options: [{ name: 'Color', values: colors }],
           variants: colors.map(c => ({ combination: { Color: c }, imageUrl: '', price: null, cost: !isNaN(cost as number) ? cost : null, stock: 0 })),
         }),
-        ...(cost !== null && !isNaN(cost) && colors.length === 0 && {
-          variants: [{ combination: {}, imageUrl: '', price: null, cost, stock: 0 }],
+        ...(colors.length === 0 && (cost !== null && !isNaN(cost) || trackStock) && {
+          variants: [{ combination: {}, imageUrl: '', price: null, cost: (cost !== null && !isNaN(cost)) ? cost : null, stock: 0 }],
         }),
       };
 
@@ -1650,8 +1659,11 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
                       { col: 'Cost (THB)', note: 'Optional. Cost price for profit tracking.' },
                       { col: 'Description', note: 'Optional. Plain text description.' },
                       { col: 'Brand', note: 'Optional. Brand name.' },
+                      { col: 'Model Line', note: 'Optional. Product line / sub-brand, e.g. Air Max' },
                       { col: 'Category', note: 'Optional. Semicolons for multiple: Bags;Fashion' },
                       { col: 'Colors', note: 'Optional. Semicolons for multiple: Black;White;Navy' },
+                      { col: 'Track Stock', note: 'Optional. Yes or No. Defaults to No.' },
+                      { col: 'Image URL', note: 'Optional. Semicolons for multiple image URLs.' },
                       { col: 'Active', note: 'Optional. Yes or No. Defaults to Yes.' },
                     ].map(({ col, note }) => (
                       <div key={col} className="flex gap-2">
@@ -1661,11 +1673,11 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
                     ))}
                   </div>
                   <p className={cn('text-[10px]', theme === 'dark' ? 'text-[#8b92ad]' : 'text-slate-400')}>
-                    Variants cannot be imported via CSV — add them after import using the product editor. Images must be added manually.
+                    Per-variant options (e.g. Size) cannot be imported — add them after import using the product editor.
                   </p>
                   <button
                     onClick={() => {
-                      const template = '﻿Name,Description,Brand,Category,Price (THB),Cost (THB),Colors,Active\nExample Bag,A stylish tote,MyBrand,Bags;Fashion,599,300,Black;White;Navy,Yes\n';
+                      const template = '﻿Name,Description,Brand,Model Line,Category,Price (THB),Cost (THB),Colors,Track Stock,Image URL,Active\nExample Bag,A stylish tote,MyBrand,Classic,Bags;Fashion,599,300,Black;White;Navy,No,,Yes\n';
                       const a = document.createElement('a');
                       a.href = URL.createObjectURL(new Blob([template], { type: 'text/csv;charset=utf-8;' }));
                       a.download = 'product_import_template.csv'; a.click();
