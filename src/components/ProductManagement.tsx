@@ -729,21 +729,22 @@ export function ProductModal({
                 </button>
               </div>
               {onSaveAsDefault && (
-                <button
-                  type="button"
-                  onClick={() => onSaveAsDefault(form.trackStock)}
-                  className={cn(
-                    "text-[9px] font-medium transition-colors",
-                    form.trackStock === defaultTrackStock
-                      ? "text-[#8b92ad] cursor-default"
-                      : "text-accent hover:underline"
-                  )}
-                >
-                  {form.trackStock === defaultTrackStock
-                    ? `Default for new products: ${defaultTrackStock ? 'ON' : 'OFF'} ✓`
-                    : `Save "${form.trackStock ? 'ON' : 'OFF'}" as default for new products`
-                  }
-                </button>
+                form.trackStock === defaultTrackStock ? (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-500">
+                    <CheckCircle size={10} /> New products default: {defaultTrackStock ? 'Track ON' : 'Track OFF'}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSaveAsDefault(form.trackStock)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all active:scale-95",
+                      "border-accent/40 text-accent hover:bg-accent/10 hover:border-accent"
+                    )}
+                  >
+                    <Check size={9} /> Save &quot;{form.trackStock ? 'ON' : 'OFF'}&quot; as default for new products
+                  </button>
+                )
               )}
             </div>
 
@@ -1045,6 +1046,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [pendingEdits, setPendingEdits] = useState<Record<string, ProductForm>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkActing, setIsBulkActing] = useState(false);
+  const [cardSize, setCardSize] = useState<number>(() => {
+    if (typeof window !== 'undefined') return parseInt(localStorage.getItem('catalogCardSize') || '3');
+    return 3;
+  });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
@@ -1434,7 +1439,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           <input type="text" placeholder={t.search_catalog || "Search name, brand, or family..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
             className={cn("w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border focus:ring-2 focus:ring-accent/20", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white focus:border-accent" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] focus:border-accent")} />
         </div>
-        <div className="flex flex-wrap md:flex-nowrap gap-3">
+        <div className="flex flex-wrap md:flex-nowrap gap-3 items-center">
           {[
             { icon: <Filter size={14} />, val: brandFilter, set: setBrandFilter, opts: existingOptions.brands, label: t.all_brands || 'All Brands' },
             { icon: <Layers size={14} />, val: categoryFilter, set: setCategoryFilter, opts: existingOptions.categories, label: t.all_categories || 'All Categories' },
@@ -1461,6 +1466,19 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
             </div>
           ))}
+          {/* Card size control */}
+          <div className={cn("flex items-center gap-1 pl-3 border-l", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
+            <button
+              onClick={() => { const n = Math.max(1, cardSize - 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
+              disabled={cardSize === 1}
+              className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
+            >−</button>
+            <button
+              onClick={() => { const n = Math.min(5, cardSize + 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
+              disabled={cardSize === 5}
+              className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
+            >+</button>
+          </div>
         </div>
       </div>
 
@@ -1531,7 +1549,13 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       {isLoading ? (
         <LoadingView theme={theme} message="Loading Product Catalog..." />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className={cn("grid gap-6", {
+          1: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-2',
+          2: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3',
+          3: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+          4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
+          5: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6',
+        }[cardSize] || 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4')}>
           {filteredProducts.map(p => (
             <ProductCard key={p._id} product={p} theme={theme}
               onEdit={() => { setEditingProduct(p); setIsModalOpen(true); }}
@@ -1797,9 +1821,11 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
         <button onClick={e => { e.stopPropagation(); onEdit(); }} className={cn("flex-1 py-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-2", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>
           <Edit2 size={12} /> EDIT
         </button>
-        <button onClick={e => { e.stopPropagation(); onManageStock(); }} className={cn("py-3 px-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-1.5", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]")} title="Manage Stock">
-          <Layers size={12} /> STOCK
-        </button>
+        {product.trackStock && (
+          <button onClick={e => { e.stopPropagation(); onManageStock(); }} className={cn("py-3 px-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-1.5", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]")} title="Manage Stock">
+            <Layers size={12} /> STOCK
+          </button>
+        )}
         <button onClick={e => { e.stopPropagation(); onDelete(); }} className={cn("p-3 rounded-2xl active:scale-95 flex items-center justify-center", theme === 'dark' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100")}>
           <Trash2 size={14} />
         </button>
