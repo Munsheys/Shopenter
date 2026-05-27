@@ -251,6 +251,7 @@ const MessageSchema = new mongoose.Schema({
   sender: { type: String, enum: ['user', 'admin', 'system'], default: 'user' },
   createdAt: { type: Date, default: Date.now }
 });
+MessageSchema.index({ merchantId: 1, userId: 1, createdAt: -1 });
 
 const ProcessedEventSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },

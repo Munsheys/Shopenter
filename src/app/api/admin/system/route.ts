@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
-import { Merchant, Product, Order, Feedback, Settings } from '@/models';
+import { Merchant, Product, Order, Feedback, Settings, Message, Customer } from '@/models';
 
 export const runtime = 'nodejs';
 
@@ -130,7 +131,45 @@ export async function GET(req: NextRequest) {
     const totalOrders = ordersAgg[0]?.count || 0;
     const totalRevenue = ordersAgg[0]?.totalRevenue || 0;
 
-    // 6. Fetch all feedbacks (including conversation logs and full live store diagnostic context)
+    // 6. Infrastructure health metrics
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [totalMessages, totalCustomers, msgPerDay, dbStats] = await Promise.all([
+      Message.countDocuments({}),
+      Customer.countDocuments({}),
+      Message.aggregate([
+        { $match: { createdAt: { $gte: sevenDaysAgo } } },
+        { $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'Asia/Bangkok' } },
+          count: { $sum: 1 },
+        }},
+        { $sort: { _id: 1 } },
+      ]),
+      mongoose.connection.db!.stats(),
+    ]);
+
+    // Fill in missing days so chart always has 7 points
+    const days: { date: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const key = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
+      const found = msgPerDay.find((r: any) => r._id === key);
+      days.push({ date: key, count: found?.count ?? 0 });
+    }
+
+    const infra = {
+      totalMessages,
+      totalCustomers,
+      messagesLast7Days: days,
+      messagesToday: days[days.length - 1]?.count ?? 0,
+      dbStorageMB: Math.round((dbStats.storageSize ?? 0) / 1024 / 1024 * 10) / 10,
+      dbDataMB: Math.round((dbStats.dataSize ?? 0) / 1024 / 1024 * 10) / 10,
+      dbIndexMB: Math.round((dbStats.indexSize ?? 0) / 1024 / 1024 * 10) / 10,
+      dbTotalMB: Math.round(((dbStats.storageSize ?? 0) + (dbStats.indexSize ?? 0)) / 1024 / 1024 * 10) / 10,
+    };
+
+    // 7. Fetch all feedbacks (including conversation logs and full live store diagnostic context)
     const feedbacks = await Feedback.find({}).sort({ createdAt: -1 });
     const feedbackList = feedbacks.map(f => {
       const mInfo = merchantsList.find(m => m._id.toString() === f.merchantId.toString());
@@ -161,12 +200,8 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({
-      metrics: {
-        totalMerchants,
-        totalProducts,
-        totalOrders,
-        totalRevenue,
-      },
+      metrics: { totalMerchants, totalProducts, totalOrders, totalRevenue },
+      infra,
       merchants: merchantsList,
       feedbacks: feedbackList,
     });

@@ -16,6 +16,17 @@ interface Metrics {
   totalRevenue: number;
 }
 
+interface Infra {
+  totalMessages: number;
+  totalCustomers: number;
+  messagesToday: number;
+  messagesLast7Days: { date: string; count: number }[];
+  dbStorageMB: number;
+  dbDataMB: number;
+  dbIndexMB: number;
+  dbTotalMB: number;
+}
+
 interface MerchantItem {
   _id: string;
   email: string;
@@ -78,6 +89,7 @@ export default function AdminPage() {
 
   // Data state
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [infra, setInfra] = useState<Infra | null>(null);
   const [merchants, setMerchants] = useState<MerchantItem[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +140,7 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json();
         setMetrics(data.metrics);
+        setInfra(data.infra ?? null);
         setMerchants(data.merchants);
         setFeedbacks(data.feedbacks);
         localStorage.setItem('sys_admin_secret', secretToVerify);
@@ -169,6 +182,7 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json();
         setMetrics(data.metrics);
+        setInfra(data.infra ?? null);
         setMerchants(data.merchants);
         setFeedbacks(data.feedbacks);
         showToast("Synchronized live system and LINE Messaging API diagnostics!");
@@ -585,6 +599,120 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                 </div>
               ))}
             </div>
+
+            {/* ── Infrastructure Health ── */}
+            {infra && (() => {
+              const M0_LIMIT_MB = 512;
+              const usedPct = Math.min(100, (infra.dbTotalMB / M0_LIMIT_MB) * 100);
+              const storageWarn = usedPct >= 90 ? 'red' : usedPct >= 70 ? 'amber' : 'green';
+              const maxDay = Math.max(...infra.messagesLast7Days.map(d => d.count), 1);
+              const msgWarnThreshold = 2000;
+              const msgWarn = infra.messagesToday >= msgWarnThreshold * 0.9 ? 'red' : infra.messagesToday >= msgWarnThreshold * 0.7 ? 'amber' : 'green';
+
+              const alertColor = (c: string) =>
+                c === 'red' ? 'border-red-500/30 bg-red-500/5' :
+                c === 'amber' ? 'border-amber-500/30 bg-amber-500/5' :
+                'border-[#1f2335] bg-[#161925]';
+              const barColor = (c: string) =>
+                c === 'red' ? 'bg-red-500' : c === 'amber' ? 'bg-amber-400' : 'bg-[#00b900]';
+              const textColor = (c: string) =>
+                c === 'red' ? 'text-red-400' : c === 'amber' ? 'text-amber-400' : 'text-[#00b900]';
+
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white">Infrastructure Health</h3>
+                    <span className="text-[10px] text-[#8b92ad]">MongoDB M0 · 512 MB limit</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                    {/* Storage gauge */}
+                    <div className={`rounded-2xl border p-5 space-y-3 ${alertColor(storageWarn)}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">DB Storage</span>
+                        {storageWarn !== 'green' && <span className={`text-[9px] font-black uppercase ${textColor(storageWarn)}`}>{storageWarn === 'red' ? '⚠ UPGRADE NOW' : '⚠ APPROACHING LIMIT'}</span>}
+                      </div>
+                      <div>
+                        <div className="flex items-end gap-1">
+                          <span className={`text-2xl font-black ${textColor(storageWarn)}`}>{infra.dbTotalMB}</span>
+                          <span className="text-[#8b92ad] text-xs mb-1">/ {M0_LIMIT_MB} MB</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-[#1f2335] mt-2 overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${barColor(storageWarn)}`} style={{ width: `${usedPct}%` }} />
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <span className="text-[9px] text-[#8b92ad]">Data {infra.dbDataMB} MB · Index {infra.dbIndexMB} MB</span>
+                          <span className={`text-[9px] font-bold ${textColor(storageWarn)}`}>{usedPct.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Message volume */}
+                    <div className={`rounded-2xl border p-5 space-y-3 ${alertColor(msgWarn)}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Messages Today</span>
+                        {msgWarn !== 'green' && <span className={`text-[9px] font-black uppercase ${textColor(msgWarn)}`}>HIGH VOLUME</span>}
+                      </div>
+                      <div>
+                        <div className="flex items-end gap-1">
+                          <span className={`text-2xl font-black ${textColor(msgWarn)}`}>{infra.messagesToday.toLocaleString()}</span>
+                          <span className="text-[#8b92ad] text-xs mb-1">msgs</span>
+                        </div>
+                        <p className="text-[9px] text-[#8b92ad] mt-1">Total all-time: {infra.totalMessages.toLocaleString()}</p>
+                        <p className="text-[9px] text-[#8b92ad]">Customers: {infra.totalCustomers.toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    {/* 7-day sparkline */}
+                    <div className="rounded-2xl border border-[#1f2335] bg-[#161925] p-5 space-y-3">
+                      <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Messages / Day (7d)</span>
+                      <div className="flex items-end gap-1 h-14">
+                        {infra.messagesLast7Days.map((d, i) => {
+                          const heightPct = maxDay > 0 ? (d.count / maxDay) * 100 : 0;
+                          const isToday = i === infra.messagesLast7Days.length - 1;
+                          return (
+                            <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group relative">
+                              <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#0f1117] border border-[#1f2335] text-[8px] text-white px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                                {d.count}
+                              </div>
+                              <div
+                                className={`w-full rounded-sm transition-all ${isToday ? 'bg-[#00b900]' : 'bg-[#2d324d]'}`}
+                                style={{ height: `${Math.max(4, heightPct)}%` }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between text-[8px] text-[#8b92ad]">
+                        <span>{infra.messagesLast7Days[0]?.date.slice(5)}</span>
+                        <span className="text-[#00b900] font-bold">today</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Upgrade recommendation */}
+                  {(storageWarn !== 'green' || msgWarn !== 'green') && (
+                    <div className={`rounded-2xl border p-4 flex items-start gap-3 ${storageWarn === 'red' || msgWarn === 'red' ? 'border-red-500/30 bg-red-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+                      <AlertCircle size={16} className={storageWarn === 'red' || msgWarn === 'red' ? 'text-red-400 flex-shrink-0 mt-0.5' : 'text-amber-400 flex-shrink-0 mt-0.5'} />
+                      <div className="space-y-1">
+                        <p className={`text-xs font-bold ${storageWarn === 'red' || msgWarn === 'red' ? 'text-red-400' : 'text-amber-400'}`}>
+                          {storageWarn === 'red' ? 'Upgrade MongoDB immediately — storage critical' : 'Approaching infrastructure limits'}
+                        </p>
+                        <p className="text-[10px] text-[#8b92ad] leading-relaxed">
+                          {storageWarn === 'red'
+                            ? `DB at ${usedPct.toFixed(0)}% capacity. Upgrade MongoDB Atlas to M10 ($57/mo) to avoid write failures.`
+                            : storageWarn === 'amber'
+                            ? `DB at ${usedPct.toFixed(0)}% capacity. Plan upgrade to MongoDB M10 within the next few weeks.`
+                            : `Message volume is elevated (${infra.messagesToday}/day). Monitor closely — high sustained volume may require Vercel Pro.`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Quick overview panels */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
