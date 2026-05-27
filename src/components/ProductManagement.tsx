@@ -565,12 +565,12 @@ export function ImageUploader({ value, onChange }: { value: string; onChange: (u
 
 export function ProductModal({
   isOpen, initialData, onSave, onClose, isSaving,
-  existingOptions, suggestedOptions, theme = 'light', quickOrderMode = false,
+  existingOptions, suggestedOptions, theme = 'light', quickOrderMode = false, defaultTrackStock = false,
 }: {
   isOpen: boolean; initialData: ProductForm | null;
   onSave: (data: ProductForm) => void; onClose: () => void; isSaving: boolean;
   existingOptions: { brands: string[], modelLines: string[], categories: string[], optionNames: string[], optionValues: string[] };
-  suggestedOptions?: ProductOption[]; theme?: 'light' | 'dark'; quickOrderMode?: boolean;
+  suggestedOptions?: ProductOption[]; theme?: 'light' | 'dark'; quickOrderMode?: boolean; defaultTrackStock?: boolean;
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const [defaultPrice, setDefaultPrice] = useState('');
@@ -584,7 +584,7 @@ export function ProductModal({
       if (!initialData) {
         const initOpts = suggestedOptions ?? [];
         const initVariants = cartesian(initOpts).map(combo => ({ combination: combo, imageUrl: '', price: '', cost: '', stock: '0' }));
-        setForm({ ...EMPTY_FORM, options: initOpts, variants: initVariants });
+        setForm({ ...EMPTY_FORM, trackStock: defaultTrackStock, options: initOpts, variants: initVariants });
         prevOptionsRef.current = JSON.stringify(initOpts);
         prevIdRef.current = null;
         setDefaultPrice(''); setDefaultCost('');
@@ -958,7 +958,11 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [isStockSaving, setIsStockSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectMode, setSelectMode] = useState(false);
+  const [defaultTrackStock, setDefaultTrackStock] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('defaultTrackStock') === 'true';
+    return false;
+  });
+  const [pendingEdits, setPendingEdits] = useState<Record<string, ProductForm>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkActing, setIsBulkActing] = useState(false);
 
@@ -1054,27 +1058,59 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const stats = useMemo(() => ({ total: products.length, active: products.filter(p => p.isActive).length }), [products]);
   const normalizedEditingProduct = useMemo(() => editingProduct ? normalizeToForm(editingProduct) : null, [editingProduct]);
 
+  const buildPayload = (form: ProductForm) => ({
+    ...form,
+    price: parseFloat(form.price as any) || 0,
+    imageUrl: form.images[0] || '',
+    images: form.images,
+    options: form.options,
+    variants: form.variants.map(v => ({
+      combination: v.combination,
+      imageUrl: v.imageUrl || '',
+      price: v.price !== '' ? parseFloat(v.price) : null,
+      cost: v.cost !== '' ? parseFloat(v.cost) : null,
+      stock: parseInt(v.stock as any) || 0,
+    })),
+  });
+
   const handleSave = async (form: ProductForm) => {
+    if (editingProduct) {
+      // Buffer the edit — optimistically update card, persist later
+      setProducts(prev => prev.map(p => {
+        if (p._id !== editingProduct._id) return p;
+        return {
+          ...p,
+          name: form.name,
+          brand: form.brand,
+          modelLine: form.modelLine,
+          description: form.description,
+          price: parseFloat(form.price as any) || p.price,
+          categories: form.categories,
+          images: form.images,
+          imageUrl: form.images[0] || p.imageUrl,
+          options: form.options,
+          variants: form.variants.map(v => ({
+            combination: v.combination,
+            imageUrl: v.imageUrl || '',
+            price: v.price !== '' ? parseFloat(v.price) : null,
+            cost: v.cost !== '' ? parseFloat(v.cost) : null,
+            stock: parseInt(v.stock as any) || 0,
+          })),
+          isActive: form.isActive,
+          trackStock: form.trackStock,
+        };
+      }));
+      setPendingEdits(prev => ({ ...prev, [editingProduct._id]: form }));
+      setIsModalOpen(false);
+      return;
+    }
+    // New product — save immediately
     setIsSaving(true);
     try {
-      const payload = {
-        ...form,
-        price: parseFloat(form.price as any) || 0,
-        imageUrl: form.images[0] || '',
-        images: form.images,
-        options: form.options,
-        variants: form.variants.map(v => ({
-          combination: v.combination,
-          imageUrl: v.imageUrl || '',
-          price: v.price !== '' ? parseFloat(v.price) : null,
-          cost: v.cost !== '' ? parseFloat(v.cost) : null,
-          stock: parseInt(v.stock as any) || 0,
-        })),
-      };
-      const res = await fetch(editingProduct ? `/api/products/${editingProduct._id}` : '/api/products', {
-        method: editingProduct ? 'PATCH' : 'POST',
+      const res = await fetch('/api/products', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildPayload(form)),
       });
       if (res.ok) { setIsModalOpen(false); loadProducts(); }
       else {
@@ -1086,6 +1122,28 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         }
       }
     } catch (err) { console.error(err); } finally { setIsSaving(false); }
+  };
+
+  const handleSaveAllPending = async () => {
+    const entries = Object.entries(pendingEdits);
+    if (!entries.length) return;
+    setIsSaving(true);
+    try {
+      await Promise.all(entries.map(([id, form]) =>
+        fetch(`/api/products/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+          body: JSON.stringify(buildPayload(form)),
+        })
+      ));
+      setPendingEdits({});
+      loadProducts();
+    } catch (err) { console.error(err); } finally { setIsSaving(false); }
+  };
+
+  const handleDiscardPending = () => {
+    setPendingEdits({});
+    loadProducts();
   };
 
   const handleStockSave = async (updatedVariants: any[]) => {
@@ -1192,7 +1250,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret }, body: JSON.stringify({ isActive: visible }) })
       ));
       loadProducts();
-    } catch (err) { console.error(err); } finally { setIsBulkActing(false); setSelectedIds(new Set()); setSelectMode(false); }
+    } catch (err) { console.error(err); } finally { setIsBulkActing(false); setSelectedIds(new Set()); }
   };
 
   const bulkDelete = async () => {
@@ -1203,7 +1261,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         fetch(`/api/products/${id}`, { method: 'DELETE', headers: { 'x-admin-secret': secret } })
       ));
       loadProducts();
-    } catch (err) { console.error(err); } finally { setIsBulkActing(false); setSelectedIds(new Set()); setSelectMode(false); }
+    } catch (err) { console.error(err); } finally { setIsBulkActing(false); setSelectedIds(new Set()); }
   };
 
   const toggleSelect = (id: string) => {
@@ -1229,10 +1287,15 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         </div>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <button
-            onClick={() => { setSelectMode(s => !s); setSelectedIds(new Set()); }}
-            className={cn("px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 border transition-all active:scale-95", selectMode ? "border-accent text-accent bg-accent/10" : theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e]")}
+            onClick={() => {
+              const next = !defaultTrackStock;
+              setDefaultTrackStock(next);
+              localStorage.setItem('defaultTrackStock', String(next));
+            }}
+            className={cn("px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 border transition-all active:scale-95", defaultTrackStock ? "border-accent text-accent bg-accent/10" : theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e]")}
+            title="Default Track Stock for new products"
           >
-            <Check size={14} /> {selectMode ? 'Cancel' : 'Select'}
+            <Layers size={14} /> Track Stock: {defaultTrackStock ? 'ON' : 'OFF'}
           </button>
           <button
             onClick={() => {
@@ -1317,7 +1380,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       </div>
 
       {/* Bulk action toolbar */}
-      {selectMode && (
+      {selectedIds.size > 0 && (
         <div className={cn(
           "sticky top-4 z-30 rounded-2xl border px-4 py-3 flex items-center justify-between gap-3 mb-4 shadow-lg",
           theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
@@ -1329,7 +1392,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             >
               {selectedIds.size === filteredProducts.length ? 'Deselect All' : `Select All (${filteredProducts.length})`}
             </button>
-            <span className={cn("text-xs", theme === 'dark' ? "text-[#8b92ad]" : "text-[#8b92ad]")}>{selectedIds.size} selected</span>
+            <span className="text-xs text-[#8b92ad]">{selectedIds.size} selected</span>
           </div>
           <div className="flex items-center gap-2">
             <button disabled={selectedIds.size === 0 || isBulkActing} onClick={() => bulkSetVisibility(true)}
@@ -1348,6 +1411,38 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         </div>
       )}
 
+      {/* Unsaved changes warning */}
+      {Object.keys(pendingEdits).length > 0 && (
+        <div className={cn(
+          "sticky top-4 z-40 rounded-2xl border px-4 py-3 flex items-center justify-between gap-3 mb-4 shadow-lg",
+          theme === 'dark' ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"
+        )}>
+          <div className="flex items-center gap-2">
+            <AlertCircle size={14} className="text-amber-500 flex-shrink-0" />
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+              {Object.keys(pendingEdits).length} unsaved change{Object.keys(pendingEdits).length !== 1 ? 's' : ''}
+            </span>
+            <span className="hidden sm:inline text-xs text-amber-500/80">— edits will be lost if you leave</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDiscardPending}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all border border-amber-500/30"
+            >
+              Discard
+            </button>
+            <button
+              disabled={isSaving}
+              onClick={handleSaveAllPending}
+              className="px-4 py-1.5 rounded-xl text-xs font-bold text-white shadow-lg disabled:opacity-50 transition-all"
+              style={{ background: 'var(--accent-gradient)' }}
+            >
+              {isSaving ? 'Saving...' : `Save ${Object.keys(pendingEdits).length} change${Object.keys(pendingEdits).length !== 1 ? 's' : ''}`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <LoadingView theme={theme} message="Loading Product Catalog..." />
       ) : (
@@ -1358,7 +1453,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
               onDelete={() => setDeleteConfirm(p._id)}
               onToggleVisibility={() => toggleVisibility(p)}
               onManageStock={() => setStockProduct(p)}
-              selectMode={selectMode}
+              hasPendingEdit={!!pendingEdits[p._id]}
               selected={selectedIds.has(p._id)}
               onSelect={() => toggleSelect(p._id)}
             />
@@ -1391,7 +1486,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       <ProductModal theme={theme} isOpen={isModalOpen}
         initialData={normalizedEditingProduct}
         onSave={handleSave} onClose={() => setIsModalOpen(false)} isSaving={isSaving}
-        existingOptions={existingOptions} suggestedOptions={suggestedOptions} />
+        existingOptions={existingOptions} suggestedOptions={suggestedOptions}
+        defaultTrackStock={defaultTrackStock} />
 
       {stockProduct && (
         <StockModal product={stockProduct} onClose={() => setStockProduct(null)} onSave={handleStockSave} isSaving={isStockSaving} theme={theme} />
@@ -1526,7 +1622,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   );
 });
 
-function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onManageStock, selectMode, selected, onSelect }: any) {
+function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onManageStock, hasPendingEdit, selected, onSelect }: any) {
   const displayImage = product.images?.[0] || product.imageUrl;
   const totalStock = product.trackStock
     ? (product.variants?.reduce((s: number, v: any) => s + (v.stock ?? 0), 0) ?? 0)
@@ -1534,42 +1630,44 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
 
   return (
     <div
-      onClick={() => selectMode && onSelect?.()}
       className={cn(
         "rounded-[32px] border p-5 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden flex flex-col h-full",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]",
         !product.isActive && "opacity-60",
-        selectMode && "cursor-pointer",
         selected && "ring-2 ring-accent border-accent/40"
       )}
     >
-      {/* Select checkbox overlay */}
-      {selectMode && (
-        <div className={cn(
-          "absolute top-3 left-3 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center shadow-lg transition-all",
-          selected ? "bg-accent border-accent" : "bg-white/80 border-[#e2e5ef]"
-        )}>
-          {selected && <Check size={12} className="text-white" />}
-        </div>
-      )}
-
       <div className="relative aspect-[4/3] rounded-3xl overflow-hidden mb-5 bg-[#f4f6f9] dark:bg-[#1a1d2e] border border-[#e2e5ef] dark:border-[#1f2335]">
         {displayImage ? (
           <img src={displayImage} alt={product.name} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[#8b92ad]"><ImageIcon size={32} strokeWidth={1.5} /></div>
         )}
-        <div className="absolute top-3 left-3">
-          {!product.isActive && !selectMode && <span className="bg-[#1a1d2e] text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1"><EyeOff size={8} /> HIDDEN</span>}
-        </div>
-        {!selectMode && (
-          <button onClick={e => { e.stopPropagation(); onToggleVisibility(); }}
-            className={cn("absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-lg active:scale-90", product.isActive ? "bg-white text-accent" : "bg-[#1a1d2e] text-[#8b92ad]")}>
-            {product.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
-          </button>
+
+        {/* Always-visible select circle */}
+        <button
+          onClick={e => { e.stopPropagation(); onSelect?.(); }}
+          className={cn(
+            "absolute top-3 left-3 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center shadow-sm transition-all",
+            selected
+              ? "bg-accent border-accent"
+              : "bg-white/60 border-white/40 hover:bg-white/90 hover:border-accent"
+          )}
+        >
+          {selected && <Check size={12} className="text-white" />}
+        </button>
+
+        <button onClick={e => { e.stopPropagation(); onToggleVisibility(); }}
+          className={cn("absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-lg active:scale-90", product.isActive ? "bg-white text-accent" : "bg-[#1a1d2e] text-[#8b92ad]")}>
+          {product.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
+        </button>
+
+        {!product.isActive && (
+          <span className="absolute bottom-3 left-3 bg-[#1a1d2e] text-white text-[8px] font-black px-2 py-0.5 rounded-full flex items-center gap-1"><EyeOff size={8} /> HIDDEN</span>
         )}
+
         {/* Photo count badge */}
-        {product.images?.length > 1 && (
+        {product.images?.length > 1 && product.isActive && (
           <div className="absolute bottom-3 left-3 bg-[#1a1d2e]/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
             {product.images.length} photos
           </div>
@@ -1586,8 +1684,13 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
       </div>
 
       <div className="flex-1">
-        <div className="text-[10px] font-black text-accent uppercase tracking-wider truncate mb-1">
-          {[product.brand, product.modelLine].filter(Boolean).join(' • ') || <span className="text-[#8b92ad] font-normal normal-case">No brand</span>}
+        <div className="flex items-center gap-1.5 mb-1">
+          <div className="text-[10px] font-black text-accent uppercase tracking-wider truncate flex-1">
+            {[product.brand, product.modelLine].filter(Boolean).join(' • ') || <span className="text-[#8b92ad] font-normal normal-case">No brand</span>}
+          </div>
+          {hasPendingEdit && (
+            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="Unsaved changes" />
+          )}
         </div>
         <h3 className={cn("font-bold text-base mb-1", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{product.name}</h3>
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -1604,21 +1707,19 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
         </div>
       </div>
 
-      {!selectMode && (
-        <div className={cn("flex gap-2 mt-5 pt-5 border-t", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
-          <button onClick={e => { e.stopPropagation(); onEdit(); }} className={cn("flex-1 py-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-2", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>
-            <Edit2 size={12} /> EDIT
+      <div className={cn("flex gap-2 mt-5 pt-5 border-t", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
+        <button onClick={e => { e.stopPropagation(); onEdit(); }} className={cn("flex-1 py-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-2", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>
+          <Edit2 size={12} /> EDIT
+        </button>
+        {product.variants?.length > 0 && (
+          <button onClick={e => { e.stopPropagation(); onManageStock(); }} className={cn("py-3 px-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-1.5", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]")} title="Manage Stock">
+            <Layers size={12} /> STOCK
           </button>
-          {product.variants?.length > 0 && (
-            <button onClick={e => { e.stopPropagation(); onManageStock(); }} className={cn("py-3 px-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-1.5", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]")} title="Manage Stock">
-              <Layers size={12} /> STOCK
-            </button>
-          )}
-          <button onClick={e => { e.stopPropagation(); onDelete(); }} className={cn("p-3 rounded-2xl active:scale-95 flex items-center justify-center", theme === 'dark' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100")}>
-            <Trash2 size={14} />
-          </button>
-        </div>
-      )}
+        )}
+        <button onClick={e => { e.stopPropagation(); onDelete(); }} className={cn("p-3 rounded-2xl active:scale-95 flex items-center justify-center", theme === 'dark' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100")}>
+          <Trash2 size={14} />
+        </button>
+      </div>
     </div>
   );
 }
