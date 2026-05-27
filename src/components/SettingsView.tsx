@@ -82,6 +82,90 @@ const SHOPENTER_STATUS: Record<string, { label: string; color: string }> = {
   unpaid:    { label: 'Past due',  color: 'text-red-400'      },
 };
 
+function SetupGuide({ isDark, isLite, webhookUrl }: { isDark: boolean; isLite: boolean; webhookUrl: string }) {
+  const [open, setOpen] = React.useState(false);
+  const surface = isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : isLite ? 'bg-white border-slate-200' : 'bg-white border-[#e2e5ef]';
+  const text = isDark ? 'text-white' : 'text-[#1a1d2e]';
+  const muted = isDark ? 'text-[#8b92ad]' : 'text-slate-500';
+  const steps = [
+    {
+      n: 1, title: 'Create a LINE Official Account',
+      body: 'Go to manager.line.biz → Create OA. Choose "Basic" (free) or upgrade later. You need one OA per store.',
+      link: 'https://manager.line.biz', linkLabel: 'manager.line.biz',
+    },
+    {
+      n: 2, title: 'Open LINE Developers Console',
+      body: 'Go to developers.line.biz → Log in with your LINE account → Create a Provider if you don\'t have one.',
+      link: 'https://developers.line.biz', linkLabel: 'developers.line.biz',
+    },
+    {
+      n: 3, title: 'Create a Messaging API channel',
+      body: 'Inside your Provider → Create Channel → Messaging API. Link it to the OA you created in Step 1.',
+      link: null, linkLabel: null,
+    },
+    {
+      n: 4, title: 'Get your Channel Secret & Access Token',
+      body: 'Channel Secret: Basic Settings tab → copy the 32-character string.\nChannel Access Token: Messaging API tab → Issue token → copy it.\nPaste both into the fields below.',
+      link: null, linkLabel: null,
+    },
+    {
+      n: 5, title: 'Set the Webhook URL',
+      body: `Messaging API tab → Webhook settings → Enable "Use webhook" → paste your webhook URL:\n${webhookUrl || 'https://yourdomain.com/api/webhook'}\nThen click "Verify" to confirm it responds.`,
+      link: null, linkLabel: null,
+    },
+    {
+      n: 6, title: 'Create a LIFF App (for storefront login)',
+      body: 'Same channel → LIFF tab → Add → set Endpoint URL to your storefront URL (e.g. https://yourdomain.com/shop). Copy the LIFF ID (starts with numbers) and paste it in the LIFF ID field below.',
+      link: null, linkLabel: null,
+    },
+    {
+      n: 7, title: 'Test the connection',
+      body: 'Fill in Channel Secret, Channel Access Token, and LIFF ID below → Save → click "Test Connection". A green badge confirms it\'s working.',
+      link: null, linkLabel: null,
+    },
+  ];
+
+  return (
+    <div className={`rounded-2xl border overflow-hidden ${surface}`}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500">Setup Guide</span>
+          <span className={`text-sm font-semibold ${text}`}>How to connect your LINE OA</span>
+        </div>
+        <span className={`text-[10px] font-bold ${muted}`}>{open ? '▲ Collapse' : '▼ Expand'}</span>
+      </button>
+
+      {open && (
+        <div className={`border-t px-5 py-4 space-y-4 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+          <p className={`text-xs ${muted}`}>Each merchant needs their own LINE OA and Messaging API channel. This is a one-time setup per store.</p>
+          <div className="space-y-3">
+            {steps.map(s => (
+              <div key={s.n} className="flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-accent/10 text-accent text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{s.n}</div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-bold ${text}`}>{s.title}</p>
+                  <p className={`text-[11px] mt-0.5 whitespace-pre-line leading-relaxed ${muted}`}>{s.body}</p>
+                  {s.link && (
+                    <a href={s.link} target="_blank" rel="noopener noreferrer" className="text-[11px] text-accent hover:underline mt-0.5 inline-block">
+                      → {s.linkLabel}
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className={`rounded-xl px-4 py-3 text-[10px] leading-relaxed ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+            <strong>Important:</strong> Use only the <strong>Messaging API</strong> channel credentials here — not a LINE Login channel. The Channel Secret and Channel Access Token must come from the same channel that has the webhook set.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const ACCENT_PRESETS = [
   '#00b900', '#3b82f6', '#f97316', '#ef4444', '#a855f7', '#ec4899', '#06b6d4',
 ];
@@ -887,6 +971,9 @@ export default function SettingsView({
                   <MessageSquare size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>LINE Integration</h2>
                 </div>
+
+                {/* Setup Guide */}
+                <SetupGuide isDark={isDark} isLite={isLite} webhookUrl={webhookUrl} />
 
                 {/* Connection status */}
                 <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>

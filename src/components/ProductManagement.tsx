@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Layers,
   Filter,
+  DollarSign,
   ArrowUpDown,
   Eye,
   EyeOff,
@@ -27,6 +28,22 @@ import LoadingView from './LoadingView';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+// --- Color presets (shared across all merchants) ---
+const COLOR_PRESETS: { name: string; hex: string }[] = [
+  { name: 'Black',     hex: '#111111' }, { name: 'White',    hex: '#FFFFFF' },
+  { name: 'Cream',     hex: '#FFFDD0' }, { name: 'Beige',    hex: '#F5F0E8' },
+  { name: 'Grey',      hex: '#9CA3AF' }, { name: 'Silver',   hex: '#D1D5DB' },
+  { name: 'Brown',     hex: '#92400E' }, { name: 'Camel',    hex: '#C19A6B' },
+  { name: 'Navy',      hex: '#1E3A5F' }, { name: 'Blue',     hex: '#3B82F6' },
+  { name: 'Sky Blue',  hex: '#7DD3FC' }, { name: 'Red',      hex: '#EF4444' },
+  { name: 'Pink',      hex: '#F472B6' }, { name: 'Maroon',   hex: '#7F1D1D' },
+  { name: 'Orange',    hex: '#F97316' }, { name: 'Yellow',   hex: '#FBBF24' },
+  { name: 'Olive',     hex: '#65A30D' }, { name: 'Green',    hex: '#16A34A' },
+  { name: 'Sage',      hex: '#87AE73' }, { name: 'Purple',   hex: '#7C3AED' },
+  { name: 'Lavender',  hex: '#A78BFA' }, { name: 'Gold',     hex: '#D97706' },
+  { name: 'Rose Gold', hex: '#B76E79' }, { name: 'Burgundy', hex: '#800020' },
+];
 
 // --- Interfaces ---
 
@@ -363,6 +380,111 @@ export function MultiImageUploader({ images, onChange, theme = 'light' }: {
   );
 }
 
+// --- ColorOptionEditor ---
+
+function ColorOptionEditor({ values, onAdd, onRemove, theme }: {
+  values: string[]; onAdd: (v: string) => void; onRemove: (v: string) => void; theme: 'light' | 'dark';
+}) {
+  const [customInput, setCustomInput] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
+
+  const presetNames = COLOR_PRESETS.map(c => c.name);
+  const customValues = values.filter(v => !presetNames.includes(v));
+
+  const toggle = (name: string) => values.includes(name) ? onRemove(name) : onAdd(name);
+
+  const addCustom = () => {
+    const val = customInput.trim();
+    if (!val || values.includes(val)) return;
+    onAdd(val);
+    setCustomInput('');
+    setShowCustom(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider block">Colors</label>
+
+      {/* Preset grid */}
+      <div className="flex flex-wrap gap-2">
+        {COLOR_PRESETS.map(c => {
+          const selected = values.includes(c.name);
+          return (
+            <button
+              key={c.name}
+              type="button"
+              onClick={() => toggle(c.name)}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95",
+                selected
+                  ? "border-accent bg-accent/10 text-accent"
+                  : isDarkTheme(theme)
+                    ? "border-[#1f2335] text-[#8b92ad] hover:border-[#8b92ad]"
+                    : "border-[#e2e5ef] text-[#8b92ad] hover:border-[#8b92ad]"
+              )}
+            >
+              <span
+                className="w-3.5 h-3.5 rounded-full border border-black/10 flex-shrink-0"
+                style={{ backgroundColor: c.hex, outline: c.hex === '#FFFFFF' ? '1px solid #e2e5ef' : undefined }}
+              />
+              {c.name}
+              {selected && <Check size={9} className="text-accent" />}
+            </button>
+          );
+        })}
+
+        {/* Custom values */}
+        {customValues.map(v => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onRemove(v)}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all border-accent bg-accent/10 text-accent"
+            )}
+          >
+            {v}
+            <X size={9} />
+          </button>
+        ))}
+
+        {/* Add custom */}
+        {showCustom ? (
+          <div className="flex items-center gap-1">
+            <input
+              autoFocus
+              type="text"
+              value={customInput}
+              onChange={e => setCustomInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addCustom(); if (e.key === 'Escape') setShowCustom(false); }}
+              placeholder="Custom name…"
+              className={cn(
+                "w-28 border rounded-xl px-2.5 py-1.5 text-[10px] outline-none focus:border-accent",
+                theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]"
+              )}
+            />
+            <button type="button" onClick={addCustom} className="text-accent text-[10px] font-bold hover:underline">Add</button>
+            <button type="button" onClick={() => setShowCustom(false)} className="text-[#8b92ad] text-[10px] hover:text-red-400">✕</button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowCustom(true)}
+            className={cn(
+              "flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border border-dashed transition-all",
+              theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:border-accent hover:text-accent" : "border-[#e2e5ef] text-[#8b92ad] hover:border-accent hover:text-accent"
+            )}
+          >
+            <Plus size={10} /> Custom
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function isDarkTheme(theme: 'light' | 'dark') { return theme === 'dark'; }
+
 // --- OptionCard ---
 
 function OptionCard({ option, index, existingOptions, onUpdate, onRemove, theme }: {
@@ -379,11 +501,20 @@ function OptionCard({ option, index, existingOptions, onUpdate, onRemove, theme 
         <CreatableDropdown label={`Option ${index + 1}`} value={option.name} onChange={name => onUpdate({ name })}
           options={existingOptions.optionNames} placeholder="e.g. Color, Size, Material" theme={theme} />
       </div>
-      <TagSelector label="Values" selected={option.values}
-        onAdd={v => !option.values.includes(v) && onUpdate({ values: [...option.values, v] })}
-        onRemove={v => onUpdate({ values: option.values.filter(x => x !== v) })}
-        options={existingOptions.optionValues.filter(v => !option.values.includes(v))}
-        placeholder="Add value..." theme={theme} />
+      {option.name.toLowerCase() === 'color' ? (
+        <ColorOptionEditor
+          values={option.values}
+          onAdd={v => !option.values.includes(v) && onUpdate({ values: [...option.values, v] })}
+          onRemove={v => onUpdate({ values: option.values.filter(x => x !== v) })}
+          theme={theme}
+        />
+      ) : (
+        <TagSelector label="Values" selected={option.values}
+          onAdd={v => !option.values.includes(v) && onUpdate({ values: [...option.values, v] })}
+          onRemove={v => onUpdate({ values: option.values.filter(x => x !== v) })}
+          options={existingOptions.optionValues.filter(v => !option.values.includes(v))}
+          placeholder="Add value..." theme={theme} />
+      )}
     </div>
   );
 }
@@ -594,10 +725,22 @@ export function ProductModal({
                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Product Options</label>
                 <p className="text-[9px] text-[#8b92ad] mt-0.5">Max 3 · variants auto-generated</p>
               </div>
-              <button onClick={addOption} disabled={form.options.length >= 3}
-                className="text-accent text-[10px] font-bold flex items-center gap-1 hover:underline disabled:opacity-30 disabled:no-underline">
-                <Plus size={14} /> Add Option
-              </button>
+              <div className="flex items-center gap-2">
+                {!form.options.some(o => o.name.toLowerCase() === 'color') && form.options.length < 3 && (
+                  <button
+                    onClick={() => { updateForm({ options: [...form.options, { name: 'Color', values: [] }] }); }}
+                    className="text-[10px] font-bold flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-dashed transition-all text-[#8b92ad] hover:border-accent hover:text-accent"
+                    style={{ borderColor: 'currentColor' }}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-pink-400 to-violet-500 flex-shrink-0" />
+                    + Color
+                  </button>
+                )}
+                <button onClick={addOption} disabled={form.options.length >= 3}
+                  className="text-accent text-[10px] font-bold flex items-center gap-1 hover:underline disabled:opacity-30 disabled:no-underline">
+                  <Plus size={14} /> Add Option
+                </button>
+              </div>
             </div>
 
             {form.options.length === 0 && (
@@ -814,6 +957,9 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [isStockSaving, setIsStockSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkActing, setIsBulkActing] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
@@ -992,6 +1138,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       if (!name) { errors.push(`Row ${i + 2}: missing name`); setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] }); continue; }
       if (isNaN(price)) { errors.push(`Row ${i + 2}: invalid price "${priceStr}"`); setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] }); continue; }
 
+      const costStr = col(row, 'cost');
+      const cost = costStr ? parseFloat(costStr.replace(/[^0-9.]/g, '')) : null;
+      const colorsRaw = col(row, 'color');
+      const colors = colorsRaw ? colorsRaw.split(';').map((c: string) => c.trim()).filter(Boolean) : [];
       const body: any = {
         name,
         price,
@@ -999,6 +1149,13 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         brand: col(row, 'brand'),
         categories: col(row, 'categor') ? col(row, 'categor').split(';').map((c: string) => c.trim()).filter(Boolean) : [],
         isActive: col(row, 'active').toLowerCase() !== 'no',
+        ...(colors.length > 0 && {
+          options: [{ name: 'Color', values: colors }],
+          variants: colors.map(c => ({ combination: { Color: c }, imageUrl: '', price: null, cost: !isNaN(cost as number) ? cost : null, stock: 0 })),
+        }),
+        ...(cost !== null && !isNaN(cost) && colors.length === 0 && {
+          variants: [{ combination: {}, imageUrl: '', price: null, cost, stock: 0 }],
+        }),
       };
 
       try {
@@ -1027,6 +1184,31 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     }
   };
 
+  const bulkSetVisibility = async (visible: boolean) => {
+    setIsBulkActing(true);
+    try {
+      await Promise.all([...selectedIds].map(id =>
+        fetch(`/api/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret }, body: JSON.stringify({ isActive: visible }) })
+      ));
+      loadProducts();
+    } catch (err) { console.error(err); } finally { setIsBulkActing(false); setSelectedIds(new Set()); setSelectMode(false); }
+  };
+
+  const bulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.size} product(s)? This cannot be undone.`)) return;
+    setIsBulkActing(true);
+    try {
+      await Promise.all([...selectedIds].map(id =>
+        fetch(`/api/products/${id}`, { method: 'DELETE', headers: { 'x-admin-secret': secret } })
+      ));
+      loadProducts();
+    } catch (err) { console.error(err); } finally { setIsBulkActing(false); setSelectedIds(new Set()); setSelectMode(false); }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  };
+
   const toggleVisibility = async (p: Product) => {
     try {
       await fetch(`/api/products/${p._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret }, body: JSON.stringify({ isActive: !p.isActive }) });
@@ -1044,42 +1226,57 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           </h2>
           <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">{t.inventory_desc || 'Inventory & Product Lifecycle'}</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <button
+            onClick={() => { setSelectMode(s => !s); setSelectedIds(new Set()); }}
+            className={cn("px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 border transition-all active:scale-95", selectMode ? "border-accent text-accent bg-accent/10" : theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e]")}
+          >
+            <Check size={14} /> {selectMode ? 'Cancel' : 'Select'}
+          </button>
           <button
             onClick={() => {
               const bom = '﻿';
-              const header = 'Name,Description,Brand,Category,Price (THB),Active\n';
-              const rows = filteredProducts.map(p =>
-                [p.name, p.description ?? '', p.brand, (p.categories || []).join(';'), p.price, p.isActive ? 'Yes' : 'No']
-                  .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
-              ).join('\n');
+              const header = 'Name,Description,Brand,Category,Price (THB),Cost (THB),Active\n';
+              const rows = filteredProducts.map(p => {
+                const baseVariant = p.variants?.[0];
+                const cost = baseVariant?.cost ?? '';
+                return [p.name, p.description ?? '', p.brand, (p.categories || []).join(';'), p.price, cost, p.isActive ? 'Yes' : 'No']
+                  .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+              }).join('\n');
               const blob = new Blob([bom + header + rows], { type: 'text/csv;charset=utf-8;' });
               const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
               a.download = `products_${new Date().toISOString().slice(0,10)}.csv`; a.click();
             }}
             className={cn("px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 border transition-all active:scale-95", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e]")}
-            title="Export products as CSV"
           >
-            <FileSpreadsheet size={16} />
+            <FileSpreadsheet size={14} /> Export CSV
           </button>
           <button
             onClick={() => { setShowImport(true); setImportProgress(null); setImportGuideOpen(false); }}
             className={cn("px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 border transition-all active:scale-95", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e]")}
-            title="Import products from CSV"
           >
-            <Upload size={16} />
+            <Upload size={14} /> Import CSV
           </button>
           <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-            className="flex-1 md:flex-none text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
+            className="text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
             style={{ background: 'var(--accent-gradient)' }}>
-            <Plus size={18} /> {t.add_catalog || 'Add New Catalog'}
+            <Plus size={16} /> Add Product
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <StatsCard icon={<BarChart2 size={16} />} label={t.total_catalog || "Total Catalog"} value={stats.total.toString()} color="indigo" theme={theme} isLoading={isLoading} />
-        <StatsCard icon={<Eye size={16} />} label={t.active_storefront || "Active Storefront"} value={stats.active.toString()} color="emerald" theme={theme} isLoading={isLoading} />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatsCard icon={<BarChart2 size={16} />} label="Total Catalog" value={stats.total.toString()} color="indigo" theme={theme} isLoading={isLoading} />
+        <StatsCard icon={<Eye size={16} />} label="Active Storefront" value={stats.active.toString()} color="emerald" theme={theme} isLoading={isLoading} />
+        <StatsCard icon={<Filter size={16} />} label="Filtered Results" value={filteredProducts.length.toString()} color="blue" theme={theme} isLoading={isLoading} />
+        <StatsCard
+          icon={<DollarSign size={16} />}
+          label="Avg Price (Filtered)"
+          value={filteredProducts.length ? `฿${Math.round(filteredProducts.reduce((s, p) => s + (p.price || 0), 0) / filteredProducts.length).toLocaleString()}` : '—'}
+          color="amber"
+          theme={theme}
+          isLoading={isLoading}
+        />
       </div>
 
       <div className={cn("p-4 rounded-3xl border mb-6 flex flex-col lg:flex-row gap-4", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
@@ -1118,6 +1315,38 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         </div>
       </div>
 
+      {/* Bulk action toolbar */}
+      {selectMode && (
+        <div className={cn(
+          "sticky top-4 z-30 rounded-2xl border px-4 py-3 flex items-center justify-between gap-3 mb-4 shadow-lg",
+          theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+        )}>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSelectedIds(selectedIds.size === filteredProducts.length ? new Set() : new Set(filteredProducts.map(p => p._id)))}
+              className="text-xs font-bold text-accent hover:underline"
+            >
+              {selectedIds.size === filteredProducts.length ? 'Deselect All' : `Select All (${filteredProducts.length})`}
+            </button>
+            <span className={cn("text-xs", theme === 'dark' ? "text-[#8b92ad]" : "text-[#8b92ad]")}>{selectedIds.size} selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button disabled={selectedIds.size === 0 || isBulkActing} onClick={() => bulkSetVisibility(true)}
+              className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-emerald-400 hover:bg-emerald-500/10" : "border-[#e2e5ef] text-emerald-600 hover:bg-emerald-50")}>
+              <Eye size={12} /> Show
+            </button>
+            <button disabled={selectedIds.size === 0 || isBulkActing} onClick={() => bulkSetVisibility(false)}
+              className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:bg-[#f8f9fc]")}>
+              <EyeOff size={12} /> Hide
+            </button>
+            <button disabled={selectedIds.size === 0 || isBulkActing} onClick={bulkDelete}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-red-500/20 text-red-500 hover:bg-red-500/10 transition-all disabled:opacity-40">
+              <Trash2 size={12} /> Delete
+            </button>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <LoadingView theme={theme} message="Loading Product Catalog..." />
       ) : (
@@ -1127,7 +1356,11 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
               onEdit={() => { setEditingProduct(p); setIsModalOpen(true); }}
               onDelete={() => setDeleteConfirm(p._id)}
               onToggleVisibility={() => toggleVisibility(p)}
-              onManageStock={() => setStockProduct(p)} />
+              onManageStock={() => setStockProduct(p)}
+              selectMode={selectMode}
+              selected={selectedIds.has(p._id)}
+              onSelect={() => toggleSelect(p._id)}
+            />
           ))}
           {filteredProducts.length === 0 && products.length === 0 && (
             <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
@@ -1187,11 +1420,13 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
                   <p className={cn('font-semibold', theme === 'dark' ? 'text-white' : 'text-slate-800')}>Required columns</p>
                   <div className="space-y-1 font-mono">
                     {[
-                      { col: 'Name', note: 'Required. Product name.' },
-                      { col: 'Price (THB)', note: 'Required. Number only, e.g. 299' },
-                      { col: 'Description', note: 'Optional. Plain text.' },
-                      { col: 'Brand', note: 'Optional.' },
-                      { col: 'Category', note: 'Optional. Use semicolons for multiple: Food;Drink' },
+                      { col: 'Name', note: 'Required. Product display name.' },
+                      { col: 'Price (THB)', note: 'Required. Selling price, number only, e.g. 299' },
+                      { col: 'Cost (THB)', note: 'Optional. Cost price for profit tracking.' },
+                      { col: 'Description', note: 'Optional. Plain text description.' },
+                      { col: 'Brand', note: 'Optional. Brand name.' },
+                      { col: 'Category', note: 'Optional. Semicolons for multiple: Bags;Fashion' },
+                      { col: 'Colors', note: 'Optional. Semicolons for multiple: Black;White;Navy' },
                       { col: 'Active', note: 'Optional. Yes or No. Defaults to Yes.' },
                     ].map(({ col, note }) => (
                       <div key={col} className="flex gap-2">
@@ -1205,7 +1440,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
                   </p>
                   <button
                     onClick={() => {
-                      const template = '﻿Name,Description,Brand,Category,Price (THB),Active\nExample Bag,A stylish tote,MyBrand,Bags;Fashion,599,Yes\n';
+                      const template = '﻿Name,Description,Brand,Category,Price (THB),Cost (THB),Colors,Active\nExample Bag,A stylish tote,MyBrand,Bags;Fashion,599,300,Black;White;Navy,Yes\n';
                       const a = document.createElement('a');
                       a.href = URL.createObjectURL(new Blob([template], { type: 'text/csv;charset=utf-8;' }));
                       a.download = 'product_import_template.csv'; a.click();
@@ -1290,11 +1525,33 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   );
 });
 
-function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onManageStock }: any) {
+function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onManageStock, selectMode, selected, onSelect }: any) {
   const displayImage = product.images?.[0] || product.imageUrl;
+  const totalStock = product.trackStock
+    ? (product.variants?.reduce((s: number, v: any) => s + (v.stock ?? 0), 0) ?? 0)
+    : null;
 
   return (
-    <div className={cn("rounded-[32px] border p-5 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden flex flex-col h-full", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]", !product.isActive && "opacity-60")}>
+    <div
+      onClick={() => selectMode && onSelect?.()}
+      className={cn(
+        "rounded-[32px] border p-5 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden flex flex-col h-full",
+        theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]",
+        !product.isActive && "opacity-60",
+        selectMode && "cursor-pointer",
+        selected && "ring-2 ring-accent border-accent/40"
+      )}
+    >
+      {/* Select checkbox overlay */}
+      {selectMode && (
+        <div className={cn(
+          "absolute top-3 left-3 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center shadow-lg transition-all",
+          selected ? "bg-accent border-accent" : "bg-white/80 border-[#e2e5ef]"
+        )}>
+          {selected && <Check size={12} className="text-white" />}
+        </div>
+      )}
+
       <div className="relative aspect-[4/3] rounded-3xl overflow-hidden mb-5 bg-[#f4f6f9] dark:bg-[#1a1d2e] border border-[#e2e5ef] dark:border-[#1f2335]">
         {displayImage ? (
           <img src={displayImage} alt={product.name} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
@@ -1302,16 +1559,27 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
           <div className="w-full h-full flex items-center justify-center text-[#8b92ad]"><ImageIcon size={32} strokeWidth={1.5} /></div>
         )}
         <div className="absolute top-3 left-3">
-          {!product.isActive && <span className="bg-[#1a1d2e] text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1"><EyeOff size={8} /> HIDDEN</span>}
+          {!product.isActive && !selectMode && <span className="bg-[#1a1d2e] text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1"><EyeOff size={8} /> HIDDEN</span>}
         </div>
-        <button onClick={e => { e.stopPropagation(); onToggleVisibility(); }}
-          className={cn("absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-lg active:scale-90", product.isActive ? "bg-white text-accent" : "bg-[#1a1d2e] text-[#8b92ad]")}>
-          {product.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
-        </button>
+        {!selectMode && (
+          <button onClick={e => { e.stopPropagation(); onToggleVisibility(); }}
+            className={cn("absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-lg active:scale-90", product.isActive ? "bg-white text-accent" : "bg-[#1a1d2e] text-[#8b92ad]")}>
+            {product.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
+          </button>
+        )}
         {/* Photo count badge */}
         {product.images?.length > 1 && (
           <div className="absolute bottom-3 left-3 bg-[#1a1d2e]/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
             {product.images.length} photos
+          </div>
+        )}
+        {/* Stock badge */}
+        {totalStock !== null && (
+          <div className={cn(
+            "absolute bottom-3 right-3 text-[9px] font-black px-2 py-0.5 rounded-full backdrop-blur-sm",
+            totalStock === 0 ? "bg-red-500/80 text-white" : totalStock <= 5 ? "bg-amber-500/80 text-white" : "bg-[#1a1d2e]/70 text-white"
+          )}>
+            {totalStock === 0 ? 'OUT' : `${totalStock} left`}
           </div>
         )}
       </div>
@@ -1335,25 +1603,27 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
         </div>
       </div>
 
-      <div className={cn("flex gap-2 mt-5 pt-5 border-t", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
-        <button onClick={onEdit} className={cn("flex-1 py-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-2", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>
-          <Edit2 size={12} /> EDIT
-        </button>
-        {product.variants?.length > 0 && (
-          <button onClick={onManageStock} className={cn("py-3 px-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-1.5", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]")} title="Manage Stock">
-            <Layers size={12} /> STOCK
+      {!selectMode && (
+        <div className={cn("flex gap-2 mt-5 pt-5 border-t", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
+          <button onClick={e => { e.stopPropagation(); onEdit(); }} className={cn("flex-1 py-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-2", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#1a1d2e] hover:bg-[#e2e5ef]")}>
+            <Edit2 size={12} /> EDIT
           </button>
-        )}
-        <button onClick={onDelete} className={cn("p-3 rounded-2xl active:scale-95 flex items-center justify-center", theme === 'dark' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100")}>
-          <Trash2 size={14} />
-        </button>
-      </div>
+          {product.variants?.length > 0 && (
+            <button onClick={e => { e.stopPropagation(); onManageStock(); }} className={cn("py-3 px-3 rounded-2xl text-[10px] font-black active:scale-95 flex items-center justify-center gap-1.5", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]")} title="Manage Stock">
+              <Layers size={12} /> STOCK
+            </button>
+          )}
+          <button onClick={e => { e.stopPropagation(); onDelete(); }} className={cn("p-3 rounded-2xl active:scale-95 flex items-center justify-center", theme === 'dark' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100")}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
 function StatsCard({ icon, label, value, color, theme, isLoading }: any) {
-  const colorMap: any = { emerald: "text-emerald-500 bg-emerald-500/10", amber: "text-amber-500 bg-amber-500/10", blue: "text-blue-500 bg-blue-500/10", indigo: "text-indigo-500 bg-indigo-500/10" };
+  const colorMap: any = { emerald: "text-emerald-500 bg-emerald-500/10", amber: "text-amber-500 bg-amber-500/10", blue: "text-blue-500 bg-blue-500/10", indigo: "text-indigo-500 bg-indigo-500/10", rose: "text-rose-500 bg-rose-500/10" };
   return (
     <div className={cn("px-3 py-2.5 rounded-2xl border shadow-sm flex flex-col gap-1", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
       <div className="text-[#8b92ad] text-[10px] font-bold uppercase tracking-wider truncate">{label}</div>
