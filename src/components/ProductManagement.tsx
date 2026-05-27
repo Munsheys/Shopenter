@@ -83,6 +83,9 @@ export interface ProductForm {
   modelLine: string;
   description: string;
   price: string;
+  cost: string;
+  soldCurrency: string;
+  costCurrency: string;
   categories: string[];
   images: string[];
   options: ProductOption[];
@@ -115,6 +118,9 @@ export function normalizeToForm(raw: any): ProductForm {
   if (raw.options?.length) {
     return {
       ...base,
+      cost: raw.cost != null ? String(raw.cost) : '',
+      soldCurrency: raw.soldCurrency || 'THB',
+      costCurrency: raw.costCurrency || 'THB',
       options: raw.options,
       variants: (raw.variants || []).map((v: any) => ({
         combination: v.combination || {},
@@ -170,6 +176,9 @@ export function normalizeToForm(raw: any): ProductForm {
 
   return {
     ...base,
+    cost: raw.cost != null ? String(raw.cost) : '',
+    soldCurrency: raw.soldCurrency || 'THB',
+    costCurrency: raw.costCurrency || 'THB',
     options: optGroups,
     variants: newVariants,
     simpleStock: String(phantomVariant?.stock ?? 0),
@@ -178,7 +187,8 @@ export function normalizeToForm(raw: any): ProductForm {
 
 const EMPTY_FORM: ProductForm = {
   name: '', brand: '', modelLine: '', description: '',
-  price: '', categories: [], images: [], options: [], variants: [],
+  price: '', cost: '', soldCurrency: 'THB', costCurrency: 'THB',
+  categories: [], images: [], options: [], variants: [],
   isActive: true,
   trackStock: false,
   simpleStock: '0',
@@ -595,7 +605,6 @@ export function ProductModal({
   onSaveAsDefault?: (val: boolean) => void;
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
-  const [defaultCost, setDefaultCost] = useState('');
   const [imagePickerRow, setImagePickerRow] = useState<number | null>(null);
   const prevIdRef = useRef<string | null>(null);
   const prevOptionsRef = useRef<string>('');
@@ -608,7 +617,6 @@ export function ProductModal({
         setForm({ ...EMPTY_FORM, trackStock: defaultTrackStock, options: initOpts, variants: initVariants });
         prevOptionsRef.current = JSON.stringify(initOpts);
         prevIdRef.current = null;
-        setDefaultCost('');
       } else {
         const currentId = (initialData as any)?._id;
         if (currentId !== prevIdRef.current) {
@@ -632,10 +640,10 @@ export function ProductModal({
     form.variants.forEach(v => existingMap.set(JSON.stringify(v.combination), v));
     const newVariants = combinations.map(combo => {
       const key = JSON.stringify(combo);
-      return existingMap.get(key) || { combination: combo, imageUrl: '', price: form.price || '', cost: defaultCost, stock: '0' };
+      return existingMap.get(key) || { combination: combo, imageUrl: '', price: form.price || '', cost: form.cost || '', stock: '0' };
     });
     setForm(prev => ({ ...prev, variants: newVariants }));
-  }, [form.options]);
+  }, [form.options, form.price, form.cost]);
 
   // Close image picker on outside click
   useEffect(() => {
@@ -697,22 +705,40 @@ export function ProductModal({
                 className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
             </div>
 
-            {/* Base Price + Base Cost */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
+            {/* Base Price + Base Cost with Currencies */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Price &amp; Cost</label>
-                <span className="text-[9px] text-[#8b92ad]">Variants can override individually</span>
+                <span className="text-[9px] text-[#8b92ad]">Variants can override</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div>
-                  <label className="text-[9px] text-[#8b92ad] mb-1 block">Base Price (THB) *</label>
-                  <input type="number" value={form.price} onChange={e => updateForm({ price: e.target.value })} placeholder="e.g. 299"
-                    className={cn("w-full border rounded-xl px-3 py-2.5 text-sm font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
+                  <label className="text-[9px] text-[#8b92ad] mb-1.5 block">Selling Price <span className="text-red-500">*</span></label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" value={form.price} onChange={e => updateForm({ price: e.target.value })} placeholder="e.g. 299"
+                      className={cn("col-span-2 border rounded-xl px-3 py-2.5 text-sm font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
+                    <select value={form.soldCurrency} onChange={e => updateForm({ soldCurrency: e.target.value })}
+                      className={cn("border rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}>
+                      <option>THB</option>
+                      <option>USD</option>
+                      <option>KRW</option>
+                      <option>JPY</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
-                  <label className="text-[9px] text-[#8b92ad] mb-1 block">Base Cost (THB)</label>
-                  <input type="number" value={defaultCost} onChange={e => setDefaultCost(e.target.value)} placeholder="e.g. 150"
-                    className={cn("w-full border rounded-xl px-3 py-2.5 text-sm font-bold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                  <label className="text-[9px] text-[#8b92ad] mb-1.5 block">Cost Price</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" value={form.cost} onChange={e => updateForm({ cost: e.target.value })} placeholder="e.g. 150"
+                      className={cn("col-span-2 border rounded-xl px-3 py-2.5 text-sm font-bold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                    <select value={form.costCurrency} onChange={e => updateForm({ costCurrency: e.target.value })}
+                      className={cn("border rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}>
+                      <option>THB</option>
+                      <option>USD</option>
+                      <option>KRW</option>
+                      <option>JPY</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -902,7 +928,7 @@ export function ProductModal({
                             </td>
                             <td className="px-1.5 py-1">
                               <input type="number" value={v.cost} onChange={e => updateVariant(idx, 'cost', e.target.value)}
-                                placeholder={defaultCost || '—'}
+                                placeholder={form.cost || '—'}
                                 className={cn("w-20 border rounded-lg px-2 py-1 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
                             </td>
                             {form.trackStock && (
@@ -1180,6 +1206,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     return {
       ...form,
       price: parseFloat(form.price as any) || 0,
+      cost: form.cost !== '' ? parseFloat(form.cost as any) : null,
       imageUrl: form.images[0] || '',
       images: form.images,
       options: form.options,
