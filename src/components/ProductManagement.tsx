@@ -1180,13 +1180,6 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           images: form.images,
           imageUrl: form.images[0] || p.imageUrl,
           options: form.options,
-          variants: form.variants.map(v => ({
-            combination: v.combination,
-            imageUrl: v.imageUrl || '',
-            price: v.price !== '' ? parseFloat(v.price) : null,
-            cost: v.cost !== '' ? parseFloat(v.cost) : null,
-            stock: parseInt(v.stock as any) || 0,
-          })),
           isActive: form.isActive,
           trackStock: form.trackStock,
           variants: form.variants.length > 0
