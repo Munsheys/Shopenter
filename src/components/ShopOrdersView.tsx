@@ -548,7 +548,7 @@ export default function ShopOrdersView({
                           → {nextStatusLabel[o.status]}
                         </button>
                       )}
-                      {o.status !== 'cancelled' && o.status !== 'delivered' && (
+                      {o.status !== 'cancelled' && o.status !== 'delivered' && o.status !== 'shipped' && (
                         <button
                           onClick={() => setCancelConfirm({ open: true, orderId: o._id })}
                           className={cn(

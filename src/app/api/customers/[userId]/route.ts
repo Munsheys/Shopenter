@@ -28,12 +28,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
 
   const { userId } = await params;
   const body = await req.json().catch(() => ({}));
-  const update: Record<string, unknown> = {};
-  if (body.addresses !== undefined) update.addresses = body.addresses;
-  if (body.status !== undefined) update.status = body.status;
 
   try {
     await dbConnect();
+
+    // Atomic credit increment — handled separately to avoid overwrite race
+    if (body.addCredits !== undefined) {
+      const customer = await Customer.findOneAndUpdate(
+        { merchantId: merchant.merchantId, userId },
+        { $inc: { shopCredits: Number(body.addCredits) } },
+        { new: true }
+      );
+      if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json(customer);
+    }
+
+    const update: Record<string, unknown> = {};
+    if (body.addresses !== undefined) update.addresses = body.addresses;
+    if (body.status !== undefined) update.status = body.status;
+
     const customer = await Customer.findOneAndUpdate(
       { merchantId: merchant.merchantId, userId },
       update,

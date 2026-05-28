@@ -5,7 +5,7 @@ import {
   MessageCircle, ShoppingCart, Send, Search, X, Plus, Minus, Trash2,
   Package, CheckCircle, QrCode, ChevronRight, ChevronLeft, MapPin,
   Clock, Printer, History, ChevronDown, AlertTriangle, Pencil, Check, Ban,
-  CornerUpLeft, Truck,
+  CornerUpLeft, Truck, Coins,
 } from 'lucide-react';
 import { type ProductForm } from './ProductManagement';
 import NumberStepper from '@/components/NumberStepper';
@@ -15,6 +15,8 @@ type Customer = {
   addresses: string[]; lastSeen: string; unreadCount: number;
   platform?: 'line' | 'instagram' | 'telegram';
   status?: 'active' | 'blocked';
+  shopCredits?: number;
+  loyaltyPoints?: number;
 };
 type OrderItem = { productId?: string; name: string; variantLabel?: string; price: number; qty: number };
 type Order = {
@@ -161,6 +163,10 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     onConfirm: () => void;
     danger?: boolean;
   }>({ open: false, title: '', message: '', onConfirm: () => {} });
+
+  const [cancelCreditModal, setCancelCreditModal] = useState<{
+    open: boolean; orderId: string; amount: number; productName: string;
+  } | null>(null);
 
   const [drawerWidth, setDrawerWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
@@ -582,13 +588,42 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   }
 
   function confirmCancelOrder(id: string) {
+    const order = allOrders.find(o => o._id === id);
+    if (!order) return;
+
+    // Paid orders get the credit choice modal
+    if (order.status === 'paid' && order.soldTHB > 0) {
+      setCancelCreditModal({ open: true, orderId: id, amount: order.soldTHB, productName: order.product });
+      return;
+    }
+
+    // Pending (unpaid) — just cancel, no refund needed
     setConfirm({
       open: true,
       title: 'Cancel Order?',
-      message: 'The order will be marked as cancelled and kept in your records. You can still view it in history.',
+      message: 'The order will be marked as cancelled and kept in your records.',
       danger: true,
       onConfirm: () => patchOrder(id, { status: 'cancelled' })
     });
+  }
+
+  async function issueCreditsAndCancel(orderId: string, amount: number) {
+    await patchOrder(orderId, { status: 'cancelled' });
+    if (!selectedCustomer) { setCancelCreditModal(null); return; }
+    try {
+      const res = await fetch(`/api/customers/${selectedCustomer.userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addCredits: amount }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const newCredits = updated.shopCredits ?? 0;
+        setSelectedCustomer(prev => prev ? { ...prev, shopCredits: newCredits } : prev);
+        setCustomers(prev => prev.map(c => c.userId === selectedCustomer.userId ? { ...c, shopCredits: newCredits } : c));
+      }
+    } catch {}
+    setCancelCreditModal(null);
   }
 
   async function markAsRead() {
@@ -786,13 +821,20 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           </div>
                           <span className={`text-[10px] flex-shrink-0 ${k.muted}`}>{timeAgo(c.lastSeen)}</span>
                         </div>
-                        <p className={`text-[10px] truncate mt-0.5 ${!isBlocked && c.unreadCount > 0 ? 'text-accent font-medium' : k.muted}`}>
-                          {isBlocked
-                            ? 'Unfollowed — messages won\'t deliver'
-                            : c.unreadCount > 0
-                              ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}`
-                              : c.platform === 'instagram' ? 'Instagram' : c.platform === 'telegram' ? 'Telegram' : c.platform === 'line' ? 'LINE' : 'No platform'}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <p className={`text-[10px] truncate ${!isBlocked && c.unreadCount > 0 ? 'text-accent font-medium' : k.muted}`}>
+                            {isBlocked
+                              ? 'Unfollowed — messages won\'t deliver'
+                              : c.unreadCount > 0
+                                ? `${c.unreadCount} new message${c.unreadCount > 1 ? 's' : ''}`
+                                : c.platform === 'instagram' ? 'Instagram' : c.platform === 'telegram' ? 'Telegram' : c.platform === 'line' ? 'LINE' : 'No platform'}
+                          </p>
+                          {(c.shopCredits || 0) > 0 && (
+                            <span className="flex-shrink-0 flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200/80 px-1 py-0.5 rounded-full">
+                              <Coins size={8} /> {fmt(c.shopCredits || 0)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </button>
                   );
@@ -903,6 +945,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     {totalSpent > 0 && (
                       <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full font-bold">
                         ฿{fmt(totalSpent)} total
+                      </span>
+                    )}
+                    {(selectedCustomer.shopCredits || 0) > 0 && (
+                      <span className="text-[10px] bg-amber-100 text-amber-700 border border-amber-200/80 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                        <Coins size={9} /> ฿{fmt(selectedCustomer.shopCredits || 0)} credits
                       </span>
                     )}
                   </div>
@@ -1634,6 +1681,55 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       )}
 
       <ConfirmModal config={confirm} onClose={() => setConfirm(v => ({ ...v, open: false }))} isDark={isDark} k={k} />
+
+      {/* Cancel + Credit Modal */}
+      {cancelCreditModal?.open && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={e => { if (e.target === e.currentTarget) setCancelCreditModal(null); }}
+        >
+          <div className={`w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
+            <div className="p-8">
+              <div className="w-16 h-16 rounded-[24px] flex items-center justify-center mx-auto mb-5 bg-amber-500/10 text-amber-500">
+                <Coins size={30} />
+              </div>
+              <h3 className={`text-xl font-black text-center mb-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>Handle Refund?</h3>
+              <p className={`text-xs text-center mb-6 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>
+                This order was paid (฿{fmt(cancelCreditModal.amount)}). Choose how to handle the refund.
+              </p>
+
+              <div className="space-y-3 mb-4">
+                {/* Option 1 — manual refund */}
+                <button
+                  onClick={() => { patchOrder(cancelCreditModal.orderId, { status: 'cancelled' }); setCancelCreditModal(null); }}
+                  className={`w-full p-4 rounded-2xl border text-left transition-all hover:border-accent/40 active:scale-[0.98] ${isDark ? 'border-[#2a3050] hover:bg-white/5' : 'border-slate-200 hover:bg-slate-50'}`}
+                >
+                  <div className={`text-xs font-black mb-0.5 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>↩ Refund Manually</div>
+                  <div className={`text-[10px] ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>Cancel the order. Handle the money return outside the system.</div>
+                </button>
+
+                {/* Option 2 — issue shop credits */}
+                <button
+                  onClick={() => issueCreditsAndCancel(cancelCreditModal.orderId, cancelCreditModal.amount)}
+                  className="w-full p-4 rounded-2xl border border-amber-200 bg-amber-50 text-left transition-all hover:bg-amber-100 active:scale-[0.98]"
+                >
+                  <div className="text-xs font-black text-amber-700 flex items-center gap-2 mb-0.5">
+                    <Coins size={13} /> Issue ฿{fmt(cancelCreditModal.amount)} Shop Credits
+                  </div>
+                  <div className="text-[10px] text-amber-600/80">Customer receives credits to spend on future orders at this shop.</div>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setCancelCreditModal(null)}
+                className={`w-full py-3 rounded-2xl font-black text-xs transition-all active:scale-95 ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1766,7 +1862,7 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR
               <Pencil size={12} />
             </button>
           )}
-          {onCancel && !['cancelled', 'delivered'].includes(order.status) && (
+          {onCancel && !['cancelled', 'delivered', 'shipped'].includes(order.status) && (
             <button onClick={onCancel} aria-label="Cancel order" title="Cancel order" className="text-[#8b92ad] hover:text-rose-500 transition-colors p-1">
               <Ban size={13} />
             </button>

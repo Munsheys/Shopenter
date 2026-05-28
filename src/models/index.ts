@@ -178,6 +178,7 @@ const CustomerSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'blocked'], default: 'active' },
   followedAt: { type: Date, default: null },
   loyaltyPoints: { type: Number, default: 0 },
+  shopCredits:   { type: Number, default: 0 },
 });
 CustomerSchema.index({ merchantId: 1, userId: 1 }, { unique: true });
 
