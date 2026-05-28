@@ -786,7 +786,7 @@ export default function ShopOrdersView({
   );
 }
 
-function StatsCard({ icon, label, value, subLabel, color, theme, isLoading, onClick, active }: any) {
+function StatsCard({ icon, label, value, subLabel, subLabelHighlight, color, theme, isLoading, onClick, active }: any) {
   const colorMap: any = {
     emerald: "text-emerald-500 bg-emerald-500/10",
     amber:   "text-amber-500 bg-amber-500/10",

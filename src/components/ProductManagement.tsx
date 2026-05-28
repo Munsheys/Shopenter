@@ -70,6 +70,8 @@ interface Product {
   modelLine?: string;
   description?: string;
   price: number;
+  soldCurrency?: string;
+  costCurrency?: string;
   categories: string[];
   imageUrl?: string;
   images?: string[];
@@ -1099,6 +1101,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [pendingEdits, setPendingEdits] = useState<Record<string, ProductForm>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkActing, setIsBulkActing] = useState(false);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [cardSize, setCardSize] = useState<number>(() => {
     if (typeof window !== 'undefined') return parseInt(localStorage.getItem('catalogCardSize') || '3');
     return 3;
@@ -1112,6 +1115,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [searchTerm, setSearchTerm] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'hidden'>('all');
   const [sortOrder, setSortOrder] = useState('newest');
 
   const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') || '' : '';
@@ -1200,17 +1204,18 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const filteredProducts = useMemo(() => {
     let result = products.filter(p => {
       const matchesSearch = !searchTerm || (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (p.brand || '').toLowerCase().includes(searchTerm.toLowerCase()) || (p.modelLine || '').toLowerCase().includes(searchTerm.toLowerCase()) || (p.categories || []).some((c: string) => c.toLowerCase().includes(searchTerm.toLowerCase()));
-      return matchesSearch && (!brandFilter || p.brand === brandFilter) && (!categoryFilter || p.categories.includes(categoryFilter));
+      const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? p.isActive : !p.isActive);
+      return matchesSearch && matchesStatus && (!brandFilter || p.brand === brandFilter) && (!categoryFilter || p.categories.includes(categoryFilter));
     });
     result.sort((a, b) => {
-      if (sortOrder === 'newest') return -1;
+      if (sortOrder === 'newest') return new Date((b as any).createdAt || 0).getTime() - new Date((a as any).createdAt || 0).getTime();
       if (sortOrder === 'price-asc') return a.price - b.price;
       if (sortOrder === 'price-desc') return b.price - a.price;
       if (sortOrder === 'name-az') return a.name.localeCompare(b.name);
       return 0;
     });
     return result;
-  }, [products, searchTerm, brandFilter, categoryFilter, sortOrder]);
+  }, [products, searchTerm, brandFilter, categoryFilter, statusFilter, sortOrder]);
 
   const paginatedProducts = useMemo(() => {
     const start = (currentPage - 1) * productsPerPage;
@@ -1447,7 +1452,11 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   };
 
   const bulkDelete = async () => {
-    if (!window.confirm(`Delete ${selectedIds.size} product(s)? This cannot be undone.`)) return;
+    setBulkDeleteConfirmOpen(true);
+  };
+
+  const executeBulkDelete = async () => {
+    setBulkDeleteConfirmOpen(false);
     setIsBulkActing(true);
     try {
       await Promise.all([...selectedIds].map(id =>
@@ -1462,10 +1471,13 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   };
 
   const toggleVisibility = async (p: Product) => {
+    setProducts(prev => prev.map(prod => prod._id === p._id ? { ...prod, isActive: !p.isActive } : prod));
     try {
       await fetch(`/api/products/${p._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret }, body: JSON.stringify({ isActive: !p.isActive }) });
-      loadProducts();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      setProducts(prev => prev.map(prod => prod._id === p._id ? { ...prod, isActive: p.isActive } : prod));
+      console.error(err);
+    }
   };
 
   return (
@@ -1482,12 +1494,19 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           <button
             onClick={() => {
               const bom = '﻿';
-              const header = 'Name,Description,Brand,Category,Price (THB),Cost (THB),Active\n';
+              const header = 'Name,Description,Brand,Model Line,Category,Sold Price,Sold Currency,Cost Price,Cost Currency,Track Stock,Image URL,Active\n';
               const rows = filteredProducts.map(p => {
-                const baseVariant = p.variants?.[0];
+                const baseVariant = p.variants?.find((v: any) => Object.keys(v.combination || {}).length === 0) || p.variants?.[0];
                 const cost = baseVariant?.cost ?? '';
-                return [p.name, p.description ?? '', p.brand, (p.categories || []).join(';'), p.price, cost, p.isActive ? 'Yes' : 'No']
-                  .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+                return [
+                  p.name, p.description ?? '', p.brand, p.modelLine ?? '',
+                  (p.categories || []).join(';'),
+                  p.price, p.soldCurrency || 'THB',
+                  cost, p.costCurrency || 'THB',
+                  p.trackStock ? 'Yes' : 'No',
+                  (p.images || []).filter(Boolean).join(';'),
+                  p.isActive ? 'Yes' : 'No',
+                ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
               }).join('\n');
               const blob = new Blob([bom + header + rows], { type: 'text/csv;charset=utf-8;' });
               const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -1535,29 +1554,42 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           {[
             { icon: <Filter size={14} />, val: brandFilter, set: setBrandFilter, opts: existingOptions.brands, label: t.all_brands || 'All Brands' },
             { icon: <Layers size={14} />, val: categoryFilter, set: setCategoryFilter, opts: existingOptions.categories, label: t.all_categories || 'All Categories' },
-            { icon: <ArrowUpDown size={14} />, val: sortOrder, set: setSortOrder, opts: [], label: '' },
           ].map((f, i) => (
             <div key={i} className="relative min-w-[140px]">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none">{f.icon}</div>
               <select value={f.val} onChange={e => f.set(e.target.value)}
                 className={cn("w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border cursor-pointer", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]")}>
-                {i === 2 ? (
-                  <>
-                    <option value="newest">{t.sort_newest || 'Sort: Newest'}</option>
-                    <option value="name-az">{t.sort_az || 'Sort: A-Z'}</option>
-                    <option value="price-asc">{t.sort_price_asc || 'Sort: Price Low'}</option>
-                    <option value="price-desc">{t.sort_price_desc || 'Sort: Price High'}</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="">{f.label}</option>
-                    {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
-                  </>
-                )}
+                <option value="">{f.label}</option>
+                {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
             </div>
           ))}
+          {/* Status filter */}
+          <div className="relative min-w-[130px]">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none"><Eye size={14} /></div>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as 'all' | 'active' | 'hidden')}
+              className={cn("w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border cursor-pointer", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]",
+                statusFilter !== 'all' ? "border-accent ring-1 ring-accent/20" : ""
+              )}>
+              <option value="all">All Status</option>
+              <option value="active">Active Only</option>
+              <option value="hidden">Hidden Only</option>
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
+          </div>
+          {/* Sort */}
+          <div className="relative min-w-[140px]">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none"><ArrowUpDown size={14} /></div>
+            <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}
+              className={cn("w-full pl-9 pr-8 py-2.5 rounded-xl text-xs font-bold appearance-none outline-none border cursor-pointer", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]")}>
+              <option value="newest">{t.sort_newest || 'Sort: Newest'}</option>
+              <option value="name-az">{t.sort_az || 'Sort: A-Z'}</option>
+              <option value="price-asc">{t.sort_price_asc || 'Sort: Price Low'}</option>
+              <option value="price-desc">{t.sort_price_desc || 'Sort: Price High'}</option>
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
+          </div>
           {/* Card size control */}
           <div className={cn("flex items-center gap-1 pl-3 border-l", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
             <button
@@ -1713,7 +1745,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
                 <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No products match</p>
                 <p className="text-xs mt-1">Try adjusting your filters</p>
               </div>
-              <button onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setSortOrder('newest'); }} className="text-accent text-xs font-bold hover:underline">Clear filters</button>
+              <button onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setStatusFilter('all'); setSortOrder('newest'); }} className="text-accent text-xs font-bold hover:underline">Clear filters</button>
             </div>
           )}
         </div>
@@ -1826,6 +1858,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
               {!importProgress && (
                 <div
                   onClick={() => importFileRef.current?.click()}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleImportCSV(f); }}
                   className={cn('border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors', theme === 'dark' ? 'border-[#1f2335] hover:border-accent/50' : 'border-slate-200 hover:border-accent/50')}
                 >
                   <Upload size={24} className="text-[#8b92ad] mx-auto mb-2" />
@@ -1876,7 +1910,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       )}
 
       {deleteConfirm && (
-        <div 
+        <div
           className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}
         >
@@ -1887,6 +1921,23 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} disabled={isDeleting} className={cn("flex-1 py-3 text-sm font-bold rounded-xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>Cancel</button>
               <button onClick={() => handleDelete(deleteConfirm!)} disabled={isDeleting} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl disabled:opacity-50">{isDeleting ? 'Deleting…' : 'Delete'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkDeleteConfirmOpen && (
+        <div
+          className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setBulkDeleteConfirmOpen(false); }}
+        >
+          <div className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6"><Trash2 size={32} /></div>
+            <h3 className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete {selectedIds.size} Product{selectedIds.size !== 1 ? 's' : ''}?</h3>
+            <p className="text-sm text-[#8b92ad] mb-6">This will permanently remove all selected products from the catalog.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setBulkDeleteConfirmOpen(false)} className={cn("flex-1 py-3 text-sm font-bold rounded-xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>Cancel</button>
+              <button onClick={executeBulkDelete} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl">Delete All</button>
             </div>
           </div>
         </div>
