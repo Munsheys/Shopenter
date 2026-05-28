@@ -141,6 +141,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [qoQuickOpts, setQoQuickOpts] = useState<{ name: string; value: string }[]>([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]);
   const [qoQuickSaving, setQoQuickSaving] = useState(false);
   const [qoPrice, setQoPrice] = useState('');
+  const [qoUnitPrice, setQoUnitPrice] = useState(0);
   const [qoCostPrice, setQoCostPrice] = useState('');
   const [qoCostCurrency, setQoCostCurrency] = useState('KRW');
   const [qoQty, setQoQty] = useState(1);
@@ -310,7 +311,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const closeQuickOrder = useCallback(() => {
     setShowModal(false);
     setQoMode('existing'); setQoNewProduct(null); setQoSelected(null); setQoSearch(''); setQoVariantSel({});
-    setQoPrice(''); setQoCostPrice(''); setQoQty(1);
+    setQoPrice(''); setQoUnitPrice(0); setQoCostPrice(''); setQoQty(1);
     setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]);
   }, []);
 
@@ -442,7 +443,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     if (!selectedCustomer || qoSubmitting) return;
     const product = qoMode === 'existing' ? qoSelected : qoNewProduct;
     if (!product) return;
-    const price = parseFloat(qoPrice) || product.price;
+    const total = parseFloat(qoPrice) || product.price * qoQty;
+    const pricePerUnit = qoQty > 0 ? total / qoQty : total;
     const costAmount = parseFloat(qoCostPrice) || 0;
 
     // Build variant label for order name
@@ -463,8 +465,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
           displayName: selectedCustomer.displayName,
           product: `${qoQty > 1 ? `${qoQty}x ` : ''}${productLabel}`,
           quantity: qoQty,
-          items: [{ productId: product._id, name: productLabel, qty: qoQty, price }],
-          soldTHB: price * qoQty,
+          items: [{ productId: product._id, name: productLabel, qty: qoQty, price: pricePerUnit }],
+          soldTHB: total,
           costKRW: costAmount,
           costCurrency: qoCostCurrency,
           status: 'pending',
@@ -474,7 +476,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         const order = await res.json();
         setAllOrders(prev => [order, ...prev]);
         setShowModal(false);
-        setQoPrice(''); setQoCostPrice('');
+        setQoPrice(''); setQoUnitPrice(0); setQoCostPrice('');
         setQoQty(1); setQoSelected(null); setQoSearch(''); setQoVariantSel({});
         setQoNewProduct(null); setQoMode('existing');
         setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]);
@@ -1230,7 +1232,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       <button key={p._id} onClick={() => {
                         setQoSelected(p);
                         setQoVariantSel({});
-                        setQoPrice(String(p.price));
+                        setQoUnitPrice(p.price);
+                        setQoPrice(String(p.price * qoQty));
                         // Auto-fill cost from phantom/first variant
                         const baseCost = p.variants?.find(v => !v.combination || Object.keys(v.combination).length === 0)?.cost ?? p.variants?.[0]?.cost;
                         if (baseCost != null) setQoCostPrice(String(baseCost));
@@ -1264,7 +1267,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                                   const match = qoSelected.variants?.find(vr =>
                                     Object.entries(newSel).every(([k2, val]) => vr.combination?.[k2] === val)
                                   );
-                                  if (match?.price != null) setQoPrice(String(match.price));
+                                  if (match?.price != null) { setQoUnitPrice(match.price); setQoPrice(String(match.price * qoQty)); }
                                   if (match?.cost != null) setQoCostPrice(String(match.cost));
                                 }}
                                   className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'text-white border-transparent' : `${k.border} ${k.muted} ${k.hover}`}`}
@@ -1347,7 +1350,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>
-                    Sold ({merchantSettings?.localCurrency || 'THB'})
+                    Total ({merchantSettings?.localCurrency || 'THB'})
                   </label>
                   <input type="number" value={qoPrice} onChange={e => setQoPrice(e.target.value)} placeholder="0"
                     className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`} />
@@ -1355,10 +1358,10 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 <div>
                   <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Qty</label>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setQoQty(q => Math.max(1, q - 1))}
+                    <button onClick={() => { const n = Math.max(1, qoQty - 1); setQoQty(n); if (qoUnitPrice) setQoPrice(String(qoUnitPrice * n)); }}
                       className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${k.border} ${k.hover} ${k.text}`}><Minus size={12} /></button>
                     <span className={`w-8 text-center text-sm font-black ${k.text}`}>{qoQty}</span>
-                    <button onClick={() => setQoQty(q => q + 1)}
+                    <button onClick={() => { const n = qoQty + 1; setQoQty(n); if (qoUnitPrice) setQoPrice(String(qoUnitPrice * n)); }}
                       className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${k.border} ${k.hover} ${k.text}`}><Plus size={12} /></button>
                   </div>
                 </div>
