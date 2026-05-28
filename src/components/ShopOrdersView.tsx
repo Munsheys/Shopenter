@@ -212,17 +212,11 @@ export default function ShopOrdersView({
   }
 
   const nextStatusMap: Partial<Record<Order['status'], Order['status']>> = {
-    pending:   'paid',
-    paid:      'preparing',
-    preparing: 'shipped',
-    shipped:   'delivered',
+    shipped: 'delivered',
   };
 
   const nextStatusLabel: Partial<Record<Order['status'], string>> = {
-    pending:   'Mark Paid',
-    paid:      'Preparing',
-    preparing: 'Ship',
-    shipped:   'Delivered',
+    shipped: 'Delivered',
   };
 
   async function advanceOrder(id: string, nextStatus: Order['status']) {
