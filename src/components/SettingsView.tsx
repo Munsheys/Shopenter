@@ -364,7 +364,12 @@ export default function SettingsView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       });
-      if (res.ok) { onSave?.(); setSaved(true); setTimeout(() => setSaved(false), 2500); }
+      if (res.ok) {
+        setOriginalSettings(settings);
+        onSave?.();
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      }
       else setSaveError('Failed to save. Please try again.');
     } catch { setSaveError('Network error. Please try again.'); }
     finally { setIsSaving(false); }
@@ -388,10 +393,12 @@ export default function SettingsView({
   const setFst = (field: string, value: any) => setSettings((s: any) => ({ ...s, freeShippingThreshold: { ...(s?.freeShippingThreshold || {}), [field]: value } }));
 
   const handleThemeChange = async (newTheme: 'light' | 'lite' | 'dark') => {
+    const updated = { ...settings, theme: newTheme };
     set('theme', newTheme);
     onThemeChange?.(newTheme);
     try {
-      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...settings, theme: newTheme }) });
+      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
+      setOriginalSettings(updated);
       onSave?.();
     } catch {}
   };
@@ -399,10 +406,12 @@ export default function SettingsView({
   const handleAccentChange = async (newColor: string, gradient?: string | null) => {
     const update: any = { dashboardAccent: newColor };
     if (gradient !== undefined) update.dashboardAccentGradient = gradient || null;
+    const updated = { ...settings, ...update };
     setSettings((s: any) => ({ ...s, ...update }));
     onAccentChange?.(newColor, gradient);
     try {
-      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...settings, ...update }) });
+      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
+      setOriginalSettings(updated);
       onSave?.();
     } catch {}
   };

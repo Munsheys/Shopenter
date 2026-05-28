@@ -1125,12 +1125,14 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   }, [secret]);
 
   useEffect(() => {
+    if (!secret) return;
     fetch('/api/settings', { headers: { 'x-admin-secret': secret } })
       .then(r => r.json())
       .then(s => {
-        if (s?.localCurrency || s?.importCurrency) {
-          setMerchantCurrencies({ sold: s.localCurrency || 'THB', cost: s.importCurrency || 'THB' });
-        }
+        setMerchantCurrencies({
+          sold: s?.localCurrency || 'THB',
+          cost: s?.importCurrency || 'THB'
+        });
       })
       .catch(() => {});
   }, [secret]);
