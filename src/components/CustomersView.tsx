@@ -127,6 +127,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [actingOrderIds, setActingOrderIds] = useState<Set<string>>(new Set());
   const [batchActing, setBatchActing] = useState(false);
   const [batchEditTotal, setBatchEditTotal] = useState('');
+  const [editingOrder, setEditingOrder] = useState<{ id: string; name: string; sold: string; qty: number } | null>(null);
   const [listWidth, setListWidth] = useState(300);
   const [chatWidth, setChatWidth] = useState(280);
   const [platformFilter, setPlatformFilter] = useState<'all' | 'line' | 'instagram' | 'telegram'>('all');
@@ -139,7 +140,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [qoNewProduct, setQoNewProduct] = useState<Product | null>(null);
   const [qoQuickName, setQoQuickName] = useState('');
   const [qoQuickPrice, setQoQuickPrice] = useState('');
-  const [qoQuickOpts, setQoQuickOpts] = useState<{ name: string; value: string }[]>([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]);
+  const [qoQuickOpts, setQoQuickOpts] = useState<{ name: string; value: string }[]>([]);
   const [qoQuickSaving, setQoQuickSaving] = useState(false);
   const [qoPrice, setQoPrice] = useState('');
   const [qoUnitPrice, setQoUnitPrice] = useState(0);
@@ -313,7 +314,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     setShowModal(false);
     setQoMode('existing'); setQoNewProduct(null); setQoSelected(null); setQoSearch(''); setQoVariantSel({});
     setQoPrice(''); setQoUnitPrice(0); setQoCostPrice(''); setQoQty(1);
-    setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]);
+    setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts(defaultOptNames);
   }, []);
 
   useEffect(() => {
@@ -492,7 +493,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         setQoPrice(''); setQoUnitPrice(0); setQoCostPrice('');
         setQoQty(1); setQoSelected(null); setQoSearch(''); setQoVariantSel({});
         setQoNewProduct(null); setQoMode('existing');
-        setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]);
+        setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts(defaultOptNames);
         setQoCostCurrency(merchantSettings?.importCurrency || 'KRW');
       }
     } finally { setQoSubmitting(false); }
@@ -615,6 +616,20 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   }
+
+  // Smart default option names derived from the merchant's actual products
+  const defaultOptNames = useMemo(() => {
+    const counts: Record<string, number> = {};
+    products.forEach(p => {
+      (p as any).options?.forEach((o: any) => { if (o.name) counts[o.name] = (counts[o.name] || 0) + 1; });
+    });
+    const total = products.length || 1;
+    return Object.entries(counts)
+      .filter(([, n]) => n / total >= 0.3)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name]) => ({ name, value: '' }));
+  }, [products]);
 
   const customerOrders = selectedCustomer
     ? allOrders.filter(o => o.userId === selectedCustomer.userId)
@@ -934,6 +949,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         <ActiveOrderCard key={order._id} order={order} isDark={isDark} k={k}
                           onDelete={() => confirmDeleteOrder(order._id)}
                           onCancel={() => confirmCancelOrder(order._id)}
+                          onEdit={() => setEditingOrder({ id: order._id, name: order.product, sold: String(order.soldTHB || ''), qty: order.quantity || 1 })}
                           onSendQR={() => sendQR(order._id)}
                           onMarkPaid={() => markPaid(order._id)}
                           onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
@@ -1334,7 +1350,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         )}
                       </div>
                       <button
-                        onClick={() => { setQoNewProduct(null); setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]); }}
+                        onClick={() => { setQoNewProduct(null); setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts(defaultOptNames); }}
                         className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${k.border} ${k.muted} ${k.hover} transition-colors`}
                       >
                         Change
@@ -1506,6 +1522,56 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         </div>
       )}
 
+      {/* ── Floating order edit popup ── */}
+      {editingOrder && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setEditingOrder(null); }}>
+          <div className={`w-full max-w-xs rounded-2xl border shadow-2xl p-4 space-y-3 ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
+            <div className="flex items-center justify-between">
+              <p className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>Edit Order</p>
+              <button onClick={() => setEditingOrder(null)} className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10' : 'text-[#8b92ad] hover:bg-black/5'}`}><X size={14} /></button>
+            </div>
+            <input
+              value={editingOrder.name}
+              onChange={e => setEditingOrder(v => v && { ...v, name: e.target.value })}
+              placeholder="Product name"
+              className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1f2335] border-[#2a3050] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]'}`}
+            />
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>Total (THB)</label>
+                <input type="number" value={editingOrder.sold}
+                  onChange={e => setEditingOrder(v => v && { ...v, sold: e.target.value })}
+                  className={`w-full text-sm font-black rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1f2335] border-[#2a3050] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]'}`}
+                />
+              </div>
+              <div className="w-24">
+                <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>Qty</label>
+                <NumberStepper value={editingOrder.qty} onChange={v => setEditingOrder(e => e && { ...e, qty: v })} min={1} step={1} isDark={isDark} size="sm" />
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const newSold = parseFloat(editingOrder.sold) || 0;
+                const orig = activeOrders.find(o => o._id === editingOrder.id);
+                const costTHB = (orig?.costTHB) || 0;
+                patchOrder(editingOrder.id, {
+                  product: editingOrder.name,
+                  quantity: editingOrder.qty,
+                  soldTHB: newSold,
+                  profit: newSold - costTHB - ((orig?.shipCostTHB) || 0),
+                });
+                setEditingOrder(null);
+              }}
+              className="w-full py-2 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95"
+              style={{ background: 'var(--accent-gradient)' }}
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Floating batch selection toolbar ── */}
       {selectedOrderIds.size > 0 && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3 py-2 rounded-2xl border shadow-2xl w-fit max-w-[90vw] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
@@ -1618,11 +1684,12 @@ const STATUS_LABEL: Record<string, string> = {
   shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
 };
 
-function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSendQR, onMarkPaid, onMoveToParcel, onCancel, selected, onToggleSelect, isActing }: {
+function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onEdit, onSendQR, onMarkPaid, onMoveToParcel, onCancel, selected, onToggleSelect, isActing }: {
   order: Order; isDark: boolean; k: typeof DK;
   editable?: boolean;
   onDelete: () => void;
   onPatch?: (patch: object) => void;
+  onEdit?: () => void;
   onSendQR?: () => void;
   onMarkPaid?: () => void;
   onMoveToParcel?: () => void;
@@ -1631,53 +1698,8 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
   onToggleSelect?: () => void;
   isActing?: boolean;
 }) {
-  const sc = order.soldCurrency || 'THB';
-  const cc = order.costCurrency || 'KRW';
   const status = STATUS_COLORS[order.status] || STATUS_COLORS.pending;
   const label = STATUS_LABEL[order.status] || 'Order';
-
-  // For editable mode
-  const [name, setName] = useState(order.product);
-  const [qty, setQty] = useState(order.quantity || 1);
-  const [sold, setSold] = useState(String(order.soldTHB || ''));
-  const [cost, setCost] = useState(String(order.costKRW || ''));
-  const initialRate = order.rateUsed || (order.costKRW ? (order.costTHB / order.costKRW) : 0);
-  const [rate, setRate] = useState(String(initialRate || ''));
-
-  const currentSold = parseFloat(sold) || 0;
-  const currentCostKRW = parseFloat(cost) || 0;
-  const currentRate = parseFloat(rate) || 0;
-  const currentCostTHB = currentCostKRW * currentRate;
-  const currentProfit = currentSold - currentCostTHB - (order.shipCostTHB || 0);
-
-  const [isEditing, setIsEditing] = useState(false);
-  const showEdit = editable || isEditing;
-
-  // Sync state if order changes (e.g. from props)
-  useEffect(() => {
-    if (showEdit) {
-      setName(order.product);
-      setQty(order.quantity || 1);
-      setSold(String(order.soldTHB || ''));
-      setCost(String(order.costKRW || ''));
-      setRate(String(initialRate || ''));
-    }
-  }, [order._id, showEdit]);
-
-  const saveChanges = () => {
-    if (onPatch) {
-      const newSold = parseFloat(sold) || 0;
-      const costTHB = currentCostKRW * currentRate;
-      onPatch({
-        product: name,
-        quantity: qty,
-        soldTHB: newSold,
-        costTHB,
-        profit: newSold - costTHB - (order.shipCostTHB || 0),
-      });
-    }
-    setIsEditing(false);
-  };
 
   const cardClasses = isDark
     ? `bg-[#161925] border border-[#1f2335] hover:bg-white/10 ${status.glow || ''}`
@@ -1717,8 +1739,8 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
           )}
         </div>
         <div className="flex items-center gap-1">
-          {!editable && order.status !== 'cancelled' && (
-            <button onClick={() => setIsEditing(!isEditing)} aria-label="Edit order" className={`p-1 rounded-md transition-colors ${isEditing ? 'text-accent bg-accent/10' : 'text-[#8b92ad] hover:text-accent'}`}>
+          {!editable && order.status !== 'cancelled' && onEdit && (
+            <button onClick={onEdit} aria-label="Edit order" title="Edit order" className="text-[#8b92ad] hover:text-accent transition-colors p-1">
               <Pencil size={12} />
             </button>
           )}
@@ -1733,49 +1755,21 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
         </div>
       </div>
 
-      {!showEdit ? (
-        <>
-          <p className={`font-bold text-sm leading-snug mb-3 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
-          <div className="flex items-center justify-between mt-auto">
-            <div className="flex items-center gap-2">
-              <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-                ฿{fmt(order.soldTHB)}
-              </p>
-              {(order.profit || 0) > 0 && (
-                <span className={`text-[10px] font-bold ${isDark ? 'text-accent' : 'text-accent bg-accent/5 px-1.5 py-0.5 rounded-md'}`}>
-                  +฿{fmt(order.profit)}
-                </span>
-              )}
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="space-y-2">
-          <input value={name} onChange={e => setName(e.target.value)}
-            placeholder="Product name"
-            className={`w-full text-xs rounded-lg px-2.5 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
-          <div className="flex gap-2 items-center">
-            <div className="flex-1">
-              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Total ({sc})</label>
-              <input type="number" value={sold} onChange={e => setSold(e.target.value)}
-                className={`w-full text-sm font-black rounded-lg px-2.5 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
-            </div>
-            <div className="w-24">
-              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Qty</label>
-              <NumberStepper value={qty} onChange={v => setQty(v)} min={1} step={1} isDark={isDark} size="sm" />
-            </div>
-          </div>
-          <div className="flex justify-end pt-0.5">
-            <button onClick={saveChanges}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:opacity-90 text-white text-[10px] font-black transition-all active:scale-95 shadow-sm"
-              style={{ background: 'var(--accent-gradient)' }}>
-              <CheckCircle size={11} /> Save Changes
-            </button>
-          </div>
+      <p className={`font-bold text-sm leading-snug mb-3 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
+      <div className="flex items-center justify-between mt-auto">
+        <div className="flex items-center gap-2">
+          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            ฿{fmt(order.soldTHB)}
+          </p>
+          {(order.profit || 0) > 0 && (
+            <span className={`text-[10px] font-bold ${isDark ? 'text-accent' : 'text-accent bg-accent/5 px-1.5 py-0.5 rounded-md'}`}>
+              +฿{fmt(order.profit)}
+            </span>
+          )}
         </div>
-      )}
+      </div>
 
-      {order.status !== 'preparing' && !showEdit && (
+      {order.status !== 'preparing' && (
         <div className={`flex flex-wrap gap-2 mt-4 pt-3 border-t border-dashed ${k.border}`}>
           {onMoveToParcel && order.status === 'paid' && (
             <button onClick={onMoveToParcel} disabled={isActing}
