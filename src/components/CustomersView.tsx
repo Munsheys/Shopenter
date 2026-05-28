@@ -579,6 +579,16 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     });
   }
 
+  function confirmCancelOrder(id: string) {
+    setConfirm({
+      open: true,
+      title: 'Cancel Order?',
+      message: 'The order will be marked as cancelled and kept in your records. You can still view it in history.',
+      danger: true,
+      onConfirm: () => patchOrder(id, { status: 'cancelled' })
+    });
+  }
+
   async function markAsRead() {
     if (!selectedCustomer) return;
     await fetch(`/api/customers/${selectedCustomer.userId}/read`, { method: 'POST' }).catch(() => {});
@@ -923,7 +933,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       {activeOrders.map(order => (
                         <ActiveOrderCard key={order._id} order={order} isDark={isDark} k={k}
                           onDelete={() => confirmDeleteOrder(order._id)}
-                          onCancel={() => patchOrder(order._id, { status: 'cancelled' })}
+                          onCancel={() => confirmCancelOrder(order._id)}
                           onSendQR={() => sendQR(order._id)}
                           onMarkPaid={() => markPaid(order._id)}
                           onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
@@ -1710,6 +1720,11 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
           {!editable && order.status !== 'cancelled' && (
             <button onClick={() => setIsEditing(!isEditing)} aria-label="Edit order" className={`p-1 rounded-md transition-colors ${isEditing ? 'text-accent bg-accent/10' : 'text-[#8b92ad] hover:text-accent'}`}>
               <Pencil size={12} />
+            </button>
+          )}
+          {onCancel && !['cancelled', 'delivered'].includes(order.status) && (
+            <button onClick={onCancel} className="text-[10px] font-bold px-2 py-1 rounded-md text-[#8b92ad] hover:text-rose-500 hover:bg-rose-500/10 transition-colors">
+              Cancel
             </button>
           )}
           <button onClick={onDelete} aria-label="Delete order" className="text-[#8b92ad] hover:text-red-500 transition-colors p-1">
