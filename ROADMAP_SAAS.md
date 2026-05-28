@@ -10,12 +10,32 @@
 Fix UI/UX bugs and edge cases on every page before any new feature work.
 
 - [x] Customers page
-- [ ] Orders page
+- [x] Orders page
 - [ ] Products page
 - [ ] Reports page
 - [ ] Broadcasts page
 - [ ] Storefront page
 - [ ] Coupons page
+
+---
+
+### Stage A.5 — Shop Credits (PARTIALLY DONE)
+
+When a merchant cancels a paid order, they can issue store credits instead of a cash refund.
+Credits are a coin-style currency scoped to each merchant's shop.
+
+#### Done
+- `shopCredits` field on Customer model (separate from loyaltyPoints)
+- `PATCH /api/customers/[userId]` accepts `addCredits` (atomic `$inc`)
+- Cancel flow: paid orders show a two-option modal — "Refund Manually" or "Issue ฿X Shop Credits"
+- Credits badge visible in customer header and sidebar list
+- Shipped orders are locked from cancellation everywhere (customer page + orders page)
+
+#### Pending
+- [ ] **Credit redemption at checkout** — storefront reads customer's `shopCredits` balance and lets them apply it as a discount before placing an order. Deducts via `$inc: { shopCredits: -amount }`.
+- [ ] **Credit transaction log** — reuse or extend `LoyaltyTransaction` schema with `type: 'credit_issued' | 'credit_redeemed'` so merchants can see the full credit history per customer.
+- [ ] **Credits visible to customer on storefront** — show balance on the storefront so customers know they have credits to spend.
+- [ ] **Manual credit top-up** — merchant can manually add or deduct credits from a customer's balance (e.g. goodwill gesture, correction).
 
 ---
 
