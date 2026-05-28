@@ -14,6 +14,10 @@ import {
   X,
   DollarSign,
   BarChart2,
+  ChevronUp,
+  ChevronDown,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import LoadingView from './LoadingView';
 import { clsx, type ClassValue } from 'clsx';
@@ -68,7 +72,14 @@ export default function ShopOrdersView({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [viewMode, setViewMode] = useState<'standard' | 'compact'>('standard');
-  const [orderView, setOrderView] = useState<'new' | 'all'>('all');
+
+  // Cancel confirmation modal
+  const [cancelConfirm, setCancelConfirm] = useState<{ open: boolean; orderId: string | null }>({ open: false, orderId: null });
+
+  // Inline tracking edit: orderId -> { tracking, courier }
+  const [editingTracking, setEditingTracking] = useState<string | null>(null);
+  const [trackingDraft, setTrackingDraft] = useState('');
+  const [courierDraft, setCourierDraft] = useState('');
 
   // Sorting
   const [sortField, setSortField] = useState<'createdAt' | 'soldTHB' | 'status' | 'displayName' | null>('createdAt');
@@ -199,8 +210,38 @@ export default function ShopOrdersView({
 
   async function cancelOrder(id: string) {
     setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: 'cancelled' as const } : o) ?? prev);
+    setCancelConfirm({ open: false, orderId: null });
     try {
       await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' }) });
+    } catch { /* optimistic update stays */ }
+  }
+
+  const nextStatusMap: Partial<Record<Order['status'], Order['status']>> = {
+    pending:   'paid',
+    paid:      'preparing',
+    preparing: 'shipped',
+    shipped:   'delivered',
+  };
+
+  const nextStatusLabel: Partial<Record<Order['status'], string>> = {
+    pending:   'Mark Paid',
+    paid:      'Preparing',
+    preparing: 'Ship',
+    shipped:   'Delivered',
+  };
+
+  async function advanceOrder(id: string, nextStatus: Order['status']) {
+    setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: nextStatus } : o) ?? prev);
+    try {
+      await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: nextStatus }) });
+    } catch { /* optimistic update stays */ }
+  }
+
+  async function saveTracking(id: string, tracking: string, courier: string) {
+    setOrders(prev => prev?.map(o => o._id === id ? { ...o, tracking, courier } : o) ?? prev);
+    setEditingTracking(null);
+    try {
+      await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracking, courier }) });
     } catch { /* optimistic update stays */ }
   }
 
@@ -371,7 +412,7 @@ export default function ShopOrdersView({
             )}
           </div>
 
-          {/* New / All / Clear */}
+          {/* New / All / Clear + ViewMode toggle */}
           <div className="flex items-center gap-2">
             {(() => {
               const isNewSelected = selectedStatuses.length === newOrderStatuses.length && newOrderStatuses.every(s => selectedStatuses.includes(s));
@@ -383,6 +424,9 @@ export default function ShopOrdersView({
                   <button onClick={() => setSelectedStatuses(newOrderStatuses)} className={cn(btnBase, isNewSelected ? "bg-accent text-white border-accent" : inactive)}>New</button>
                   <button onClick={() => setSelectedStatuses(allStatuses)} className={cn(btnBase, isAllSelected ? "bg-accent text-white border-accent" : inactive)}>All</button>
                   <button onClick={() => setSelectedStatuses([])} className={cn(btnBase, selectedStatuses.length === 0 ? "bg-red-500/10 text-red-500 border-red-300" : inactive)}>Clear</button>
+                  <button onClick={toggleViewMode} className={cn(btnBase, inactive)} title="Toggle view density">
+                    {viewMode === 'standard' ? 'Compact' : 'Standard'}
+                  </button>
                 </>
               );
             })()}
@@ -513,17 +557,85 @@ export default function ShopOrdersView({
                     <div className={cn("text-sm font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
                       ฿{(o.soldTHB || 0).toLocaleString()}
                     </div>
+                    {(o.profit ?? 0) > 0 && (
+                      <div className="text-[10px] font-bold text-accent mt-0.5">+฿{(o.profit!).toLocaleString()}</div>
+                    )}
                   </td>
                   <td className="px-6 py-5">
-                    <div className="flex justify-center">
+                    <div className="flex flex-col items-center gap-1.5">
                       <StatusPill status={o.status} />
+                      {/* Inline tracking edit for preparing/shipped */}
+                      {(o.status === 'preparing' || o.status === 'shipped') && (
+                        <div className="w-full">
+                          {editingTracking === o._id ? (
+                            <div className="flex flex-col gap-1 mt-1">
+                              <input
+                                autoFocus
+                                value={trackingDraft}
+                                onChange={e => setTrackingDraft(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') saveTracking(o._id, trackingDraft, courierDraft);
+                                  if (e.key === 'Escape') setEditingTracking(null);
+                                }}
+                                onBlur={() => saveTracking(o._id, trackingDraft, courierDraft)}
+                                placeholder="Tracking #"
+                                className={cn(
+                                  "w-full px-2 py-1 rounded-lg text-[10px] border outline-none focus:ring-1 focus:ring-accent/30",
+                                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
+                                )}
+                              />
+                              <input
+                                value={courierDraft}
+                                onChange={e => setCourierDraft(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') saveTracking(o._id, trackingDraft, courierDraft);
+                                  if (e.key === 'Escape') setEditingTracking(null);
+                                }}
+                                onBlur={() => saveTracking(o._id, trackingDraft, courierDraft)}
+                                placeholder="Courier"
+                                className={cn(
+                                  "w-full px-2 py-1 rounded-lg text-[10px] border outline-none focus:ring-1 focus:ring-accent/30",
+                                  theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]"
+                                )}
+                              />
+                            </div>
+                          ) : o.tracking ? (
+                            <button
+                              onClick={() => { setEditingTracking(o._id); setTrackingDraft(o.tracking || ''); setCourierDraft(o.courier || ''); }}
+                              className="text-[10px] text-[#8b92ad] hover:text-accent transition-colors truncate max-w-full block mt-0.5"
+                              title="Click to edit tracking"
+                            >
+                              {o.courier ? `${o.courier}: ` : ''}{o.tracking}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingTracking(o._id); setTrackingDraft(''); setCourierDraft(''); }}
+                              className="text-[10px] text-accent/70 hover:text-accent transition-colors mt-0.5 font-bold"
+                            >
+                              + Add tracking
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Advance status button */}
+                      {nextStatusMap[o.status] && (
+                        <button
+                          onClick={() => advanceOrder(o._id, nextStatusMap[o.status]!)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all active:scale-95",
+                            theme === 'dark' ? "border-accent/30 text-accent hover:bg-accent/10" : "border-accent/40 text-accent hover:bg-accent/5"
+                          )}
+                        >
+                          → {nextStatusLabel[o.status]}
+                        </button>
+                      )}
                       {o.status !== 'cancelled' && o.status !== 'delivered' && (
                         <button
-                          onClick={() => cancelOrder(o._id)}
+                          onClick={() => setCancelConfirm({ open: true, orderId: o._id })}
                           className={cn(
                             "flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all active:scale-95",
                             theme === 'dark' ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/10" : "border-rose-200 text-rose-600 hover:bg-rose-50"
@@ -594,8 +706,10 @@ export default function ShopOrdersView({
           )}>
             {/* Order Count */}
             <div className="text-[11px] font-bold text-[#8b92ad] mb-3 text-center">
-              Showing {Math.min((currentPage - 1) * pageSize + 1, filteredOrders.length)}–
-              {Math.min(currentPage * pageSize, filteredOrders.length)} of {filteredOrders.length} orders
+              {pageSize === Infinity
+                ? `Showing all ${filteredOrders.length} orders`
+                : `Showing ${Math.min((currentPage - 1) * pageSize + 1, filteredOrders.length)}–${Math.min(currentPage * pageSize, filteredOrders.length)} of ${filteredOrders.length} orders`
+              }
             </div>
 
             {/* Pagination & Per-Page Controls */}
@@ -664,6 +778,44 @@ export default function ShopOrdersView({
           </div>
         )}
       </div>
+
+      {/* Cancel Confirmation Modal */}
+      {cancelConfirm.open && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setCancelConfirm({ open: false, orderId: null }); }}
+        >
+          <div className={cn(
+            "w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl",
+            theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white"
+          )}>
+            <div className="p-10 text-center">
+              <div className="w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 bg-red-500/10 text-red-500">
+                <AlertTriangle size={36} />
+              </div>
+              <h3 className={cn("text-2xl font-black mb-4", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Cancel Order?</h3>
+              <p className="text-sm leading-relaxed mb-10 text-[#8b92ad]">The order will be marked as cancelled and kept in your records.</p>
+              <div className="flex flex-col gap-4">
+                <button
+                  onClick={() => cancelConfirm.orderId && cancelOrder(cancelConfirm.orderId)}
+                  className="w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 bg-red-500 hover:bg-red-600 text-white shadow-xl shadow-red-500/20"
+                >
+                  Yes, Cancel Order
+                </button>
+                <button
+                  onClick={() => setCancelConfirm({ open: false, orderId: null })}
+                  className={cn(
+                    "w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95",
+                    theme === 'dark' ? "bg-white/5 hover:bg-white/10 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                  )}
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -721,60 +873,3 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-function ChevronUp(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m18 15-6-6-6 6"/>
-    </svg>
-  );
-}
-
-function ChevronDown(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m6 9 6 6 6-6"/>
-    </svg>
-  );
-}
-
-function RefreshCw(props: any) {
-  return (
-    <svg 
-      {...props} 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    >
-      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
-      <path d="M21 3v5h-5"/>
-    </svg>
-  );
-}
