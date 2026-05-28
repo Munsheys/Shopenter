@@ -698,7 +698,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 <button
                   key={p}
                   onClick={() => setPlatformFilter(p)}
-                  className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-colors ${platformFilter === p ? 'bg-accent text-white' : `${k.muted} hover:text-accent`}`}
+                  className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all ${platformFilter === p ? 'text-white shadow-sm' : `${k.muted} hover:text-accent`}`}
+                  style={platformFilter === p ? { background: 'var(--accent-gradient)' } : undefined}
                 >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : p === 'instagram' ? 'IG' : 'TG'}</button>
               ))}
             </div>
@@ -1424,7 +1425,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <button
                     key={p}
                     onClick={() => setFindPlatformFilter(p)}
-                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-colors ${findPlatformFilter === p ? 'bg-accent text-white' : `${k.muted} hover:text-accent`}`}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all ${findPlatformFilter === p ? 'text-white shadow-sm' : `${k.muted} hover:text-accent`}`}
+                    style={findPlatformFilter === p ? { background: 'var(--accent-gradient)' } : undefined}
                   >{p === 'all' ? 'All' : p === 'line' ? 'LINE' : p === 'instagram' ? 'IG' : 'TG'}</button>
                 ))}
               </div>
