@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   MessageCircle, ShoppingCart, Send, Search, X, Plus, Minus, Trash2,
   Package, CheckCircle, QrCode, ChevronRight, ChevronLeft, MapPin,
-  Clock, Printer, History, ChevronDown, AlertTriangle, Pencil, Check,
+  Clock, Printer, History, ChevronDown, AlertTriangle, Pencil, Check, Ban,
 } from 'lucide-react';
 import { type ProductForm } from './ProductManagement';
 import NumberStepper from '@/components/NumberStepper';
@@ -1723,11 +1723,11 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
             </button>
           )}
           {onCancel && !['cancelled', 'delivered'].includes(order.status) && (
-            <button onClick={onCancel} className="text-[10px] font-bold px-2 py-1 rounded-md text-[#8b92ad] hover:text-rose-500 hover:bg-rose-500/10 transition-colors">
-              Cancel
+            <button onClick={onCancel} aria-label="Cancel order" title="Cancel order" className="text-[#8b92ad] hover:text-rose-500 transition-colors p-1">
+              <Ban size={13} />
             </button>
           )}
-          <button onClick={onDelete} aria-label="Delete order" className="text-[#8b92ad] hover:text-red-500 transition-colors p-1">
+          <button onClick={onDelete} aria-label="Delete order" title="Delete order" className="text-[#8b92ad] hover:text-red-500 transition-colors p-1">
             <Trash2 size={13} />
           </button>
         </div>
