@@ -1344,21 +1344,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 </div>
               )}
 
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Cost ({qoCostCurrency})</label>
-                  <input type="number" value={qoCostPrice} onChange={e => setQoCostPrice(e.target.value)} placeholder="0"
-                    className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`} />
-                </div>
-                <div>
-                  <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Currency</label>
-                  <select value={qoCostCurrency} onChange={e => setQoCostCurrency(e.target.value)}
-                    className={`text-sm rounded-xl px-2 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`}>
-                    {COST_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>
@@ -1378,12 +1363,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   </div>
                 </div>
               </div>
-
-              {qoCostCurrency !== (merchantSettings?.localCurrency || 'THB') && merchantSettings?.krwRate && (
-                <p className={`text-[10px] ${k.muted} px-1`}>
-                  @ {merchantSettings.krwRate} ({qoCostCurrency} → {merchantSettings.localCurrency || 'THB'}{merchantSettings.useAutoRate ? ' · live' : ''})
-                </p>
-              )}
 
               <button
                 disabled={qoSubmitting || (qoMode === 'existing' ? !qoSelected : !qoNewProduct)}
