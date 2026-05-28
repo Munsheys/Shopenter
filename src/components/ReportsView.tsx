@@ -39,8 +39,8 @@ interface ReportsViewProps {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function KpiCard({ icon, label, value, sub, trend, color, theme, isLoading }: {
-  icon: React.ReactNode; label: string; value: string; sub?: string;
+function KpiCard({ icon, label, value, sub, subHighlight, trend, color, theme, isLoading }: {
+  icon: React.ReactNode; label: string; value: string; sub?: string; subHighlight?: boolean;
   trend?: number | null; color: string; theme?: string; isLoading?: boolean;
 }) {
   const colorMap: Record<string, string> = {
@@ -78,7 +78,7 @@ function KpiCard({ icon, label, value, sub, trend, color, theme, isLoading }: {
         ) : (
           <>
             <div className={cn('text-xl font-black', isDark ? 'text-white' : 'text-[#1a1d2e]')}>{value}</div>
-            {sub && <div className="text-[10px] text-[#8b92ad] mt-0.5">{sub}</div>}
+            {sub && <div className={cn("text-[10px] mt-0.5", subHighlight ? "text-amber-500 font-bold" : "text-[#8b92ad]")}>{sub}</div>}
           </>
         )}
       </div>
@@ -204,8 +204,21 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   }, [orders, dateRange, prevFrom, prevTo]);
 
   // Cancelled orders are excluded from all revenue/profit KPIs and charts
+  // billableOrders = all non-cancelled; confirmedOrders = paid money secured (excludes pending)
   const billableOrders = useMemo(
     () => filteredOrders.filter(o => o.status !== 'cancelled'),
+    [filteredOrders],
+  );
+
+  const confirmedOrders = useMemo(
+    () => filteredOrders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status)),
+    [filteredOrders],
+  );
+
+  const pendingRevenue = useMemo(
+    () => filteredOrders
+      .filter(o => o.status === 'pending')
+      .reduce((s, o) => s + (o.soldTHB || 0), 0),
     [filteredOrders],
   );
 
@@ -236,10 +249,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
 
       return { revenue, profit, shipCost, count, aov, margin, uniqueCustomers, repeatCustomers, repeatRate };
     };
-    const curr = calc(billableOrders);
+    const curr = calc(confirmedOrders);
     const prev = calc(billablePrevOrders);
     return { curr, prev };
-  }, [billableOrders, billablePrevOrders]);
+  }, [confirmedOrders, billablePrevOrders]);
 
   const trends = useMemo(() => {
     if (dateRange === 'all') return {};
@@ -562,8 +575,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         <KpiCard
           theme={theme} color="emerald" isLoading={isLoading}
           icon={<DollarSign size={20} />}
-          label="Revenue"
+          label="Confirmed Revenue"
           value={fmt(kpi.curr.revenue, currency)}
+          sub={pendingRevenue > 0 ? `+${fmt(pendingRevenue, currency)} potential` : undefined}
+          subHighlight={pendingRevenue > 0}
           trend={trends.revenue}
         />
         <KpiCard

@@ -188,15 +188,17 @@ export default function ShopOrdersView({
     : sortedOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Stats always computed from all loaded orders, not just the status-filtered view.
-  // Revenue/profit exclude cancelled orders — cancelled orders are not real sales.
   const allOrders = orders || [];
-  const billableOrders = allOrders.filter(o => o.status !== 'cancelled');
-  const totalRevenue = billableOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
+  const confirmedOrders = allOrders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status));
+  const pendingOnlyOrders = allOrders.filter(o => o.status === 'pending');
+  const confirmedRevenue = confirmedOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
+  const potentialRevenue = pendingOnlyOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
   const stats = {
-    revenue:   totalRevenue,
-    profit:    billableOrders.reduce((s, o) => s + (o.profit || 0), 0),
-    count:     billableOrders.length,
-    avg:       billableOrders.length ? Math.round(totalRevenue / billableOrders.length) : 0,
+    revenue:          confirmedRevenue,
+    potentialRevenue,
+    profit:           confirmedOrders.reduce((s, o) => s + (o.profit || 0), 0),
+    count:            confirmedOrders.length,
+    avg:              confirmedOrders.length ? Math.round(confirmedRevenue / confirmedOrders.length) : 0,
     pending:   allOrders.filter(o => o.status === 'pending').length,
     preparing: allOrders.filter(o => ['preparing', 'shipped'].includes(o.status)).length,
     delivered: allOrders.filter(o => o.status === 'delivered').length,
@@ -323,8 +325,10 @@ export default function ShopOrdersView({
 
       {/* Stats Ribbon — click any card to filter orders below */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
-        <StatsCard icon={<TrendingUp size={16} />} label="Total Revenue"
-          value={`฿${stats.revenue.toLocaleString()}`} subLabel={`${stats.count} orders total`}
+        <StatsCard icon={<TrendingUp size={16} />} label="Confirmed Revenue"
+          value={`฿${stats.revenue.toLocaleString()}`}
+          subLabel={stats.potentialRevenue > 0 ? `+฿${stats.potentialRevenue.toLocaleString()} potential` : `${stats.count} confirmed orders`}
+          subLabelHighlight={stats.potentialRevenue > 0}
           color="emerald" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(allStatuses)}
           active={selectedStatuses.length === allStatuses.length}
@@ -811,7 +815,11 @@ function StatsCard({ icon, label, value, subLabel, color, theme, isLoading, onCl
           <div className={cn("text-lg font-black leading-none truncate", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{value}</div>
         )}
       </div>
-      {!isLoading && subLabel && <div className="text-[9px] text-[#8b92ad] truncate">{subLabel}</div>}
+      {!isLoading && subLabel && (
+        <div className={cn("text-[9px] truncate", subLabelHighlight ? "text-amber-500 font-bold" : "text-[#8b92ad]")}>
+          {subLabel}
+        </div>
+      )}
     </button>
   );
 }
