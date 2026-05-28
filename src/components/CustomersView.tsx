@@ -1666,14 +1666,14 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
 
   const saveChanges = () => {
     if (onPatch) {
+      const newSold = parseFloat(sold) || 0;
+      const costTHB = currentCostKRW * currentRate;
       onPatch({
         product: name,
         quantity: qty,
-        soldTHB: currentSold,
-        costKRW: currentCostKRW,
-        costTHB: currentCostTHB,
-        profit: currentProfit,
-        rateUsed: currentRate
+        soldTHB: newSold,
+        costTHB,
+        profit: newSold - costTHB - (order.shipCostTHB || 0),
       });
     }
     setIsEditing(false);
@@ -1750,36 +1750,22 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
           </div>
         </>
       ) : (
-        <div className="space-y-3">
-          <div className="flex gap-2">
+        <div className="space-y-2">
+          <input value={name} onChange={e => setName(e.target.value)}
+            placeholder="Product name"
+            className={`w-full text-xs rounded-lg px-2.5 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
+          <div className="flex gap-2 items-center">
             <div className="flex-1">
-              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Product Name</label>
-              <input value={name} onChange={e => setName(e.target.value)}
-                className={`w-full text-xs rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
+              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Total ({sc})</label>
+              <input type="number" value={sold} onChange={e => setSold(e.target.value)}
+                className={`w-full text-sm font-black rounded-lg px-2.5 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`} />
             </div>
             <div className="w-24">
               <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Qty</label>
               <NumberStepper value={qty} onChange={v => setQty(v)} min={1} step={1} isDark={isDark} size="sm" />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Cost ({cc})</label>
-              <NumberStepper value={parseFloat(cost) || 0} onChange={v => setCost(String(v))} min={0} step={1000} isDark={isDark} size="sm" />
-            </div>
-            <div>
-              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Sold ({sc})</label>
-              <NumberStepper value={parseFloat(sold) || 0} onChange={v => setSold(String(v))} min={0} step={100} isDark={isDark} size="sm" />
-            </div>
-            <div>
-              <label className={`block text-[8px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Rate ({cc}→{sc})</label>
-              <NumberStepper value={parseFloat(rate) || 0} onChange={v => setRate(String(v))} min={0} step={0.001} isDark={isDark} size="sm" />
-            </div>
-          </div>
-          <div className="flex items-center justify-between pt-1">
-            <p className={`text-[10px] font-black ${currentProfit >= 0 ? 'text-accent' : 'text-red-500'}`}>
-              Profit: {sc} {fmt(currentProfit)}
-            </p>
+          <div className="flex justify-end pt-0.5">
             <button onClick={saveChanges}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:opacity-90 text-white text-[10px] font-black transition-all active:scale-95 shadow-sm"
               style={{ background: 'var(--accent-gradient)' }}>
