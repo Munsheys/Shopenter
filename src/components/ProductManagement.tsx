@@ -1609,7 +1609,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       {/* Bulk action toolbar */}
       {selectedIds.size > 0 && (
         <div className={cn(
-          "sticky top-4 z-30 rounded-2xl border px-4 py-3 flex items-center justify-between gap-3 mb-4 shadow-lg",
+          "fixed bottom-6 left-6 right-6 z-40 rounded-2xl border px-4 py-3 flex items-center justify-between gap-3 shadow-2xl",
           theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
         )}>
           <div className="flex items-center gap-3">
