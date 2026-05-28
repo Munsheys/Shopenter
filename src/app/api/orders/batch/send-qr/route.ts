@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { orderIds } = await req.json();
+  const { orderIds, overrideAmount } = await req.json();
   if (!Array.isArray(orderIds) || orderIds.length === 0) {
     return NextResponse.json({ error: 'No orders provided' }, { status: 400 });
   }
@@ -25,7 +25,16 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = orders[0].userId;
-    const totalTHB = orders.reduce((sum, o) => sum + (o.soldTHB || 0), 0);
+    const originalTotal = orders.reduce((sum, o) => sum + (o.soldTHB || 0), 0);
+    const totalTHB = (typeof overrideAmount === 'number' && overrideAmount > 0) ? overrideAmount : originalTotal;
+
+    // If total was adjusted, redistribute proportionally across orders
+    if (totalTHB !== originalTotal && originalTotal > 0) {
+      const ratio = totalTHB / originalTotal;
+      await Promise.all(orders.map(o =>
+        Order.updateOne({ _id: o._id }, { $set: { soldTHB: Math.round((o.soldTHB || 0) * ratio) } })
+      ));
+    }
     const combinedProducts = orders.map(o => `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${o.product?.replace(/^\d+x\s/, '')}`).join(' + ');
 
     const origin = req.headers.get('origin') || `https://${req.headers.get('host')}`;

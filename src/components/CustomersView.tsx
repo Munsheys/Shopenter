@@ -126,6 +126,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [actingOrderIds, setActingOrderIds] = useState<Set<string>>(new Set());
   const [batchActing, setBatchActing] = useState(false);
+  const [batchEditTotal, setBatchEditTotal] = useState('');
   const [listWidth, setListWidth] = useState(300);
   const [chatWidth, setChatWidth] = useState(280);
   const [platformFilter, setPlatformFilter] = useState<'all' | 'line' | 'instagram' | 'telegram'>('all');
@@ -409,13 +410,25 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
   async function sendBatchQR(ids: string[]) {
     setBatchActing(true);
+    const override = parseFloat(batchEditTotal);
+    const hasOverride = !isNaN(override) && override > 0 && override !== selectedTotal;
     try {
       await fetch('/api/orders/batch/send-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderIds: ids }),
+        body: JSON.stringify({ orderIds: ids, ...(hasOverride ? { overrideAmount: override } : {}) }),
       });
-      setAllOrders(prev => prev.map(o => ids.includes(o._id) ? { ...o, paymentQrSent: true } : o));
+      if (hasOverride) {
+        // Reflect proportional redistribution in local state
+        const ratio = override / selectedTotal;
+        setAllOrders(prev => prev.map(o =>
+          ids.includes(o._id)
+            ? { ...o, paymentQrSent: true, soldTHB: Math.round((o.soldTHB || 0) * ratio) }
+            : o
+        ));
+      } else {
+        setAllOrders(prev => prev.map(o => ids.includes(o._id) ? { ...o, paymentQrSent: true } : o));
+      }
       if (selectedCustomer) loadMessages(selectedCustomer.userId);
       setSelectedOrderIds(new Set());
     } finally {
@@ -600,6 +613,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const pendingOrders = activeOrders.filter(o => o.status === 'pending');
   const selectedTotal = activeOrders.filter(o => selectedOrderIds.has(o._id)).reduce((s, o) => s + (o.soldTHB || 0), 0);
   const allPendingSelected = pendingOrders.length > 0 && pendingOrders.every(o => selectedOrderIds.has(o._id));
+  // Sync editable total whenever selection changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setBatchEditTotal(String(selectedTotal)); }, [selectedTotal, selectedOrderIds.size]);
   const parcelOrders = customerOrders.filter(o => o.status === 'preparing');
   const shippedOrders = customerOrders.filter(o => ['shipped', 'delivered', 'cancelled'].includes(o.status));
 
@@ -903,35 +919,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         </button>
                       )}
                     </div>
-                    {selectedOrderIds.size > 0 && (
-                      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-2 ${isDark ? 'bg-accent/10 border border-accent/20' : 'bg-accent/5 border border-accent/20'}`}>
-                        <span className="text-xs font-bold text-accent flex-1">
-                          {selectedOrderIds.size} selected · ฿{fmt(selectedTotal)}
-                        </span>
-                        <button
-                          onClick={() => sendBatchQR([...selectedOrderIds])}
-                          disabled={batchActing}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold hover:bg-amber-500 transition-all active:scale-95 disabled:opacity-50"
-                        >
-                          <QrCode size={11} /> {batchActing ? 'Sending...' : 'Combined QR'}
-                        </button>
-                        <button
-                          onClick={() => markBatchPaid([...selectedOrderIds])}
-                          disabled={batchActing}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
-                          style={{ background: 'var(--accent-gradient)' }}
-                        >
-                          <CheckCircle size={11} /> {batchActing ? 'Processing...' : 'Mark All Paid'}
-                        </button>
-                        <button
-                          onClick={() => setSelectedOrderIds(new Set())}
-                          disabled={batchActing}
-                          className={`p-1.5 rounded-lg ${k.muted} ${k.hover} transition-colors disabled:opacity-40`}
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                       {activeOrders.map(order => (
                         <ActiveOrderCard key={order._id} order={order} isDark={isDark} k={k}
@@ -1509,6 +1496,44 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         </div>
       )}
 
+      {/* ── Floating batch selection toolbar ── */}
+      {selectedOrderIds.size > 0 && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3 py-2 rounded-2xl border shadow-2xl w-fit max-w-[90vw] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
+          <span className={`text-xs font-bold text-accent whitespace-nowrap`}>{selectedOrderIds.size} selected</span>
+          <div className="flex items-center gap-1">
+            <span className={`text-[10px] font-semibold ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>฿</span>
+            <input
+              type="number"
+              value={batchEditTotal}
+              onChange={e => setBatchEditTotal(e.target.value)}
+              className={`w-24 text-xs font-black rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1f2335] border-[#2a3050] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]'}`}
+            />
+          </div>
+          <button
+            onClick={() => sendBatchQR([...selectedOrderIds])}
+            disabled={batchActing}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold hover:bg-amber-500 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+          >
+            <QrCode size={11} /> {batchActing ? 'Sending...' : 'Combined QR'}
+          </button>
+          <button
+            onClick={() => markBatchPaid([...selectedOrderIds])}
+            disabled={batchActing}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+            style={{ background: 'var(--accent-gradient)' }}
+          >
+            <CheckCircle size={11} /> {batchActing ? 'Processing...' : 'Mark All Paid'}
+          </button>
+          <button
+            onClick={() => setSelectedOrderIds(new Set())}
+            disabled={batchActing}
+            className={`p-1.5 rounded-lg transition-colors disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:bg-white/10' : 'text-[#8b92ad] hover:bg-black/5'}`}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
       <ConfirmModal config={confirm} onClose={() => setConfirm(v => ({ ...v, open: false }))} isDark={isDark} k={k} />
     </div>
   );
@@ -1685,11 +1710,6 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onSend
           {!editable && order.status !== 'cancelled' && (
             <button onClick={() => setIsEditing(!isEditing)} aria-label="Edit order" className={`p-1 rounded-md transition-colors ${isEditing ? 'text-accent bg-accent/10' : 'text-[#8b92ad] hover:text-accent'}`}>
               <Pencil size={12} />
-            </button>
-          )}
-          {onCancel && !['cancelled', 'delivered'].includes(order.status) && (
-            <button onClick={onCancel} aria-label="Cancel order" title="Cancel order" className="text-[#8b92ad] hover:text-rose-500 transition-colors p-1">
-              <X size={13} />
             </button>
           )}
           <button onClick={onDelete} aria-label="Delete order" className="text-[#8b92ad] hover:text-red-500 transition-colors p-1">
