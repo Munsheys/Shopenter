@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ALL_CURRENCIES } from '@/components/ProductManagement';
 import {
   Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check,
   ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle, Bell,
@@ -899,14 +900,14 @@ export default function SettingsView({
                     <div>
                       <label className={lbl}>Cost Currency</label>
                       <select value={settings.importCurrency || 'KRW'} onChange={e => set('importCurrency', e.target.value)} className={inputCls}>
-                        {['THB','KRW','USD','EUR','JPY','CNY','GBP','HKD','SGD','TWD'].map(c => <option key={c} value={c}>{c}</option>)}
+                        {ALL_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                       <p className={hint}>Currency you pay when sourcing</p>
                     </div>
                     <div>
                       <label className={lbl}>Selling Currency</label>
                       <select value={settings.localCurrency || 'THB'} onChange={e => set('localCurrency', e.target.value)} className={inputCls}>
-                        {['THB','JPY','TWD','KRW','USD','EUR','GBP','SGD','MYR','IDR','PHP','VND','AUD','HKD'].map(c => <option key={c} value={c}>{c}</option>)}
+                        {ALL_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                       <p className={hint}>Price shown on storefront and LINE messages</p>
                     </div>

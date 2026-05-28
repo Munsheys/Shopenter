@@ -30,6 +30,8 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export const ALL_CURRENCIES = ['THB','JPY','TWD','KRW','USD','EUR','GBP','SGD','MYR','IDR','PHP','VND','AUD','HKD','CNY'];
+
 // --- Color presets (shared across all merchants) ---
 const COLOR_PRESETS: { name: string; hex: string }[] = [
   { name: 'Black',     hex: '#111111' }, { name: 'White',    hex: '#FFFFFF' },
@@ -724,10 +726,7 @@ export function ProductModal({
                       className={cn("col-span-2 border rounded-xl px-3 py-2.5 text-sm font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
                     <select value={form.soldCurrency} onChange={e => updateForm({ soldCurrency: e.target.value })}
                       className={cn("border rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}>
-                      <option>THB</option>
-                      <option>USD</option>
-                      <option>KRW</option>
-                      <option>JPY</option>
+                      {ALL_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                 </div>
@@ -738,10 +737,7 @@ export function ProductModal({
                       className={cn("col-span-2 border rounded-xl px-3 py-2.5 text-sm font-bold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
                     <select value={form.costCurrency} onChange={e => updateForm({ costCurrency: e.target.value })}
                       className={cn("border rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}>
-                      <option>THB</option>
-                      <option>USD</option>
-                      <option>KRW</option>
-                      <option>JPY</option>
+                      {ALL_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                 </div>
