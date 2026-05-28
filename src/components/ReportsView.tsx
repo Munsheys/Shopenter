@@ -204,7 +204,8 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   }, [orders, dateRange, prevFrom, prevTo]);
 
   // Cancelled orders are excluded from all revenue/profit KPIs and charts
-  // billableOrders = all non-cancelled; confirmedOrders = paid money secured (excludes pending)
+  // billableOrders = all non-cancelled (for volume/count metrics)
+  // confirmedOrders = paid money secured — excludes pending (for financial metrics)
   const billableOrders = useMemo(
     () => filteredOrders.filter(o => o.status !== 'cancelled'),
     [filteredOrders],
@@ -222,24 +223,35 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     [filteredOrders],
   );
 
+  const pendingCount = useMemo(
+    () => filteredOrders.filter(o => o.status === 'pending').length,
+    [filteredOrders],
+  );
+
   const billablePrevOrders = useMemo(
     () => prevOrders.filter(o => o.status !== 'cancelled'),
+    [prevOrders],
+  );
+
+  const confirmedPrevOrders = useMemo(
+    () => prevOrders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status)),
     [prevOrders],
   );
 
   // ── KPI stats ───────────────────────────────────────────────────────────────
 
   const kpi = useMemo(() => {
-    const calc = (arr: any[]) => {
-      const revenue  = arr.reduce((s, o) => s + (o.soldTHB || 0), 0);
-      const profit   = arr.reduce((s, o) => s + (o.profit || 0), 0);
-      const shipCost = arr.reduce((s, o) => s + (o.shipCostTHB || 0), 0);
-      const count    = arr.length;
-      const aov      = count > 0 ? revenue / count : 0;
+    // financialArr drives revenue/profit/aov; volumeCount drives the Orders headline
+    const calc = (financialArr: any[], volumeCount: number) => {
+      const revenue  = financialArr.reduce((s, o) => s + (o.soldTHB || 0), 0);
+      const profit   = financialArr.reduce((s, o) => s + (o.profit || 0), 0);
+      const shipCost = financialArr.reduce((s, o) => s + (o.shipCostTHB || 0), 0);
+      const count    = volumeCount;
+      const aov      = financialArr.length > 0 ? revenue / financialArr.length : 0;
       const margin   = revenue > 0 ? (profit / revenue) * 100 : 0;
 
       const customerMap = new Map<string, number>();
-      arr.forEach(o => {
+      financialArr.forEach(o => {
         const id = o.userId || o.displayName || 'anon';
         customerMap.set(id, (customerMap.get(id) || 0) + 1);
       });
@@ -249,10 +261,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
 
       return { revenue, profit, shipCost, count, aov, margin, uniqueCustomers, repeatCustomers, repeatRate };
     };
-    const curr = calc(confirmedOrders);
-    const prev = calc(billablePrevOrders);
+    const curr = calc(confirmedOrders, billableOrders.length);
+    const prev = calc(confirmedPrevOrders, billablePrevOrders.length);
     return { curr, prev };
-  }, [confirmedOrders, billablePrevOrders]);
+  }, [confirmedOrders, confirmedPrevOrders, billableOrders, billablePrevOrders]);
 
   const trends = useMemo(() => {
     if (dateRange === 'all') return {};
@@ -273,7 +285,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     const useWeeks = dateRange === 'all' && filteredOrders.length > 90;
     const groups = new Map<string, { rev: number; profit: number; ship: number }>();
 
-    const sorted = [...billableOrders].sort(
+    const sorted = [...confirmedOrders].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
 
@@ -324,7 +336,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         },
       ],
     };
-  }, [billableOrders, accentColor, isDark, dateRange]);
+  }, [confirmedOrders, accentColor, isDark, dateRange]);
 
   const chartOptions = useMemo(() => ({
     maintainAspectRatio: false,
@@ -369,7 +381,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
 
   const topProducts = useMemo(() => {
     const map = new Map<string, { name: string; qty: number; revenue: number }>();
-    billableOrders.forEach(o => {
+    confirmedOrders.forEach(o => {
       o.items?.forEach((item: any) => {
         const key = item.productId || item.name || 'unknown';
         const e = map.get(key) || { name: item.name || 'Unknown', qty: 0, revenue: 0 };
@@ -381,13 +393,13 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
     const maxRev = sorted[0]?.revenue || 1;
     return sorted.map(p => ({ ...p, pct: (p.revenue / maxRev) * 100 }));
-  }, [billableOrders]);
+  }, [confirmedOrders]);
 
   // ── Top customers ───────────────────────────────────────────────────────────
 
   const topCustomers = useMemo(() => {
     const map = new Map<string, { name: string; orders: number; revenue: number }>();
-    billableOrders.forEach(o => {
+    confirmedOrders.forEach(o => {
       const key = o.userId || o.displayName || 'anon';
       const e = map.get(key) || { name: o.displayName || 'Unknown', orders: 0, revenue: 0 };
       e.orders++;
@@ -397,7 +409,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
     const maxRev = sorted[0]?.revenue || 1;
     return sorted.map(c => ({ ...c, pct: (c.revenue / maxRev) * 100, aov: c.orders > 0 ? c.revenue / c.orders : 0 }));
-  }, [billableOrders]);
+  }, [confirmedOrders]);
 
   // ── Day-of-week pattern ─────────────────────────────────────────────────────
 
@@ -445,7 +457,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
 
   const courierStats = useMemo(() => {
     const map = new Map<string, number>();
-    filteredOrders.forEach(o => {
+    billableOrders.forEach(o => {
       if (!o.courier) return;
       map.set(o.courier, (map.get(o.courier) || 0) + 1);
     });
@@ -453,19 +465,19 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     return [...map.entries()]
       .sort(([, a], [, b]) => b - a)
       .map(([name, count]) => ({ name, count, pct: (count / total) * 100 }));
-  }, [filteredOrders]);
+  }, [billableOrders]);
 
-  const ordersWithCourier = filteredOrders.filter(o => o.courier).length;
-  const ordersWithoutCourier = filteredOrders.length - ordersWithCourier;
+  const ordersWithCourier = billableOrders.filter(o => o.courier).length;
+  const ordersWithoutCourier = billableOrders.length - ordersWithCourier;
 
   // ── Coupon & discount impact ────────────────────────────────────────────────
 
   const discountStats = useMemo(() => {
     const couponMap = new Map(coupons.map((c: any) => [c.code, c]));
-    const withCoupon = filteredOrders.filter(o => o.couponCode);
-    const totalDiscount = filteredOrders.reduce((s, o) => s + (o.discountAmount || 0), 0);
-    const totalPoints   = filteredOrders.reduce((s, o) => s + (o.redeemedPoints  || 0), 0);
-    const couponRate    = filteredOrders.length > 0 ? (withCoupon.length / filteredOrders.length) * 100 : 0;
+    const withCoupon = billableOrders.filter(o => o.couponCode);
+    const totalDiscount = billableOrders.reduce((s, o) => s + (o.discountAmount || 0), 0);
+    const totalPoints   = billableOrders.reduce((s, o) => s + (o.redeemedPoints  || 0), 0);
+    const couponRate    = billableOrders.length > 0 ? (withCoupon.length / billableOrders.length) * 100 : 0;
     const avgDiscount   = withCoupon.length > 0 ? totalDiscount / withCoupon.length : 0;
 
     const perCode = new Map<string, { type: string; uses: number; totalDiscount: number }>();
@@ -482,7 +494,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       .map(([code, d]) => ({ code, ...d }));
 
     return { withCoupon: withCoupon.length, couponRate, totalDiscount, totalPoints, avgDiscount, topCodes };
-  }, [filteredOrders, coupons]);
+  }, [billableOrders, coupons]);
 
   // ── CSV export ──────────────────────────────────────────────────────────────
 
@@ -541,9 +553,11 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
             Analytics & Reports
           </h2>
           <p className={cn('text-xs mt-1', muted)}>
-            {filteredOrders.length} orders · {windowDays} day window
-            {dateRange !== 'all' && prevOrders.length > 0 && (
-              <span> · vs {prevOrders.length} orders prior period</span>
+            {billableOrders.length} order{billableOrders.length !== 1 ? 's' : ''}
+            {pendingCount > 0 && <span className="text-amber-500 font-bold"> · {pendingCount} pending</span>}
+            {' '}· {windowDays} day window
+            {dateRange !== 'all' && billablePrevOrders.length > 0 && (
+              <span> · vs {billablePrevOrders.length} prior period</span>
             )}
           </p>
         </div>
@@ -594,7 +608,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           icon={<ShoppingCart size={20} />}
           label="Orders"
           value={kpi.curr.count.toString()}
-          sub={`${(kpi.curr.count / windowDays).toFixed(1)}/day`}
+          sub={`${(kpi.curr.count / windowDays).toFixed(1)}/day${pendingCount > 0 ? ` · ${pendingCount} pending` : ''}`}
           trend={trends.count}
         />
         <KpiCard
@@ -618,7 +632,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           label="Shipping Cost"
           value={fmt(kpi.curr.shipCost, currency)}
           sub={kpi.curr.revenue > 0 ? `${((kpi.curr.shipCost / kpi.curr.revenue) * 100).toFixed(1)}% of revenue` : undefined}
-          trend={trends.shipCost != null ? (trends.shipCost !== null ? -trends.shipCost : null) : null}
+          trend={trends.shipCost != null ? -trends.shipCost : null}
         />
       </div>
 
@@ -808,7 +822,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         </SectionCard>
 
         {/* Courier breakdown */}
-        <SectionCard theme={theme} title="Courier Breakdown" sub={`${ordersWithCourier} of ${filteredOrders.length} orders tracked`}>
+        <SectionCard theme={theme} title="Courier Breakdown" sub={`${ordersWithCourier} of ${billableOrders.length} orders tracked`}>
           {isLoading ? (
             <div className="py-8 flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-t-transparent border-accent rounded-full animate-spin" />
