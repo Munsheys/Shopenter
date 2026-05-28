@@ -1106,6 +1106,11 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     if (typeof window !== 'undefined') return parseInt(localStorage.getItem('catalogCardSize') || '3');
     return 3;
   });
+  const [productsPerPage, setProductsPerPage] = useState<number>(() => {
+    if (typeof window !== 'undefined') return parseInt(localStorage.getItem('catalogProductsPerPage') || '25');
+    return 25;
+  });
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
@@ -1209,6 +1214,14 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     });
     return result;
   }, [products, searchTerm, brandFilter, categoryFilter, sortOrder]);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * productsPerPage;
+    const end = start + productsPerPage;
+    return filteredProducts.slice(start, end);
+  }, [filteredProducts, currentPage, productsPerPage]);
+
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
 
   const stats = useMemo(() => ({ total: products.length, active: products.filter(p => p.isActive).length }), [products]);
   const normalizedEditingProduct = useMemo(() => editingProduct ? normalizeToForm(editingProduct) : null, [editingProduct]);
@@ -1551,15 +1564,48 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           {/* Card size control */}
           <div className={cn("flex items-center gap-1 pl-3 border-l", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
             <button
-              onClick={() => { const n = Math.max(1, cardSize - 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
-              disabled={cardSize === 1}
-              className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
-            >−</button>
-            <button
               onClick={() => { const n = Math.min(5, cardSize + 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
               disabled={cardSize === 5}
               className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
+            >−</button>
+            <button
+              onClick={() => { const n = Math.max(1, cardSize - 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
+              disabled={cardSize === 1}
+              className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
             >+</button>
+          </div>
+
+          {/* Pagination controls */}
+          <div className={cn("flex items-center gap-2 pl-3 border-l", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
+            {[25, 50, 100].map(n => (
+              <button
+                key={n}
+                onClick={() => { setProductsPerPage(n); localStorage.setItem('catalogProductsPerPage', String(n)); setCurrentPage(1); }}
+                className={cn(
+                  "px-2 py-1 rounded-lg text-xs font-bold border transition-all active:scale-90",
+                  productsPerPage === n
+                    ? "bg-accent text-white border-accent"
+                    : theme === 'dark'
+                    ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]"
+                    : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]"
+                )}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              onClick={() => { setProductsPerPage(products.length); localStorage.setItem('catalogProductsPerPage', String(products.length)); setCurrentPage(1); }}
+              className={cn(
+                "px-2 py-1 rounded-lg text-xs font-bold border transition-all active:scale-90",
+                productsPerPage > 100
+                  ? "bg-accent text-white border-accent"
+                  : theme === 'dark'
+                  ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]"
+                  : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]"
+              )}
+            >
+              All
+            </button>
           </div>
         </div>
       </div>
@@ -1631,6 +1677,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       {isLoading ? (
         <LoadingView theme={theme} message="Loading Product Catalog..." />
       ) : (
+        <>
         <div className={cn("grid gap-6", {
           1: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-2',
           2: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3',
@@ -1638,9 +1685,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
           5: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6',
         }[cardSize] || 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4')}>
-          {filteredProducts.map(p => (
+          {paginatedProducts.map(p => (
             <ProductCard key={p._id} product={p} theme={theme}
               onEdit={() => { setEditingProduct(p); setIsModalOpen(true); }}
+              onCardClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
               onDelete={() => setDeleteConfirm(p._id)}
               onToggleVisibility={() => toggleVisibility(p)}
               onManageStock={() => setStockProduct(p)}
@@ -1672,6 +1720,35 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             </div>
           )}
         </div>
+
+        {/* Pagination controls */}
+        {filteredProducts.length > 0 && (
+          <div className={cn("mt-6 flex items-center justify-between px-4 py-3 rounded-xl border", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+            <div className={cn("text-xs font-semibold", theme === 'dark' ? "text-[#8b92ad]" : "text-slate-600")}>
+              Showing {(currentPage - 1) * productsPerPage + 1}–{Math.min(currentPage * productsPerPage, filteredProducts.length)} of {filteredProducts.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className={cn("px-3 py-1.5 rounded-lg text-xs font-bold border transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:bg-[#f4f6f9]")}
+              >
+                ← Prev
+              </button>
+              <div className={cn("text-xs font-semibold px-3 py-1.5", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
+                {currentPage} / {totalPages}
+              </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className={cn("px-3 py-1.5 rounded-lg text-xs font-bold border transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:bg-[#f4f6f9]")}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
 
       <ProductModal theme={theme} isOpen={isModalOpen}
@@ -1821,7 +1898,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   );
 });
 
-function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onManageStock, hasPendingEdit, selected, onSelect }: any) {
+function ProductCard({ product, theme, onEdit, onCardClick, onDelete, onToggleVisibility, onManageStock, hasPendingEdit, selected, onSelect }: any) {
   const displayImage = product.images?.[0] || product.imageUrl;
   const totalStock = product.trackStock
     ? (product.variants?.reduce((s: number, v: any) => s + (v.stock ?? 0), 0) ?? 0)
@@ -1829,8 +1906,9 @@ function ProductCard({ product, theme, onEdit, onDelete, onToggleVisibility, onM
 
   return (
     <div
+      onClick={onCardClick}
       className={cn(
-        "rounded-[32px] border p-5 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden flex flex-col h-full",
+        "rounded-[32px] border p-5 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden flex flex-col h-full cursor-pointer",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]",
         !product.isActive && "opacity-60",
         selected && "ring-2 ring-accent border-accent/40"
