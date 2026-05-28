@@ -203,6 +203,17 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     });
   }, [orders, dateRange, prevFrom, prevTo]);
 
+  // Cancelled orders are excluded from all revenue/profit KPIs and charts
+  const billableOrders = useMemo(
+    () => filteredOrders.filter(o => o.status !== 'cancelled'),
+    [filteredOrders],
+  );
+
+  const billablePrevOrders = useMemo(
+    () => prevOrders.filter(o => o.status !== 'cancelled'),
+    [prevOrders],
+  );
+
   // ── KPI stats ───────────────────────────────────────────────────────────────
 
   const kpi = useMemo(() => {
@@ -225,10 +236,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
 
       return { revenue, profit, shipCost, count, aov, margin, uniqueCustomers, repeatCustomers, repeatRate };
     };
-    const curr = calc(filteredOrders);
-    const prev = calc(prevOrders);
+    const curr = calc(billableOrders);
+    const prev = calc(billablePrevOrders);
     return { curr, prev };
-  }, [filteredOrders, prevOrders]);
+  }, [billableOrders, billablePrevOrders]);
 
   const trends = useMemo(() => {
     if (dateRange === 'all') return {};
@@ -249,7 +260,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     const useWeeks = dateRange === 'all' && filteredOrders.length > 90;
     const groups = new Map<string, { rev: number; profit: number; ship: number }>();
 
-    const sorted = [...filteredOrders].sort(
+    const sorted = [...billableOrders].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
 
@@ -300,7 +311,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         },
       ],
     };
-  }, [filteredOrders, accentColor, isDark, dateRange]);
+  }, [billableOrders, accentColor, isDark, dateRange]);
 
   const chartOptions = useMemo(() => ({
     maintainAspectRatio: false,
@@ -345,7 +356,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
 
   const topProducts = useMemo(() => {
     const map = new Map<string, { name: string; qty: number; revenue: number }>();
-    filteredOrders.forEach(o => {
+    billableOrders.forEach(o => {
       o.items?.forEach((item: any) => {
         const key = item.productId || item.name || 'unknown';
         const e = map.get(key) || { name: item.name || 'Unknown', qty: 0, revenue: 0 };
@@ -357,13 +368,13 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
     const maxRev = sorted[0]?.revenue || 1;
     return sorted.map(p => ({ ...p, pct: (p.revenue / maxRev) * 100 }));
-  }, [filteredOrders]);
+  }, [billableOrders]);
 
   // ── Top customers ───────────────────────────────────────────────────────────
 
   const topCustomers = useMemo(() => {
     const map = new Map<string, { name: string; orders: number; revenue: number }>();
-    filteredOrders.forEach(o => {
+    billableOrders.forEach(o => {
       const key = o.userId || o.displayName || 'anon';
       const e = map.get(key) || { name: o.displayName || 'Unknown', orders: 0, revenue: 0 };
       e.orders++;
@@ -373,14 +384,14 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
     const maxRev = sorted[0]?.revenue || 1;
     return sorted.map(c => ({ ...c, pct: (c.revenue / maxRev) * 100, aov: c.orders > 0 ? c.revenue / c.orders : 0 }));
-  }, [filteredOrders]);
+  }, [billableOrders]);
 
   // ── Day-of-week pattern ─────────────────────────────────────────────────────
 
   const dowData = useMemo(() => {
     const counts  = new Array(7).fill(0);
     const revenue = new Array(7).fill(0);
-    filteredOrders.forEach(o => {
+    billableOrders.forEach(o => {
       const d = new Date(o.createdAt).getDay();
       counts[d]++;
       revenue[d] += o.soldTHB || 0;
@@ -397,7 +408,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         },
       ],
     };
-  }, [filteredOrders, accentColor]);
+  }, [billableOrders, accentColor]);
 
   const dowOptions = useMemo(() => ({
     maintainAspectRatio: false,
