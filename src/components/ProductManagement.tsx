@@ -77,6 +77,7 @@ interface Product {
   variants: any[];
   isActive: boolean;
   trackStock?: boolean;
+  isQuickAdd?: boolean;
 }
 
 export interface ProductForm {
@@ -1966,6 +1967,12 @@ function ProductCard({ product, theme, onEdit, onCardClick, onDelete, onToggleVi
           )}
         </div>
         <h3 className={cn("font-bold text-base mb-1", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{product.name}</h3>
+        {product.isQuickAdd && (
+          <div className="flex items-center gap-1 mb-1.5 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 w-fit">
+            <AlertCircle size={9} className="text-amber-500 flex-shrink-0" />
+            <span className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wide">Incomplete · add more info</span>
+          </div>
+        )}
         <div className="flex flex-wrap gap-1.5 mb-3">
           {product.categories?.slice(0, 2).map((c: string) => (
             <span key={c} className={cn("px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>{c}</span>

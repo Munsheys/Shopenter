@@ -6,7 +6,7 @@ import {
   Package, CheckCircle, QrCode, ChevronRight, ChevronLeft, MapPin,
   Clock, Printer, History, ChevronDown, AlertTriangle, Pencil, Check,
 } from 'lucide-react';
-import { ProductModal, type ProductForm } from './ProductManagement';
+import { type ProductForm } from './ProductManagement';
 import NumberStepper from '@/components/NumberStepper';
 
 type Customer = {
@@ -43,8 +43,9 @@ type Message = {
 };
 type Product = {
   _id: string; name: string; brand?: string; price: number; imageUrl?: string;
+  isQuickAdd?: boolean;
   options?: { name: string; values: string[] }[];
-  variants?: { combination?: Record<string, string>; variantName?: string; colors?: string[]; price?: number }[];
+  variants?: { combination?: Record<string, string>; variantName?: string; colors?: string[]; price?: number; cost?: number }[];
 };
 
 const COST_CURRENCIES = ['THB', 'KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'];
@@ -133,9 +134,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [qoMode, setQoMode] = useState<'existing' | 'new'>('existing');
   const [qoSearch, setQoSearch] = useState('');
   const [qoSelected, setQoSelected] = useState<Product | null>(null);
+  const [qoVariantSel, setQoVariantSel] = useState<Record<string, string>>({});
   const [qoNewProduct, setQoNewProduct] = useState<Product | null>(null);
-  const [showNewProductModal, setShowNewProductModal] = useState(false);
-  const [newProductSaving, setNewProductSaving] = useState(false);
+  const [qoQuickName, setQoQuickName] = useState('');
+  const [qoQuickPrice, setQoQuickPrice] = useState('');
+  const [qoQuickOpts, setQoQuickOpts] = useState<{ name: string; value: string }[]>([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]);
+  const [qoQuickSaving, setQoQuickSaving] = useState(false);
   const [qoPrice, setQoPrice] = useState('');
   const [qoCostPrice, setQoCostPrice] = useState('');
   const [qoCostCurrency, setQoCostCurrency] = useState('KRW');
@@ -305,7 +309,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
   const closeQuickOrder = useCallback(() => {
     setShowModal(false);
-    setQoMode('existing'); setQoNewProduct(null); setQoSelected(null); setQoSearch(''); setQoPrice(''); setQoCostPrice(''); setQoQty(1);
+    setQoMode('existing'); setQoNewProduct(null); setQoSelected(null); setQoSearch(''); setQoVariantSel({});
+    setQoPrice(''); setQoCostPrice(''); setQoQty(1);
+    setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]);
   }, []);
 
   useEffect(() => {
@@ -438,6 +444,15 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     if (!product) return;
     const price = parseFloat(qoPrice) || product.price;
     const costAmount = parseFloat(qoCostPrice) || 0;
+
+    // Build variant label for order name
+    const variantLabel = qoMode === 'existing' && Object.keys(qoVariantSel).length > 0
+      ? Object.values(qoVariantSel).filter(Boolean).join(' · ')
+      : qoMode === 'new' && qoQuickOpts.some(o => o.value.trim())
+        ? qoQuickOpts.filter(o => o.value.trim()).map(o => o.value.trim()).join(' · ')
+        : '';
+    const productLabel = variantLabel ? `${product.name} (${variantLabel})` : product.name;
+
     setQoSubmitting(true);
     try {
       const res = await fetch('/api/orders', {
@@ -446,9 +461,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         body: JSON.stringify({
           userId: selectedCustomer.userId,
           displayName: selectedCustomer.displayName,
-          product: `${qoQty > 1 ? `${qoQty}x ` : ''}${product.name}`,
+          product: `${qoQty > 1 ? `${qoQty}x ` : ''}${productLabel}`,
           quantity: qoQty,
-          items: [{ productId: product._id, name: product.name, qty: qoQty, price }],
+          items: [{ productId: product._id, name: productLabel, qty: qoQty, price }],
           soldTHB: price * qoQty,
           costKRW: costAmount,
           costCurrency: qoCostCurrency,
@@ -460,47 +475,43 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         setAllOrders(prev => [order, ...prev]);
         setShowModal(false);
         setQoPrice(''); setQoCostPrice('');
-        setQoQty(1); setQoSelected(null); setQoSearch('');
+        setQoQty(1); setQoSelected(null); setQoSearch(''); setQoVariantSel({});
         setQoNewProduct(null); setQoMode('existing');
+        setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]);
         setQoCostCurrency(merchantSettings?.importCurrency || 'KRW');
       }
     } finally { setQoSubmitting(false); }
   }
 
-  async function handleNewProductSave(form: ProductForm) {
-    setNewProductSaving(true);
+  async function handleQuickAdd() {
+    if (!qoQuickName.trim() || qoQuickSaving) return;
+    setQoQuickSaving(true);
+    const filledOpts = qoQuickOpts.filter(o => o.name.trim() && o.value.trim());
+    const price = parseFloat(qoQuickPrice) || 0;
+    const combination: Record<string, string> = {};
+    filledOpts.forEach(o => { combination[o.name] = o.value; });
     try {
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: form.name,
-          brand: form.brand || undefined,
-          modelLine: form.modelLine || undefined,
-          description: form.description || undefined,
-          price: parseFloat(form.price as any) || 0,
-          categories: form.categories,
-          imageUrl: form.images?.[0] || undefined,
-          images: form.images || [],
+          name: qoQuickName.trim(),
+          price,
           isActive: true,
-          variants: form.variants.map(v => ({
-            ...v,
-            price: parseFloat(v.price as any) || 0,
-            cost: parseFloat(v.cost as any) || 0,
-            stock: parseInt(v.stock as any) || 0,
-          })),
+          isQuickAdd: true,
+          options: filledOpts.map(o => ({ name: o.name, values: [o.value] })),
+          variants: filledOpts.length > 0
+            ? [{ combination, imageUrl: '', price, cost: null, stock: 0 }]
+            : [],
         }),
       });
       if (res.ok) {
         const created = await res.json();
         setProducts(prev => [created, ...prev]);
         setQoNewProduct(created);
-        setQoPrice(String(created.price || 0));
-        setShowNewProductModal(false);
+        setQoPrice(String(price || 0));
       }
-    } finally {
-      setNewProductSaving(false);
-    }
+    } finally { setQoQuickSaving(false); }
   }
 
   async function addAddress(addr: string) {
@@ -598,21 +609,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     return !q || p.name.toLowerCase().includes(q) || (p.brand?.toLowerCase().includes(q) ?? false);
   });
 
-  const existingProductOptions = useMemo(() => {
-    const optionNames = new Set<string>();
-    const optionValues = new Set<string>();
-    products.forEach(p => {
-      p.options?.forEach((o: any) => { if (o.name) optionNames.add(o.name); o.values?.forEach((v: string) => optionValues.add(v)); });
-      p.variants?.forEach((v: any) => { if (v.variantName) { optionNames.add('Variant'); optionValues.add(v.variantName); } v.colors?.forEach((c: string) => { optionNames.add('Color'); optionValues.add(c); }); });
-    });
-    return {
-      brands: [...new Set(products.map(p => p.brand).filter((b): b is string => !!b))].sort(),
-      modelLines: [] as string[],
-      categories: [] as string[],
-      optionNames: Array.from(optionNames).sort(),
-      optionValues: Array.from(optionValues).sort(),
-    };
-  }, [products]);
 
   const visibleCustomers = customers.filter(c => {
     if (platformFilter !== 'all' && (c.platform ?? 'line') !== platformFilter) return false;
@@ -1231,7 +1227,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   </div>
                   <div className={`max-h-40 overflow-y-auto rounded-2xl border ${k.border} overflow-hidden`}>
                     {filteredProducts.slice(0, 15).map(p => (
-                      <button key={p._id} onClick={() => { setQoSelected(p); setQoPrice(String(p.price)); }}
+                      <button key={p._id} onClick={() => {
+                        setQoSelected(p);
+                        setQoVariantSel({});
+                        setQoPrice(String(p.price));
+                        // Auto-fill cost from phantom/first variant
+                        const baseCost = p.variants?.find(v => !v.combination || Object.keys(v.combination).length === 0)?.cost ?? p.variants?.[0]?.cost;
+                        if (baseCost != null) setQoCostPrice(String(baseCost));
+                      }}
                         className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
                           qoSelected?._id === p._id ? 'text-white' : `${k.hover} ${k.text}`
                         }`}
@@ -1242,29 +1245,96 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     ))}
                     {filteredProducts.length === 0 && <p className={`text-xs text-center py-4 ${k.muted}`}>No products found</p>}
                   </div>
+
+                  {/* Variant picker for selected product */}
+                  {qoSelected && qoSelected.options && qoSelected.options.length > 0 && (
+                    <div className={`rounded-xl border p-3 space-y-2 ${k.border} ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
+                      <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Variant</p>
+                      {qoSelected.options.map(opt => (
+                        <div key={opt.name} className="space-y-1">
+                          <p className={`text-[10px] font-semibold ${k.muted}`}>{opt.name}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {opt.values.map(v => {
+                              const sel = qoVariantSel[opt.name] === v;
+                              return (
+                                <button key={v} type="button" onClick={() => {
+                                  const newSel = { ...qoVariantSel, [opt.name]: v };
+                                  setQoVariantSel(newSel);
+                                  // Update price/cost from matching variant
+                                  const match = qoSelected.variants?.find(vr =>
+                                    Object.entries(newSel).every(([k2, val]) => vr.combination?.[k2] === val)
+                                  );
+                                  if (match?.price != null) setQoPrice(String(match.price));
+                                  if (match?.cost != null) setQoCostPrice(String(match.cost));
+                                }}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'text-white border-transparent' : `${k.border} ${k.muted} ${k.hover}`}`}
+                                  style={sel ? { background: 'var(--accent-gradient)' } : undefined}
+                                >{v}</button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
+                /* ── Inline quick-add form ── */
                 <div className="space-y-3">
                   {!qoNewProduct ? (
-                    <button
-                      onClick={() => setShowNewProductModal(true)}
-                      className={`w-full border-2 border-dashed rounded-2xl py-8 flex flex-col items-center gap-2 text-accent hover:bg-accent/5 transition-all ${isDark ? 'border-accent/20' : 'border-accent/30'}`}
-                    >
-                      <Plus size={20} />
-                      <span className="text-sm font-bold">Create New Product</span>
-                      <span className={`text-[10px] ${k.muted}`}>Opens the full catalog form</span>
-                    </button>
+                    <div className={`rounded-xl border p-3 space-y-3 ${k.border}`}>
+                      <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Quick-add product</p>
+
+                      <input value={qoQuickName} onChange={e => setQoQuickName(e.target.value)}
+                        placeholder="Product name *"
+                        className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all font-semibold ${k.input}`} />
+
+                      <input type="number" value={qoQuickPrice} onChange={e => setQoQuickPrice(e.target.value)}
+                        placeholder="Price (optional — fill below if negotiating)"
+                        className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`} />
+
+                      <div className="space-y-2">
+                        <p className={`text-[10px] font-semibold ${k.muted}`}>Variant options for this order</p>
+                        {qoQuickOpts.map((opt, i) => (
+                          <div key={i} className="flex gap-2">
+                            <input value={opt.name} onChange={e => { const n = [...qoQuickOpts]; n[i] = { ...n[i], name: e.target.value }; setQoQuickOpts(n); }}
+                              placeholder="Option (e.g. Color)"
+                              className={`w-24 text-xs rounded-lg px-2 py-2 border outline-none focus:border-accent ${k.input}`} />
+                            <input value={opt.value} onChange={e => { const n = [...qoQuickOpts]; n[i] = { ...n[i], value: e.target.value }; setQoQuickOpts(n); }}
+                              placeholder="Value (e.g. Red)"
+                              className={`flex-1 text-xs rounded-lg px-2 py-2 border outline-none focus:border-accent ${k.input}`} />
+                            <button type="button" onClick={() => setQoQuickOpts(qoQuickOpts.filter((_, j) => j !== i))}
+                              className={`px-2 rounded-lg text-red-400 hover:bg-red-500/10 ${k.border} border transition-colors`}>
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => setQoQuickOpts([...qoQuickOpts, { name: '', value: '' }])}
+                          className={`text-[10px] font-bold text-accent hover:underline flex items-center gap-1`}>
+                          <Plus size={10} /> Add option
+                        </button>
+                      </div>
+
+                      <button
+                        disabled={!qoQuickName.trim() || qoQuickSaving}
+                        onClick={handleQuickAdd}
+                        className="w-full py-2 rounded-xl text-xs font-black text-white disabled:opacity-40 transition-all active:scale-95"
+                        style={{ background: 'var(--accent-gradient)' }}
+                      >
+                        {qoQuickSaving ? 'Adding...' : 'Quick Add Product →'}
+                      </button>
+                      <p className={`text-[9px] ${k.muted} text-center`}>Product will be flagged as incomplete — add full details later in the catalog.</p>
+                    </div>
                   ) : (
                     <div className={`flex items-center gap-3 p-3 rounded-xl border ${k.border} ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
-                      {qoNewProduct.imageUrl && (
-                        <img src={qoNewProduct.imageUrl} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" alt="" />
-                      )}
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm font-bold truncate ${k.text}`}>{qoNewProduct.name}</p>
-                        {qoNewProduct.brand && <p className={`text-[10px] ${k.muted}`}>{qoNewProduct.brand}</p>}
+                        {qoQuickOpts.filter(o => o.value.trim()).length > 0 && (
+                          <p className={`text-[10px] ${k.muted}`}>{qoQuickOpts.filter(o => o.value.trim()).map(o => `${o.name}: ${o.value}`).join(', ')}</p>
+                        )}
                       </div>
                       <button
-                        onClick={() => setShowNewProductModal(true)}
+                        onClick={() => { setQoNewProduct(null); setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts([{ name: 'Color', value: '' }, { name: 'Size', value: '' }]); }}
                         className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${k.border} ${k.muted} ${k.hover} transition-colors`}
                       >
                         Change
@@ -1328,18 +1398,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         </div>
       )}
 
-      {showNewProductModal && (
-        <ProductModal
-          isOpen={showNewProductModal}
-          initialData={null}
-          onSave={handleNewProductSave}
-          onClose={() => setShowNewProductModal(false)}
-          isSaving={newProductSaving}
-          existingOptions={existingProductOptions}
-          theme={isDark ? 'dark' : 'light'}
-          quickOrderMode={true}
-        />
-      )}
 
       {/* Find Customer Modal */}
       {showFindCustomerModal && (

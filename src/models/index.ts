@@ -161,7 +161,8 @@ const ProductSchema = new mongoose.Schema({
     cost: Number,
     stock: { type: Number, default: 0 }
   }],
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+  isQuickAdd: { type: Boolean, default: false },
 });
 
 const CustomerSchema = new mongoose.Schema({
