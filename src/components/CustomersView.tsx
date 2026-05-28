@@ -5,6 +5,7 @@ import {
   MessageCircle, ShoppingCart, Send, Search, X, Plus, Minus, Trash2,
   Package, CheckCircle, QrCode, ChevronRight, ChevronLeft, MapPin,
   Clock, Printer, History, ChevronDown, AlertTriangle, Pencil, Check, Ban,
+  CornerUpLeft, Truck,
 } from 'lucide-react';
 import { type ProductForm } from './ProductManagement';
 import NumberStepper from '@/components/NumberStepper';
@@ -642,10 +643,13 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setBatchEditTotal(String(selectedTotal)); }, [selectedTotal, selectedOrderIds.size]);
   const parcelOrders = customerOrders.filter(o => o.status === 'preparing');
+  const inTransitOrders = customerOrders.filter(o => o.status === 'shipped');
+  const historyOrders = customerOrders.filter(o => ['delivered', 'cancelled'].includes(o.status));
+  // Keep combined list for places that still need all post-active orders
   const shippedOrders = customerOrders.filter(o => ['shipped', 'delivered', 'cancelled'].includes(o.status));
 
   const totalSpent = customerOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
-  const totalProfit = shippedOrders.reduce((s, o) => s + (o.profit || 0), 0);
+  const totalProfit = customerOrders.filter(o => o.status === 'delivered').reduce((s, o) => s + (o.profit || 0), 0);
 
   const filteredProducts = products.filter(p => {
     const q = qoSearch.toLowerCase();
@@ -966,9 +970,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 {parcelOrders.length > 0 && (
                   <section aria-label="Parcels awaiting shipment">
                     <div className="space-y-4">
-                      <ParcelContainer 
-                        orders={parcelOrders} 
-                        isDark={isDark} 
+                      <ParcelContainer
+                        orders={parcelOrders}
+                        isDark={isDark}
                         k={k}
                         merchantSettings={merchantSettings}
                         onPatch={(id, patch) => patchOrder(id, patch)}
@@ -979,8 +983,25 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             await patchOrder(o._id, { tracking, courier, address: addr, status: 'shipped' });
                           }
                         }}
-                        onAddItem={() => setShowModal(true)} 
+                        onAddItem={() => setShowModal(true)}
+                        onEditOrder={(order) => setEditingOrder({ id: order._id, name: order.product, sold: String(order.soldTHB || ''), qty: order.quantity || 1 })}
                       />
+                    </div>
+                  </section>
+                )}
+
+                {/* In Transit */}
+                {inTransitOrders.length > 0 && (
+                  <section aria-label="Orders in transit">
+                    <SectionLabel>In Transit</SectionLabel>
+                    <div className={`${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'} border rounded-3xl overflow-hidden mt-3`}>
+                      {inTransitOrders.map((order, i) => (
+                        <HistoryRow key={order._id} order={order} isDark={isDark} k={k}
+                          isLast={i === inTransitOrders.length - 1}
+                          onPatch={(patch) => patchOrder(order._id, patch)}
+                          onDelete={() => confirmDeleteOrder(order._id)}
+                        />
+                      ))}
                     </div>
                   </section>
                 )}
@@ -1002,26 +1023,26 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 {/* Order History */}
                 <section aria-label="Order history">
                   <div className="flex items-center justify-between mb-3">
-                    <SectionLabel>Fulfilled Order History</SectionLabel>
-                    {shippedOrders.length > 0 && (
+                    <SectionLabel>Order History</SectionLabel>
+                    {historyOrders.length > 0 && totalProfit > 0 && (
                       <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
                         Total profit: ฿{fmt(totalProfit)}
                       </span>
                     )}
                   </div>
-                  {shippedOrders.length === 0 ? (
+                  {historyOrders.length === 0 ? (
                     <div className={`${k.surface} border ${k.border} rounded-3xl p-8 text-center`}>
                       <div className={`w-10 h-10 rounded-2xl mx-auto mb-3 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'}`}>
                         <History size={18} className={`${k.muted} opacity-40`} />
                       </div>
-                      <p className={`text-xs font-semibold ${k.text}`}>No fulfilled orders yet</p>
-                      <p className={`text-[10px] mt-0.5 ${k.muted}`}>Shipped orders will appear here</p>
+                      <p className={`text-xs font-semibold ${k.text}`}>No completed orders yet</p>
+                      <p className={`text-[10px] mt-0.5 ${k.muted}`}>Delivered and cancelled orders will appear here</p>
                     </div>
                   ) : (
                     <div className={`${k.surface} border ${k.border} rounded-3xl overflow-hidden`}>
-                      {shippedOrders.map((order, i) => (
+                      {historyOrders.map((order, i) => (
                         <HistoryRow key={order._id} order={order} isDark={isDark} k={k}
-                          isLast={i === shippedOrders.length - 1}
+                          isLast={i === historyOrders.length - 1}
                           onPatch={(patch) => patchOrder(order._id, patch)}
                           onDelete={() => confirmDeleteOrder(order._id)}
                         />
@@ -1686,9 +1707,8 @@ const STATUS_LABEL: Record<string, string> = {
   shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
 };
 
-function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onEdit, onSendQR, onMarkPaid, onMoveToParcel, onCancel, selected, onToggleSelect, isActing }: {
+function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR, onMarkPaid, onMoveToParcel, onCancel, selected, onToggleSelect, isActing }: {
   order: Order; isDark: boolean; k: typeof DK;
-  editable?: boolean;
   onDelete: () => void;
   onPatch?: (patch: object) => void;
   onEdit?: () => void;
@@ -1741,7 +1761,7 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onEdit
           )}
         </div>
         <div className="flex items-center gap-1">
-          {!editable && order.status !== 'cancelled' && onEdit && (
+          {onEdit && order.status !== 'cancelled' && (
             <button onClick={onEdit} aria-label="Edit order" title="Edit order" className="text-[#8b92ad] hover:text-accent transition-colors p-1">
               <Pencil size={12} />
             </button>
@@ -1751,9 +1771,15 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onEdit
               <Ban size={13} />
             </button>
           )}
-          <button onClick={onDelete} aria-label="Delete order" title="Delete order" className="text-[#8b92ad] hover:text-red-500 transition-colors p-1">
-            <Trash2 size={13} />
-          </button>
+          {order.status === 'preparing' ? (
+            <button onClick={onDelete} aria-label="Remove from parcel" title="Remove from parcel — returns to active orders" className="text-[#8b92ad] hover:text-accent transition-colors p-1">
+              <CornerUpLeft size={13} />
+            </button>
+          ) : (
+            <button onClick={onDelete} aria-label="Delete order" title="Delete order" className="text-[#8b92ad] hover:text-red-500 transition-colors p-1">
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1803,12 +1829,13 @@ function ActiveOrderCard({ order, isDark, k, editable, onDelete, onPatch, onEdit
 }
 
 // ── Parcel Card ───────────────────────────────────────────────────────────────
-function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, onAddItem, merchantSettings }: {
+function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, onAddItem, onEditOrder, merchantSettings }: {
   orders: Order[]; isDark: boolean; k: typeof DK;
   onPatch: (id: string, patch: object) => void;
   onCancelParcel: (id: string) => void;
   onShip: (tracking: string, courier: string) => void;
   onAddItem?: () => void;
+  onEditOrder?: (order: Order) => void;
   merchantSettings?: any;
 }) {
   const [tracking, setTracking] = useState('');
@@ -1850,7 +1877,7 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
             order={order}
             isDark={isDark}
             k={k}
-            editable={true}
+            onEdit={onEditOrder ? () => onEditOrder(order) : undefined}
             onDelete={() => onCancelParcel(order._id)}
             onCancel={() => onPatch(order._id, { status: 'cancelled' })}
             onPatch={(patch) => onPatch(order._id, patch)}
@@ -1996,6 +2023,13 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
     setOpen(false);
   }
 
+  const statusBadge: Record<string, string> = {
+    shipped:   isDark ? 'bg-violet-500/10 text-violet-400' : 'bg-violet-50 text-violet-600',
+    delivered: isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600',
+    cancelled: isDark ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-600',
+  };
+  const statusLabel: Record<string, string> = { shipped: 'IN TRANSIT', delivered: 'DELIVERED', cancelled: 'CANCELLED' };
+
   return (
     <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''}`}>
       <button
@@ -2003,11 +2037,22 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
         aria-expanded={open}
         className={`w-full flex items-center gap-4 px-6 py-5 text-left transition-all ${k.hover} outline-none`}
       >
-        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-500/10'}`}>
-          <Package size={16} className="text-emerald-500" />
+        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+          order.status === 'shipped' ? (isDark ? 'bg-violet-500/10' : 'bg-violet-50') :
+          order.status === 'cancelled' ? (isDark ? 'bg-rose-500/10' : 'bg-rose-50') :
+          (isDark ? 'bg-emerald-500/10' : 'bg-emerald-50')
+        }`}>
+          {order.status === 'shipped' ? <Truck size={16} className="text-violet-500" /> :
+           order.status === 'cancelled' ? <Ban size={16} className="text-rose-500" /> :
+           <Package size={16} className="text-emerald-500" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
+            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md flex-shrink-0 ${statusBadge[order.status] || ''}`}>
+              {statusLabel[order.status] || order.status.toUpperCase()}
+            </span>
+          </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`text-[10px] ${k.muted} flex items-center gap-1`}>
               <Clock size={9} />
@@ -2078,6 +2123,12 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
               className="flex-1 py-3 rounded-xl text-xs font-black bg-[#1a1d2e] hover:bg-black text-white transition-all active:scale-95 disabled:opacity-40">
               {saving ? 'Saving...' : 'Update Prices'}
             </button>
+            {order.status === 'shipped' && (
+              <button onClick={() => onPatch({ status: 'delivered' })}
+                className="flex items-center gap-1.5 px-4 py-3 rounded-xl text-xs font-black bg-emerald-500 hover:bg-emerald-600 text-white transition-all active:scale-95">
+                <CheckCircle size={13} /> Mark Delivered
+              </button>
+            )}
             <button onClick={onDelete}
               className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all">
               <Trash2 size={14} />
