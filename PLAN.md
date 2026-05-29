@@ -213,10 +213,11 @@ later so it runs even when the merchant doesn't open the dashboard.
 | 2 | Orders page row expander (item detail) | Small — ½ day | None | ✅ Done |
 | 3 | Item-level order edit modal | Small — ½ day | None | ✅ Done |
 | 4 | Cross-page sync (onOrderMutated) | Tiny | None | ✅ Done |
-| 5 | Partial Fulfilment full build (Gap 1) | Large — 10–14 days | 1–4 stable in prod | Deferred |
-| 6 | Auto-Reply / Product Intent (Stage B) | Medium — 5–7 days | Can parallel with 5 | Deferred |
-| 7 | Instagram + Telegram (Stage C) | Large — 2–3 weeks | Stage B | Deferred |
-| 8 | SaaS multi-tenant transformation | Very large | All above stable | Deferred |
+| 5 | Multi-currency display (currencySymbol util) | Small — ½ day | None | ✅ Done |
+| 6 | Partial Fulfilment full build (Gap 1) | Large — 10–14 days | 1–5 stable in prod | 🔄 In Progress |
+| 7 | Instagram + Telegram channels (Phase C) | Large — 2–3 weeks | None (parallel) | Deferred |
+| 8 | Auto-Reply / Product Intent (Phase D) | Medium — 5–7 days | Phase C foundation | Deferred |
+| 9 | SaaS multi-tenant transformation | Very large | All above stable | Deferred |
 
 Task 8 (multi-tenant) must happen AFTER Task 5 because Task 5 introduces the
 `Fulfilment` collection — if `merchantId` is added to all schemas before that
@@ -237,13 +238,14 @@ change: it separates what the customer agreed to buy from what was physically sh
 Required before any split-shipment workflow is possible. Gate: Phase A stable in
 production for ≥1 week.
 
-### Phase C — Automation & Intelligence
-Auto-Reply, product intent detection, broadcast scheduling. Can start in parallel
-with Phase B once the Fulfilment API is drafted but before UI is complete.
+### Phase C — Channel expansion (moved up)
+Instagram DM and Telegram bot. More platforms = more merchant reach. Can start
+independently of Phase B. Requires abstracting the LINE message handler into a
+channel-agnostic interface first.
 
-### Phase D — Channel expansion
-Instagram DM and Telegram bot. Requires the LINE foundation from Phase C to be
-abstracted into a channel-agnostic message handler first.
+### Phase D — Automation & Intelligence (moved down)
+Auto-Reply, product intent detection, broadcast scheduling. Builds on top of the
+multi-channel foundation from Phase C so automations work across all platforms.
 
 ### Phase E — Multi-tenant SaaS
 Add `merchantId` to every collection, per-merchant billing, onboarding flow,
