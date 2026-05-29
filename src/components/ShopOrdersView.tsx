@@ -51,7 +51,7 @@ export default function ShopOrdersView({
   onLimitHit,
 }: {
   theme?: 'light' | 'dark',
-  onViewCustomer?: (userId: string) => void,
+  onViewCustomer?: (userId: string, orderId?: string) => void,
   t: any,
   onLimitHit?: (feature: string, limit?: number, current?: number) => void,
 }) {
@@ -252,19 +252,16 @@ export default function ShopOrdersView({
 
   // Fix 7: extend nextStatusMap to cover full workflow
   const nextStatusMap: Partial<Record<Order['status'], Order['status']>> = {
-    paid: 'preparing',
-    preparing: 'shipped',
     shipped: 'delivered',
   };
 
   const nextStatusLabel: Partial<Record<Order['status'], string>> = {
-    paid: 'Preparing',
-    preparing: 'Shipped',
     shipped: 'Delivered',
   };
 
   // Fix 2: advanceOrder with rollback on failure
   async function advanceOrder(id: string, nextStatus: Order['status']) {
+    if (nextStatus !== 'delivered') return; // only shipped→delivered allowed from Orders page
     const previousOrders = orders;
     setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: nextStatus } : o) ?? prev);
     try {
@@ -678,7 +675,7 @@ export default function ShopOrdersView({
                         </button>
                       )}
                       <button
-                        onClick={() => onViewCustomer?.(o.userId)}
+                        onClick={() => onViewCustomer?.(o.userId, o._id)}
                         className={cn(
                           "flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all active:scale-95 shadow-sm",
                           theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white hover:border-accent" : "bg-white border-[#e2e5ef] text-[#1a1d2e] hover:border-accent"
