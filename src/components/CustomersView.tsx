@@ -25,10 +25,11 @@ type Order = {
   costTHB: number; profit: number; shipCostTHB: number;
   costCurrency?: string; soldCurrency?: string;
   tracking?: string; courier?: string; address?: string;
-  status: 'pending' | 'paid' | 'preparing' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'paid' | 'preparing' | 'partially_fulfilled' | 'shipped' | 'delivered' | 'fulfilled' | 'cancelled';
   paymentQrSent: boolean; createdAt: string;
   rateUsed?: number;
   statusBeforeParcel?: string;
+  fulfilmentSummary?: { total: number; shipped: number; delivered: number } | null;
 };
 type Message = {
   _id: string; userId: string; platform?: 'line' | 'instagram';
@@ -734,7 +735,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setBatchEditTotal(String(selectedTotal)); }, [selectedTotal, selectedOrderIds.size]);
   const parcelOrders = customerOrders.filter(o => o.status === 'preparing');
-  const inTransitOrders = customerOrders.filter(o => o.status === 'shipped');
+  const inTransitOrders = customerOrders.filter(o => ['shipped', 'partially_fulfilled'].includes(o.status));
   // Group shipped orders by parcel: same tracking+courier = same parcel
   const inTransitGroups: Order[][] = (() => {
     const map = new Map<string, Order[]>();
@@ -746,13 +747,13 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     }
     return [...map.values()];
   })();
-  const historyOrders = customerOrders.filter(o => ['delivered', 'cancelled'].includes(o.status));
+  const historyOrders = customerOrders.filter(o => ['delivered', 'fulfilled', 'cancelled'].includes(o.status));
   // Keep combined list for places that still need all post-active orders
-  const shippedOrders = customerOrders.filter(o => ['shipped', 'delivered', 'cancelled'].includes(o.status));
+  const shippedOrders = customerOrders.filter(o => ['shipped', 'partially_fulfilled', 'delivered', 'fulfilled', 'cancelled'].includes(o.status));
 
   const totalSpent = customerOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.soldTHB || 0), 0);
-  // Realized profit — delivered orders only (shipped orders are in-transit and not yet realized)
-  const totalProfit = customerOrders.filter(o => o.status === 'delivered').reduce((s, o) => s + (o.profit || 0), 0);
+  // Realized profit — delivered/fulfilled orders only (shipped orders are in-transit and not yet realized)
+  const totalProfit = customerOrders.filter(o => ['delivered', 'fulfilled'].includes(o.status)).reduce((s, o) => s + (o.profit || 0), 0);
 
   const filteredProducts = products.filter(p => {
     const q = qoSearch.toLowerCase();
@@ -1961,17 +1962,20 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 // ── Active Order Card ─────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, any> = {
-  pending:   { bg: 'bg-amber-500',   text: 'text-amber-600',   border: 'border-amber-200',   lightBg: 'bg-amber-50'   },
-  paid:      { bg: 'bg-sky-500',     text: 'text-sky-600',     border: 'border-sky-200',     lightBg: 'bg-sky-50'     },
-  preparing: { bg: 'bg-indigo-500',  text: 'text-indigo-600',  border: 'border-indigo-200',  lightBg: 'bg-indigo-50'  },
-  shipped:   { bg: 'bg-violet-500',  text: 'text-violet-600',  border: 'border-violet-200',  lightBg: 'bg-violet-50'  },
-  delivered: { bg: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-200', lightBg: 'bg-emerald-50' },
-  cancelled: { bg: 'bg-rose-500',    text: 'text-rose-600',    border: 'border-rose-200',    lightBg: 'bg-rose-50'    },
+  pending:             { bg: 'bg-amber-500',   text: 'text-amber-600',   border: 'border-amber-200',   lightBg: 'bg-amber-50'   },
+  paid:                { bg: 'bg-sky-500',     text: 'text-sky-600',     border: 'border-sky-200',     lightBg: 'bg-sky-50'     },
+  preparing:           { bg: 'bg-indigo-500',  text: 'text-indigo-600',  border: 'border-indigo-200',  lightBg: 'bg-indigo-50'  },
+  partially_fulfilled: { bg: 'bg-orange-500',  text: 'text-orange-600',  border: 'border-orange-200',  lightBg: 'bg-orange-50'  },
+  shipped:             { bg: 'bg-violet-500',  text: 'text-violet-600',  border: 'border-violet-200',  lightBg: 'bg-violet-50'  },
+  delivered:           { bg: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-200', lightBg: 'bg-emerald-50' },
+  fulfilled:           { bg: 'bg-green-600',   text: 'text-green-700',   border: 'border-green-200',   lightBg: 'bg-green-50'   },
+  cancelled:           { bg: 'bg-rose-500',    text: 'text-rose-600',    border: 'border-rose-200',    lightBg: 'bg-rose-50'    },
 };
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'New Order', paid: 'Paid', preparing: 'In Parcel',
-  shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
+  partially_fulfilled: 'Part. Fulfilled',
+  shipped: 'Shipped', delivered: 'Delivered', fulfilled: 'Fulfilled', cancelled: 'Cancelled',
 };
 
 function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR, onMarkPaid, onMoveToParcel, onCancel, selected, onToggleSelect, isActing }: {
@@ -2039,7 +2043,7 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR
               <Pencil size={12} />
             </button>
           )}
-          {onCancel && !['cancelled', 'delivered', 'shipped'].includes(order.status) && (
+          {onCancel && !['cancelled', 'delivered', 'fulfilled', 'shipped', 'partially_fulfilled'].includes(order.status) && (
             <button onClick={onCancel} aria-label="Cancel order" title="Cancel order" className="text-[#8b92ad] hover:text-rose-500 transition-colors p-1">
               <Ban size={13} />
             </button>
@@ -2057,6 +2061,27 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR
       </div>
 
       <p className={`font-bold text-sm leading-snug mb-3 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
+
+      {/* Fulfilment progress indicator */}
+      {order.fulfilmentSummary && order.fulfilmentSummary.total > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className={`text-[10px] font-bold ${k.muted}`}>
+              {order.fulfilmentSummary.shipped} of {order.fulfilmentSummary.total} parcels shipped
+            </span>
+            <span className={`text-[10px] font-black ${order.fulfilmentSummary.delivered === order.fulfilmentSummary.total ? 'text-emerald-500' : 'text-orange-500'}`}>
+              {order.fulfilmentSummary.delivered === order.fulfilmentSummary.total ? 'All delivered' : `${order.fulfilmentSummary.delivered} delivered`}
+            </span>
+          </div>
+          <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
+            <div
+              className="h-full rounded-full bg-orange-500 transition-all"
+              style={{ width: `${order.fulfilmentSummary.total > 0 ? (order.fulfilmentSummary.shipped / order.fulfilmentSummary.total) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mt-auto">
         <div className="flex items-center gap-2">
           <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
@@ -2314,11 +2339,13 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
   }
 
   const statusBadge: Record<string, string> = {
-    shipped:   isDark ? 'bg-violet-500/10 text-violet-400' : 'bg-violet-50 text-violet-600',
-    delivered: isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600',
-    cancelled: isDark ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-600',
+    shipped:             isDark ? 'bg-violet-500/10 text-violet-400' : 'bg-violet-50 text-violet-600',
+    partially_fulfilled: isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600',
+    delivered:           isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600',
+    fulfilled:           isDark ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-700',
+    cancelled:           isDark ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-600',
   };
-  const statusLabel: Record<string, string> = { shipped: 'IN TRANSIT', delivered: 'DELIVERED', cancelled: 'CANCELLED' };
+  const statusLabel: Record<string, string> = { shipped: 'IN TRANSIT', partially_fulfilled: 'PART. FULFILLED', delivered: 'DELIVERED', fulfilled: 'FULFILLED', cancelled: 'CANCELLED' };
 
   return (
     <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''} ${isHighlighted ? 'ring-2 ring-accent shadow-lg shadow-accent/20' : ''}`}>
@@ -2328,11 +2355,11 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
         className={`w-full flex items-center gap-4 px-6 py-5 text-left transition-all ${k.hover} outline-none`}
       >
         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-          order.status === 'shipped' ? (isDark ? 'bg-violet-500/10' : 'bg-violet-50') :
+          ['shipped', 'partially_fulfilled'].includes(order.status) ? (isDark ? 'bg-violet-500/10' : 'bg-violet-50') :
           order.status === 'cancelled' ? (isDark ? 'bg-rose-500/10' : 'bg-rose-50') :
           (isDark ? 'bg-emerald-500/10' : 'bg-emerald-50')
         }`}>
-          {order.status === 'shipped' ? <Truck size={16} className="text-violet-500" /> :
+          {['shipped', 'partially_fulfilled'].includes(order.status) ? <Truck size={16} className="text-violet-500" /> :
            order.status === 'cancelled' ? <Ban size={16} className="text-rose-500" /> :
            <Package size={16} className="text-emerald-500" />}
         </div>
@@ -2424,10 +2451,10 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
               className="flex-1 py-3 rounded-xl text-xs font-black bg-[#1a1d2e] hover:bg-black text-white transition-all active:scale-95 disabled:opacity-40">
               {saving ? 'Saving...' : 'Update Prices'}
             </button>
-            {order.status === 'shipped' && (
-              <button onClick={() => onPatch({ status: 'delivered' })}
+            {['shipped', 'partially_fulfilled'].includes(order.status) && (
+              <button onClick={() => onPatch({ status: order.status === 'partially_fulfilled' ? 'fulfilled' : 'delivered' })}
                 className="flex items-center gap-1.5 px-4 py-3 rounded-xl text-xs font-black bg-emerald-500 hover:bg-emerald-600 text-white transition-all active:scale-95">
-                <CheckCircle size={13} /> Mark Delivered
+                <CheckCircle size={13} /> {order.status === 'partially_fulfilled' ? 'Mark Fulfilled' : 'Mark Delivered'}
               </button>
             )}
             <button onClick={onDelete}

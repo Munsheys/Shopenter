@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Settings, Merchant } from '@/models';
+import { Order, Settings, Merchant, Fulfilment } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
 import { sendLineMessage } from '@/lib/platforms/line';
@@ -13,8 +13,26 @@ export async function GET(req: NextRequest) {
 
   try {
     await dbConnect();
-    const orders = await Order.find({ merchantId: merchant.merchantId }).sort({ createdAt: -1 });
-    return NextResponse.json(orders);
+    const orders = await Order.find({ merchantId: merchant.merchantId }).sort({ createdAt: -1 }).lean() as any[];
+
+    // Attach fulfilment summary to each order in a single aggregation
+    const fulSummary = await Fulfilment.aggregate([
+      { $match: { orderId: { $in: orders.map((o: any) => o._id) } } },
+      { $group: {
+        _id: '$orderId',
+        total: { $sum: 1 },
+        shipped: { $sum: { $cond: [{ $in: ['$status', ['shipped', 'delivered']] }, 1, 0] } },
+        delivered: { $sum: { $cond: [{ $eq: ['$status', 'delivered'] }, 1, 0] } },
+      }},
+    ]);
+
+    const summaryMap = new Map(fulSummary.map((s: any) => [String(s._id), { total: s.total, shipped: s.shipped, delivered: s.delivered }]));
+    const ordersWithSummary = orders.map((o: any) => ({
+      ...o,
+      fulfilmentSummary: summaryMap.get(String(o._id)) ?? null,
+    }));
+
+    return NextResponse.json(ordersWithSummary);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
   }

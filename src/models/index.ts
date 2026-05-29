@@ -231,7 +231,8 @@ const OrderSchema = new mongoose.Schema({
   shipCostTHB: { type: Number, default: 0 },
   tracking: String,
   courier: String,
-  status: { type: String, enum: ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
+  partialFulfilled: { type: Boolean, default: false },
+  status: { type: String, enum: ['pending', 'paid', 'preparing', 'partially_fulfilled', 'shipped', 'delivered', 'fulfilled', 'cancelled'], default: 'pending' },
   statusBeforeParcel: { type: String, enum: ['pending', 'paid'], default: 'pending' },
   paymentQrSent: { type: Boolean, default: false },
   trackingSent: { type: Boolean, default: false },
@@ -357,6 +358,28 @@ const LoyaltyTransactionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+const FulfilmentSchema = new mongoose.Schema({
+  orderId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  userId:     { type: String, required: true, index: true },
+  items: [{
+    productId:    { type: String },
+    name:         { type: String, required: true },
+    variantLabel: { type: String },
+    qty:          { type: Number, required: true },
+    price:        { type: Number, required: true },
+  }],
+  tracking:   { type: String },
+  courier:    { type: String },
+  address:    { type: String },
+  shipCostTHB:{ type: Number, default: 0 },
+  status:     { type: String, enum: ['pending', 'shipped', 'delivered'], default: 'pending' },
+  createdAt:  { type: Date, default: Date.now },
+  shippedAt:  { type: Date },
+  deliveredAt:{ type: Date },
+});
+FulfilmentSchema.index({ orderId: 1, status: 1 });
+
 export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
@@ -372,3 +395,4 @@ export const MediaFile = mongoose.models.MediaFile || mongoose.model('MediaFile'
 export const Feedback = mongoose.models.Feedback || mongoose.model('Feedback', FeedbackSchema);
 export const Coupon = mongoose.models.Coupon || mongoose.model('Coupon', CouponSchema);
 export const LoyaltyTransaction = mongoose.models.LoyaltyTransaction || mongoose.model('LoyaltyTransaction', LoyaltyTransactionSchema);
+export const Fulfilment = mongoose.models.Fulfilment || mongoose.model('Fulfilment', FulfilmentSchema);

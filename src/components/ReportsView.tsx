@@ -275,7 +275,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   );
 
   const confirmedOrders = useMemo(
-    () => filteredOrders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status)),
+    () => filteredOrders.filter(o => ['paid', 'preparing', 'partially_fulfilled', 'shipped', 'delivered', 'fulfilled'].includes(o.status)),
     [filteredOrders],
   );
 
@@ -297,7 +297,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   );
 
   const confirmedPrevOrders = useMemo(
-    () => prevOrders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status)),
+    () => prevOrders.filter(o => ['paid', 'preparing', 'partially_fulfilled', 'shipped', 'delivered', 'fulfilled'].includes(o.status)),
     [prevOrders],
   );
 

@@ -41,7 +41,7 @@ interface Order {
   items: any[];
   soldTHB: number;
   profit?: number;
-  status: 'pending' | 'paid' | 'preparing' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'paid' | 'preparing' | 'partially_fulfilled' | 'shipped' | 'delivered' | 'fulfilled' | 'cancelled';
   createdAt: string;
   tracking?: string;
   courier?: string;
@@ -69,7 +69,7 @@ export default function ShopOrdersView({
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Define status lists before state so we can use allStatuses as default
-  const allStatuses = ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'];
+  const allStatuses = ['pending', 'paid', 'preparing', 'partially_fulfilled', 'shipped', 'delivered', 'fulfilled', 'cancelled'];
   const newOrderStatuses = ['pending', 'paid'];
 
   // Filters — default to ALL statuses including cancelled
@@ -221,7 +221,7 @@ export default function ShopOrdersView({
       let bv: any = b[sortField as keyof Order];
       // Fix 3: include 'cancelled' at the end so indexOf returns a valid position
       if (sortField === 'status') {
-        const order = ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'];
+        const order = ['pending', 'paid', 'preparing', 'partially_fulfilled', 'shipped', 'delivered', 'fulfilled', 'cancelled'];
         av = order.indexOf(av);
         bv = order.indexOf(bv);
       }
@@ -241,13 +241,13 @@ export default function ShopOrdersView({
 
   // Stats always computed from all loaded orders, not just the status-filtered view.
   const allOrders = orders || [];
-  const totalPaidPreparing = allOrders.filter(o => ['paid', 'preparing'].includes(o.status)).length;
+  const totalPaidPreparing = allOrders.filter(o => ['paid', 'preparing', 'partially_fulfilled'].includes(o.status)).length;
   const stalledOrders = useMemo(() => {
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - stalledThreshold);
-    return allOrders.filter(o => ['paid', 'preparing'].includes(o.status) && new Date(o.createdAt) < cutoff);
+    return allOrders.filter(o => ['paid', 'preparing', 'partially_fulfilled'].includes(o.status) && new Date(o.createdAt) < cutoff);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, stalledThreshold]);
-  const confirmedOrders = allOrders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status));
+  const confirmedOrders = allOrders.filter(o => ['paid', 'preparing', 'partially_fulfilled', 'shipped', 'delivered', 'fulfilled'].includes(o.status));
   const pendingOnlyOrders = allOrders.filter(o => o.status === 'pending');
   const confirmedRevenue = confirmedOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
   const potentialRevenue = pendingOnlyOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
@@ -258,8 +258,8 @@ export default function ShopOrdersView({
     count:            confirmedOrders.length,
     avg:              confirmedOrders.length ? Math.round(confirmedRevenue / confirmedOrders.length) : 0,
     pending:   allOrders.filter(o => o.status === 'pending').length,
-    preparing: allOrders.filter(o => ['preparing', 'shipped'].includes(o.status)).length,
-    delivered: allOrders.filter(o => o.status === 'delivered').length,
+    preparing: allOrders.filter(o => ['preparing', 'partially_fulfilled', 'shipped'].includes(o.status)).length,
+    delivered: allOrders.filter(o => ['delivered', 'fulfilled'].includes(o.status)).length,
     cancelled: allOrders.filter(o => o.status === 'cancelled').length,
   };
 
@@ -483,16 +483,16 @@ export default function ShopOrdersView({
           active={selectedStatuses.length === 1 && selectedStatuses.includes('pending')}
         />
         <StatsCard icon={<Package size={16} />} label="In Fulfillment"
-          value={stats.preparing.toString()} subLabel="Preparing + shipped"
+          value={stats.preparing.toString()} subLabel="Preparing + part. fulfilled + shipped"
           color="blue" theme={theme} isLoading={isLoading || orders === null}
-          onClick={() => setSelectedStatuses(['preparing', 'shipped'])}
-          active={selectedStatuses.length === 2 && selectedStatuses.includes('preparing') && selectedStatuses.includes('shipped')}
+          onClick={() => setSelectedStatuses(['preparing', 'partially_fulfilled', 'shipped'])}
+          active={selectedStatuses.length === 3 && selectedStatuses.includes('preparing') && selectedStatuses.includes('partially_fulfilled') && selectedStatuses.includes('shipped')}
         />
         <StatsCard icon={<CheckCircle2 size={16} />} label="Delivered"
           value={stats.delivered.toString()} subLabel="Successfully fulfilled"
           color="emerald" theme={theme} isLoading={isLoading || orders === null}
-          onClick={() => setSelectedStatuses(['delivered'])}
-          active={selectedStatuses.length === 1 && selectedStatuses.includes('delivered')}
+          onClick={() => setSelectedStatuses(['delivered', 'fulfilled'])}
+          active={selectedStatuses.length === 2 && selectedStatuses.includes('delivered') && selectedStatuses.includes('fulfilled')}
         />
         <StatsCard icon={<BarChart2 size={16} />} label="Avg Order Value"
           value={`${sym}${stats.avg.toLocaleString()}`} subLabel="Across all orders"
@@ -591,15 +591,18 @@ export default function ShopOrdersView({
               const isSelected = selectedStatuses.includes(status);
               const labels: Record<string, string> = {
                 pending: 'Pending', paid: 'Paid', preparing: 'Preparing',
-                shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
+                partially_fulfilled: 'Part. Fulfilled',
+                shipped: 'Shipped', delivered: 'Delivered', fulfilled: 'Fulfilled', cancelled: 'Cancelled',
               };
               const pillColors: Record<string, { off: string; on: string }> = {
-                pending:   { off: 'text-amber-600 border-amber-200 dark:text-amber-400 dark:border-amber-500/30',   on: 'bg-amber-500 text-white border-amber-500' },
-                paid:      { off: 'text-sky-600 border-sky-200 dark:text-sky-400 dark:border-sky-500/30',           on: 'bg-sky-500 text-white border-sky-500' },
-                preparing: { off: 'text-indigo-600 border-indigo-200 dark:text-indigo-400 dark:border-indigo-500/30', on: 'bg-indigo-500 text-white border-indigo-500' },
-                shipped:   { off: 'text-violet-600 border-violet-200 dark:text-violet-400 dark:border-violet-500/30', on: 'bg-violet-500 text-white border-violet-500' },
-                delivered: { off: 'text-emerald-600 border-emerald-200 dark:text-emerald-400 dark:border-emerald-500/30', on: 'bg-emerald-500 text-white border-emerald-500' },
-                cancelled: { off: 'text-rose-600 border-rose-200 dark:text-rose-400 dark:border-rose-500/30',       on: 'bg-rose-500 text-white border-rose-500' },
+                pending:             { off: 'text-amber-600 border-amber-200 dark:text-amber-400 dark:border-amber-500/30',   on: 'bg-amber-500 text-white border-amber-500' },
+                paid:                { off: 'text-sky-600 border-sky-200 dark:text-sky-400 dark:border-sky-500/30',           on: 'bg-sky-500 text-white border-sky-500' },
+                preparing:           { off: 'text-indigo-600 border-indigo-200 dark:text-indigo-400 dark:border-indigo-500/30', on: 'bg-indigo-500 text-white border-indigo-500' },
+                partially_fulfilled: { off: 'text-orange-600 border-orange-200 dark:text-orange-400 dark:border-orange-500/30', on: 'bg-orange-500 text-white border-orange-500' },
+                shipped:             { off: 'text-violet-600 border-violet-200 dark:text-violet-400 dark:border-violet-500/30', on: 'bg-violet-500 text-white border-violet-500' },
+                delivered:           { off: 'text-emerald-600 border-emerald-200 dark:text-emerald-400 dark:border-emerald-500/30', on: 'bg-emerald-500 text-white border-emerald-500' },
+                fulfilled:           { off: 'text-green-600 border-green-200 dark:text-green-400 dark:border-green-500/30', on: 'bg-green-600 text-white border-green-600' },
+                cancelled:           { off: 'text-rose-600 border-rose-200 dark:text-rose-400 dark:border-rose-500/30',       on: 'bg-rose-500 text-white border-rose-500' },
               };
               return (
                 <button
@@ -795,7 +798,7 @@ export default function ShopOrdersView({
                       : theme === 'dark' ? "bg-[#161925] group-hover:bg-[#1a1d2e]" : "bg-white group-hover:bg-[#f8f9fc]"
                   )} onClick={e => e.stopPropagation()}>
                     <div className="flex justify-end gap-2">
-                      {/* Cancel — only for pre-shipped statuses; shipped orders use batch Delivered */}
+                      {/* Cancel — only for pre-shipped statuses; shipped/fulfilled orders use batch operations */}
                       {['pending', 'paid', 'preparing'].includes(o.status) && (
                         <button
                           onClick={() => setCancelConfirm({ open: true, orderId: o._id })}
@@ -1255,12 +1258,14 @@ function StatsCard({ icon, label, value, subLabel, subLabelHighlight, color, the
 
 function StatusPill({ status }: { status: string }) {
   const configs: any = {
-    pending:   { label: 'PENDING',   bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30' },
-    paid:      { label: 'PAID',      bg: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30' },
-    preparing: { label: 'PREPARING', bg: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/30' },
-    shipped:   { label: 'SHIPPED',   bg: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30' },
-    delivered: { label: 'DELIVERED', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30' },
-    cancelled: { label: 'CANCELLED', bg: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30' },
+    pending:             { label: 'PENDING',        bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30' },
+    paid:                { label: 'PAID',            bg: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30' },
+    preparing:           { label: 'PREPARING',       bg: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/30' },
+    partially_fulfilled: { label: 'PART. FULFILLED', bg: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/30' },
+    shipped:             { label: 'SHIPPED',         bg: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30' },
+    delivered:           { label: 'DELIVERED',       bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30' },
+    fulfilled:           { label: 'FULFILLED',       bg: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/30' },
+    cancelled:           { label: 'CANCELLED',       bg: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30' },
   };
 
   const config = configs[status] || configs.pending;
