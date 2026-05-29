@@ -180,23 +180,41 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const resizeRef = useRef<number | null>(null);
   const dragButtonRef = useRef<{ startY: number; startPos: number }| null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const evsRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [evsReconnecting, setEvsReconnecting] = useState(false);
 
   useEffect(() => {
-    const evs = new EventSource('/api/stream');
-    evs.onmessage = (e) => {
-      try {
-        const { type, customers: c } = JSON.parse(e.data);
-        if ((type === 'init' || type === 'update') && c) {
-          setCustomers(c);
-          setIsLoading(false);
-          if (selectedRef.current) {
-            const updated = c.find((x: Customer) => x._id === selectedRef.current!._id);
-            if (updated) setSelectedCustomer(updated);
+    function connect() {
+      const evs = new EventSource('/api/stream');
+      evs.onmessage = (e) => {
+        try {
+          const { type, customers: c } = JSON.parse(e.data);
+          if ((type === 'init' || type === 'update') && c) {
+            setCustomers(c);
+            setIsLoading(false);
+            setEvsReconnecting(false);
+            if (selectedRef.current) {
+              const updated = c.find((x: Customer) => x._id === selectedRef.current!._id);
+              if (updated) setSelectedCustomer(updated);
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      };
+      evs.onerror = () => {
+        evs.close();
+        setEvsReconnecting(true);
+        if (evsRetryRef.current) clearTimeout(evsRetryRef.current);
+        evsRetryRef.current = setTimeout(() => {
+          connect();
+        }, 3000);
+      };
+      return evs;
+    }
+    const evs = connect();
+    return () => {
+      evs.close();
+      if (evsRetryRef.current) clearTimeout(evsRetryRef.current);
     };
-    return () => evs.close();
   }, []);
 
   // Auto-select customer when navigating from Orders "View in Chat"
@@ -207,7 +225,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       selectCustomer(target);
       onJumpConsumed?.();
     }
-  }, [jumpToUserId, customers]);
+  // selectCustomer and onJumpConsumed are stable references (useCallback / prop)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpToUserId, customers, selectCustomer, onJumpConsumed]);
 
   const refreshOrders = useCallback(async () => {
     const res = await fetch('/api/orders');
@@ -334,14 +354,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showModal, closeQuickOrder]);
 
-  function selectCustomer(c: Customer) {
+  const selectCustomer = useCallback((c: Customer) => {
     setSelectedCustomer(c);
     setSelectedAddressIdx(0);
     setSelectedOrderIds(new Set());
     if (c.unreadCount > 0) {
       fetch(`/api/customers/${c.userId}/read`, { method: 'POST' }).catch(() => {});
     }
-  }
+  }, []);
 
   async function sendMessage() {
     if (!selectedCustomer || !inputText.trim() || sending) return;

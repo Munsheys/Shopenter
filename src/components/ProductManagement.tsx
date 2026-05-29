@@ -98,6 +98,10 @@ export interface ProductForm {
   isActive: boolean;
   trackStock: boolean;
   simpleStock: string; // stock qty for simple products (no variants)
+  // Fix 7: optional detail fields
+  sku?: string;
+  barcode?: string;
+  weight?: string;
 }
 
 // --- Helpers ---
@@ -118,6 +122,8 @@ export function normalizeToForm(raw: any): ProductForm {
     description: raw.description || '', price: String(raw.price || ''),
     categories: raw.categories || [], images,
     isActive: raw.isActive !== false, trackStock: !!raw.trackStock,
+    // Fix 7: seed detail fields from existing data
+    sku: raw.sku || '', barcode: raw.barcode || '', weight: raw.weight ? String(raw.weight) : '',
   };
 
   if (raw.options?.length) {
@@ -197,7 +203,11 @@ const EMPTY_FORM: ProductForm = {
   isActive: true,
   trackStock: false,
   simpleStock: '0',
+  sku: '', barcode: '', weight: '',
 };
+
+// Fix 11: named constant for low-stock threshold
+const LOW_STOCK_THRESHOLD = 5;
 
 // --- Reusable Components ---
 
@@ -337,6 +347,13 @@ export function MultiImageUploader({ images, onChange, theme = 'light' }: {
     let done = 0;
     if (!files.length) return;
     files.forEach(file => {
+      // Fix 6: reject files over 8 MB
+      if (file.size > 8 * 1024 * 1024) {
+        alert(`"${file.name}" is too large (max 8 MB). Please resize and try again.`);
+        done++;
+        if (done === files.length) callback(results);
+        return;
+      }
       if (!file.type.startsWith('image/')) { done++; if (done === files.length) callback(results); return; }
       const reader = new FileReader();
       reader.onload = e => {
@@ -347,7 +364,15 @@ export function MultiImageUploader({ images, onChange, theme = 'light' }: {
           const max = 1000;
           if (w > h && w > max) { h *= max / w; w = max; } else if (h > max) { w *= max / h; h = max; }
           canvas.width = w; canvas.height = h;
-          canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+          // Fix 6: null-guard canvas context
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            alert(`Could not process image "${file.name}". Skipping.`);
+            done++;
+            if (done === files.length) callback(results);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
           results.push(canvas.toDataURL('image/jpeg', 0.82));
           done++;
           if (done === files.length) callback(results);
@@ -641,6 +666,7 @@ export function ProductModal({
   }, [isOpen, initialData]);
 
   // Sync variants from options changes
+  // Fix 3: only react to options changes, not price/cost keystrokes
   useEffect(() => {
     const json = JSON.stringify(form.options);
     if (json === prevOptionsRef.current) return;
@@ -648,12 +674,15 @@ export function ProductModal({
     const combinations = cartesian(form.options);
     const existingMap = new Map<string, ProductVariant>();
     form.variants.forEach(v => existingMap.set(JSON.stringify(v.combination), v));
-    const newVariants = combinations.map(combo => {
-      const key = JSON.stringify(combo);
-      return existingMap.get(key) || { combination: combo, imageUrl: '', price: form.price || '', cost: form.cost || '', stock: '0' };
+    setForm(prev => {
+      const newVariants = combinations.map(combo => {
+        const key = JSON.stringify(combo);
+        return existingMap.get(key) || { combination: combo, imageUrl: '', price: prev.price || '', cost: prev.cost || '', stock: '0' };
+      });
+      return { ...prev, variants: newVariants };
     });
-    setForm(prev => ({ ...prev, variants: newVariants }));
-  }, [form.options, form.price, form.cost]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.options]);
 
   // Close image picker on outside click
   useEffect(() => {
