@@ -374,7 +374,7 @@ export default function ShopOrdersView({
   };
   const selectedOrders = orders?.filter(o => selectedOrderIds.has(o._id)) ?? [];
   const batchShippedCount = selectedOrders.filter(o => o.status === 'shipped').length;
-  const batchCancellableCount = selectedOrders.filter(o => !['cancelled', 'delivered'].includes(o.status)).length;
+  const batchCancellableCount = selectedOrders.filter(o => ['pending', 'paid', 'preparing'].includes(o.status)).length;
 
   const SortHeader = ({ field, label, align = 'left' }: { field: typeof sortField, label: string, align?: 'left' | 'right' }) => {
     const active = sortField === field;
@@ -787,8 +787,8 @@ export default function ShopOrdersView({
                       : theme === 'dark' ? "bg-[#161925] group-hover:bg-[#1a1d2e]" : "bg-white group-hover:bg-[#f8f9fc]"
                   )} onClick={e => e.stopPropagation()}>
                     <div className="flex justify-end gap-2">
-                      {/* Cancel — keeps the record marked as cancelled */}
-                      {!['cancelled', 'delivered'].includes(o.status) && (
+                      {/* Cancel — only for pre-shipped statuses; shipped orders use batch Delivered */}
+                      {['pending', 'paid', 'preparing'].includes(o.status) && (
                         <button
                           onClick={() => setCancelConfirm({ open: true, orderId: o._id })}
                           className={cn(
