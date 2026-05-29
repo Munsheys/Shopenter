@@ -754,7 +754,7 @@ export function ProductModal({
                 <div>
                   <label className="text-[9px] text-[#8b92ad] mb-1.5 block">Selling Price <span className="text-red-500">*</span></label>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" value={form.price} onChange={e => updateForm({ price: e.target.value })} placeholder="e.g. 299"
+                    <input type="number" min="0.01" step="any" value={form.price} onChange={e => updateForm({ price: e.target.value })} placeholder="e.g. 299"
                       className={cn("col-span-2 border rounded-xl px-3 py-2.5 text-sm font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
                     <select value={form.soldCurrency} onChange={e => updateForm({ soldCurrency: e.target.value })}
                       className={cn("border rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}>
@@ -1343,12 +1343,12 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           variants: form.variants.length > 0
             ? form.variants.map(v => ({
                 combination: v.combination, imageUrl: v.imageUrl || '',
-                price: v.price !== '' ? parseFloat(v.price) : null,
+                price: v.price !== '' ? Math.max(0, parseFloat(v.price)) : null,
                 cost: v.cost !== '' ? parseFloat(v.cost) : null,
-                stock: parseInt(v.stock as any) || 0,
+                stock: Math.max(0, parseInt(v.stock as any) || 0),
               }))
             : (form.trackStock
-                ? [{ combination: {}, imageUrl: '', price: null, cost: null, stock: parseInt(form.simpleStock) || 0 }]
+                ? [{ combination: {}, imageUrl: '', price: null, cost: null, stock: Math.max(0, parseInt(form.simpleStock) || 0) }]
                 : []),
         };
       }));
@@ -1440,6 +1440,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     setImportProgress({ done: 0, total: rows.length, errors: [] });
     const errors: string[] = [];
     let duplicatesSkipped = 0;
+    const importedNames = new Set<string>(); // tracks names added in this import batch
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -1494,8 +1495,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         }),
       };
 
-      // Fix 8: skip duplicates (case-insensitive name match)
-      const isDuplicate = products.some(p => p.name.toLowerCase() === name.toLowerCase());
+      // Fix 8: skip duplicates — check both existing products AND names imported in this batch
+      const isDuplicate = products.some(p => p.name.toLowerCase() === name.toLowerCase()) || importedNames.has(name.toLowerCase());
       if (isDuplicate) {
         duplicatesSkipped++;
         setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] });
@@ -1508,6 +1509,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
           errors.push(`Row ${i + 2} "${name}": ${d.error ?? 'failed'}`);
+        } else {
+          importedNames.add(name.toLowerCase());
         }
       } catch {
         errors.push(`Row ${i + 2} "${name}": network error`);
@@ -1703,16 +1706,16 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
           </div>
-          {/* Card size control */}
+          {/* Card size control — − fewer cols (larger cards), + more cols (smaller cards) */}
           <div className={cn("flex items-center gap-1 pl-3 border-l", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
-            <button
-              onClick={() => { const n = Math.min(5, cardSize + 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
-              disabled={cardSize === 5}
-              className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
-            >−</button>
             <button
               onClick={() => { const n = Math.max(1, cardSize - 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
               disabled={cardSize === 1}
+              className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
+            >−</button>
+            <button
+              onClick={() => { const n = Math.min(5, cardSize + 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
+              disabled={cardSize === 5}
               className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
             >+</button>
           </div>
@@ -1823,7 +1826,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         )}>
           <div className="flex items-center gap-2">
             <AlertCircle size={14} className="text-amber-500 flex-shrink-0" />
-            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+            <span className={cn("text-xs font-bold", theme === 'dark' ? "text-amber-400" : "text-amber-600")}>
               {Object.keys(pendingEdits).length} unsaved change{Object.keys(pendingEdits).length !== 1 ? 's' : ''}
             </span>
             <span className="hidden sm:inline text-xs text-amber-500/80">— edits will be lost if you leave</span>
@@ -1831,7 +1834,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           <div className="flex items-center gap-2">
             <button
               onClick={handleDiscardPending}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all border border-amber-500/30"
+              className={cn("px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-amber-500/10 transition-all border border-amber-500/30", theme === 'dark' ? "text-amber-400" : "text-amber-600")}
             >
               Discard
             </button>

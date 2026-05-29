@@ -878,7 +878,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                                 : c.platform === 'instagram' ? 'Instagram' : c.platform === 'telegram' ? 'Telegram' : c.platform === 'line' ? 'LINE' : 'No platform'}
                           </p>
                           {(c.shopCredits || 0) > 0 && (
-                            <span className="flex-shrink-0 flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200/80 px-1 py-0.5 rounded-full">
+                            <span className={`flex-shrink-0 flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded-full border ${isDark ? "text-amber-400 bg-amber-500/10 border-amber-500/30" : "text-amber-600 bg-amber-50 border-amber-200/80"}`}>
                               <Coins size={8} /> {fmt(c.shopCredits || 0)}
                             </span>
                           )}
@@ -981,12 +981,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                     <span className={`text-[10px] ${k.muted}`}>{selectedCustomer.platform === 'instagram' ? 'Instagram' : selectedCustomer.platform === 'telegram' ? 'Telegram' : 'LINE'} Customer</span>
                     {activeOrders.length > 0 && (
-                      <span className="text-[10px] bg-orange-100 text-orange-600 border border-orange-200 px-1.5 py-0.5 rounded-full font-bold">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold border ${isDark ? "bg-orange-500/10 text-orange-400 border-orange-500/30" : "bg-orange-100 text-orange-600 border-orange-200"}`}>
                         {activeOrders.length} active
                       </span>
                     )}
                     {parcelOrders.length > 0 && (
-                      <span className="text-[10px] bg-blue-100 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full font-bold">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold border ${isDark ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-blue-100 text-blue-600 border-blue-200"}`}>
                         {parcelOrders.length} in parcel
                       </span>
                     )}
@@ -996,7 +996,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       </span>
                     )}
                     {(selectedCustomer.shopCredits || 0) > 0 && (
-                      <span className="text-[10px] bg-amber-100 text-amber-700 border border-amber-200/80 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold border flex items-center gap-1 ${isDark ? "bg-amber-500/10 text-amber-400 border-amber-500/30" : "bg-amber-100 text-amber-700 border-amber-200/80"}`}>
                         <Coins size={9} /> ฿{fmt(selectedCustomer.shopCredits || 0)} credits
                       </span>
                     )}
@@ -1518,12 +1518,13 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       {showFindCustomerModal && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onKeyDown={(e) => { if (e.key === 'Escape') { setShowFindCustomerModal(false); setFindCustomerSearch(''); } }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Find customer"
+            tabIndex={-1}
+            onKeyDown={(e) => { if (e.key === 'Escape') { setShowFindCustomerModal(false); setFindCustomerSearch(''); } }}
             className={`w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${isDark ? 'bg-[#161925]' : 'bg-white'}`}
           >
             {/* Modal Header */}
@@ -1578,7 +1579,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <p className={`text-xs font-semibold ${k.text}`}>No customers yet</p>
                 </div>
               ) : (
-                <div className="divide-y" style={{ borderColor: k.border.split('border-')[1] }}>
+                <div className={`divide-y ${isDark ? "divide-[#1f2335]" : "divide-[#e2e5ef]"}`}>
                   {findCustomerResults.map((c) => {
                     const ac = avatarColor(c.displayName);
                     const isSelected = selectedCustomer?._id === c._id;
@@ -1604,7 +1605,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           )}
                           {/* Show presence dot only when lastSeen was within the last 5 minutes */}
                           {c.lastSeen && (Date.now() - new Date(c.lastSeen).getTime()) < 5 * 60 * 1000 && (
-                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                            <span className={`absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 ${isDark ? "border-[#161925]" : "border-white"}`} />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1614,7 +1615,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           </p>
                         </div>
                         {c.unreadCount > 0 && (
-                          <span className="flex-shrink-0 w-6 h-6 bg-green-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                          <span className="flex-shrink-0 w-6 h-6 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                             {c.unreadCount > 9 ? '9+' : c.unreadCount}
                           </span>
                         )}
@@ -1685,7 +1686,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
             <button
               onClick={() => {
                 const newSold = parseFloat(editingOrder.sold) || 0;
-                const orig = activeOrders.find(o => o._id === editingOrder.id);
+                const orig = customerOrders.find(o => o._id === editingOrder.id);
                 const costTHB = (orig?.costTHB) || 0;
                 patchOrder(editingOrder.id, {
                   product: editingOrder.name,
@@ -2175,8 +2176,8 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
   const [open, setOpen] = useState(false);
   const [sold, setSold] = useState(String(order.soldTHB || ''));
   const [cost, setCost] = useState(String(order.costKRW || ''));
-  // Use rateUsed or fallback to calculated rate; guard against division by zero
-  const initialRate = order.rateUsed || (order.costKRW > 0 ? (order.costTHB / order.costKRW) : 1);
+  // Use rateUsed or fallback to calculated rate; guard against division by zero and NaN
+  const initialRate = order.rateUsed || (order.costKRW > 0 && order.costTHB > 0 ? (order.costTHB / order.costKRW) : 0);
   const [rate, setRate] = useState(String(initialRate || ''));
   const [saving, setSaving] = useState(false);
   

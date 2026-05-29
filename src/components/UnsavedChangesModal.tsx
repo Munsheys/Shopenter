@@ -43,14 +43,17 @@ export default function UnsavedChangesModal({
     // Fix 12: role="dialog", aria-modal, aria-labelledby
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="unsaved-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
-      <div className={cn(
-        "rounded-2xl border shadow-2xl p-6 max-w-md w-full mx-4 space-y-4",
-        isDark ? "bg-[#161925] border-[#1f2335]" : isLite ? "bg-[#e7ecf3] border-[#cdd3dd]" : "bg-white border-gray-200"
-      )}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="unsaved-title"
+        className={cn(
+          "rounded-2xl border shadow-2xl p-6 max-w-md w-full mx-4 space-y-4",
+          isDark ? "bg-[#161925] border-[#1f2335]" : isLite ? "bg-[#e7ecf3] border-[#cdd3dd]" : "bg-white border-[#e2e5ef]"
+        )}
+      >
         {/* Icon + Title */}
         <div className="flex items-start gap-4">
           <div className={cn(
@@ -65,14 +68,14 @@ export default function UnsavedChangesModal({
               id="unsaved-title"
               className={cn(
                 "text-base font-bold",
-                isDark ? "text-white" : isLite ? "text-[#2f3744]" : "text-gray-900"
+                isDark ? "text-white" : isLite ? "text-[#2f3744]" : "text-[#1a1d2e]"
               )}
             >
               Unsaved Changes
             </h3>
             <p className={cn(
               "text-sm mt-1",
-              isDark ? "text-[#8b92ad]" : isLite ? "text-[#6d7a8c]" : "text-gray-500"
+              isDark ? "text-[#8b92ad]" : isLite ? "text-[#6d7a8c]" : "text-[#8b92ad]"
             )}>
               Do you want to save your changes before leaving?
             </p>
@@ -82,6 +85,7 @@ export default function UnsavedChangesModal({
         {/* Action Buttons */}
         <div className="flex gap-3 pt-2">
           <button
+            autoFocus
             onClick={onCancel}
             disabled={isSaving}
             className={cn(
@@ -90,14 +94,12 @@ export default function UnsavedChangesModal({
                 ? "border-[#1f2335] text-[#8b92ad] hover:bg-white/5 disabled:opacity-50"
                 : isLite
                 ? "border-[#cdd3dd] text-[#6d7a8c] hover:bg-[#d9dfe8] disabled:opacity-50"
-                : "border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                : "border-[#e2e5ef] text-[#8b92ad] hover:bg-[#f4f6f9] disabled:opacity-50"
             )}
           >
             Cancel
           </button>
-          {/* Fix 12: autoFocus on the Discard button (primary destructive action) */}
           <button
-            autoFocus
             onClick={onDiscard}
             disabled={isSaving}
             className={cn(
@@ -138,3 +140,4 @@ export default function UnsavedChangesModal({
     </div>
   );
 }
+

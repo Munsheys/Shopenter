@@ -86,25 +86,17 @@ export default function ShopOrdersView({
   const startDateRef = useRef<HTMLInputElement>(null);
   const endDateRef = useRef<HTMLInputElement>(null);
 
-  // Fix 13: Escape-key dismiss for Cancel modal
+  // Escape-key dismiss for Cancel + Delete modals (merged into one effect)
   useEffect(() => {
-    if (!cancelConfirm.open) return;
+    if (!cancelConfirm.open && !deleteConfirm.open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setCancelConfirm({ open: false, orderId: null });
+      if (e.key !== 'Escape') return;
+      if (cancelConfirm.open) setCancelConfirm({ open: false, orderId: null });
+      if (deleteConfirm.open) setDeleteConfirm({ open: false, orderId: null });
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [cancelConfirm.open]);
-
-  // Fix 13: Escape-key dismiss for Delete modal
-  useEffect(() => {
-    if (!deleteConfirm.open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDeleteConfirm({ open: false, orderId: null });
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [deleteConfirm.open]);
+  }, [cancelConfirm.open, deleteConfirm.open]);
 
   // Restore from localStorage
   useEffect(() => {
@@ -166,21 +158,21 @@ export default function ShopOrdersView({
     const headers = ['Date', 'Customer', 'Products', 'Total (THB)', 'Profit (THB)', 'Status', 'Tracking', 'Address'];
 
     // Rows
+    const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = sortedOrders.map(o => [
-      new Date(o.createdAt).toLocaleString('th-TH'),
-      o.displayName,
-      o.items?.map((i: any) => `${i.qty}x ${i.name}`).join(' + ') || `${o.quantity || 1}x ${o.product}`,
-      o.soldTHB,
-      // Fix 9: include profit in CSV row
-      o.profit || 0,
-      o.status,
-      o.tracking || '-',
-      `"${o.address?.replace(/"/g, '""') || ''}"`
+      escape(new Date(o.createdAt).toLocaleString('th-TH')),
+      escape(o.displayName),
+      escape(o.items?.map((i: any) => `${i.qty}x ${i.name}`).join(' + ') || `${o.quantity || 1}x ${o.product}`),
+      escape(o.soldTHB),
+      escape(o.profit || 0),
+      escape(o.status),
+      escape(o.tracking || '-'),
+      escape(o.address || ''),
     ]);
 
     const csvContent = [
-      headers.join(','),
-      ...rows.map(r => r.join(','))
+      headers.map(h => `"${h}"`).join(','),
+      ...rows.map(r => r.join(',')),
     ].join('\n');
 
     // Add BOM for Thai characters in Excel
@@ -250,9 +242,9 @@ export default function ShopOrdersView({
     setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: 'cancelled' as const } : o) ?? prev);
     setCancelConfirm({ open: false, orderId: null });
     try {
-      await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' }) });
+      const res = await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' }) });
+      if (!res.ok) throw new Error(res.statusText);
     } catch (err) {
-      // Rollback optimistic update and surface error
       setOrders(previousOrders);
       setFetchError('Failed to cancel order. Please try again.');
     }
@@ -276,9 +268,9 @@ export default function ShopOrdersView({
     const previousOrders = orders;
     setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: nextStatus } : o) ?? prev);
     try {
-      await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: nextStatus }) });
+      const res = await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: nextStatus }) });
+      if (!res.ok) throw new Error(res.statusText);
     } catch (err) {
-      // Rollback optimistic update and surface error
       setOrders(previousOrders);
       setFetchError('Failed to advance order status. Please try again.');
     }
@@ -581,7 +573,7 @@ export default function ShopOrdersView({
                 )}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f4f6f9] dark:divide-[#1f2335]">
+            <tbody className={cn("divide-y", theme === 'dark' ? "divide-[#1f2335]" : "divide-[#f4f6f9]")}>
               {!isLoading && selectedStatuses.length > 0 && paginatedOrders?.map((o) => (
                 <tr key={o._id} className={cn(
                   "group transition-all",
@@ -720,11 +712,11 @@ export default function ShopOrdersView({
 
         {!isLoading && selectedStatuses.length === 0 && (
           <div className="p-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
-            <div className="w-16 h-16 bg-[#f8f9fc] dark:bg-[#1a1d2e] rounded-3xl flex items-center justify-center">
+            <div className={cn("w-16 h-16 rounded-3xl flex items-center justify-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}>
               <Filter size={32} className="opacity-20" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">Please select a status to view orders</p>
+              <p className={cn("text-sm font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Please select a status to view orders</p>
               <p className="text-xs mt-1">Click on a status pill above to get started</p>
             </div>
           </div>
@@ -732,11 +724,11 @@ export default function ShopOrdersView({
 
         {!isLoading && selectedStatuses.length > 0 && paginatedOrders?.length === 0 && (
           <div className="p-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
-            <div className="w-16 h-16 bg-[#f8f9fc] dark:bg-[#1a1d2e] rounded-3xl flex items-center justify-center">
+            <div className={cn("w-16 h-16 rounded-3xl flex items-center justify-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}>
               <Search size={32} className="opacity-20" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No results found</p>
+              <p className={cn("text-sm font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>No results found</p>
               <p className="text-xs mt-1">Try adjusting your filters or search terms</p>
             </div>
             <button

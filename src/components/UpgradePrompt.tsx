@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Zap, Package, Megaphone, MessageSquare, Tag, Star } from 'lucide-react';
 
 const FEATURE_INFO: Record<string, { label: string; icon: React.ReactNode; description: string }> = {
@@ -25,6 +26,7 @@ interface UpgradePromptProps {
 
 export default function UpgradePrompt({ feature, limit, current, onClose, theme = 'light', upgradeUrl }: UpgradePromptProps) {
   const isDark = theme === 'dark';
+  const router = useRouter();
   const info = FEATURE_INFO[feature] ?? { label: feature, icon: <Zap size={20} />, description: 'Upgrade to unlock this feature' };
 
   const PRO_FEATURES = ['Unlimited products (up to 500)', 'Unlimited broadcast campaigns', 'Unlimited auto-reply rules', 'Discount codes & coupons', 'Loyalty points program', 'CSV export for orders & customers'];
@@ -38,11 +40,10 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // Fix 14: handle upgrade navigation
+  // Fix 14: navigate via SPA router so onClose() state cleanup runs before navigation
   const handleUpgrade = () => {
-    const destination = upgradeUrl || '/dashboard/settings?tab=billing';
-    window.location.href = destination;
     onClose();
+    router.push(upgradeUrl || '/dashboard/settings?tab=billing');
   };
 
   return (
@@ -54,7 +55,7 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
       aria-labelledby="upgrade-prompt-title"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className={`w-full max-w-md rounded-[28px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
+      <div className={`w-full max-w-md rounded-[28px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-[#e2e5ef]'}`}>
         {/* Header */}
         <div className="relative bg-gradient-to-br from-accent to-[#007700] p-8 pb-10">
           <button
@@ -114,7 +115,7 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
               <Zap size={16} /> Upgrade to Pro
             </button>
           </div>
-          <p className={`text-center text-[10px] mt-3 ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>
+          <p className={`text-center text-[10px] mt-3 ${isDark ? 'text-[#8b92ad]' : 'text-[#6b7280]'}`}>
             Contact support to upgrade your plan
           </p>
         </div>
