@@ -107,7 +107,7 @@ const LK = {
   input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent',
 };
 
-export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpConsumed, jumpToOrderId, onJumpOrderConsumed }: { theme: string; onLimitHit?: (feature: string, limit?: number, current?: number) => void; jumpToUserId?: string | null; onJumpConsumed?: () => void; jumpToOrderId?: string | null; onJumpOrderConsumed?: () => void }) {
+export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpConsumed, jumpToOrderId, onJumpOrderConsumed, onOrderMutated }: { theme: string; onLimitHit?: (feature: string, limit?: number, current?: number) => void; jumpToUserId?: string | null; onJumpConsumed?: () => void; jumpToOrderId?: string | null; onJumpOrderConsumed?: () => void; onOrderMutated?: () => void }) {
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
   const k = isDark ? DK : isLite ? LITK : LK;
@@ -130,7 +130,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [actingOrderIds, setActingOrderIds] = useState<Set<string>>(new Set());
   const [batchActing, setBatchActing] = useState(false);
   const [batchEditTotal, setBatchEditTotal] = useState('');
-  const [editingOrder, setEditingOrder] = useState<{ id: string; name: string; sold: string; qty: number } | null>(null);
+  type EditLineItem = { name: string; variantLabel?: string; qty: number; price: number };
+  type EditingOrderState = { id: string; items: EditLineItem[]; costTHB: number; shipCostTHB: number };
+  const [editingOrder, setEditingOrder] = useState<EditingOrderState | null>(null);
   const [listWidth, setListWidth] = useState(300);
   const [chatWidth, setChatWidth] = useState(280);
   const [platformFilter, setPlatformFilter] = useState<'all' | 'line' | 'instagram' | 'telegram'>('all');
@@ -421,6 +423,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       if (res.ok) {
         const updated = await res.json();
         setAllOrders(prev => prev.map(o => o._id === id ? updated : o));
+        onOrderMutated?.();
       } else {
         refreshOrders();
       }
@@ -433,6 +436,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
   async function deleteOrder(id: string) {
     setAllOrders(prev => prev.filter(o => o._id !== id));
+    onOrderMutated?.();
     fetch(`/api/orders/${id}`, { method: 'DELETE' }).catch(() => refreshOrders());
   }
 
@@ -1071,7 +1075,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           <ActiveOrderCard order={order} isDark={isDark} k={k}
                             onDelete={() => confirmDeleteOrder(order._id)}
                             onCancel={() => confirmCancelOrder(order._id)}
-                            onEdit={() => setEditingOrder({ id: order._id, name: order.product, sold: String(order.soldTHB || ''), qty: order.quantity || 1 })}
+                            onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, items: order.items?.length > 0 ? order.items.map(i => ({ name: i.name, variantLabel: i.variantLabel, qty: i.qty, price: i.price })) : [{ name: order.product, qty: order.quantity || 1, price: order.soldTHB || 0 }] })}
                             onSendQR={() => sendQR(order._id)}
                             onMarkPaid={() => markPaid(order._id)}
                             onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
@@ -1116,7 +1120,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           }
                         }}
                         onAddItem={() => setShowModal(true)}
-                        onEditOrder={(order) => setEditingOrder({ id: order._id, name: order.product, sold: String(order.soldTHB || ''), qty: order.quantity || 1 })}
+                        onEditOrder={(order) => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, items: order.items?.length > 0 ? order.items.map((i: any) => ({ name: i.name, variantLabel: i.variantLabel, qty: i.qty, price: i.price })) : [{ name: order.product, qty: order.quantity || 1, price: order.soldTHB || 0 }] })}
                       />
                     </div>
                   </section>
@@ -1697,55 +1701,117 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         </div>
       )}
 
-      {/* ── Floating order edit popup ── */}
-      {editingOrder && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-          onClick={e => { if (e.target === e.currentTarget) setEditingOrder(null); }}>
-          <div className={`w-full max-w-xs rounded-2xl border shadow-2xl p-4 space-y-3 ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
-            <div className="flex items-center justify-between">
-              <p className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>Edit Order</p>
-              <button onClick={() => setEditingOrder(null)} className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10' : 'text-[#8b92ad] hover:bg-black/5'}`}><X size={14} /></button>
-            </div>
-            <input
-              value={editingOrder.name}
-              onChange={e => setEditingOrder(v => v && { ...v, name: e.target.value })}
-              placeholder="Product name"
-              className={`w-full text-sm rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1f2335] border-[#2a3050] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]'}`}
-            />
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>Total ({merchantSettings?.localCurrency || 'THB'})</label>
-                <input type="number" value={editingOrder.sold}
-                  onChange={e => setEditingOrder(v => v && { ...v, sold: e.target.value })}
-                  className={`w-full text-sm font-black rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1f2335] border-[#2a3050] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]'}`}
-                />
+      {/* ── Item-level order edit modal ── */}
+      {editingOrder && (() => {
+        const lineTotal = (item: EditLineItem) => item.qty * item.price;
+        const orderTotal = editingOrder.items.reduce((s, i) => s + lineTotal(i), 0);
+        const orderProfit = orderTotal - editingOrder.costTHB - editingOrder.shipCostTHB;
+        const updateItem = (idx: number, patch: Partial<EditLineItem>) =>
+          setEditingOrder(v => v && { ...v, items: v.items.map((it, i) => i === idx ? { ...it, ...patch } : it) });
+        const removeItem = (idx: number) =>
+          setEditingOrder(v => v && { ...v, items: v.items.filter((_, i) => i !== idx) });
+        const addItem = () =>
+          setEditingOrder(v => v && { ...v, items: [...v.items, { name: '', qty: 1, price: 0 }] });
+        return (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+            onClick={e => { if (e.target === e.currentTarget) setEditingOrder(null); }}>
+            <div className={`w-full max-w-md rounded-2xl border shadow-2xl flex flex-col max-h-[90vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
+                <p className="text-xs font-black uppercase tracking-widest text-[#8b92ad]">Edit Order</p>
+                <button onClick={() => setEditingOrder(null)} className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10' : 'text-[#8b92ad] hover:bg-black/5'}`}><X size={14} /></button>
               </div>
-              <div className="w-24">
-                <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>Qty</label>
-                <NumberStepper value={editingOrder.qty} onChange={v => setEditingOrder(e => e && { ...e, qty: v })} min={1} step={1} isDark={isDark} size="sm" />
+
+              {/* Item list */}
+              <div className="overflow-y-auto flex-1 px-5 space-y-3">
+                {editingOrder.items.map((item, idx) => (
+                  <div key={idx} className={`rounded-2xl border p-3 space-y-2 ${isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-[#f8f9fc] border-[#e2e5ef]'}`}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={item.name}
+                        onChange={e => updateItem(idx, { name: e.target.value })}
+                        placeholder="Item name"
+                        className={`flex-1 text-xs font-semibold rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]'}`}
+                      />
+                      {editingOrder.items.length > 1 && (
+                        <button onClick={() => removeItem(idx)} className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0"><X size={13} /></button>
+                      )}
+                    </div>
+                    {item.variantLabel && (
+                      <input
+                        value={item.variantLabel}
+                        onChange={e => updateItem(idx, { variantLabel: e.target.value })}
+                        placeholder="Variant (optional)"
+                        className={`w-full text-[11px] rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-[#8b92ad]' : 'bg-white border-[#e2e5ef] text-[#8b92ad]'}`}
+                      />
+                    )}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Unit Price (฿)</label>
+                        <input
+                          type="number" min={0}
+                          value={item.price}
+                          onChange={e => updateItem(idx, { price: parseFloat(e.target.value) || 0 })}
+                          className={`w-full text-xs font-bold rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]'}`}
+                        />
+                      </div>
+                      <div className="w-28 flex-shrink-0">
+                        <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Qty</label>
+                        <NumberStepper value={item.qty} onChange={v => updateItem(idx, { qty: v })} min={1} step={1} isDark={isDark} size="sm" />
+                      </div>
+                      <div className="flex-shrink-0 text-right">
+                        <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Line</label>
+                        <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{lineTotal(item).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  onClick={addItem}
+                  className={`w-full py-2 rounded-xl text-xs font-bold border-dashed border-2 transition-all ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-[#e2e5ef] text-[#8b92ad] hover:border-accent hover:text-accent'}`}
+                >
+                  + Add item
+                </button>
+              </div>
+
+              {/* Footer summary + save */}
+              <div className={`px-5 pt-3 pb-5 flex-shrink-0 border-t space-y-3 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#8b92ad] font-medium">Total</span>
+                  <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{orderTotal.toLocaleString()}</span>
+                </div>
+                {editingOrder.costTHB > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[#8b92ad] font-medium">Profit</span>
+                    <span className={`text-xs font-black ${orderProfit >= 0 ? 'text-accent' : 'text-rose-500'}`}>
+                      {orderProfit >= 0 ? '+' : ''}฿{orderProfit.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    const newSold = orderTotal;
+                    const totalQty = editingOrder.items.reduce((s, i) => s + i.qty, 0);
+                    const primaryName = editingOrder.items[0]?.name || '';
+                    patchOrder(editingOrder.id, {
+                      items: editingOrder.items,
+                      soldTHB: newSold,
+                      quantity: totalQty,
+                      product: primaryName,
+                      profit: newSold - editingOrder.costTHB - editingOrder.shipCostTHB,
+                    });
+                    setEditingOrder(null);
+                  }}
+                  className="w-full py-2.5 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95"
+                  style={{ background: 'var(--accent-gradient)' }}
+                >
+                  Save Changes
+                </button>
               </div>
             </div>
-            <button
-              onClick={() => {
-                const newSold = parseFloat(editingOrder.sold) || 0;
-                const orig = customerOrders.find(o => o._id === editingOrder.id);
-                const costTHB = (orig?.costTHB) || 0;
-                patchOrder(editingOrder.id, {
-                  product: editingOrder.name,
-                  quantity: editingOrder.qty,
-                  soldTHB: newSold,
-                  profit: newSold - costTHB - ((orig?.shipCostTHB) || 0),
-                });
-                setEditingOrder(null);
-              }}
-              className="w-full py-2 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95"
-              style={{ background: 'var(--accent-gradient)' }}
-            >
-              Save Changes
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Floating batch selection toolbar ── */}
       {selectedOrderIds.size > 0 && (

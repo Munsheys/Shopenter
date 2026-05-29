@@ -48,6 +48,8 @@ export default function DashboardPage() {
   const [settingsScroll, setSettingsScroll] = useState<{ section: string; id: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
+  const [reportsRefreshKey, setReportsRefreshKey] = useState(0);
   const [settingsRefreshKey, setSettingsRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<{ feature: string; limit?: number; current?: number } | null>(null);
@@ -518,10 +520,10 @@ export default function DashboardPage() {
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <div key={`customers-${refreshKey}`} className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-          <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} jumpToOrderId={jumpToOrderId} onJumpOrderConsumed={() => setJumpToOrderId(null)} />
+          <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} jumpToOrderId={jumpToOrderId} onJumpOrderConsumed={() => setJumpToOrderId(null)} onOrderMutated={() => { setOrdersRefreshKey(k => k + 1); setReportsRefreshKey(k => k + 1); }} />
         </div>
 
-        <div key={`orders-${refreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
+        <div key={`orders-${refreshKey}-${ordersRefreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
           <ShopOrdersView theme={theme} t={{}} onLimitHit={handleLimitHit} onViewCustomer={(userId, orderId) => { setJumpToUserId(userId); setJumpToOrderId(orderId ?? null); setActiveTab('customers'); }} />
         </div>
 
@@ -529,7 +531,7 @@ export default function DashboardPage() {
           <ProductManagement theme={theme} t={{}} onLimitHit={handleLimitHit} />
         </div>
 
-        <div key={`reports-${refreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
+        <div key={`reports-${refreshKey}-${reportsRefreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
           <ReportsView theme={theme} t={{}} accentColor={accentColor} />
         </div>
 
