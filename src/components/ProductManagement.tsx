@@ -1706,16 +1706,16 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
           </div>
-          {/* Card size control — − fewer cols (larger cards), + more cols (smaller cards) */}
+          {/* Card size control — + bigger cards (fewer cols), − smaller cards (more cols) */}
           <div className={cn("flex items-center gap-1 pl-3 border-l", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
-            <button
-              onClick={() => { const n = Math.max(1, cardSize - 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
-              disabled={cardSize === 1}
-              className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
-            >−</button>
             <button
               onClick={() => { const n = Math.min(5, cardSize + 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
               disabled={cardSize === 5}
+              className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
+            >−</button>
+            <button
+              onClick={() => { const n = Math.max(1, cardSize - 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
+              disabled={cardSize === 1}
               className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
             >+</button>
           </div>
