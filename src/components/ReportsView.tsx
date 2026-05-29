@@ -143,13 +143,14 @@ const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-type DateRangePreset = 'today' | '7d' | '30d' | 'month' | 'all' | 'custom';
+type DateRangePreset = 'today' | '7d' | 'week' | '30d' | 'month' | 'all' | 'custom';
 
 export default function ReportsView({ theme, t, accentColor = '#00b900' }: ReportsViewProps) {
   const isDark = theme === 'dark';
   const [orders,   setOrders]   = useState<any[]>([]);
   const [coupons,  setCoupons]  = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [currency, setCurrency] = useState('THB');
 
   // Period state
@@ -189,6 +190,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         }
       } catch (e) {
         console.error('Reports fetch error', e);
+        setFetchError('Failed to load reports. Check your connection and try again.');
       } finally {
         setIsLoading(false);
       }
@@ -208,6 +210,14 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       const c = new Date(now); c.setDate(c.getDate() - 7);
       const p = new Date(c);  p.setDate(p.getDate() - 7);
       return { windowDays: 7, cutoff: c, prevFrom: p, prevTo: new Date(c) };
+    }
+    if (dateRange === 'week') {
+      const dayOfWeek = now.getDay(); // 0=Sun,1=Mon,...
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const c = new Date(now); c.setDate(now.getDate() + mondayOffset); c.setHours(0, 0, 0, 0);
+      const pStart = new Date(c); pStart.setDate(pStart.getDate() - 7);
+      const days = Math.max(1, Math.round((now.getTime() - c.getTime()) / 86400000));
+      return { windowDays: days, cutoff: c, prevFrom: pStart, prevTo: new Date(c) };
     }
     if (dateRange === '30d') {
       const c = new Date(now); c.setDate(c.getDate() - 30);
@@ -231,7 +241,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     }
     // 'all' or custom with no start date
     const oldest = orders.length
-      ? new Date(Math.min(...orders.map(o => new Date(o.createdAt).getTime())))
+      ? new Date(orders.reduce((min, o) => Math.min(min, new Date(o.createdAt).getTime()), Infinity))
       : new Date();
     const days = Math.max(1, Math.round((Date.now() - oldest.getTime()) / 86400000));
     return { windowDays: days, cutoff: new Date(0), prevFrom: new Date(0), prevTo: new Date(0) };
@@ -610,6 +620,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   const rangePresets = [
     { id: 'today',  label: 'Today' },
     { id: '7d',     label: '7d' },
+    { id: 'week',   label: 'This week' },
     { id: '30d',    label: '30d' },
     { id: 'month',  label: 'Month' },
     { id: 'all',    label: 'All time' },
@@ -624,6 +635,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     return (
       dateRange === 'today'  ? 'Today vs yesterday' :
       dateRange === '7d'    ? 'Last 7 days' :
+      dateRange === 'week'  ? 'This week (Mon–Sun)' :
       dateRange === '30d'   ? 'Last 30 days' :
       dateRange === 'month' ? 'This month' :
       dateRange === 'all'   ? 'All time' : 'Custom range'
@@ -726,13 +738,15 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           <button
             onClick={handleExport}
             disabled={exportLoading}
-            className="ml-auto p-2 rounded-xl bg-accent text-white hover:opacity-90 active:scale-95 transition-all flex-shrink-0 disabled:opacity-60"
+            className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-white hover:opacity-90 active:scale-95 transition-all flex-shrink-0 disabled:opacity-60 text-xs font-bold"
             title="Export CSV"
+            aria-label="Export orders as CSV"
           >
             {exportLoading
               ? <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" />
-              : <Download size={16} />
+              : <Download size={14} />
             }
+            <span className="hidden sm:inline">Export</span>
           </button>
         </div>
       </div>
@@ -744,8 +758,8 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
             <span className={cn('text-xs font-bold', isDark ? 'text-amber-400' : 'text-amber-600')}>
               {stalledOrders.length > 0
-                ? <>{stalledOrders.length} order{stalledOrders.length !== 1 ? 's' : ''} in <span className="font-black">paid / preparing</span> over</>
-                : <>0 orders stalled over</>
+                ? <>{stalledOrders.length} order{stalledOrders.length !== 1 ? 's' : ''} <span className="font-black">stalled in fulfillment</span> over</>
+                : <>0 orders stalled in fulfillment over</>
               }
             </span>
             <select
@@ -762,6 +776,14 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           <span className={cn('text-xs font-bold flex-shrink-0', isDark ? 'text-amber-400' : 'text-amber-600')}>
             {totalPaidPreparing} total in queue
           </span>
+        </div>
+      )}
+
+      {/* ── Fetch error ── */}
+      {fetchError && (
+        <div className="mb-6 px-5 py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-3">
+          <span className={`text-xs font-bold ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fetchError}</span>
+          <button onClick={() => { setFetchError(null); setIsLoading(true); window.location.reload(); }} className="text-xs font-black text-rose-500 hover:underline flex-shrink-0">Retry</button>
         </div>
       )}
 

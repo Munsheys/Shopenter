@@ -1711,7 +1711,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         const removeItem = (idx: number) =>
           setEditingOrder(v => v && { ...v, items: v.items.filter((_, i) => i !== idx) });
         const addItem = () =>
-          setEditingOrder(v => v && { ...v, items: [...v.items, { name: '', qty: 1, price: 0 }] });
+          setEditingOrder(v => v && { ...v, items: [...v.items, { name: '', variantLabel: '', qty: 1, price: 0 }] });
         return (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
             onClick={e => { if (e.target === e.currentTarget) setEditingOrder(null); }}>
@@ -1737,11 +1737,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         <button onClick={() => removeItem(idx)} className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0"><X size={13} /></button>
                       )}
                     </div>
-                    {item.variantLabel && (
+                    {(item.variantLabel !== undefined) && (
                       <input
-                        value={item.variantLabel}
+                        value={item.variantLabel ?? ''}
+                        placeholder="Variant (e.g. Blue · Size M)"
                         onChange={e => updateItem(idx, { variantLabel: e.target.value })}
-                        placeholder="Variant (optional)"
                         className={`w-full text-[11px] rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-[#8b92ad]' : 'bg-white border-[#e2e5ef] text-[#8b92ad]'}`}
                       />
                     )}
@@ -1928,7 +1928,7 @@ function ConfirmModal({ config, onClose, isDark, k }: { config: any, onClose: ()
           <div className="flex flex-col gap-4">
             <button
               onClick={() => { config.onConfirm(); onClose(); }}
-              className={`w-full py-4.5 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-xl ${
+              className={`w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-xl ${
                 config.danger 
                   ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20' 
                   : 'bg-emerald-500 hover:opacity-90 text-white shadow-emerald-500/20'
@@ -1938,7 +1938,7 @@ function ConfirmModal({ config, onClose, isDark, k }: { config: any, onClose: ()
             </button>
             <button
               onClick={onClose}
-              className={`w-full py-4.5 rounded-2xl font-black text-sm transition-all active:scale-95 ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+              className={`w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
             >
               Go Back
             </button>

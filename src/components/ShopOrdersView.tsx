@@ -385,8 +385,12 @@ export default function ShopOrdersView({
     return (
       <th
         onClick={() => handleSort(field)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort(field); } }}
+        tabIndex={0}
+        role="columnheader"
+        aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
         className={cn(
-          "px-6 py-5 cursor-pointer select-none hover:opacity-75 transition-opacity",
+          "px-6 py-5 cursor-pointer select-none hover:opacity-75 transition-opacity focus:outline-none focus:ring-2 focus:ring-accent/40",
           align === 'right' ? 'text-right' : ''
         )}
       >
@@ -571,7 +575,7 @@ export default function ShopOrdersView({
                 <>
                   <button onClick={() => setSelectedStatuses(newOrderStatuses)} className={cn(btnBase, isNewSelected ? "bg-accent text-white border-accent" : inactive)}>New</button>
                   <button onClick={() => setSelectedStatuses(allStatuses)} className={cn(btnBase, isAllSelected ? "bg-accent text-white border-accent" : inactive)}>All</button>
-                  <button onClick={() => setSelectedStatuses([])} className={cn(btnBase, selectedStatuses.length === 0 ? "bg-red-500/10 text-red-500 border-red-300" : inactive)}>Clear</button>
+                  <button onClick={() => setSelectedStatuses(allStatuses)} className={cn(btnBase, selectedStatuses.length === allStatuses.length ? "bg-accent/10 text-accent border-accent/30" : inactive)}>All</button>
                 </>
               );
             })()}
@@ -751,10 +755,10 @@ export default function ShopOrdersView({
                   </td>
                   <td className="px-6 py-5">
                     <div className={cn("text-sm font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
-                      ${sym}{(o.soldTHB || 0).toLocaleString()}
+                      {sym}{(o.soldTHB || 0).toLocaleString()}
                     </div>
                     {(o.profit ?? 0) > 0 && (
-                      <div className="text-[10px] font-bold text-accent mt-0.5">+${sym}{(o.profit!).toLocaleString()}</div>
+                      <div className="text-[10px] font-bold text-accent mt-0.5">+{sym}{(o.profit!).toLocaleString()}</div>
                     )}
                   </td>
                   <td className="px-6 py-5">
@@ -844,11 +848,11 @@ export default function ShopOrdersView({
                                   {item.variantLabel && <p className="text-[10px] text-[#8b92ad]">{item.variantLabel}</p>}
                                 </div>
                                 <div className="flex items-center gap-4 flex-shrink-0">
-                                  {item.price != null && <span className={cn("text-xs font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>${sym}{lineTotal.toLocaleString()}</span>}
-                                  {lineCost > 0 && <span className="text-[10px] text-[#8b92ad]">cost ${sym}{lineCost.toLocaleString()}</span>}
+                                  {item.price != null && <span className={cn("text-xs font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{sym}{lineTotal.toLocaleString()}</span>}
+                                  {lineCost > 0 && <span className="text-[10px] text-[#8b92ad]">cost {sym}{lineCost.toLocaleString()}</span>}
                                   {lineCost > 0 && item.price != null && (
                                     <span className={cn("text-[10px] font-bold", lineProfit >= 0 ? "text-accent" : "text-rose-500")}>
-                                      {lineProfit >= 0 ? '+' : ''}${sym}{lineProfit.toLocaleString()}
+                                      {lineProfit >= 0 ? '+' : ''}{sym}{lineProfit.toLocaleString()}
                                     </span>
                                   )}
                                 </div>
@@ -859,18 +863,18 @@ export default function ShopOrdersView({
                         <div className={cn("flex flex-wrap gap-6 mt-4 pt-4 border-t text-xs", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
                           <div>
                             <span className="text-[#8b92ad] font-medium">Total </span>
-                            <span className={cn("font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>${sym}{(o.soldTHB || 0).toLocaleString()}</span>
+                            <span className={cn("font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{sym}{(o.soldTHB || 0).toLocaleString()}</span>
                           </div>
                           {(o.profit ?? 0) > 0 && (
                             <div>
                               <span className="text-[#8b92ad] font-medium">Profit </span>
-                              <span className="font-black text-accent">+${sym}{(o.profit!).toLocaleString()}</span>
+                              <span className="font-black text-accent">+{sym}{(o.profit!).toLocaleString()}</span>
                             </div>
                           )}
                           {o.shippingCost != null && o.shippingCost > 0 && (
                             <div>
                               <span className="text-[#8b92ad] font-medium">Shipping </span>
-                              <span className={cn("font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>${sym}{o.shippingCost.toLocaleString()}</span>
+                              <span className={cn("font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{sym}{o.shippingCost.toLocaleString()}</span>
                             </div>
                           )}
                           {o.courier && (
@@ -1262,7 +1266,7 @@ function StatusPill({ status }: { status: string }) {
   const config = configs[status] || configs.pending;
 
   return (
-    <span className={cn("px-3 py-1 rounded-full text-[9px] font-black border uppercase tracking-wider", config.bg)}>
+    <span className={cn("px-3 py-1 rounded-full text-[11px] font-black border uppercase tracking-wide", config.bg)}>
       {config.label}
     </span>
   );
