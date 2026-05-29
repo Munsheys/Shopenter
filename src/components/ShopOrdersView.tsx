@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { currencySymbol } from '@/lib/currency';
 import {
   ShoppingCart,
   FileSpreadsheet,
@@ -53,12 +54,15 @@ export default function ShopOrdersView({
   onViewCustomer,
   t,
   onLimitHit,
+  localCurrency,
 }: {
   theme?: 'light' | 'dark',
+  localCurrency?: string,
   onViewCustomer?: (userId: string, orderId?: string) => void,
   t: any,
   onLimitHit?: (feature: string, limit?: number, current?: number) => void,
 }) {
+  const sym = currencySymbol(localCurrency);
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   // Fix 14: separate error state
@@ -455,15 +459,15 @@ export default function ShopOrdersView({
       {/* Stats Ribbon — click any card to filter orders below */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
         <StatsCard icon={<TrendingUp size={16} />} label="Confirmed Revenue"
-          value={`฿${stats.revenue.toLocaleString()}`}
-          subLabel={stats.potentialRevenue > 0 ? `+฿${stats.potentialRevenue.toLocaleString()} potential` : `${stats.count} confirmed orders`}
+          value={`${sym}${stats.revenue.toLocaleString()}`}
+          subLabel={stats.potentialRevenue > 0 ? `+${sym}${stats.potentialRevenue.toLocaleString()} potential` : `${stats.count} confirmed orders`}
           subLabelHighlight={stats.potentialRevenue > 0}
           color="emerald" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(allStatuses)}
           active={selectedStatuses.length === allStatuses.length}
         />
         <StatsCard icon={<DollarSign size={16} />} label="Total Profit"
-          value={`฿${stats.profit.toLocaleString()}`} subLabel={`฿${stats.avg.toLocaleString()} avg / order`}
+          value={`${sym}${stats.profit.toLocaleString()}`} subLabel={`${sym}${stats.avg.toLocaleString()} avg / order`}
           color="indigo" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(['shipped', 'delivered'])}
           active={selectedStatuses.length === 2 && selectedStatuses.includes('delivered') && selectedStatuses.includes('shipped')}
@@ -487,7 +491,7 @@ export default function ShopOrdersView({
           active={selectedStatuses.length === 1 && selectedStatuses.includes('delivered')}
         />
         <StatsCard icon={<BarChart2 size={16} />} label="Avg Order Value"
-          value={`฿${stats.avg.toLocaleString()}`} subLabel="Across all orders"
+          value={`${sym}${stats.avg.toLocaleString()}`} subLabel="Across all orders"
           color="indigo" theme={theme} isLoading={isLoading || orders === null}
           onClick={() => setSelectedStatuses(allStatuses)}
           active={false}
@@ -747,10 +751,10 @@ export default function ShopOrdersView({
                   </td>
                   <td className="px-6 py-5">
                     <div className={cn("text-sm font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
-                      ฿{(o.soldTHB || 0).toLocaleString()}
+                      ${sym}{(o.soldTHB || 0).toLocaleString()}
                     </div>
                     {(o.profit ?? 0) > 0 && (
-                      <div className="text-[10px] font-bold text-accent mt-0.5">+฿{(o.profit!).toLocaleString()}</div>
+                      <div className="text-[10px] font-bold text-accent mt-0.5">+${sym}{(o.profit!).toLocaleString()}</div>
                     )}
                   </td>
                   <td className="px-6 py-5">
@@ -840,11 +844,11 @@ export default function ShopOrdersView({
                                   {item.variantLabel && <p className="text-[10px] text-[#8b92ad]">{item.variantLabel}</p>}
                                 </div>
                                 <div className="flex items-center gap-4 flex-shrink-0">
-                                  {item.price != null && <span className={cn("text-xs font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>฿{lineTotal.toLocaleString()}</span>}
-                                  {lineCost > 0 && <span className="text-[10px] text-[#8b92ad]">cost ฿{lineCost.toLocaleString()}</span>}
+                                  {item.price != null && <span className={cn("text-xs font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>${sym}{lineTotal.toLocaleString()}</span>}
+                                  {lineCost > 0 && <span className="text-[10px] text-[#8b92ad]">cost ${sym}{lineCost.toLocaleString()}</span>}
                                   {lineCost > 0 && item.price != null && (
                                     <span className={cn("text-[10px] font-bold", lineProfit >= 0 ? "text-accent" : "text-rose-500")}>
-                                      {lineProfit >= 0 ? '+' : ''}฿{lineProfit.toLocaleString()}
+                                      {lineProfit >= 0 ? '+' : ''}${sym}{lineProfit.toLocaleString()}
                                     </span>
                                   )}
                                 </div>
@@ -855,18 +859,18 @@ export default function ShopOrdersView({
                         <div className={cn("flex flex-wrap gap-6 mt-4 pt-4 border-t text-xs", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
                           <div>
                             <span className="text-[#8b92ad] font-medium">Total </span>
-                            <span className={cn("font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>฿{(o.soldTHB || 0).toLocaleString()}</span>
+                            <span className={cn("font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>${sym}{(o.soldTHB || 0).toLocaleString()}</span>
                           </div>
                           {(o.profit ?? 0) > 0 && (
                             <div>
                               <span className="text-[#8b92ad] font-medium">Profit </span>
-                              <span className="font-black text-accent">+฿{(o.profit!).toLocaleString()}</span>
+                              <span className="font-black text-accent">+${sym}{(o.profit!).toLocaleString()}</span>
                             </div>
                           )}
                           {o.shippingCost != null && o.shippingCost > 0 && (
                             <div>
                               <span className="text-[#8b92ad] font-medium">Shipping </span>
-                              <span className={cn("font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>฿{o.shippingCost.toLocaleString()}</span>
+                              <span className={cn("font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>${sym}{o.shippingCost.toLocaleString()}</span>
                             </div>
                           )}
                           {o.courier && (

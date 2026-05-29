@@ -1747,7 +1747,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     )}
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
-                        <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Unit Price (฿)</label>
+                        <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Unit Price ({merchantSettings?.localCurrency || 'THB'})</label>
                         <input
                           type="number" min={0}
                           value={item.price}

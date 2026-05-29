@@ -524,7 +524,7 @@ export default function DashboardPage() {
         </div>
 
         <div key={`orders-${refreshKey}-${ordersRefreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
-          <ShopOrdersView theme={theme} t={{}} onLimitHit={handleLimitHit} onViewCustomer={(userId, orderId) => { setJumpToUserId(userId); setJumpToOrderId(orderId ?? null); setActiveTab('customers'); }} />
+          <ShopOrdersView theme={theme} t={{}} localCurrency={settings?.localCurrency} onLimitHit={handleLimitHit} onViewCustomer={(userId, orderId) => { setJumpToUserId(userId); setJumpToOrderId(orderId ?? null); setActiveTab('customers'); }} />
         </div>
 
         <div key={`products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto' : 'hidden'}>
