@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   ShoppingCart,
   FileSpreadsheet,
@@ -57,6 +57,8 @@ export default function ShopOrdersView({
 }) {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Fix 14: separate error state
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Define status lists before state so we can use allStatuses as default
   const allStatuses = ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'];
@@ -84,6 +86,25 @@ export default function ShopOrdersView({
   const startDateRef = useRef<HTMLInputElement>(null);
   const endDateRef = useRef<HTMLInputElement>(null);
 
+  // Fix 13: Escape-key dismiss for Cancel modal
+  useEffect(() => {
+    if (!cancelConfirm.open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCancelConfirm({ open: false, orderId: null });
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [cancelConfirm.open]);
+
+  // Fix 13: Escape-key dismiss for Delete modal
+  useEffect(() => {
+    if (!deleteConfirm.open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDeleteConfirm({ open: false, orderId: null });
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [deleteConfirm.open]);
 
   // Restore from localStorage
   useEffect(() => {
@@ -97,20 +118,27 @@ export default function ShopOrdersView({
 
   // Status filter is purely client-side — never sent to API.
   // Only search text and date range trigger a re-fetch.
-  const fetchOrders = useCallback(async () => {
+  // Fix 4: AbortController on fetch
+  const fetchOrders = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
+    // Fix 14: clear error at start of each fetch
+    setFetchError(null);
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
-      const res = await fetch(`/api/shop-orders?${params.toString()}`);
+      const res = await fetch(`/api/shop-orders?${params.toString()}`, { signal });
       const data = await res.json();
       setOrders(Array.isArray(data) ? data : []);
       setCurrentPage(1);
-    } catch (error) {
+    } catch (error: any) {
+      // Fix 4: ignore aborted requests
+      if (error?.name === 'AbortError') return;
       console.error('Failed to fetch orders:', error);
+      // Fix 14: surface error to UI
+      setFetchError('Failed to load orders. Please check your connection and try again.');
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -118,25 +146,33 @@ export default function ShopOrdersView({
   }, [searchTerm, startDate, endDate]);
 
   useEffect(() => {
+    // Fix 4: create AbortController, pass signal, abort on cleanup
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetchOrders();
+      fetchOrders(controller.signal);
     }, 300); // Debounce
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [fetchOrders]);
 
 
   const handleExportCSV = () => {
-    if (!orders || orders.length === 0) return;
+    // Fix 5: export sortedOrders (filtered + sorted view) instead of raw orders
+    if (!sortedOrders || sortedOrders.length === 0) return;
 
-    // Headers
-    const headers = ['Date', 'Customer', 'Products', 'Total (THB)', 'Status', 'Tracking', 'Address'];
-    
+    // Fix 9: add Profit column to CSV headers
+    const headers = ['Date', 'Customer', 'Products', 'Total (THB)', 'Profit (THB)', 'Status', 'Tracking', 'Address'];
+
     // Rows
-    const rows = orders.map(o => [
+    const rows = sortedOrders.map(o => [
       new Date(o.createdAt).toLocaleString('th-TH'),
       o.displayName,
-      o.items?.map(i => `${i.qty}x ${i.name}`).join(' + ') || `${o.quantity || 1}x ${o.product}`,
+      o.items?.map((i: any) => `${i.qty}x ${i.name}`).join(' + ') || `${o.quantity || 1}x ${o.product}`,
       o.soldTHB,
+      // Fix 9: include profit in CSV row
+      o.profit || 0,
       o.status,
       o.tracking || '-',
       `"${o.address?.replace(/"/g, '""') || ''}"`
@@ -148,7 +184,7 @@ export default function ShopOrdersView({
     ].join('\n');
 
     // Add BOM for Thai characters in Excel
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
@@ -158,18 +194,21 @@ export default function ShopOrdersView({
     document.body.removeChild(link);
   };
 
-  // Filter orders based on selected statuses
-  const filteredOrders = orders?.filter(o => selectedStatuses.includes(o.status)) || [];
+  // Fix 6: memoize filteredOrders
+  const filteredOrders = useMemo(
+    () => orders?.filter(o => selectedStatuses.includes(o.status)) || [],
+    [orders, selectedStatuses]
+  );
 
   // Sort orders
-  const sortedOrders = React.useMemo(() => {
+  const sortedOrders = useMemo(() => {
     if (!sortField) return filteredOrders;
     return [...filteredOrders].sort((a, b) => {
       let av: any = a[sortField as keyof Order];
       let bv: any = b[sortField as keyof Order];
-      // Status uses fixed workflow order
+      // Fix 3: include 'cancelled' at the end so indexOf returns a valid position
       if (sortField === 'status') {
-        const order = ['pending', 'paid', 'preparing', 'shipped', 'delivered'];
+        const order = ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'];
         av = order.indexOf(av);
         bv = order.indexOf(bv);
       }
@@ -205,27 +244,44 @@ export default function ShopOrdersView({
     cancelled: allOrders.filter(o => o.status === 'cancelled').length,
   };
 
+  // Fix 1: cancelOrder with rollback on failure
   async function cancelOrder(id: string) {
+    const previousOrders = orders;
     setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: 'cancelled' as const } : o) ?? prev);
     setCancelConfirm({ open: false, orderId: null });
     try {
       await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' }) });
-    } catch { /* optimistic update stays */ }
+    } catch (err) {
+      // Rollback optimistic update and surface error
+      setOrders(previousOrders);
+      setFetchError('Failed to cancel order. Please try again.');
+    }
   }
 
+  // Fix 7: extend nextStatusMap to cover full workflow
   const nextStatusMap: Partial<Record<Order['status'], Order['status']>> = {
+    paid: 'preparing',
+    preparing: 'shipped',
     shipped: 'delivered',
   };
 
   const nextStatusLabel: Partial<Record<Order['status'], string>> = {
+    paid: 'Preparing',
+    preparing: 'Shipped',
     shipped: 'Delivered',
   };
 
+  // Fix 2: advanceOrder with rollback on failure
   async function advanceOrder(id: string, nextStatus: Order['status']) {
+    const previousOrders = orders;
     setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: nextStatus } : o) ?? prev);
     try {
       await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: nextStatus }) });
-    } catch { /* optimistic update stays */ }
+    } catch (err) {
+      // Rollback optimistic update and surface error
+      setOrders(previousOrders);
+      setFetchError('Failed to advance order status. Please try again.');
+    }
   }
 
   async function deleteOrder(id: string) {
@@ -313,8 +369,8 @@ export default function ShopOrdersView({
           </h2>
           <p className="text-[#8b92ad] text-xs font-medium mt-1 uppercase tracking-widest">{t.fulfillment_management || 'Global Fulfillment Management'}</p>
         </div>
-        
-        <button 
+
+        <button
           onClick={handleExportCSV}
           className="w-full md:w-auto text-white px-6 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg hover:opacity-90 active:scale-95 transition-all"
           style={{ background: 'var(--accent-gradient)' }}
@@ -322,6 +378,32 @@ export default function ShopOrdersView({
           <FileSpreadsheet size={18} /> {t.export_view || 'Export Current View'}
         </button>
       </div>
+
+      {/* Fix 14: Error banner with Retry button */}
+      {fetchError && (
+        <div className={cn(
+          "rounded-2xl border px-5 py-4 mb-6 flex items-center justify-between gap-4",
+          theme === 'dark'
+            ? "bg-red-500/10 border-red-500/30 text-red-400"
+            : "bg-red-50 border-red-200 text-red-700"
+        )}>
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={18} className="flex-shrink-0" />
+            <span className="text-sm font-bold">{fetchError}</span>
+          </div>
+          <button
+            onClick={() => fetchOrders()}
+            className={cn(
+              "flex-shrink-0 px-4 py-2 rounded-xl text-xs font-black border transition-all active:scale-95",
+              theme === 'dark'
+                ? "border-red-500/40 text-red-400 hover:bg-red-500/20"
+                : "border-red-300 text-red-700 hover:bg-red-100"
+            )}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Stats Ribbon — click any card to filter orders below */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
@@ -420,6 +502,7 @@ export default function ShopOrdersView({
         {/* Row 2: Status Pills + Date Range */}
         <div className="p-4 flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6">
           {/* Status Pills */}
+          {/* Fix 12: increased padding to meet 44px minimum touch target */}
           <div className="flex flex-wrap items-center gap-2">
             {allStatuses.map(status => {
               const isSelected = selectedStatuses.includes(status);
@@ -440,7 +523,7 @@ export default function ShopOrdersView({
                   key={status}
                   onClick={() => toggleStatus(status)}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all active:scale-95",
+                    "py-2.5 px-4 rounded-full text-[10px] font-bold border transition-all active:scale-95",
                     isSelected ? pillColors[status].on : pillColors[status].off
                   )}
                 >
@@ -474,6 +557,7 @@ export default function ShopOrdersView({
       </div>
 
       {/* Main Table Content */}
+      {/* Fix 15: overflow-x-auto on outer wrapper (already present). Table container */}
       <div className={cn(
         "rounded-3xl border overflow-hidden shadow-xl transition-colors",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
@@ -490,7 +574,11 @@ export default function ShopOrdersView({
                 <th className="px-6 py-5">Items</th>
                 <SortHeader field="soldTHB" label="Total" align="left" />
                 <SortHeader field="status" label="Status" align="left" />
-                <th className="px-6 py-5 text-right">Actions</th>
+                {/* Fix 15: sticky Actions column */}
+                <th className={cn(
+                  "px-6 py-5 text-right sticky right-0",
+                  theme === 'dark' ? "bg-[#1f2335]" : "bg-[#f8f9fc]"
+                )}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f4f6f9] dark:divide-[#1f2335]">
@@ -510,7 +598,13 @@ export default function ShopOrdersView({
                   </td>
                   <td className="px-6 py-5">
                     <div className={cn("font-bold text-sm", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{o.displayName}</div>
-                    <div className="text-[10px] text-[#8b92ad] max-w-[180px] truncate mt-0.5">{o.address || 'No address provided'}</div>
+                    {/* Fix 10: add title tooltip for full address on truncated element */}
+                    <div
+                      title={o.address}
+                      className="text-[10px] text-[#8b92ad] max-w-[180px] truncate mt-0.5"
+                    >
+                      {o.address || 'No address provided'}
+                    </div>
                   </td>
                   <td className="px-6 py-5">
                     <div className="space-y-1">
@@ -537,9 +631,37 @@ export default function ShopOrdersView({
                   </td>
                   <td className="px-6 py-5">
                     <StatusPill status={o.status} />
+                    {/* Fix 11: show courier + tracking for shipped/delivered */}
+                    {(o.status === 'shipped' || o.status === 'delivered') && (o.courier || o.tracking) && (
+                      <div className="mt-1.5 space-y-0.5">
+                        {o.courier && (
+                          <div className="text-[10px] text-[#8b92ad] font-medium">{o.courier}</div>
+                        )}
+                        {o.tracking && (
+                          /^https?:\/\//.test(o.tracking) ? (
+                            <a
+                              href={o.tracking}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-accent font-medium flex items-center gap-1 hover:underline"
+                            >
+                              <ExternalLink size={9} />
+                              {o.tracking}
+                            </a>
+                          ) : (
+                            <div className="text-[10px] text-[#8b92ad] font-medium">{o.tracking}</div>
+                          )
+                        )}
+                      </div>
+                    )}
                   </td>
-                  <td className="px-6 py-5">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Fix 15: sticky Actions cell with matching background */}
+                  <td className={cn(
+                    "px-6 py-5 sticky right-0",
+                    theme === 'dark' ? "bg-[#161925] group-hover:bg-[#1a1d2e]" : "bg-white group-hover:bg-[#f8f9fc]"
+                  )}>
+                    {/* Fix 8: remove opacity-0/hover-only — always show action buttons */}
+                    <div className="flex justify-end gap-2">
                       {/* Advance status button */}
                       {nextStatusMap[o.status] && (
                         <button
@@ -842,4 +964,3 @@ function StatusPill({ status }: { status: string }) {
     </span>
   );
 }
-
