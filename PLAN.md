@@ -5,102 +5,97 @@
 
 ---
 
-## Current State (as of today)
+## Current State
 
-Stage A of the ROADMAP_SAAS is complete. All five core dashboard pages have gone through
-two full rounds of peer review plus a screenshot-driven UX correction pass.
-
-### What was fixed in Stage A
+### Completed — Stage A (dashboard page review + UX correction)
 
 **ReportsView**
 - Removed 8-week sparkline (noise, not actionable)
-- Period selector now at top, stalled-orders banner below it
-- Stalled threshold is now a live selector in the banner (1 / 2 / 3 / 5 / 7 days)
+- Period selector at top, stalled-orders banner below it
+- Stalled threshold live selector in the banner (1 / 2 / 3 / 5 / 7 days)
 - KPI skeleton loaders with `animate-pulse`
 
 **ShopOrdersView**
-- Status advancement restricted to `shipped → delivered` only (orders page = overview)
-- "View in Chat" navigates to customer AND highlights the specific order card (3-second ring)
-- CSV export quotes all cells, handles commas in values
-- Optimistic updates with rollback on server error
+- Orders page is read-only overview — no status advancement from row actions
+- Per-row actions: **Cancel** (keeps record, marks cancelled) + **Bin** (wipes record entirely) + **View in Chat**
+- Cancel available for all non-delivered, non-cancelled statuses including shipped
+- Batch selection: header checkbox selects/deselects all filtered orders
+- Floating pill toolbar appears when rows selected:
+  `N selected` · `Select All N` · `Delivered (N)` · `Cancel (N)` · `Delete (N)` · ✕
+- Batch Delivered only appears when shipped orders are in the selection
+- Batch Cancel covers pending / paid / preparing / shipped (not delivered / cancelled)
+- CSV export quotes all cells; "View in Chat" highlights the order card cross-component
 
 **CustomersView**
 - Section order: Active Orders → Delivery Addresses → Parcel → In Transit → Order History
-- "Mark Delivered" button visible on collapsed in-transit row (no expand required)
-- Print button on collapsed in-transit row (shipped orders only, not in history)
-- Chat drawer fixed to `top-14` so it no longer covers the navbar
-- In-transit orders grouped by parcel: orders sharing the same tracking number appear as
-  one row, not many. Group header shows item count, courier, tracking, combined totals,
-  single "Delivered" button that marks all items at once, combined print receipt.
-- `jumpToOrderId` prop wires "View in Chat" highlight cross-component
+- Chat drawer `top-14` — no longer covers the navbar
+- In-transit orders grouped by parcel (same tracking = one row); group shows combined
+  totals, Delivered button marks all items at once, print generates combined receipt
+- "Mark Delivered" and Print visible on collapsed in-transit row (no expand required)
+- `jumpToOrderId` prop highlights the correct order card when navigating from Orders page
 
 **ProductManagement**
-- Card size `+` = bigger (fewer columns), `−` = smaller (more columns) — correct
-- CSV import deduplication covers same-batch duplicates via local `Set`
-- Price `min="0.01" step="any"`, variant prices/stock clamped to 0
+- `+` = bigger cards (fewer columns), `−` = smaller (more columns)
+- CSV import deduplication covers same-batch duplicates
 
 **UpgradePrompt / UnsavedChangesModal**
-- Escape key dismiss, `role="dialog" aria-modal`, correct `autoFocus` (safe action)
-- `router.push` instead of `window.location.href` so `onClose` runs first
-- All dead `dark:` Tailwind prefixes replaced with `theme === 'dark' ? ... : ...` ternaries
+- Escape dismiss, `role="dialog" aria-modal`, `autoFocus` on safe action
+- All dead `dark:` Tailwind prefixes replaced with `theme === 'dark'` ternaries
 
 ---
 
-## Known Gaps Discovered During Stage A
+## Page Responsibility Model (do not break this)
 
-Two gaps were found that are not bugs in the current code, but missing capabilities
-in the underlying data model. They are deferred because they each require architectural
-changes that should not be rushed.
+| Page | Responsibility | What it can do |
+|------|---------------|----------------|
+| Orders | Read-only overview across all customers | View, filter, search, batch cancel, batch delete, batch deliver (power-user shortcut) |
+| Customers | Full order lifecycle management | Mark paid, parcel, ship, mark delivered, cancel, edit |
+| Reports | Financial analytics | Read-only |
+
+Status advancement (pending → paid → preparing → shipped → delivered) belongs on the
+Customer page. The Orders page batch "Delivered" is a power-user shortcut, not the
+primary workflow.
 
 ---
 
-## DEFERRED — Gap 1: Partial Fulfilment / Split Shipment
+## Deferred — Gap 1: Partial Fulfilment / Split Shipment
 
 **Priority: High — build before Stage B**
-**Why deferred: Requires new DB collection, API routes, migration, and changes to three views**
+**Estimated scope: 10–14 days**
+**Why deferred: Requires new DB collection, API routes, migration, and changes across three views**
 
 ### The problem
 
-The current `Order` document has a single `status` field covering all items in the order.
-There is no item-level status. This means the following real-world scenario is impossible
-to represent correctly:
+The current `Order` document has a single `status` field covering all items. There is no
+item-level status. This makes the following scenario impossible:
 
 ```
 Customer orders: 1×A  3×B  1×C
-Merchant ships:  1×A  1×B        ← first parcel, today
-Merchant ships:       2×B  1×C   ← second parcel, next week
+Merchant ships:  1×A  1×B        ← first parcel today
+Merchant ships:       2×B  1×C   ← second parcel next week
 ```
 
-The order is fulfilled in two separate physical shipments, each with its own tracking
-number, its own ship date, and potentially its own delivery confirmation.
-
-Today, the merchant's only options are to:
-1. Mark the whole order as shipped when only part leaves — misleading status
-2. Create two separate orders manually — no formal link between them, awkward financials
-3. Wait until all stock is ready before shipping anything — bad for the customer
+Workarounds all produce incorrect data: marking the whole order shipped (misleads
+customer), waiting for full stock (bad for customer), or creating two manual orders
+(no formal link, awkward financials).
 
 ### The correct data model
 
-Separate the concept of **what was purchased** (Order) from **what was physically sent** (Fulfilment).
+Separate **Order** (what was purchased) from **Fulfilment** (what was physically sent).
 
-**Order** — what the customer agreed to buy and pay for. Has a lifecycle that reflects
-whether all fulfilments are complete.
-
+**Order** — lifecycle driven by its Fulfilments:
 ```
 status: 'pending' | 'paid' | 'partially_fulfilled' | 'fulfilled' | 'cancelled'
 ```
+Fields `tracking`, `courier`, `address` move to Fulfilment.
 
-Fields removed from Order: `tracking`, `courier`, `address` — these move to Fulfilment.
-
-**Fulfilment** — one physical parcel that left the warehouse. Belongs to exactly one Order.
-An Order can have many Fulfilments.
-
+**Fulfilment** — one physical parcel:
 ```typescript
 type Fulfilment = {
   _id: string
-  orderId: string                  // parent Order
-  userId: string                   // denormalised — needed for efficient per-customer queries
-  items: FulfilmentItem[]          // subset of the order's items, with quantities
+  orderId: string          // parent Order
+  userId: string           // denormalised for query efficiency
+  items: FulfilmentItem[]  // subset of order items with quantities
   tracking?: string
   courier?: string
   address?: string
@@ -110,223 +105,149 @@ type Fulfilment = {
   shippedAt?: string
   deliveredAt?: string
 }
-
-type FulfilmentItem = {
-  productId?: string
-  name: string
-  variantLabel?: string
-  qty: number                      // qty in THIS fulfilment, not the total ordered
-  price: number                    // price per unit
-}
+type FulfilmentItem = { productId?: string; name: string; variantLabel?: string; qty: number; price: number }
 ```
 
-**Derived order status rule** (computed, never manually set):
-- All fulfilments delivered → Order status = `fulfilled`
-- At least one fulfilment shipped or delivered, but not all → `partially_fulfilled`
-- No fulfilments exist yet → `paid` (awaiting packing)
-- Explicitly cancelled → `cancelled`
+**Computed Order status rule:**
+- All fulfilments delivered → `fulfilled`
+- ≥1 fulfilment shipped/delivered but not all → `partially_fulfilled`
+- No fulfilments yet → stays at `paid`
+- Explicit cancel → `cancelled`
 
-### API changes required
+### API changes
 
 | Method | Route | Purpose |
 |--------|-------|---------|
-| `GET` | `/api/orders/:id/fulfilments` | List all fulfilments for an order |
-| `POST` | `/api/orders/:id/fulfilments` | Create a new fulfilment (item picker) |
-| `PATCH` | `/api/fulfilments/:id` | Mark shipped / delivered, update tracking |
+| `GET` | `/api/orders/:id/fulfilments` | List fulfilments for an order |
+| `POST` | `/api/orders/:id/fulfilments` | Create new fulfilment (item picker) |
+| `PATCH` | `/api/fulfilments/:id` | Update tracking / mark shipped or delivered |
 | `DELETE` | `/api/fulfilments/:id` | Remove an unshipped fulfilment |
-| `GET` | `/api/orders` | Add `fulfilments` array (or summary) to response |
+| `GET` | `/api/orders` | Include fulfilment summary in response |
 
-The Parcel section currently works by moving whole Order documents to `preparing` status,
-then calling `patchOrder` for each one when shipping. That logic moves to Fulfilment:
-the Parcel is a Fulfilment document in `pending` status with items being selected by the merchant.
+### UI changes
 
-### UI changes required
-
-**Customer page — Active Orders section**
-
-Order card must show fulfilment progress below the product name:
-
+**Customer page — Active Orders**
+Show fulfilment progress bar on each order card:
 ```
-[Paid]  1×A  3×B  1×C                           ฿4,500
+[Paid]  1×A  3×B  1×C                   ฿4,500
         ████████░░░░  2 of 5 items shipped
         [Add to Parcel ▾]  [Edit]  [Cancel]
 ```
 
-The "Add to Parcel" button opens an item picker modal where the merchant selects which
-items and quantities to include in the next shipment. Unallocated quantities remain
-visible in Active Orders even after partial shipment.
-
-**Customer page — Parcel section**
-
-The Parcel section no longer operates on whole Order documents. It operates on a
-Fulfilment document. The UI is similar but the "ship" action creates/updates a
-Fulfilment and does NOT change the Order's status directly — the Order status is
-computed from its Fulfilments.
-
-When the merchant creates a parcel, they see a two-column item picker:
+**Customer page — Parcel**
+Parcel operates on a Fulfilment, not whole Orders. An item picker lets the merchant
+choose which items and quantities to include in this shipment:
 ```
-FROM (unshipped items)           IN THIS PARCEL
-─────────────────────────────    ──────────────────────
-  3×B   [Add 1] [Add All] →       1×A
-  1×C   [Add 1] [Add All] →       1×B
+FROM (unshipped)          IN THIS PARCEL
+────────────────────────  ──────────────────
+  3×B  [+1] [All] →        1×A
+  1×C  [+1] [All] →        1×B
 ```
 
-**Customer page — In Transit section**
+**Customer page — In Transit**
+Each row is a Fulfilment document. Data source changes from `Order[]` to `Fulfilment[]`.
+Visual grouping already works (grouped by tracking number).
 
-Already updated to group by tracking number. With the Fulfilment model, each row IS
-a Fulfilment document, so grouping is natural. No visual change needed, but the data
-source changes from `Order[]` to `Fulfilment[]`.
+**Customer page — Order History**
+Order moves to history only when `status === 'fulfilled' || status === 'cancelled'`.
+While `partially_fulfilled` it stays in Active Orders. Expanded history row shows all
+Fulfilments as a timeline.
 
-**Customer page — Order History section**
+**Orders page**
+Add `partially_fulfilled` to status filter chips and status column. Row expander shows
+fulfilment breakdown.
 
-An Order only moves to history when `status === 'fulfilled' || status === 'cancelled'`.
-While `partially_fulfilled`, the order stays in Active Orders with a partial progress bar.
+**Reports**
+Realized profit changes from "sum of profit on delivered Orders" to "sum of profit
+across delivered Fulfilments", with cost apportioned proportionally by sold value.
 
-Each history row expands to show all Fulfilments for that order — date shipped, items,
-tracking — giving a complete audit trail.
+### Migration
 
-**Orders page (ShopOrdersView)**
+One-time script — online, no downtime:
+- Every `shipped` Order → synthetic Fulfilment(`status: 'shipped'`, all items, tracking copied)
+- Every `delivered` Order → synthetic Fulfilment(`status: 'delivered'`)
+- Old `tracking`/`courier`/`address` on Order become read-only legacy fields
 
-Status column needs to handle `partially_fulfilled`. The status filter chips need the
-new status. The row expander should show fulfilment breakdown.
-
-**Reports page**
-
-`realizedProfit` must change. Currently: sum of `profit` on `delivered` orders.
-Correct: sum of `profit` across `delivered` Fulfilments. Since a Fulfilment covers a
-subset of items, its profit = (sum of item prices × qty) − proportional cost − shipCostTHB.
-
-Cost allocation across partial fulfilments: apportion the order's `costTHB` proportionally
-by sold value. If Fulfilment 1 covers 40% of soldTHB, it carries 40% of costTHB.
-
-### Migration required
-
-All existing Order documents where `status` is `shipped` or `delivered` must get a
-synthetic Fulfilment record created containing all their items. This is a one-time
-migration script. Data integrity checks:
-- Every `shipped` Order → one Fulfilment with `status: 'shipped'`, tracking copied over
-- Every `delivered` Order → one Fulfilment with `status: 'delivered'`
-- Order's `tracking`/`courier`/`address` fields become read-only legacy; new writes go to Fulfilment
-
-The migration can be run online (no downtime) because old code still works during the
-transition — it reads from Order directly.
-
-### Sequencing recommendation
-
-Do NOT start this until:
-1. Gap 2 (auto-deliver setting) is shipped — it's small and unblocks non-tracking merchants now
-2. The current Stage A fixes are in production and stable for one week
+### Do not start until
+1. Gap 2 (auto-deliver) is shipped
+2. Current fixes are in production and stable for ≥1 week
 3. A test merchant with real split-shipment orders is available to validate the UI
-
-Estimated scope: 10–14 days of focused work.
 
 ---
 
-## DEFERRED — Gap 2: Auto-Deliver for Non-Tracking Merchants
+## Deferred — Gap 2: Auto-Deliver for Non-Tracking Merchants
 
 **Priority: Medium — do before Partial Fulfilment**
-**Why deferred: Small, but blocked on deciding what the correct default N days is**
+**Estimated scope: 1 day**
 
 ### The problem
 
-Many small import resellers ship, consider the job done, and never mark orders as
-delivered. As a result:
-- In Transit fills up with old shipped orders permanently
-- Reports "realized profit" is permanently understated (delivered orders only count)
-- The "Delivered" button creates friction with no perceived value for these merchants
+Merchants who ship and consider the job done never click "Mark Delivered". As a result:
+- In Transit fills with stale shipped orders
+- Reports realized profit is permanently understated (only delivered orders count)
 
 ### The fix
 
-A merchant setting: **"Assume orders delivered after N days"**.
+A merchant setting: **"Assume delivered after N days"**.
 
-When enabled, any `shipped` order older than N days is automatically moved to `delivered`
-on the next dashboard load (or via a lightweight cron job). No manual click required.
-
-**Settings schema addition:**
 ```typescript
+// Settings schema addition
 autoDeliver: {
-  enabled: Boolean, default: false
-  afterDays: Number, default: 14, min: 3, max: 60
+  enabled:   Boolean, default: false
+  afterDays: Number,  default: 14, min: 3, max: 60
 }
 ```
 
-**Client-side implementation (simplest):** On `CustomersView` mount, after `allOrders` loads,
-run a check: any `shipped` order older than `settings.autoDeliver.afterDays` days → call
-`PATCH /api/orders/:id` with `{ status: 'delivered' }`. Batch these calls. Show a toast
-"3 orders auto-archived as delivered".
+On dashboard load, after orders fetch: any `shipped` order older than `afterDays` →
+batch PATCH to `delivered`. Show a dismissible toast: "3 orders auto-archived as delivered."
 
-**Cron implementation (more correct):** A daily cron at `/api/cron/auto-deliver` that
-finds all `shipped` orders older than threshold for merchants with `autoDeliver.enabled = true`
-and bulk-updates them. Already has a `/api/cron` directory in the project.
+A daily cron at `/api/cron/auto-deliver` can replace the client-side check later so it
+runs even when the merchant doesn't open the dashboard.
 
-The cron approach is correct because it runs even when the merchant doesn't open the
-dashboard. The client-side approach is fine for MVP — add cron later.
-
-### UI changes required
-- Settings page: new "Order Management" section with the auto-deliver toggle + day selector
-- Toast notification on dashboard load when orders are auto-archived
+**Files to change:**
+- `src/models/index.ts` — `autoDeliver` on Settings schema
+- `src/app/api/settings/route.ts` — persist the field
+- `src/components/SettingsView.tsx` — "Order Management" section with toggle + day selector
+- `src/app/dashboard/page.tsx` — run auto-deliver check after settings load
 
 ---
 
 ## Upcoming Tasks — In Order
 
-### Task 1 — Auto-deliver setting (Gap 2)
-**Scope: Small (1 day)**
+| # | Task | Size | Dependency | Status |
+|---|------|------|------------|--------|
+| 1 | Auto-deliver setting (Gap 2) | Small — 1 day | None | **NEXT** |
+| 2 | Orders page row expander (item detail) | Small — ½ day | None | **NEXT** |
+| 3 | Partial Fulfilment full build (Gap 1) | Large — 10–14 days | 1 & 2 stable | Deferred |
+| 4 | Auto-Reply / Product Intent (Stage B) | Medium — 5–7 days | Can parallel with 3 | Deferred |
+| 5 | Instagram + Telegram (Stage C) | Large — 2–3 weeks | Stage B | Deferred |
+| 6 | SaaS multi-tenant transformation | Very large | All above stable | Deferred |
 
-Files to change:
-- `src/components/SettingsView.tsx` — new "Order Management" section
-- `src/app/api/settings/route.ts` — persist `autoDeliver` field
-- `src/app/dashboard/page.tsx` — on mount, run auto-deliver check after settings load
-- `src/models/index.ts` — add `autoDeliver` to Settings schema
+Tasks 1 and 2 are independent and can be done in parallel.
 
-### Task 2 — Order item detail in Orders page
-**Scope: Small (half day)**
-
-Currently `ShopOrdersView` shows only the denormalized `product` string. The `items` array
-exists on every order but is never shown. Add an expandable row that shows the full item
-breakdown: name, variant, qty, price per unit.
-
-This is a pure UI change, no data model work.
-
-Files to change:
-- `src/components/ShopOrdersView.tsx` — expandable row with `order.items` breakdown
-
-### Task 3 — Partial Fulfilment (Gap 1)
-**Scope: Large (10–14 days)**
-Full specification above.
-
-### Task 4 — Stage B: Auto-Reply / Product Intent
-**Scope: Medium (5–7 days)**
-Full specification in `ROADMAP_SAAS.md` Stage B.
-Dependency: None on Partial Fulfilment. Can be parallelised with Task 3.
-
-### Task 5 — Stage C: Instagram + Telegram
-**Scope: Large (2–3 weeks)**
-Full specification in `ROADMAP_SAAS.md` Stage C.
-Dependency: Stage B webhooks and platform adapter pattern.
-
-### Task 6 — SaaS Multi-Tenant Transformation
-**Scope: Very large (Phases 1–6 in ROADMAP_SAAS.md)**
-Dependency: Everything above should be stable first.
-The Partial Fulfilment model (Task 3) introduces a `Fulfilment` collection that must be
-included in Phase 1 (Add `merchantId` to all schemas) — do NOT skip it.
+Task 6 (multi-tenant) must happen AFTER Task 3 because Task 3 introduces the
+`Fulfilment` collection — if `merchantId` is added to all schemas before that
+collection exists, it has to be done twice.
 
 ---
 
 ## Design Principles (do not compromise these)
 
-**Data accuracy over convenience.** The dashboard is a financial and operational tool.
-A wrong number is worse than no number. When a status is ambiguous (partially fulfilled),
-show it explicitly rather than rounding to the nearest clean state.
+**Orders page = overview only.** Status advancement belongs on the Customer page.
+The batch "Delivered" on the Orders page is a power-user shortcut, not the primary
+workflow. Never add per-row status advancement back to the Orders page.
 
-**Status must reflect physical reality.** "Shipped" means items have left the warehouse.
-"Delivered" means items have arrived with the customer. "Partially fulfilled" means some
-items are with the customer and some are not. Never conflate these.
+**Cancel ≠ Delete.** Cancel marks the order as cancelled and keeps it in records.
+Delete wipes the record entirely. Both must be available everywhere but must be
+clearly differentiated. Confirm dialogs must make the difference explicit.
+
+**Data accuracy over convenience.** The dashboard is a financial tool.
+A wrong number is worse than no number. When a status is ambiguous, show it
+explicitly rather than rounding to the nearest clean state.
 
 **Profit is only realized when delivered.** A shipped order is receivable, not revenue.
-Reports must reflect this. The auto-deliver setting exists to reduce the operational
-friction of marking delivered, not to change the accounting definition.
+The auto-deliver setting reduces operational friction but does not change the definition.
 
-**The Order is a customer agreement; the Fulfilment is a physical act.** These are
-different things and must not share a data structure. The current model conflates them
-and this is the root cause of Gap 1.
+**Order = customer agreement. Fulfilment = physical act.** These are different things
+and must not share a data structure. The current model conflates them — this is the
+root cause of Gap 1.

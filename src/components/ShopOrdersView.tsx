@@ -249,7 +249,7 @@ export default function ShopOrdersView({
     cancelled: allOrders.filter(o => o.status === 'cancelled').length,
   };
 
-  // Fix 1: cancelOrder with rollback on failure
+  // cancelOrder with rollback on failure
   async function cancelOrder(id: string) {
     const previousOrders = orders;
     setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: 'cancelled' as const } : o) ?? prev);
@@ -257,32 +257,9 @@ export default function ShopOrdersView({
     try {
       const res = await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' }) });
       if (!res.ok) throw new Error(res.statusText);
-    } catch (err) {
+    } catch {
       setOrders(previousOrders);
       setFetchError('Failed to cancel order. Please try again.');
-    }
-  }
-
-  // Fix 7: extend nextStatusMap to cover full workflow
-  const nextStatusMap: Partial<Record<Order['status'], Order['status']>> = {
-    shipped: 'delivered',
-  };
-
-  const nextStatusLabel: Partial<Record<Order['status'], string>> = {
-    shipped: 'Delivered',
-  };
-
-  // Fix 2: advanceOrder with rollback on failure
-  async function advanceOrder(id: string, nextStatus: Order['status']) {
-    if (nextStatus !== 'delivered') return; // only shipped→delivered allowed from Orders page
-    const previousOrders = orders;
-    setOrders(prev => prev?.map(o => o._id === id ? { ...o, status: nextStatus } : o) ?? prev);
-    try {
-      const res = await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: nextStatus }) });
-      if (!res.ok) throw new Error(res.statusText);
-    } catch (err) {
-      setOrders(previousOrders);
-      setFetchError('Failed to advance order status. Please try again.');
     }
   }
 
@@ -315,7 +292,7 @@ export default function ShopOrdersView({
   async function batchCancelOrders() {
     const ids = [...selectedOrderIds].filter(id => {
       const o = orders?.find(x => x._id === id);
-      return o && !['cancelled', 'delivered', 'shipped'].includes(o.status);
+      return o && !['cancelled', 'delivered'].includes(o.status);
     });
     if (!ids.length) return;
     setBatchActing(true);
@@ -387,7 +364,7 @@ export default function ShopOrdersView({
   };
   const selectedOrders = orders?.filter(o => selectedOrderIds.has(o._id)) ?? [];
   const batchShippedCount = selectedOrders.filter(o => o.status === 'shipped').length;
-  const batchCancellableCount = selectedOrders.filter(o => !['cancelled', 'delivered', 'shipped'].includes(o.status)).length;
+  const batchCancellableCount = selectedOrders.filter(o => !['cancelled', 'delivered'].includes(o.status)).length;
 
   const SortHeader = ({ field, label, align = 'left' }: { field: typeof sortField, label: string, align?: 'left' | 'right' }) => {
     const active = sortField === field;
@@ -768,18 +745,8 @@ export default function ShopOrdersView({
                       : theme === 'dark' ? "bg-[#161925] group-hover:bg-[#1a1d2e]" : "bg-white group-hover:bg-[#f8f9fc]"
                   )}>
                     <div className="flex justify-end gap-2">
-                      {nextStatusMap[o.status] && (
-                        <button
-                          onClick={() => advanceOrder(o._id, nextStatusMap[o.status]!)}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all active:scale-95",
-                            theme === 'dark' ? "border-accent/30 text-accent hover:bg-accent/10" : "border-accent/40 text-accent hover:bg-accent/5"
-                          )}
-                        >
-                          → {nextStatusLabel[o.status]}
-                        </button>
-                      )}
-                      {o.status !== 'cancelled' && o.status !== 'delivered' && o.status !== 'shipped' && (
+                      {/* Cancel — keeps the record marked as cancelled */}
+                      {!['cancelled', 'delivered'].includes(o.status) && (
                         <button
                           onClick={() => setCancelConfirm({ open: true, orderId: o._id })}
                           className={cn(
@@ -787,7 +754,7 @@ export default function ShopOrdersView({
                             theme === 'dark' ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/10" : "border-rose-200 text-rose-600 hover:bg-rose-50"
                           )}
                         >
-                          <X size={12} /> Cancel
+                          <Ban size={12} /> Cancel
                         </button>
                       )}
                       <button
@@ -799,14 +766,16 @@ export default function ShopOrdersView({
                       >
                         <ExternalLink size={12} /> View in Chat
                       </button>
+                      {/* Delete — wipes the record entirely */}
                       <button
                         onClick={() => setDeleteConfirm({ open: true, orderId: o._id })}
+                        title="Remove record entirely"
                         className={cn(
-                          "flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all active:scale-95",
-                          theme === 'dark' ? "border-red-500/20 text-red-400/60 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40" : "border-red-100 text-red-300 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                          "p-2 rounded-xl border transition-all active:scale-95",
+                          theme === 'dark' ? "border-red-500/20 text-red-400/50 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40" : "border-red-100 text-red-300 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
                         )}
                       >
-                        <Trash2 size={12} /> Delete
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </td>
@@ -1005,8 +974,7 @@ export default function ShopOrdersView({
               </div>
               <h3 className={cn("text-2xl font-black mb-4", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Cancel {batchCancellableCount} Orders?</h3>
               <p className="text-sm leading-relaxed mb-10 text-[#8b92ad]">
-                Only pending, paid, and preparing orders will be cancelled.
-                Shipped and delivered orders are unaffected.
+                All selected orders except those already delivered or cancelled will be marked as cancelled and kept in your records.
               </p>
               <div className="flex flex-col gap-4">
                 <button onClick={batchCancelOrders} className="w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 bg-rose-500 hover:bg-rose-600 text-white shadow-xl shadow-rose-500/20">
