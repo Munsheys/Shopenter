@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -17,7 +17,8 @@ import { Bar, Line } from 'react-chartjs-2';
 import {
   TrendingUp, DollarSign, Package, ShoppingCart,
   ArrowUpRight, ArrowDownRight, Download, Tag,
-  Truck, Users, BarChart2, Minus,
+  Truck, Users, BarChart2, Minus, Calendar, X,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -132,13 +133,28 @@ const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+type DateRangePreset = '7d' | '30d' | 'month' | 'all' | 'custom';
+
 export default function ReportsView({ theme, t, accentColor = '#00b900' }: ReportsViewProps) {
   const isDark = theme === 'dark';
   const [orders,   setOrders]   = useState<any[]>([]);
   const [coupons,  setCoupons]  = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currency, setCurrency] = useState('THB');
-  const [dateRange, setDateRange] = useState<'7d' | '30d' | 'month' | 'all'>('30d');
+
+  // Period state
+  const [dateRange, setDateRange] = useState<DateRangePreset>('30d');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd,   setCustomEnd]   = useState('');
+  const startRef = useRef<HTMLInputElement>(null);
+  const endRef   = useRef<HTMLInputElement>(null);
+
+  // UI expansion state
+  const [productsExpanded, setProductsExpanded] = useState(false);
+  const [customersExpanded, setCustomersExpanded] = useState(false);
+  const [dowMode, setDowMode] = useState<'orders' | 'revenue'>('orders');
+
+  const LIST_DEFAULT = 5;
 
   useEffect(() => {
     (async () => {
@@ -183,29 +199,44 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       const days = Math.round((now.getTime() - c.getTime()) / 86400000) || 1;
       return { windowDays: days, cutoff: c, prevFrom: pStart, prevTo: pEnd };
     }
+    if (dateRange === 'custom' && customStart) {
+      const c  = new Date(customStart);
+      const to = customEnd ? new Date(customEnd) : now;
+      to.setHours(23, 59, 59, 999);
+      const days = Math.max(1, Math.round((to.getTime() - c.getTime()) / 86400000));
+      const p = new Date(c); p.setDate(p.getDate() - days);
+      return { windowDays: days, cutoff: c, prevFrom: p, prevTo: new Date(c) };
+    }
+    // 'all' or custom with no start date
     const oldest = orders.length
       ? new Date(Math.min(...orders.map(o => new Date(o.createdAt).getTime())))
       : new Date();
     const days = Math.max(1, Math.round((Date.now() - oldest.getTime()) / 86400000));
     return { windowDays: days, cutoff: new Date(0), prevFrom: new Date(0), prevTo: new Date(0) };
-  }, [dateRange, orders]);
+  }, [dateRange, customStart, customEnd, orders]);
 
-  const filteredOrders = useMemo(
-    () => orders.filter(o => new Date(o.createdAt) >= cutoff),
-    [orders, cutoff],
-  );
+  const filteredOrders = useMemo(() => {
+    if (dateRange === 'custom' && customEnd) {
+      const to = new Date(customEnd); to.setHours(23, 59, 59, 999);
+      return orders.filter(o => {
+        const d = new Date(o.createdAt);
+        return d >= cutoff && d <= to;
+      });
+    }
+    return orders.filter(o => new Date(o.createdAt) >= cutoff);
+  }, [orders, cutoff, dateRange, customEnd]);
 
   const prevOrders = useMemo(() => {
     if (dateRange === 'all') return [];
+    if (dateRange === 'custom' && !customStart) return [];
     return orders.filter(o => {
-      const t = new Date(o.createdAt);
-      return t >= prevFrom && t < prevTo;
+      const d = new Date(o.createdAt);
+      return d >= prevFrom && d < prevTo;
     });
-  }, [orders, dateRange, prevFrom, prevTo]);
+  }, [orders, dateRange, customStart, prevFrom, prevTo]);
 
-  // Cancelled orders are excluded from all revenue/profit KPIs and charts
-  // billableOrders = all non-cancelled (for volume/count metrics)
-  // confirmedOrders = paid money secured — excludes pending (for financial metrics)
+  // billableOrders = all non-cancelled (volume metrics)
+  // confirmedOrders = paid money secured — excludes pending (financial metrics)
   const billableOrders = useMemo(
     () => filteredOrders.filter(o => o.status !== 'cancelled'),
     [filteredOrders],
@@ -241,7 +272,6 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   // ── KPI stats ───────────────────────────────────────────────────────────────
 
   const kpi = useMemo(() => {
-    // financialArr drives revenue/profit/aov; volumeCount drives the Orders headline
     const calc = (financialArr: any[], volumeCount: number) => {
       const revenue  = financialArr.reduce((s, o) => s + (o.soldTHB || 0), 0);
       const profit   = financialArr.reduce((s, o) => s + (o.profit || 0), 0);
@@ -266,8 +296,9 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     return { curr, prev };
   }, [confirmedOrders, confirmedPrevOrders, billableOrders, billablePrevOrders]);
 
+  const isAllTime = dateRange === 'all' || (dateRange === 'custom' && !customStart);
   const trends = useMemo(() => {
-    if (dateRange === 'all') return {};
+    if (isAllTime) return {};
     const { curr, prev } = kpi;
     return {
       revenue:  pctChange(curr.revenue,  prev.revenue),
@@ -277,12 +308,12 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       margin:   prev.margin > 0 ? Math.round(curr.margin - prev.margin) : null,
       shipCost: pctChange(curr.shipCost, prev.shipCost),
     };
-  }, [kpi, dateRange]);
+  }, [kpi, isAllTime]);
 
   // ── Revenue trend chart ─────────────────────────────────────────────────────
 
   const trendChartData = useMemo(() => {
-    const useWeeks = dateRange === 'all' && filteredOrders.length > 90;
+    const useWeeks = dateRange === 'all' && confirmedOrders.length > 90;
     const groups = new Map<string, { rev: number; profit: number; ship: number }>();
 
     const sorted = [...confirmedOrders].sort(
@@ -368,18 +399,18 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   // ── Status funnel ───────────────────────────────────────────────────────────
 
   const statusFunnel = useMemo(() => {
-    const total = filteredOrders.length || 1;
-    // cumulative: an order at stage N has passed through all earlier stages
+    // Use billableOrders as denominator — cancelled orders don't belong in the funnel
+    const total = billableOrders.length || 1;
     const statusRank = (s: string) => STATUS_ORDER.indexOf(s as any);
     return STATUS_ORDER.map((status, i) => {
-      const count = filteredOrders.filter(o => statusRank(o.status) >= i).length;
+      const count = billableOrders.filter(o => statusRank(o.status) >= i).length;
       return { status, count, pct: (count / total) * 100 };
     });
-  }, [filteredOrders]);
+  }, [billableOrders]);
 
-  // ── Top products ────────────────────────────────────────────────────────────
+  // ── Top products (full list, sliced in render) ──────────────────────────────
 
-  const topProducts = useMemo(() => {
+  const allTopProducts = useMemo(() => {
     const map = new Map<string, { name: string; qty: number; revenue: number }>();
     confirmedOrders.forEach(o => {
       o.items?.forEach((item: any) => {
@@ -390,14 +421,14 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         map.set(key, e);
       });
     });
-    const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
+    const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue);
     const maxRev = sorted[0]?.revenue || 1;
     return sorted.map(p => ({ ...p, pct: (p.revenue / maxRev) * 100 }));
   }, [confirmedOrders]);
 
-  // ── Top customers ───────────────────────────────────────────────────────────
+  // ── Top customers (full list, sliced in render) ─────────────────────────────
 
-  const topCustomers = useMemo(() => {
+  const allTopCustomers = useMemo(() => {
     const map = new Map<string, { name: string; orders: number; revenue: number }>();
     confirmedOrders.forEach(o => {
       const key = o.userId || o.displayName || 'anon';
@@ -406,14 +437,14 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       e.revenue += o.soldTHB || 0;
       map.set(key, e);
     });
-    const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
+    const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue);
     const maxRev = sorted[0]?.revenue || 1;
     return sorted.map(c => ({ ...c, pct: (c.revenue / maxRev) * 100, aov: c.orders > 0 ? c.revenue / c.orders : 0 }));
   }, [confirmedOrders]);
 
   // ── Day-of-week pattern ─────────────────────────────────────────────────────
 
-  const dowData = useMemo(() => {
+  const dowRaw = useMemo(() => {
     const counts  = new Array(7).fill(0);
     const revenue = new Array(7).fill(0);
     billableOrders.forEach(o => {
@@ -421,19 +452,19 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       counts[d]++;
       revenue[d] += o.soldTHB || 0;
     });
-    return {
-      labels: DOW_LABELS,
-      datasets: [
-        {
-          label: 'Orders',
-          data: counts,
-          backgroundColor: accentColor + '99',
-          borderRadius: 6,
-          borderSkipped: false,
-        },
-      ],
-    };
-  }, [billableOrders, accentColor]);
+    return { counts, revenue };
+  }, [billableOrders]);
+
+  const dowData = useMemo(() => ({
+    labels: DOW_LABELS,
+    datasets: [{
+      label: dowMode === 'orders' ? 'Orders' : 'Revenue',
+      data: dowMode === 'orders' ? dowRaw.counts : dowRaw.revenue,
+      backgroundColor: accentColor + '99',
+      borderRadius: 6,
+      borderSkipped: false,
+    }],
+  }), [dowRaw, dowMode, accentColor]);
 
   const dowOptions = useMemo(() => ({
     maintainAspectRatio: false,
@@ -445,13 +476,18 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         bodyColor:   '#8b92ad',
         borderColor: isDark ? '#2d324d' : '#e2e5ef',
         borderWidth: 1, padding: 10,
+        callbacks: {
+          label: (ctx: any) => dowMode === 'revenue'
+            ? ` ${currency} ${ctx.parsed.y.toLocaleString()}`
+            : ` ${ctx.parsed.y} orders`,
+        },
       },
     },
     scales: {
       x: { grid: { display: false }, ticks: { color: '#8b92ad', font: { size: 10, weight: 'bold' as const } } },
       y: { display: false, grid: { display: false } },
     },
-  }), [isDark]);
+  }), [isDark, dowMode, currency]);
 
   // ── Courier breakdown ───────────────────────────────────────────────────────
 
@@ -467,14 +503,14 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       .map(([name, count]) => ({ name, count, pct: (count / total) * 100 }));
   }, [billableOrders]);
 
-  const ordersWithCourier = billableOrders.filter(o => o.courier).length;
+  const ordersWithCourier    = billableOrders.filter(o => o.courier).length;
   const ordersWithoutCourier = billableOrders.length - ordersWithCourier;
 
   // ── Coupon & discount impact ────────────────────────────────────────────────
 
   const discountStats = useMemo(() => {
     const couponMap = new Map(coupons.map((c: any) => [c.code, c]));
-    const withCoupon = billableOrders.filter(o => o.couponCode);
+    const withCoupon    = billableOrders.filter(o => o.couponCode);
     const totalDiscount = billableOrders.reduce((s, o) => s + (o.discountAmount || 0), 0);
     const totalPoints   = billableOrders.reduce((s, o) => s + (o.redeemedPoints  || 0), 0);
     const couponRate    = billableOrders.length > 0 ? (withCoupon.length / billableOrders.length) * 100 : 0;
@@ -509,77 +545,144 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       o._id,
       o.displayName || '',
       o.items?.map((i: any) => `${i.qty}x ${i.name}`).join(' + ') || '',
-      o.soldTHB || 0,
-      o.costTHB || 0,
-      o.profit || 0,
-      o.shipCostTHB || 0,
-      o.status,
-      o.courier || '',
-      o.tracking || '',
-      o.couponCode || '',
-      o.discountAmount || 0,
+      o.soldTHB || 0, o.costTHB || 0, o.profit || 0, o.shipCostTHB || 0,
+      o.status, o.courier || '', o.tracking || '', o.couponCode || '', o.discountAmount || 0,
     ]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `report_${dateRange}_${new Date().toISOString().split('T')[0]}.csv`;
+    const label = dateRange === 'custom' && customStart
+      ? `${customStart}_${customEnd || 'now'}`
+      : dateRange;
+    a.download = `report_${label}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
   };
 
-  // ── JSX ───────────────────────────────────────────────────────────────────
+  // ── JSX helpers ───────────────────────────────────────────────────────────
 
   const surface = isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]';
   const muted   = 'text-[#8b92ad]';
   const heading = isDark ? 'text-white' : 'text-[#1a1d2e]';
 
-  const rangeLabels = [
-    { id: '7d',    label: 'Last 7 days' },
-    { id: '30d',   label: 'Last 30 days' },
-    { id: 'month', label: 'This month' },
+  const rangePresets = [
+    { id: '7d',    label: '7d' },
+    { id: '30d',   label: '30d' },
+    { id: 'month', label: 'Month' },
     { id: 'all',   label: 'All time' },
+    { id: 'custom', label: 'Custom' },
   ] as const;
+
+  const periodLabel = useMemo(() => {
+    if (dateRange === 'custom' && customStart) {
+      const end = customEnd || new Date().toISOString().split('T')[0];
+      return `${customStart} → ${end}`;
+    }
+    const found = rangePresets.find(r => r.id === dateRange);
+    return found?.id !== 'custom' ? (
+      dateRange === '7d' ? 'Last 7 days' :
+      dateRange === '30d' ? 'Last 30 days' :
+      dateRange === 'month' ? 'This month' : 'All time'
+    ) : 'Custom range';
+  }, [dateRange, customStart, customEnd]);
+
+  const topProducts  = productsExpanded  ? allTopProducts  : allTopProducts.slice(0, LIST_DEFAULT);
+  const topCustomers = customersExpanded ? allTopCustomers : allTopCustomers.slice(0, LIST_DEFAULT);
 
   return (
     <div className="max-w-7xl mx-auto px-4 pb-20">
 
-      {/* ── Header ── */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 pt-2">
+      {/* ── Header (title only) ── */}
+      <div className="flex items-center gap-3 mb-6 pt-2">
+        <div className="p-2.5 bg-accent/[7%] rounded-2xl text-accent flex-shrink-0">
+          <TrendingUp size={22} />
+        </div>
         <div>
-          <h2 className={cn('text-2xl font-black flex items-center gap-3', heading)}>
-            <div className="p-2.5 bg-accent/[7%] rounded-2xl text-accent">
-              <TrendingUp size={22} />
-            </div>
-            Analytics & Reports
-          </h2>
-          <p className={cn('text-xs mt-1', muted)}>
-            {billableOrders.length} order{billableOrders.length !== 1 ? 's' : ''}
-            {pendingCount > 0 && <span className="text-amber-500 font-bold"> · {pendingCount} pending</span>}
-            {' '}· {windowDays} day window
-            {dateRange !== 'all' && billablePrevOrders.length > 0 && (
-              <span> · vs {billablePrevOrders.length} prior period</span>
+          <h2 className={cn('text-2xl font-black', heading)}>Analytics & Reports</h2>
+          <p className={cn('text-xs mt-0.5', muted)}>
+            {isLoading ? 'Loading…' : (
+              <>
+                {billableOrders.length} order{billableOrders.length !== 1 ? 's' : ''}
+                {pendingCount > 0 && <span className="text-amber-500 font-bold"> · {pendingCount} pending</span>}
+                {' '}· {isAllTime ? 'all time' : `${windowDays}d window`}
+                {!isAllTime && billablePrevOrders.length > 0 && (
+                  <span> · vs {billablePrevOrders.length} prior</span>
+                )}
+              </>
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <div className={cn('flex p-1 rounded-2xl border flex-1 md:flex-none', surface)}>
-            {rangeLabels.map(r => (
+      </div>
+
+      {/* ── Sticky period control bar ── */}
+      <div className={cn(
+        'sticky top-0 z-30 mb-6 rounded-2xl border shadow-sm backdrop-blur-md',
+        isDark ? 'bg-[#0f1117]/90 border-[#1f2335]' : 'bg-white/90 border-[#e2e5ef]',
+      )}>
+        <div className="px-4 py-3 flex flex-wrap items-center gap-3">
+          {/* Preset pills */}
+          <div className={cn('flex p-1 rounded-xl border gap-0.5', isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-[#f4f6f9] border-[#e2e5ef]')}>
+            {rangePresets.map(r => (
               <button
                 key={r.id}
                 onClick={() => setDateRange(r.id)}
                 className={cn(
-                  'px-3 py-1.5 rounded-xl text-[10px] font-black transition-all',
-                  dateRange === r.id ? 'bg-accent text-white shadow-sm' : `${muted} hover:text-accent`,
+                  'px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap',
+                  dateRange === r.id ? 'text-white shadow-sm' : `${muted} hover:text-accent`,
                 )}
+                style={dateRange === r.id ? { background: 'var(--accent-gradient)' } : undefined}
               >{r.label}</button>
             ))}
           </div>
+
+          {/* Custom date inputs — visible when Custom is selected */}
+          {dateRange === 'custom' && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative cursor-pointer" onClick={() => { try { (startRef.current as any)?.showPicker(); } catch {} }}>
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={13} />
+                <input
+                  ref={startRef} type="date" value={customStart}
+                  onChange={e => setCustomStart(e.target.value)}
+                  className={cn(
+                    'pl-8 pr-3 py-2 rounded-xl text-xs font-bold outline-none border cursor-pointer transition-all',
+                    isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]',
+                    customStart ? 'border-accent/50' : '',
+                  )}
+                />
+              </div>
+              <span className={cn('text-xs font-bold', muted)}>→</span>
+              <div className="relative cursor-pointer" onClick={() => { try { (endRef.current as any)?.showPicker(); } catch {} }}>
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={13} />
+                <input
+                  ref={endRef} type="date" value={customEnd}
+                  onChange={e => setCustomEnd(e.target.value)}
+                  className={cn(
+                    'pl-8 pr-3 py-2 rounded-xl text-xs font-bold outline-none border cursor-pointer transition-all',
+                    isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]',
+                    customEnd ? 'border-accent/50' : '',
+                  )}
+                />
+              </div>
+              {(customStart || customEnd) && (
+                <button onClick={() => { setCustomStart(''); setCustomEnd(''); }} className={cn('hover:text-red-400 transition-colors', muted)}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Active period label */}
+          <div className={cn('text-[10px] font-bold ml-1 hidden md:block', muted)}>
+            {periodLabel}
+          </div>
+
+          {/* Export — pushed to right */}
           <button
             onClick={handleExport}
-            className="p-2.5 rounded-2xl bg-accent text-white hover:opacity-90 active:scale-95 transition-all flex-shrink-0"
+            className="ml-auto p-2 rounded-xl bg-accent text-white hover:opacity-90 active:scale-95 transition-all flex-shrink-0"
             title="Export CSV"
           >
-            <Download size={18} />
+            <Download size={16} />
           </button>
         </div>
       </div>
@@ -639,11 +742,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       {/* ── Row 2: Trend chart + Status funnel ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
-        {/* Trend chart */}
         <SectionCard
           theme={theme} className="lg:col-span-2"
           title="Revenue, Profit & Shipping Trend"
-          sub={dateRange === 'all' && filteredOrders.length > 90 ? 'Grouped by week' : 'Grouped by day'}
+          sub={dateRange === 'all' && confirmedOrders.length > 90 ? 'Grouped by week' : 'Grouped by day'}
         >
           <div className="flex gap-4 mb-4">
             {[
@@ -662,21 +764,21 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
               <div className="h-full flex items-center justify-center">
                 <div className="w-6 h-6 border-2 border-t-transparent border-accent rounded-full animate-spin" />
               </div>
-            ) : filteredOrders.length === 0 ? (
-              <div className={cn('h-full flex items-center justify-center text-xs', muted)}>No data for this period</div>
+            ) : confirmedOrders.length === 0 ? (
+              <div className={cn('h-full flex items-center justify-center text-xs', muted)}>No confirmed orders in this period</div>
             ) : (
               <Line data={trendChartData} options={chartOptions as any} />
             )}
           </div>
         </SectionCard>
 
-        {/* Status funnel */}
-        <SectionCard theme={theme} title="Order Pipeline" sub="Cumulative funnel">
+        {/* Status funnel — denominator fixed to billableOrders */}
+        <SectionCard theme={theme} title="Order Pipeline" sub="Conversion funnel · excludes cancelled">
           {isLoading ? (
             <div className="py-8 flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-t-transparent border-accent rounded-full animate-spin" />
             </div>
-          ) : filteredOrders.length === 0 ? (
+          ) : billableOrders.length === 0 ? (
             <div className={cn('py-8 text-center text-xs', muted)}>No orders</div>
           ) : (
             <div className="space-y-3">
@@ -695,13 +797,9 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
                       style={{ width: `${stage.pct}%` }}
                     />
                   </div>
-                  {i < statusFunnel.length - 1 && statusFunnel[i].count > 0 && (
-                    <div className={cn('text-[10px] text-right mt-0.5', muted)}>
-                      {statusFunnel[i + 1].count < statusFunnel[i].count && (
-                        <span className="text-rose-400">
-                          −{statusFunnel[i].count - statusFunnel[i + 1].count} dropped
-                        </span>
-                      )}
+                  {i < statusFunnel.length - 1 && statusFunnel[i].count > 0 && statusFunnel[i + 1].count < statusFunnel[i].count && (
+                    <div className={cn('text-[10px] text-right mt-0.5 text-rose-400')}>
+                      −{statusFunnel[i].count - statusFunnel[i + 1].count} dropped
                     </div>
                   )}
                 </div>
@@ -715,7 +813,11 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
         {/* Top products */}
-        <SectionCard theme={theme} title="Top Products" sub="By revenue · this period">
+        <SectionCard
+          theme={theme}
+          title="Top Products"
+          sub={`By confirmed revenue · ${allTopProducts.length > LIST_DEFAULT ? `showing ${productsExpanded ? allTopProducts.length : LIST_DEFAULT} of ${allTopProducts.length}` : `${allTopProducts.length} products`}`}
+        >
           {isLoading ? (
             <div className="py-8 flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-t-transparent border-accent rounded-full animate-spin" />
@@ -723,39 +825,59 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           ) : topProducts.length === 0 ? (
             <div className={cn('py-8 text-center text-xs', muted)}>No product data</div>
           ) : (
-            <div className="space-y-3">
-              {topProducts.map((p, i) => (
-                <div key={i} className="group">
-                  <div className="flex items-center justify-between mb-1 gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={cn(
-                        'w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center flex-shrink-0',
-                        i === 0 ? 'bg-amber-400/20 text-amber-500' :
-                        i === 1 ? 'bg-slate-400/20 text-slate-500' :
-                        i === 2 ? 'bg-orange-400/20 text-orange-500' :
-                                  isDark ? 'bg-white/5 text-[#8b92ad]' : 'bg-slate-100 text-slate-400',
-                      )}>{i + 1}</span>
-                      <span className={cn('text-xs font-bold truncate', heading)}>{p.name}</span>
+            <>
+              <div className="space-y-3">
+                {topProducts.map((p, i) => (
+                  <div key={i} className="group">
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={cn(
+                          'w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center flex-shrink-0',
+                          i === 0 ? 'bg-amber-400/20 text-amber-500' :
+                          i === 1 ? 'bg-slate-400/20 text-slate-500' :
+                          i === 2 ? 'bg-orange-400/20 text-orange-500' :
+                                    isDark ? 'bg-white/5 text-[#8b92ad]' : 'bg-slate-100 text-slate-400',
+                        )}>{i + 1}</span>
+                        <span className={cn('text-xs font-bold truncate', heading)}>{p.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className={cn('text-[10px]', muted)}>{p.qty} units</span>
+                        <span className="text-xs font-black text-accent">{fmt(p.revenue, currency)}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className={cn('text-[10px]', muted)}>{p.qty} units</span>
-                      <span className="text-xs font-black text-accent">{fmt(p.revenue, currency)}</span>
+                    <div className={cn('h-1 rounded-full overflow-hidden', isDark ? 'bg-[#1f2335]' : 'bg-slate-100')}>
+                      <div
+                        className="h-full bg-accent rounded-full transition-all duration-700 group-hover:opacity-80"
+                        style={{ width: `${p.pct}%` }}
+                      />
                     </div>
                   </div>
-                  <div className={cn('h-1 rounded-full overflow-hidden', isDark ? 'bg-[#1f2335]' : 'bg-slate-100')}>
-                    <div
-                      className="h-full bg-accent rounded-full transition-all duration-700 group-hover:opacity-80"
-                      style={{ width: `${p.pct}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              {allTopProducts.length > LIST_DEFAULT && (
+                <button
+                  onClick={() => setProductsExpanded(e => !e)}
+                  className={cn(
+                    'mt-4 w-full py-2.5 rounded-2xl text-[10px] font-black flex items-center justify-center gap-1.5 border transition-all active:scale-95',
+                    isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]' : 'border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]',
+                  )}
+                >
+                  {productsExpanded
+                    ? <><ChevronUp size={12} /> Show less</>
+                    : <><ChevronDown size={12} /> Show all {allTopProducts.length} products</>
+                  }
+                </button>
+              )}
+            </>
           )}
         </SectionCard>
 
         {/* Top customers */}
-        <SectionCard theme={theme} title="Top Customers" sub="By lifetime spend · this period">
+        <SectionCard
+          theme={theme}
+          title="Top Customers"
+          sub={`By confirmed spend · ${allTopCustomers.length > LIST_DEFAULT ? `showing ${customersExpanded ? allTopCustomers.length : LIST_DEFAULT} of ${allTopCustomers.length}` : `${allTopCustomers.length} customers`}`}
+        >
           {isLoading ? (
             <div className="py-8 flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-t-transparent border-accent rounded-full animate-spin" />
@@ -763,34 +885,50 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           ) : topCustomers.length === 0 ? (
             <div className={cn('py-8 text-center text-xs', muted)}>No customer data</div>
           ) : (
-            <div className="space-y-3">
-              {topCustomers.map((c, i) => (
-                <div key={i} className="group">
-                  <div className="flex items-center justify-between mb-1 gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={cn(
-                        'w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center flex-shrink-0',
-                        i === 0 ? 'bg-amber-400/20 text-amber-500' :
-                        i === 1 ? 'bg-slate-400/20 text-slate-500' :
-                        i === 2 ? 'bg-orange-400/20 text-orange-500' :
-                                  isDark ? 'bg-white/5 text-[#8b92ad]' : 'bg-slate-100 text-slate-400',
-                      )}>{i + 1}</span>
-                      <span className={cn('text-xs font-bold truncate', heading)}>{c.name}</span>
+            <>
+              <div className="space-y-3">
+                {topCustomers.map((c, i) => (
+                  <div key={i} className="group">
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={cn(
+                          'w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center flex-shrink-0',
+                          i === 0 ? 'bg-amber-400/20 text-amber-500' :
+                          i === 1 ? 'bg-slate-400/20 text-slate-500' :
+                          i === 2 ? 'bg-orange-400/20 text-orange-500' :
+                                    isDark ? 'bg-white/5 text-[#8b92ad]' : 'bg-slate-100 text-slate-400',
+                        )}>{i + 1}</span>
+                        <span className={cn('text-xs font-bold truncate', heading)}>{c.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className={cn('text-[10px]', muted)}>{c.orders} orders</span>
+                        <span className="text-xs font-black text-accent">{fmt(c.revenue, currency)}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className={cn('text-[10px]', muted)}>{c.orders} orders</span>
-                      <span className="text-xs font-black text-accent">{fmt(c.revenue, currency)}</span>
+                    <div className={cn('h-1 rounded-full overflow-hidden', isDark ? 'bg-[#1f2335]' : 'bg-slate-100')}>
+                      <div
+                        className="h-full bg-accent rounded-full transition-all duration-700 group-hover:opacity-80"
+                        style={{ width: `${c.pct}%` }}
+                      />
                     </div>
                   </div>
-                  <div className={cn('h-1 rounded-full overflow-hidden', isDark ? 'bg-[#1f2335]' : 'bg-slate-100')}>
-                    <div
-                      className="h-full bg-accent rounded-full transition-all duration-700 group-hover:opacity-80"
-                      style={{ width: `${c.pct}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              {allTopCustomers.length > LIST_DEFAULT && (
+                <button
+                  onClick={() => setCustomersExpanded(e => !e)}
+                  className={cn(
+                    'mt-4 w-full py-2.5 rounded-2xl text-[10px] font-black flex items-center justify-center gap-1.5 border transition-all active:scale-95',
+                    isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]' : 'border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]',
+                  )}
+                >
+                  {customersExpanded
+                    ? <><ChevronUp size={12} /> Show less</>
+                    : <><ChevronDown size={12} /> Show all {allTopCustomers.length} customers</>
+                  }
+                </button>
+              )}
+            </>
           )}
         </SectionCard>
       </div>
@@ -799,8 +937,22 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Day of week */}
-        <SectionCard theme={theme} title="Sales by Day of Week" sub="Order volume pattern">
-          <div className="h-[180px]">
+        <SectionCard theme={theme} title="Sales by Day of Week" sub={dowMode === 'orders' ? 'Order count per day' : 'Revenue per day'}>
+          {/* Orders / Revenue toggle */}
+          <div className={cn('flex p-0.5 rounded-xl border mb-4 w-fit', isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-[#f4f6f9] border-[#e2e5ef]')}>
+            {(['orders', 'revenue'] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => setDowMode(m)}
+                className={cn(
+                  'px-3 py-1 rounded-lg text-[10px] font-black capitalize transition-all',
+                  dowMode === m ? 'text-white shadow-sm' : `${muted} hover:text-accent`,
+                )}
+                style={dowMode === m ? { background: 'var(--accent-gradient)' } : undefined}
+              >{m}</button>
+            ))}
+          </div>
+          <div className="h-[160px]">
             {isLoading ? (
               <div className="h-full flex items-center justify-center">
                 <div className="w-6 h-6 border-2 border-t-transparent border-accent rounded-full animate-spin" />
@@ -810,12 +962,17 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
             )}
           </div>
           {!isLoading && (() => {
-            const counts = dowData.datasets[0].data as number[];
-            const peak = counts.indexOf(Math.max(...counts));
+            const data = dowMode === 'orders' ? dowRaw.counts : dowRaw.revenue;
+            const peak = data.indexOf(Math.max(...data));
+            const peakVal = data[peak];
+            if (peakVal === 0) return null;
             return (
               <p className={cn('text-[10px] mt-3 text-center', muted)}>
-                Peak day: <span className={cn('font-bold', heading)}>{DOW_LABELS[peak]}</span>
-                {' '}({counts[peak]} orders)
+                Peak: <span className={cn('font-bold', heading)}>{DOW_LABELS[peak]}</span>
+                {' '}· {dowMode === 'orders' ? `${peakVal} orders` : fmt(peakVal, currency)}
+                {billableOrders.length < 14 && (
+                  <span className="text-amber-500"> · small sample</span>
+                )}
               </p>
             );
           })()}
@@ -877,10 +1034,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
             <>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                  { label: 'Coupons Used',     value: discountStats.withCoupon.toString() },
-                  { label: 'Usage Rate',        value: `${discountStats.couponRate.toFixed(1)}%` },
-                  { label: 'Total Discounts',   value: fmt(discountStats.totalDiscount, currency) },
-                  { label: 'Avg Discount',      value: discountStats.withCoupon > 0 ? fmt(discountStats.avgDiscount, currency) : '—' },
+                  { label: 'Coupons Used',   value: discountStats.withCoupon.toString() },
+                  { label: 'Usage Rate',      value: `${discountStats.couponRate.toFixed(1)}%` },
+                  { label: 'Total Discounts', value: fmt(discountStats.totalDiscount, currency) },
+                  { label: 'Avg Discount',    value: discountStats.withCoupon > 0 ? fmt(discountStats.avgDiscount, currency) : '—' },
                 ].map(s => (
                   <div key={s.label} className={cn('p-3 rounded-2xl', isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50')}>
                     <div className={cn('text-[9px] font-black uppercase tracking-widest mb-1', muted)}>{s.label}</div>
@@ -906,9 +1063,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
                         <span className={cn('text-xs font-mono font-bold', heading)}>{code.code}</span>
                         <span className={cn(
                           'text-[9px] px-1.5 py-0.5 rounded font-bold',
-                          code.type === 'percent'
-                            ? 'bg-emerald-500/10 text-emerald-500'
-                            : 'bg-blue-500/10 text-blue-500',
+                          code.type === 'percent' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500',
                         )}>
                           {code.type === 'percent' ? '%' : '฿'}
                         </span>
