@@ -61,6 +61,8 @@ export default function DashboardPage() {
   const [pendingTab, setPendingTab] = useState<Tab | null>(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [autoDeliverToast, setAutoDeliverToast] = useState<string | null>(null);
+  const autoDeliverRan = useRef(false);
 
   const [topNavStyle, setTopNavStyle] = useState<React.CSSProperties>({});
   const topNavContainerRef = useRef<HTMLElement>(null);
@@ -149,6 +151,34 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+
+  // Auto-deliver: mark old shipped orders as delivered if the setting is enabled
+  useEffect(() => {
+    if (!settings?.autoDeliver?.enabled || autoDeliverRan.current) return;
+    autoDeliverRan.current = true;
+    const afterDays: number = settings.autoDeliver.afterDays ?? 14;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/orders');
+        if (!res.ok) return;
+        const orders: any[] = await res.json();
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - afterDays);
+        const toDeliver = orders.filter(o => o.status === 'shipped' && new Date(o.createdAt) < cutoff);
+        if (toDeliver.length === 0) return;
+        await Promise.all(toDeliver.map(o =>
+          fetch(`/api/orders/${o._id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'delivered' }),
+          })
+        ));
+        setAutoDeliverToast(`${toDeliver.length} order${toDeliver.length !== 1 ? 's' : ''} auto-archived as delivered`);
+        setTimeout(() => setAutoDeliverToast(null), 6000);
+      } catch {}
+    })();
+  }, [settings]);
 
   // Update unread count from SSE stream payload
   useEffect(() => {
@@ -582,6 +612,14 @@ export default function DashboardPage() {
         onCancel={handleCancelNavigation}
         isSaving={isSavingSettings}
       />
+
+      {autoDeliverToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border border-emerald-500/20 bg-emerald-500/10 backdrop-blur-sm">
+          <CheckCheck size={15} className="text-emerald-500 flex-shrink-0" />
+          <span className={`text-xs font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{autoDeliverToast}</span>
+          <button onClick={() => setAutoDeliverToast(null)} className="text-[#8b92ad] hover:text-red-400 ml-1"><X size={13} /></button>
+        </div>
+      )}
     </div>
   );
 }

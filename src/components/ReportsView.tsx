@@ -164,7 +164,6 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   const [customersExpanded, setCustomersExpanded] = useState(false);
   const [dowMode, setDowMode] = useState<'orders' | 'revenue'>('orders');
   const [topProductsSort, setTopProductsSort] = useState<'revenue' | 'units'>('revenue');
-  const [stalledDismissed, setStalledDismissed] = useState(false);
   const [stalledThreshold, setStalledThreshold] = useState(3); // days
   const [exportLoading, setExportLoading] = useState(false);
   const todayISO = new Date().toISOString().split('T')[0];
@@ -299,6 +298,11 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       ['paid', 'preparing'].includes(o.status) && new Date(o.createdAt) < staleCutoff,
     );
   }, [orders, stalledThreshold]);
+
+  const totalPaidPreparing = useMemo(
+    () => orders.filter(o => ['paid', 'preparing'].includes(o.status)).length,
+    [orders],
+  );
 
   // ── KPI stats ───────────────────────────────────────────────────────────────
 
@@ -734,26 +738,30 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       </div>
 
       {/* ── Stalled orders warning ── */}
-      {!isLoading && !stalledDismissed && stalledOrders.length > 0 && (
-        <div className="mt-3 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
+      {!isLoading && totalPaidPreparing > 0 && (
+        <div className="mb-6 px-5 py-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 flex-wrap">
+          <AlertTriangle size={15} className="text-amber-500 flex-shrink-0" />
+          <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
             <span className={cn('text-xs font-bold', isDark ? 'text-amber-400' : 'text-amber-600')}>
-              {stalledOrders.length} order{stalledOrders.length !== 1 ? 's' : ''} in{' '}
-              <span className="font-black">paid / preparing</span> over
+              {stalledOrders.length > 0
+                ? <>{stalledOrders.length} order{stalledOrders.length !== 1 ? 's' : ''} in <span className="font-black">paid / preparing</span> over</>
+                : <>0 orders stalled over</>
+              }
             </span>
             <select
               value={stalledThreshold}
-              onChange={e => { setStalledThreshold(Number(e.target.value)); setStalledDismissed(false); }}
+              onChange={e => setStalledThreshold(Number(e.target.value))}
               className={cn('text-xs font-black bg-transparent border-b border-amber-400 outline-none cursor-pointer', isDark ? 'text-amber-400' : 'text-amber-600')}
             >
               {[1, 2, 3, 5, 7].map(d => <option key={d} value={d}>{d} day{d !== 1 ? 's' : ''}</option>)}
             </select>
-            <span className={cn('text-xs font-bold', isDark ? 'text-amber-400' : 'text-amber-600')}>— check fulfillment</span>
+            <span className={cn('text-xs font-bold', isDark ? 'text-amber-400' : 'text-amber-600')}>
+              {stalledOrders.length > 0 ? '— check fulfillment' : '— all fulfillments up to date'}
+            </span>
           </div>
-          <button onClick={() => setStalledDismissed(true)} className={cn('flex-shrink-0 hover:text-red-400 transition-colors', muted)}>
-            <X size={14} />
-          </button>
+          <span className={cn('text-xs font-bold flex-shrink-0', isDark ? 'text-amber-400' : 'text-amber-600')}>
+            {totalPaidPreparing} total in queue
+          </span>
         </div>
       )}
 

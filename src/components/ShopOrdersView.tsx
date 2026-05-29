@@ -44,6 +44,8 @@ interface Order {
   createdAt: string;
   tracking?: string;
   courier?: string;
+  shippingCost?: number;
+  notes?: string;
 }
 
 export default function ShopOrdersView({
@@ -85,6 +87,8 @@ export default function ShopOrdersView({
   const [batchActing, setBatchActing] = useState(false);
   const [batchCancelConfirm, setBatchCancelConfirm] = useState(false);
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
+  const [stalledThreshold, setStalledThreshold] = useState(3);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   // Sorting
   const [sortField, setSortField] = useState<'createdAt' | 'soldTHB' | 'status' | 'displayName' | null>('createdAt');
@@ -233,6 +237,12 @@ export default function ShopOrdersView({
 
   // Stats always computed from all loaded orders, not just the status-filtered view.
   const allOrders = orders || [];
+  const totalPaidPreparing = allOrders.filter(o => ['paid', 'preparing'].includes(o.status)).length;
+  const stalledOrders = useMemo(() => {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - stalledThreshold);
+    return allOrders.filter(o => ['paid', 'preparing'].includes(o.status) && new Date(o.createdAt) < cutoff);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, stalledThreshold]);
   const confirmedOrders = allOrders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status));
   const pendingOnlyOrders = allOrders.filter(o => o.status === 'pending');
   const confirmedRevenue = confirmedOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
@@ -490,6 +500,34 @@ export default function ShopOrdersView({
         />
       </div>
 
+      {/* ── Stalled orders warning ── */}
+      {!isLoading && orders !== null && totalPaidPreparing > 0 && (
+        <div className="mb-6 px-5 py-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 flex-wrap">
+          <AlertTriangle size={15} className="text-amber-500 flex-shrink-0" />
+          <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+            <span className={cn('text-xs font-bold', theme === 'dark' ? 'text-amber-400' : 'text-amber-600')}>
+              {stalledOrders.length > 0
+                ? <>{stalledOrders.length} order{stalledOrders.length !== 1 ? 's' : ''} in <span className="font-black">paid / preparing</span> over</>
+                : <>0 orders stalled over</>
+              }
+            </span>
+            <select
+              value={stalledThreshold}
+              onChange={e => setStalledThreshold(Number(e.target.value))}
+              className={cn('text-xs font-black bg-transparent border-b border-amber-400 outline-none cursor-pointer', theme === 'dark' ? 'text-amber-400' : 'text-amber-600')}
+            >
+              {[1, 2, 3, 5, 7].map(d => <option key={d} value={d}>{d} day{d !== 1 ? 's' : ''}</option>)}
+            </select>
+            <span className={cn('text-xs font-bold', theme === 'dark' ? 'text-amber-400' : 'text-amber-600')}>
+              {stalledOrders.length > 0 ? '— check fulfillment' : '— all fulfillments up to date'}
+            </span>
+          </div>
+          <span className={cn('text-xs font-bold flex-shrink-0', theme === 'dark' ? 'text-amber-400' : 'text-amber-600')}>
+            {totalPaidPreparing} total in queue
+          </span>
+        </div>
+      )}
+
       {/* Filter Toolbar - Simplified */}
       <div className={cn(
         "rounded-3xl border mb-6 overflow-hidden transition-colors",
@@ -639,19 +677,23 @@ export default function ShopOrdersView({
             <tbody className={cn("divide-y", theme === 'dark' ? "divide-[#1f2335]" : "divide-[#f4f6f9]")}>
               {!isLoading && selectedStatuses.length > 0 && paginatedOrders?.map((o) => {
                 const isSelected = selectedOrderIds.has(o._id);
+                const isExpanded = expandedOrderId === o._id;
                 return (
-                <tr key={o._id} className={cn(
-                  "group transition-all",
+                <React.Fragment key={o._id}>
+                <tr className={cn(
+                  "group transition-all cursor-pointer",
                   isSelected
                     ? theme === 'dark' ? "bg-accent/5" : "bg-accent/[3%]"
                     : theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#f8f9fc]"
-                )}>
+                )}
+                  onClick={() => setExpandedOrderId(isExpanded ? null : o._id)}
+                >
                   {/* Row checkbox */}
                   <td className={cn("px-4 py-5 sticky left-0 z-[1] transition-colors",
                     isSelected
                       ? theme === 'dark' ? "bg-accent/5" : "bg-accent/[3%]"
                       : theme === 'dark' ? "bg-[#161925] group-hover:bg-[#1a1d2e]" : "bg-white group-hover:bg-[#f8f9fc]"
-                  )}>
+                  )} onClick={e => e.stopPropagation()}>
                     <div
                       role="checkbox"
                       aria-checked={isSelected}
@@ -743,7 +785,7 @@ export default function ShopOrdersView({
                     isSelected
                       ? theme === 'dark' ? "bg-accent/5" : "bg-accent/[3%]"
                       : theme === 'dark' ? "bg-[#161925] group-hover:bg-[#1a1d2e]" : "bg-white group-hover:bg-[#f8f9fc]"
-                  )}>
+                  )} onClick={e => e.stopPropagation()}>
                     <div className="flex justify-end gap-2">
                       {/* Cancel — keeps the record marked as cancelled */}
                       {!['cancelled', 'delivered'].includes(o.status) && (
@@ -780,6 +822,77 @@ export default function ShopOrdersView({
                     </div>
                   </td>
                 </tr>
+                {isExpanded && (
+                  <tr className={cn(theme === 'dark' ? "bg-[#11131e]" : "bg-[#f4f6fc]")}>
+                    <td colSpan={7} className="px-8 pb-5 pt-0">
+                      <div className={cn("rounded-2xl border p-5", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-3 text-[#8b92ad]">Order breakdown</p>
+                        <div className="space-y-2">
+                          {(o.items && o.items.length > 0 ? o.items : [{ name: o.product, qty: o.quantity || 1, price: o.soldTHB }]).map((item: any, idx: number) => {
+                            const lineTotal  = (item.price || 0) * (item.qty || 1);
+                            const lineCost   = (item.cost  || 0) * (item.qty || 1);
+                            const lineProfit = lineTotal - lineCost;
+                            return (
+                              <div key={idx} className={cn("flex items-center gap-3 py-2 px-3 rounded-xl", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}>
+                                <span className="font-bold text-accent bg-accent/[8%] px-2 py-0.5 rounded text-[10px] flex-shrink-0">{item.qty}×</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className={cn("text-xs font-semibold truncate", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{item.name}</p>
+                                  {item.variantLabel && <p className="text-[10px] text-[#8b92ad]">{item.variantLabel}</p>}
+                                </div>
+                                <div className="flex items-center gap-4 flex-shrink-0">
+                                  {item.price != null && <span className={cn("text-xs font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>฿{lineTotal.toLocaleString()}</span>}
+                                  {lineCost > 0 && <span className="text-[10px] text-[#8b92ad]">cost ฿{lineCost.toLocaleString()}</span>}
+                                  {lineCost > 0 && item.price != null && (
+                                    <span className={cn("text-[10px] font-bold", lineProfit >= 0 ? "text-accent" : "text-rose-500")}>
+                                      {lineProfit >= 0 ? '+' : ''}฿{lineProfit.toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className={cn("flex flex-wrap gap-6 mt-4 pt-4 border-t text-xs", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
+                          <div>
+                            <span className="text-[#8b92ad] font-medium">Total </span>
+                            <span className={cn("font-black", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>฿{(o.soldTHB || 0).toLocaleString()}</span>
+                          </div>
+                          {(o.profit ?? 0) > 0 && (
+                            <div>
+                              <span className="text-[#8b92ad] font-medium">Profit </span>
+                              <span className="font-black text-accent">+฿{(o.profit!).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {o.shippingCost != null && o.shippingCost > 0 && (
+                            <div>
+                              <span className="text-[#8b92ad] font-medium">Shipping </span>
+                              <span className={cn("font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>฿{o.shippingCost.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {o.courier && (
+                            <div>
+                              <span className="text-[#8b92ad] font-medium">Courier </span>
+                              <span className={cn("font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{o.courier}</span>
+                            </div>
+                          )}
+                          {o.tracking && (
+                            <div>
+                              <span className="text-[#8b92ad] font-medium">Tracking </span>
+                              <span className={cn("font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{o.tracking}</span>
+                            </div>
+                          )}
+                          {o.notes && (
+                            <div>
+                              <span className="text-[#8b92ad] font-medium">Notes </span>
+                              <span className={cn("font-medium italic", theme === 'dark' ? "text-white/80" : "text-[#4b5563]")}>{o.notes}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
                 );
               })}
             </tbody>

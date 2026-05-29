@@ -1288,6 +1288,31 @@ export default function SettingsView({
                   )}
                 </div>
 
+                {/* Auto-Deliver */}
+                <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-semibold ${K.text}`}>Auto-Deliver After Shipping</p>
+                      <p className={`text-xs mt-0.5 ${K.muted}`}>Mark shipped orders as delivered automatically after N days. Useful if you ship and consider the job done. Reduces stale "In Transit" rows and keeps profit reports accurate.</p>
+                    </div>
+                    <Toggle
+                      enabled={!!settings.autoDeliver?.enabled}
+                      onChange={v => set('autoDeliver', { ...(settings.autoDeliver || {}), enabled: v })}
+                      isDark={isDark}
+                    />
+                  </div>
+                  {settings.autoDeliver?.enabled && (
+                    <div className="md:w-1/3">
+                      <label className={lbl}>Mark delivered after (days)</label>
+                      <NumberStepper
+                        value={settings.autoDeliver?.afterDays ?? 14}
+                        onChange={v => set('autoDeliver', { ...(settings.autoDeliver || {}), afterDays: v })}
+                        min={3} max={60} step={1} isDark={isDark}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 {/* Loyalty Program */}
                 <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
                   <div className="flex items-center justify-between">

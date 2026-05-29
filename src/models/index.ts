@@ -107,6 +107,10 @@ const SettingsSchema = new mongoose.Schema({
   },
   // Order display prefix (e.g. "SP-" → SP-001, SP-002)
   orderPrefix: { type: String, default: '' },
+  autoDeliver: {
+    enabled:   { type: Boolean, default: false },
+    afterDays: { type: Number, default: 14, min: 3, max: 60 },
+  },
   loyalty: {
     enabled: { type: Boolean, default: false },
     pointsPerBaht: { type: Number, default: 1 },
