@@ -18,7 +18,7 @@ import {
   TrendingUp, DollarSign, Package, ShoppingCart,
   ArrowUpRight, ArrowDownRight, Download, Tag,
   Truck, Users, BarChart2, Minus, Calendar, X,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, AlertTriangle,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -53,6 +53,20 @@ function KpiCard({ icon, label, value, sub, subHighlight, trend, color, theme, i
     violet:  'text-violet-500 bg-violet-500/10',
   };
   const isDark = theme === 'dark';
+  if (isLoading) {
+    return (
+      <div className={cn('p-5 rounded-3xl border', isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]')}>
+        <div className="space-y-3 animate-pulse">
+          <div className={cn('w-10 h-10 rounded-2xl', isDark ? 'bg-[#1f2335]' : 'bg-slate-100')} />
+          <div className="space-y-2">
+            <div className={cn('h-2 w-20 rounded-full', isDark ? 'bg-[#1f2335]' : 'bg-slate-100')} />
+            <div className={cn('h-5 w-28 rounded-full', isDark ? 'bg-[#1f2335]' : 'bg-slate-100')} />
+            <div className={cn('h-2 w-16 rounded-full', isDark ? 'bg-[#1f2335]' : 'bg-slate-100')} />
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={cn(
       'p-5 rounded-3xl border flex flex-col gap-3 transition-all hover:shadow-lg hover:-translate-y-0.5',
@@ -62,7 +76,7 @@ function KpiCard({ icon, label, value, sub, subHighlight, trend, color, theme, i
         <div className={cn('w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0', colorMap[color])}>
           {icon}
         </div>
-        {!isLoading && trend != null && (
+        {trend != null && (
           <div className={cn(
             'flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-black',
             trend > 0 ? 'text-emerald-500 bg-emerald-500/10' : trend < 0 ? 'text-rose-500 bg-rose-500/10' : 'text-slate-400 bg-slate-500/10',
@@ -74,14 +88,10 @@ function KpiCard({ icon, label, value, sub, subHighlight, trend, color, theme, i
       </div>
       <div>
         <div className="text-[10px] font-black uppercase tracking-widest text-[#8b92ad] mb-0.5">{label}</div>
-        {isLoading ? (
-          <div className="w-4 h-4 border-2 border-t-transparent border-accent rounded-full animate-spin mt-1" />
-        ) : (
           <>
             <div className={cn('text-xl font-black', isDark ? 'text-white' : 'text-[#1a1d2e]')}>{value}</div>
             {sub && <div className={cn("text-[10px] mt-0.5", subHighlight ? "text-amber-500 font-bold" : "text-[#8b92ad]")}>{sub}</div>}
           </>
-        )}
       </div>
     </div>
   );
@@ -133,7 +143,7 @@ const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-type DateRangePreset = '7d' | '30d' | 'month' | 'all' | 'custom';
+type DateRangePreset = 'today' | '7d' | '30d' | 'month' | 'all' | 'custom';
 
 export default function ReportsView({ theme, t, accentColor = '#00b900' }: ReportsViewProps) {
   const isDark = theme === 'dark';
@@ -153,6 +163,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   const [productsExpanded, setProductsExpanded] = useState(false);
   const [customersExpanded, setCustomersExpanded] = useState(false);
   const [dowMode, setDowMode] = useState<'orders' | 'revenue'>('orders');
+  const [topProductsSort, setTopProductsSort] = useState<'revenue' | 'units'>('revenue');
+  const [stalledDismissed, setStalledDismissed] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const todayISO = new Date().toISOString().split('T')[0];
 
   const LIST_DEFAULT = 5;
 
@@ -164,7 +178,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           fetch('/api/coupons'),
           fetch('/api/settings'),
         ]);
-        if (oRes.ok) setOrders(await oRes.json());
+        if (oRes.ok) {
+          const raw = await oRes.json();
+          setOrders(raw.filter((o: any) => o._id && o.createdAt));
+        }
         if (cRes.ok) setCoupons(await cRes.json());
         if (sRes.ok) {
           const s = await sRes.json();
@@ -182,6 +199,11 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
 
   const { windowDays, cutoff, prevFrom, prevTo } = useMemo(() => {
     const now = new Date();
+    if (dateRange === 'today') {
+      const c = new Date(now); c.setHours(0, 0, 0, 0);
+      const yStart = new Date(c); yStart.setDate(yStart.getDate() - 1);
+      return { windowDays: 1, cutoff: c, prevFrom: yStart, prevTo: new Date(c) };
+    }
     if (dateRange === '7d') {
       const c = new Date(now); c.setDate(c.getDate() - 7);
       const p = new Date(c);  p.setDate(p.getDate() - 7);
@@ -268,6 +290,34 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     () => prevOrders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status)),
     [prevOrders],
   );
+
+  // Orders in paid/preparing that are older than 3 days — global warning regardless of filter
+  const stalledOrders = useMemo(() => {
+    const staleCutoff = new Date(); staleCutoff.setDate(staleCutoff.getDate() - 3);
+    return orders.filter(o =>
+      ['paid', 'preparing'].includes(o.status) && new Date(o.createdAt) < staleCutoff,
+    );
+  }, [orders]);
+
+  // 8-week revenue sparkline (all non-cancelled orders, regardless of period filter)
+  const weeklySparkline = useMemo(() => {
+    const now = new Date();
+    const cutoff8w = new Date(now); cutoff8w.setDate(now.getDate() - 56);
+    const weekMap = new Map<number, number>();
+    orders
+      .filter(o => o.status !== 'cancelled' && new Date(o.createdAt) >= cutoff8w)
+      .forEach(o => {
+        const d = new Date(o.createdAt);
+        const wStart = new Date(d); wStart.setDate(d.getDate() - d.getDay()); wStart.setHours(0, 0, 0, 0);
+        weekMap.set(wStart.getTime(), (weekMap.get(wStart.getTime()) || 0) + (o.soldTHB || 0));
+      });
+    const result: { label: string; rev: number }[] = [];
+    for (let i = 7; i >= 0; i--) {
+      const wStart = new Date(now); wStart.setDate(now.getDate() - now.getDay() - i * 7); wStart.setHours(0, 0, 0, 0);
+      result.push({ label: wStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), rev: weekMap.get(wStart.getTime()) || 0 });
+    }
+    return result;
+  }, [orders]);
 
   // ── KPI stats ───────────────────────────────────────────────────────────────
 
@@ -421,10 +471,15 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         map.set(key, e);
       });
     });
-    const sorted = [...map.values()].sort((a, b) => b.revenue - a.revenue);
-    const maxRev = sorted[0]?.revenue || 1;
-    return sorted.map(p => ({ ...p, pct: (p.revenue / maxRev) * 100 }));
-  }, [confirmedOrders]);
+    const sorted = [...map.values()].sort((a, b) =>
+      topProductsSort === 'revenue' ? b.revenue - a.revenue : b.qty - a.qty,
+    );
+    const maxVal = topProductsSort === 'revenue' ? (sorted[0]?.revenue || 1) : (sorted[0]?.qty || 1);
+    return sorted.map(p => ({
+      ...p,
+      pct: ((topProductsSort === 'revenue' ? p.revenue : p.qty) / maxVal) * 100,
+    }));
+  }, [confirmedOrders, topProductsSort]);
 
   // ── Top customers (full list, sliced in render) ─────────────────────────────
 
@@ -535,6 +590,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   // ── CSV export ──────────────────────────────────────────────────────────────
 
   const handleExport = () => {
+    setExportLoading(true);
     const headers = [
       'Date', 'Order ID', 'Customer', 'Items', `Revenue (${currency})`,
       `Cost (${currency})`, `Profit (${currency})`, `Ship Cost (${currency})`,
@@ -557,6 +613,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       : dateRange;
     a.download = `report_${label}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+    setTimeout(() => setExportLoading(false), 600);
   };
 
   // ── JSX helpers ───────────────────────────────────────────────────────────
@@ -566,10 +623,11 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   const heading = isDark ? 'text-white' : 'text-[#1a1d2e]';
 
   const rangePresets = [
-    { id: '7d',    label: '7d' },
-    { id: '30d',   label: '30d' },
-    { id: 'month', label: 'Month' },
-    { id: 'all',   label: 'All time' },
+    { id: 'today',  label: 'Today' },
+    { id: '7d',     label: '7d' },
+    { id: '30d',    label: '30d' },
+    { id: 'month',  label: 'Month' },
+    { id: 'all',    label: 'All time' },
     { id: 'custom', label: 'Custom' },
   ] as const;
 
@@ -578,12 +636,13 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
       const end = customEnd || new Date().toISOString().split('T')[0];
       return `${customStart} → ${end}`;
     }
-    const found = rangePresets.find(r => r.id === dateRange);
-    return found?.id !== 'custom' ? (
-      dateRange === '7d' ? 'Last 7 days' :
-      dateRange === '30d' ? 'Last 30 days' :
-      dateRange === 'month' ? 'This month' : 'All time'
-    ) : 'Custom range';
+    return (
+      dateRange === 'today'  ? 'Today vs yesterday' :
+      dateRange === '7d'    ? 'Last 7 days' :
+      dateRange === '30d'   ? 'Last 30 days' :
+      dateRange === 'month' ? 'This month' :
+      dateRange === 'all'   ? 'All time' : 'Custom range'
+    );
   }, [dateRange, customStart, customEnd]);
 
   const topProducts  = productsExpanded  ? allTopProducts  : allTopProducts.slice(0, LIST_DEFAULT);
@@ -614,6 +673,49 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         </div>
       </div>
 
+      {/* ── 8-week revenue sparkline ── */}
+      {!isLoading && weeklySparkline.some(w => w.rev > 0) && (
+        <div className={cn('mb-4 px-5 py-4 rounded-2xl border', isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]')}>
+          <div className={cn('text-[9px] font-black uppercase tracking-widest mb-3', muted)}>8-week revenue</div>
+          <div className="flex items-end gap-1 h-10">
+            {(() => {
+              const maxRev = Math.max(...weeklySparkline.map(w => w.rev), 1);
+              return weeklySparkline.map((w, i) => (
+                <div key={i} className="flex-1 h-full flex items-end" title={`${w.label}: ${currency} ${w.rev.toLocaleString()}`}>
+                  <div
+                    className={cn(
+                      'w-full rounded-t-sm transition-all hover:opacity-80',
+                      i === weeklySparkline.length - 1 ? 'bg-accent' : 'bg-accent/30',
+                    )}
+                    style={{ height: `${(w.rev / maxRev) * 100}%`, minHeight: w.rev > 0 ? '3px' : '0' }}
+                  />
+                </div>
+              ));
+            })()}
+          </div>
+          <div className="flex justify-between mt-1.5">
+            <span className={cn('text-[8px]', muted)}>{weeklySparkline[0]?.label}</span>
+            <span className={cn('text-[8px] font-bold text-accent')}>this week</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Stalled orders warning ── */}
+      {!isLoading && !stalledDismissed && stalledOrders.length > 0 && (
+        <div className="mb-4 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+              {stalledOrders.length} order{stalledOrders.length !== 1 ? 's' : ''} stuck in{' '}
+              <span className="font-black">paid / preparing</span> for over 3 days — check fulfillment
+            </span>
+          </div>
+          <button onClick={() => setStalledDismissed(true)} className={cn('flex-shrink-0 hover:text-red-400 transition-colors', muted)}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* ── Sticky period control bar ── */}
       <div className={cn(
         'sticky top-0 z-30 mb-6 rounded-2xl border shadow-sm backdrop-blur-md',
@@ -642,9 +744,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={13} />
                 <input
                   ref={startRef} type="date" value={customStart}
+                  max={todayISO}
                   onChange={e => setCustomStart(e.target.value)}
                   className={cn(
-                    'pl-8 pr-3 py-2 rounded-xl text-xs font-bold outline-none border cursor-pointer transition-all',
+                    'pl-8 pr-3 py-3 rounded-xl text-xs font-bold outline-none border cursor-pointer transition-all',
                     isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]',
                     customStart ? 'border-accent/50' : '',
                   )}
@@ -655,9 +758,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={13} />
                 <input
                   ref={endRef} type="date" value={customEnd}
+                  max={todayISO}
                   onChange={e => setCustomEnd(e.target.value)}
                   className={cn(
-                    'pl-8 pr-3 py-2 rounded-xl text-xs font-bold outline-none border cursor-pointer transition-all',
+                    'pl-8 pr-3 py-3 rounded-xl text-xs font-bold outline-none border cursor-pointer transition-all',
                     isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]',
                     customEnd ? 'border-accent/50' : '',
                   )}
@@ -679,10 +783,14 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           {/* Export — pushed to right */}
           <button
             onClick={handleExport}
-            className="ml-auto p-2 rounded-xl bg-accent text-white hover:opacity-90 active:scale-95 transition-all flex-shrink-0"
+            disabled={exportLoading}
+            className="ml-auto p-2 rounded-xl bg-accent text-white hover:opacity-90 active:scale-95 transition-all flex-shrink-0 disabled:opacity-60"
             title="Export CSV"
           >
-            <Download size={16} />
+            {exportLoading
+              ? <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" />
+              : <Download size={16} />
+            }
           </button>
         </div>
       </div>
@@ -719,6 +827,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           icon={<BarChart2 size={20} />}
           label="Avg Order Value"
           value={fmt(kpi.curr.aov, currency)}
+          sub={confirmedOrders.length > 0 ? `across ${confirmedOrders.length} paid orders` : undefined}
           trend={trends.aov}
         />
         <KpiCard
@@ -816,8 +925,22 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         <SectionCard
           theme={theme}
           title="Top Products"
-          sub={`By confirmed revenue · ${allTopProducts.length > LIST_DEFAULT ? `showing ${productsExpanded ? allTopProducts.length : LIST_DEFAULT} of ${allTopProducts.length}` : `${allTopProducts.length} products`}`}
+          sub={`${topProductsSort === 'revenue' ? 'By confirmed revenue' : 'By units sold'} · ${allTopProducts.length > LIST_DEFAULT ? `showing ${productsExpanded ? allTopProducts.length : LIST_DEFAULT} of ${allTopProducts.length}` : `${allTopProducts.length} products`}`}
         >
+          {/* Sort toggle */}
+          <div className={cn('flex p-0.5 rounded-xl border mb-4 w-fit', isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-[#f4f6f9] border-[#e2e5ef]')}>
+            {(['revenue', 'units'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setTopProductsSort(s)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-[10px] font-black transition-all',
+                  topProductsSort === s ? 'text-white shadow-sm' : `${muted} hover:text-accent`,
+                )}
+                style={topProductsSort === s ? { background: 'var(--accent-gradient)' } : undefined}
+              >{s === 'revenue' ? 'Revenue' : 'Units'}</button>
+            ))}
+          </div>
           {isLoading ? (
             <div className="py-8 flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-t-transparent border-accent rounded-full animate-spin" />
@@ -841,8 +964,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
                         <span className={cn('text-xs font-bold truncate', heading)}>{p.name}</span>
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
-                        <span className={cn('text-[10px]', muted)}>{p.qty} units</span>
-                        <span className="text-xs font-black text-accent">{fmt(p.revenue, currency)}</span>
+                        {topProductsSort === 'revenue'
+                          ? <><span className={cn('text-[10px]', muted)}>{p.qty} units</span><span className="text-xs font-black text-accent">{fmt(p.revenue, currency)}</span></>
+                          : <><span className="text-xs font-black text-accent">{p.qty} units</span><span className={cn('text-[10px]', muted)}>{fmt(p.revenue, currency)}</span></>
+                        }
                       </div>
                     </div>
                     <div className={cn('h-1 rounded-full overflow-hidden', isDark ? 'bg-[#1f2335]' : 'bg-slate-100')}>
@@ -945,7 +1070,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
                 key={m}
                 onClick={() => setDowMode(m)}
                 className={cn(
-                  'px-3 py-1 rounded-lg text-[10px] font-black capitalize transition-all',
+                  'px-3 py-2.5 rounded-lg text-[10px] font-black capitalize transition-all',
                   dowMode === m ? 'text-white shadow-sm' : `${muted} hover:text-accent`,
                 )}
                 style={dowMode === m ? { background: 'var(--accent-gradient)' } : undefined}
