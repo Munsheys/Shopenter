@@ -107,7 +107,7 @@ const LK = {
   input: 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-accent',
 };
 
-export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpConsumed }: { theme: string; onLimitHit?: (feature: string, limit?: number, current?: number) => void; jumpToUserId?: string | null; onJumpConsumed?: () => void }) {
+export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpConsumed, jumpToOrderId, onJumpOrderConsumed }: { theme: string; onLimitHit?: (feature: string, limit?: number, current?: number) => void; jumpToUserId?: string | null; onJumpConsumed?: () => void; jumpToOrderId?: string | null; onJumpOrderConsumed?: () => void }) {
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
   const k = isDark ? DK : isLite ? LITK : LK;
@@ -172,6 +172,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [isResizing, setIsResizing] = useState(false);
   const [chatButtonY, setChatButtonY] = useState(200);
   const [isDraggingButton, setIsDraggingButton] = useState(false);
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -237,6 +238,15 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   // selectCustomer and onJumpConsumed are stable references (useCallback / prop)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jumpToUserId, customers, selectCustomer, onJumpConsumed]);
+
+  // Highlight a specific order card when jumping from another view
+  useEffect(() => {
+    if (!jumpToOrderId) return;
+    setHighlightedOrderId(jumpToOrderId);
+    onJumpOrderConsumed?.();
+    const timer = setTimeout(() => setHighlightedOrderId(null), 3000);
+    return () => clearTimeout(timer);
+  }, [jumpToOrderId]);
 
   const refreshOrders = useCallback(async () => {
     const res = await fetch('/api/orders');
@@ -1046,16 +1056,18 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                       {activeOrders.map(order => (
-                        <ActiveOrderCard key={order._id} order={order} isDark={isDark} k={k}
-                          onDelete={() => confirmDeleteOrder(order._id)}
-                          onCancel={() => confirmCancelOrder(order._id)}
-                          onEdit={() => setEditingOrder({ id: order._id, name: order.product, sold: String(order.soldTHB || ''), qty: order.quantity || 1 })}
-                          onSendQR={() => sendQR(order._id)}
-                          onMarkPaid={() => markPaid(order._id)}
-                          onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
-                          selected={selectedOrderIds.has(order._id)}
-                          onToggleSelect={order.status === 'pending' ? () => toggleOrderSelect(order._id) : undefined}
-                          isActing={actingOrderIds.has(order._id)} />
+                        <div key={order._id} className={highlightedOrderId === order._id ? 'ring-2 ring-accent shadow-lg shadow-accent/20 rounded-2xl' : ''}>
+                          <ActiveOrderCard order={order} isDark={isDark} k={k}
+                            onDelete={() => confirmDeleteOrder(order._id)}
+                            onCancel={() => confirmCancelOrder(order._id)}
+                            onEdit={() => setEditingOrder({ id: order._id, name: order.product, sold: String(order.soldTHB || ''), qty: order.quantity || 1 })}
+                            onSendQR={() => sendQR(order._id)}
+                            onMarkPaid={() => markPaid(order._id)}
+                            onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
+                            selected={selectedOrderIds.has(order._id)}
+                            onToggleSelect={order.status === 'pending' ? () => toggleOrderSelect(order._id) : undefined}
+                            isActing={actingOrderIds.has(order._id)} />
+                        </div>
                       ))}
                     </div>
                   </section>
@@ -1064,7 +1076,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 {/* Parcel Fulfillment */}
                 {parcelOrders.length > 0 && (
                   <section aria-label="Parcels awaiting shipment">
-                    <div className="space-y-4">
+                    <div className={`space-y-4 ${parcelOrders.some(o => o._id === highlightedOrderId) ? 'ring-2 ring-accent shadow-lg shadow-accent/20 rounded-[32px]' : ''}`}>
                       <ParcelContainer
                         orders={parcelOrders}
                         isDark={isDark}
@@ -1085,6 +1097,20 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   </section>
                 )}
 
+                {/* Delivery Addresses */}
+                <section aria-label="Delivery addresses">
+                  <SectionLabel>Delivery Addresses</SectionLabel>
+                  <AddressSection
+                    customer={selectedCustomer}
+                    isDark={isDark}
+                    k={k}
+                    selectedIdx={selectedAddressIdx}
+                    onSelect={setSelectedAddressIdx}
+                    onAdd={addAddress}
+                    onRemove={confirmDeleteAddress}
+                  />
+                </section>
+
                 {/* In Transit */}
                 {inTransitOrders.length > 0 && (
                   <section aria-label="Orders in transit">
@@ -1095,25 +1121,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           isLast={i === inTransitOrders.length - 1}
                           onPatch={(patch) => patchOrder(order._id, patch)}
                           onDelete={() => confirmDeleteOrder(order._id)}
+                          isHighlighted={highlightedOrderId === order._id}
                         />
                       ))}
                     </div>
                   </section>
                 )}
-
-                {/* Delivery Addresses */}
-                <section aria-label="Delivery addresses">
-                  <SectionLabel>Delivery Addresses</SectionLabel>
-                  <AddressSection 
-                    customer={selectedCustomer} 
-                    isDark={isDark} 
-                    k={k} 
-                    selectedIdx={selectedAddressIdx}
-                    onSelect={setSelectedAddressIdx}
-                    onAdd={addAddress} 
-                    onRemove={confirmDeleteAddress} 
-                  />
-                </section>
 
                 {/* Order History */}
                 <section aria-label="Order history">
@@ -1155,7 +1168,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
           {/* ── Chat Drawer (Fixed Overlay) ── */}
           <div
-            className={`fixed top-0 right-0 bottom-0 z-40 transform transition-transform duration-300 ease-out ${
+            className={`fixed top-14 right-0 bottom-0 z-40 transform transition-transform duration-300 ease-out ${
               chatDrawerOpen ? 'translate-x-0' : 'translate-x-full'
             } ${k.surface} border-l ${k.border} flex flex-col shadow-2xl`}
             style={{ width: drawerWidth }}
@@ -2168,10 +2181,11 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
 }
 
 // ── History Row ───────────────────────────────────────────────────────────────
-function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
+function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted }: {
   order: Order; isDark: boolean; k: typeof DK; isLast: boolean;
   onPatch: (patch: object) => void;
   onDelete: () => void;
+  isHighlighted?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [sold, setSold] = useState(String(order.soldTHB || ''));
@@ -2212,7 +2226,7 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
   const statusLabel: Record<string, string> = { shipped: 'IN TRANSIT', delivered: 'DELIVERED', cancelled: 'CANCELLED' };
 
   return (
-    <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''}`}>
+    <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''} ${isHighlighted ? 'ring-2 ring-accent shadow-lg shadow-accent/20' : ''}`}>
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
@@ -2252,32 +2266,43 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
           </p>
           <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(currentSold)}</p>
         </div>
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            const w = window.open('', '_blank', 'width=480,height=600');
-            if (!w) return;
-            w.document.write(`<html><head><title>Order Receipt</title><style>body{font-family:sans-serif;padding:24px;font-size:13px}h2{margin:0 0 4px}p{margin:4px 0}hr{border:none;border-top:1px solid #ddd;margin:12px 0}.label{color:#888;font-size:11px}</style></head><body>
-              <h2>${order.product}</h2>
-              <p class="label">${new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-              <hr/>
-              ${order.tracking ? `<p><b>Courier:</b> ${order.courier || ''} · ${order.tracking}</p>` : ''}
-              ${order.address ? `<p><b>Address:</b> ${order.address}</p>` : ''}
-              <hr/>
-              <p><b>Sales:</b> ${sc} ${fmt(currentSold)}</p>
-              <p><b>Cost:</b> ${cc} ${fmt(currentCostKRW)} (${sc} ${fmt(Math.round(currentCostTHB))})</p>
-              ${order.shipCostTHB ? `<p><b>Shipping:</b> ${sc} ${fmt(order.shipCostTHB)}</p>` : ''}
-              <p><b>Profit:</b> ${sc} ${fmt(Math.round(currentProfit))}</p>
-              <script>window.onload=()=>window.print()</script>
-            </body></html>`);
-            w.document.close();
-          }}
-          className={`p-2 ml-2 rounded-lg flex-shrink-0 transition-colors ${k.muted} hover:text-accent`}
-          title="Print receipt"
-          aria-label="Print order receipt"
-        >
-          <Printer size={14} />
-        </button>
+        {order.status === 'shipped' && (
+          <button
+            onClick={e => { e.stopPropagation(); onPatch({ status: 'delivered' }); }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black bg-emerald-500 hover:bg-emerald-600 text-white transition-all active:scale-95 flex-shrink-0"
+            title="Mark as delivered"
+          >
+            <CheckCircle size={11} /> Delivered
+          </button>
+        )}
+        {order.status === 'shipped' && (
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              const w = window.open('', '_blank', 'width=480,height=600');
+              if (!w) return;
+              w.document.write(`<html><head><title>Order Receipt</title><style>body{font-family:sans-serif;padding:24px;font-size:13px}h2{margin:0 0 4px}p{margin:4px 0}hr{border:none;border-top:1px solid #ddd;margin:12px 0}.label{color:#888;font-size:11px}</style></head><body>
+                <h2>${order.product}</h2>
+                <p class="label">${new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                <hr/>
+                ${order.tracking ? `<p><b>Courier:</b> ${order.courier || ''} · ${order.tracking}</p>` : ''}
+                ${order.address ? `<p><b>Address:</b> ${order.address}</p>` : ''}
+                <hr/>
+                <p><b>Sales:</b> ${sc} ${fmt(currentSold)}</p>
+                <p><b>Cost:</b> ${cc} ${fmt(currentCostKRW)} (${sc} ${fmt(Math.round(currentCostTHB))})</p>
+                ${order.shipCostTHB ? `<p><b>Shipping:</b> ${sc} ${fmt(order.shipCostTHB)}</p>` : ''}
+                <p><b>Profit:</b> ${sc} ${fmt(Math.round(currentProfit))}</p>
+                <script>window.onload=()=>window.print()</script>
+              </body></html>`);
+              w.document.close();
+            }}
+            className={`p-2 ml-2 rounded-lg flex-shrink-0 transition-colors ${k.muted} hover:text-accent`}
+            title="Print receipt"
+            aria-label="Print order receipt"
+          >
+            <Printer size={14} />
+          </button>
+        )}
         <div className="flex items-center ml-1 flex-shrink-0">
           <ChevronDown size={14} className={`${k.muted} transition-transform ${open ? 'rotate-180' : ''}`} />
         </div>
