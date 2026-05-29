@@ -1073,6 +1073,20 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   </section>
                 )}
 
+                {/* Delivery Addresses — shown between active orders and parcel so address is visible before packing */}
+                <section aria-label="Delivery addresses">
+                  <SectionLabel>Delivery Addresses</SectionLabel>
+                  <AddressSection
+                    customer={selectedCustomer}
+                    isDark={isDark}
+                    k={k}
+                    selectedIdx={selectedAddressIdx}
+                    onSelect={setSelectedAddressIdx}
+                    onAdd={addAddress}
+                    onRemove={confirmDeleteAddress}
+                  />
+                </section>
+
                 {/* Parcel Fulfillment */}
                 {parcelOrders.length > 0 && (
                   <section aria-label="Parcels awaiting shipment">
@@ -1096,20 +1110,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     </div>
                   </section>
                 )}
-
-                {/* Delivery Addresses */}
-                <section aria-label="Delivery addresses">
-                  <SectionLabel>Delivery Addresses</SectionLabel>
-                  <AddressSection
-                    customer={selectedCustomer}
-                    isDark={isDark}
-                    k={k}
-                    selectedIdx={selectedAddressIdx}
-                    onSelect={setSelectedAddressIdx}
-                    onAdd={addAddress}
-                    onRemove={confirmDeleteAddress}
-                  />
-                </section>
 
                 {/* In Transit */}
                 {inTransitOrders.length > 0 && (
