@@ -165,6 +165,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   const [dowMode, setDowMode] = useState<'orders' | 'revenue'>('orders');
   const [topProductsSort, setTopProductsSort] = useState<'revenue' | 'units'>('revenue');
   const [stalledDismissed, setStalledDismissed] = useState(false);
+  const [stalledThreshold, setStalledThreshold] = useState(3); // days
   const [exportLoading, setExportLoading] = useState(false);
   const todayISO = new Date().toISOString().split('T')[0];
 
@@ -291,33 +292,13 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     [prevOrders],
   );
 
-  // Orders in paid/preparing that are older than 3 days — global warning regardless of filter
+  // Orders in paid/preparing that are older than stalledThreshold days — global warning regardless of filter
   const stalledOrders = useMemo(() => {
-    const staleCutoff = new Date(); staleCutoff.setDate(staleCutoff.getDate() - 3);
+    const staleCutoff = new Date(); staleCutoff.setDate(staleCutoff.getDate() - stalledThreshold);
     return orders.filter(o =>
       ['paid', 'preparing'].includes(o.status) && new Date(o.createdAt) < staleCutoff,
     );
-  }, [orders]);
-
-  // 8-week revenue sparkline (all non-cancelled orders, regardless of period filter)
-  const weeklySparkline = useMemo(() => {
-    const now = new Date();
-    const cutoff8w = new Date(now); cutoff8w.setDate(now.getDate() - 56);
-    const weekMap = new Map<number, number>();
-    orders
-      .filter(o => o.status !== 'cancelled' && new Date(o.createdAt) >= cutoff8w)
-      .forEach(o => {
-        const d = new Date(o.createdAt);
-        const wStart = new Date(d); wStart.setDate(d.getDate() - d.getDay()); wStart.setHours(0, 0, 0, 0);
-        weekMap.set(wStart.getTime(), (weekMap.get(wStart.getTime()) || 0) + (o.soldTHB || 0));
-      });
-    const result: { label: string; rev: number }[] = [];
-    for (let i = 7; i >= 0; i--) {
-      const wStart = new Date(now); wStart.setDate(now.getDate() - now.getDay() - i * 7); wStart.setHours(0, 0, 0, 0);
-      result.push({ label: wStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), rev: weekMap.get(wStart.getTime()) || 0 });
-    }
-    return result;
-  }, [orders]);
+  }, [orders, stalledThreshold]);
 
   // ── KPI stats ───────────────────────────────────────────────────────────────
 
@@ -673,49 +654,6 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         </div>
       </div>
 
-      {/* ── 8-week revenue sparkline ── */}
-      {!isLoading && weeklySparkline.some(w => w.rev > 0) && (
-        <div className={cn('mb-4 px-5 py-4 rounded-2xl border', isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]')}>
-          <div className={cn('text-[9px] font-black uppercase tracking-widest mb-3', muted)}>8-week revenue</div>
-          <div className="flex items-end gap-1 h-10">
-            {(() => {
-              const maxRev = Math.max(...weeklySparkline.map(w => w.rev), 1);
-              return weeklySparkline.map((w, i) => (
-                <div key={i} className="flex-1 h-full flex items-end" title={`${w.label}: ${currency} ${w.rev.toLocaleString()}`}>
-                  <div
-                    className={cn(
-                      'w-full rounded-t-sm transition-all hover:opacity-80',
-                      i === weeklySparkline.length - 1 ? 'bg-accent' : 'bg-accent/30',
-                    )}
-                    style={{ height: `${(w.rev / maxRev) * 100}%`, minHeight: w.rev > 0 ? '3px' : '0' }}
-                  />
-                </div>
-              ));
-            })()}
-          </div>
-          <div className="flex justify-between mt-1.5">
-            <span className={cn('text-[8px]', muted)}>{weeklySparkline[0]?.label}</span>
-            <span className={cn('text-[8px] font-bold text-accent')}>this week</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── Stalled orders warning ── */}
-      {!isLoading && !stalledDismissed && stalledOrders.length > 0 && (
-        <div className="mb-4 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
-            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-              {stalledOrders.length} order{stalledOrders.length !== 1 ? 's' : ''} stuck in{' '}
-              <span className="font-black">paid / preparing</span> for over 3 days — check fulfillment
-            </span>
-          </div>
-          <button onClick={() => setStalledDismissed(true)} className={cn('flex-shrink-0 hover:text-red-400 transition-colors', muted)}>
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
       {/* ── Sticky period control bar ── */}
       <div className={cn(
         'sticky top-0 z-30 mb-6 rounded-2xl border shadow-sm backdrop-blur-md',
@@ -794,6 +732,30 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           </button>
         </div>
       </div>
+
+      {/* ── Stalled orders warning ── */}
+      {!isLoading && !stalledDismissed && stalledOrders.length > 0 && (
+        <div className="mt-3 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
+            <span className={cn('text-xs font-bold', isDark ? 'text-amber-400' : 'text-amber-600')}>
+              {stalledOrders.length} order{stalledOrders.length !== 1 ? 's' : ''} in{' '}
+              <span className="font-black">paid / preparing</span> over
+            </span>
+            <select
+              value={stalledThreshold}
+              onChange={e => { setStalledThreshold(Number(e.target.value)); setStalledDismissed(false); }}
+              className={cn('text-xs font-black bg-transparent border-b border-amber-400 outline-none cursor-pointer', isDark ? 'text-amber-400' : 'text-amber-600')}
+            >
+              {[1, 2, 3, 5, 7].map(d => <option key={d} value={d}>{d} day{d !== 1 ? 's' : ''}</option>)}
+            </select>
+            <span className={cn('text-xs font-bold', isDark ? 'text-amber-400' : 'text-amber-600')}>— check fulfillment</span>
+          </div>
+          <button onClick={() => setStalledDismissed(true)} className={cn('flex-shrink-0 hover:text-red-400 transition-colors', muted)}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
