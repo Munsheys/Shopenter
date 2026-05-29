@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -27,10 +27,26 @@ export default function UnsavedChangesModal({
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
 
+  // Fix 12: dismiss on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, onCancel]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    // Fix 12: role="dialog", aria-modal, aria-labelledby
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="unsaved-title"
+    >
       <div className={cn(
         "rounded-2xl border shadow-2xl p-6 max-w-md w-full mx-4 space-y-4",
         isDark ? "bg-[#161925] border-[#1f2335]" : isLite ? "bg-[#e7ecf3] border-[#cdd3dd]" : "bg-white border-gray-200"
@@ -44,10 +60,14 @@ export default function UnsavedChangesModal({
             <AlertTriangle size={20} />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className={cn(
-              "text-base font-bold",
-              isDark ? "text-white" : isLite ? "text-[#2f3744]" : "text-gray-900"
-            )}>
+            {/* Fix 12: id for aria-labelledby */}
+            <h3
+              id="unsaved-title"
+              className={cn(
+                "text-base font-bold",
+                isDark ? "text-white" : isLite ? "text-[#2f3744]" : "text-gray-900"
+              )}
+            >
               Unsaved Changes
             </h3>
             <p className={cn(
@@ -75,7 +95,9 @@ export default function UnsavedChangesModal({
           >
             Cancel
           </button>
+          {/* Fix 12: autoFocus on the Discard button (primary destructive action) */}
           <button
+            autoFocus
             onClick={onDiscard}
             disabled={isSaving}
             className={cn(
@@ -92,17 +114,24 @@ export default function UnsavedChangesModal({
           <button
             onClick={onSave}
             disabled={isSaving}
-            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition-all text-white disabled:opacity-50 flex items-center justify-center gap-2"
-            style={{ background: isSaving ? 'var(--accent)' : 'var(--accent)', opacity: isSaving ? 0.8 : 1 }}
-          >
-            {isSaving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save & Continue'
+            // Fix 13: visually distinct muted state while saving (opacity-60 on save button)
+            className={cn(
+              "flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition-all text-white flex items-center justify-center gap-2",
+              isSaving ? "opacity-60" : "hover:opacity-90"
             )}
+            style={{ background: 'var(--accent)' }}
+          >
+            {/* Fix 13: aria-live so screen readers announce saving state */}
+            <span aria-live="polite">
+              {isSaving ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin inline-block" />
+                  Saving...
+                </span>
+              ) : (
+                'Save & Continue'
+              )}
+            </span>
           </button>
         </div>
       </div>

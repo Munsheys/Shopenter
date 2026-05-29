@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, Zap, Package, Megaphone, MessageSquare, Tag, Star } from 'lucide-react';
 
 const FEATURE_INFO: Record<string, { label: string; icon: React.ReactNode; description: string }> = {
@@ -19,17 +19,39 @@ interface UpgradePromptProps {
   current?: number;
   onClose: () => void;
   theme?: 'light' | 'dark';
+  /** Optional URL to navigate to on upgrade. Defaults to /dashboard/settings?tab=billing */
+  upgradeUrl?: string;
 }
 
-export default function UpgradePrompt({ feature, limit, current, onClose, theme = 'light' }: UpgradePromptProps) {
+export default function UpgradePrompt({ feature, limit, current, onClose, theme = 'light', upgradeUrl }: UpgradePromptProps) {
   const isDark = theme === 'dark';
   const info = FEATURE_INFO[feature] ?? { label: feature, icon: <Zap size={20} />, description: 'Upgrade to unlock this feature' };
 
   const PRO_FEATURES = ['Unlimited products (up to 500)', 'Unlimited broadcast campaigns', 'Unlimited auto-reply rules', 'Discount codes & coupons', 'Loyalty points program', 'CSV export for orders & customers'];
 
+  // Fix 15: dismiss on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  // Fix 14: handle upgrade navigation
+  const handleUpgrade = () => {
+    const destination = upgradeUrl || '/dashboard/settings?tab=billing';
+    window.location.href = destination;
+    onClose();
+  };
+
   return (
+    // Fix 15: role="dialog", aria-modal
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[500] flex items-center justify-center p-4 animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="upgrade-prompt-title"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className={`w-full max-w-md rounded-[28px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
@@ -44,7 +66,8 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
           <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-4">
             {info.icon}
           </div>
-          <h2 className="text-xl font-black text-white mb-1">{info.label}</h2>
+          {/* Fix 15: id for aria-labelledby */}
+          <h2 id="upgrade-prompt-title" className="text-xl font-black text-white mb-1">{info.label}</h2>
           <p className="text-sm text-white/80">{info.description}</p>
           {limit !== undefined && current !== undefined && (
             <div className="mt-3 bg-white/10 rounded-xl px-3 py-2">
@@ -82,8 +105,10 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
             >
               Not now
             </button>
+            {/* Fix 14 + Fix 15: navigate to billing on click; autoFocus */}
             <button
-              onClick={() => { onClose(); }}
+              autoFocus
+              onClick={handleUpgrade}
               className="flex-1 py-3 text-sm font-bold text-white bg-accent rounded-2xl shadow-lg shadow-accent/20 hover:opacity-90 flex items-center justify-center gap-2"
             >
               <Zap size={16} /> Upgrade to Pro

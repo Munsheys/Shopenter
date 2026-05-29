@@ -787,6 +787,28 @@ export function ProductModal({
                 className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent resize-none", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
             </div>
 
+            {/* Fix 7: SKU / Barcode / Weight detail fields */}
+            <div className="space-y-3">
+              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider block">Details</label>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[9px] text-[#8b92ad] mb-1 block">SKU</label>
+                  <input type="text" value={form.sku || ''} onChange={e => updateForm({ sku: e.target.value })} placeholder="e.g. SKU-001"
+                    className={cn("w-full border rounded-xl px-3 py-2 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                </div>
+                <div>
+                  <label className="text-[9px] text-[#8b92ad] mb-1 block">Barcode</label>
+                  <input type="text" value={form.barcode || ''} onChange={e => updateForm({ barcode: e.target.value })} placeholder="e.g. 8851234567890"
+                    className={cn("w-full border rounded-xl px-3 py-2 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                </div>
+                <div>
+                  <label className="text-[9px] text-[#8b92ad] mb-1 block">Weight (g)</label>
+                  <input type="number" min="0" value={form.weight || ''} onChange={e => updateForm({ weight: e.target.value })} placeholder="e.g. 250"
+                    className={cn("w-full border rounded-xl px-3 py-2 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                </div>
+              </div>
+            </div>
+
             <div className={cn("border rounded-xl px-4 py-3.5 space-y-2", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
               <div className="flex items-center justify-between">
                 <div>
@@ -999,11 +1021,17 @@ export function ProductModal({
         {/* Footer */}
         <div className={cn("p-8 pt-4 border-t flex gap-3", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <button onClick={onClose} className={cn("flex-1 py-4 text-sm font-bold rounded-2xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#e2e5ef]")}>Cancel</button>
-          <button disabled={!isValid || isSaving} onClick={() => onSave(form)}
-            className="flex-1 py-4 text-sm font-bold text-white rounded-2xl shadow-lg hover:opacity-90 disabled:opacity-40"
-            style={{ background: 'var(--accent-gradient)' }}>
-            {isSaving ? 'Processing...' : quickOrderMode ? 'Save & Select' : initialData ? 'Update Catalog' : 'Catalog Product'}
-          </button>
+          <div className="flex-1 flex flex-col gap-1">
+            <button disabled={!isValid || isSaving} onClick={() => onSave(form)}
+              className="w-full py-4 text-sm font-bold text-white rounded-2xl shadow-lg hover:opacity-90 disabled:opacity-40"
+              style={{ background: 'var(--accent-gradient)' }}>
+              {/* Fix 10: clear labels — editing uses pending-buffer, new products save immediately */}
+              {isSaving ? 'Processing...' : quickOrderMode ? 'Save & Select' : initialData ? 'Stage Changes' : 'Save Product'}
+            </button>
+            {initialData && !isSaving && (
+              <p className="text-center text-[9px] text-[#8b92ad]">Changes saved when you click &apos;Save X changes&apos;</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1131,6 +1159,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkActing, setIsBulkActing] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [bulkPriceMode, setBulkPriceMode] = useState(false);
+  const [bulkPriceValue, setBulkPriceValue] = useState('');
   const [cardSize, setCardSize] = useState<number>(() => {
     if (typeof window !== 'undefined') return parseInt(localStorage.getItem('catalogCardSize') || '3');
     return 3;
@@ -1264,7 +1294,8 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       imageUrl: v.imageUrl || '',
       price: v.price !== '' ? parseFloat(v.price) : null,
       cost: v.cost !== '' ? parseFloat(v.cost) : null,
-      stock: parseInt(v.stock as any) || 0,
+      // Fix 2: clamp variant stock to non-negative
+      stock: Math.max(0, parseInt(v.stock as any) || 0),
     }));
     return {
       ...form,
@@ -1274,12 +1305,24 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       images: form.images,
       options: form.options,
       variants: isSimple && form.trackStock
-        ? [{ combination: {}, imageUrl: '', price: null, cost: null, stock: parseInt(form.simpleStock) || 0 }]
+        // Fix 2: clamp simpleStock to non-negative
+        ? [{ combination: {}, imageUrl: '', price: null, cost: null, stock: Math.max(0, parseInt(form.simpleStock) || 0) }]
         : mappedVariants,
+      // Fix 7: include optional detail fields
+      ...(form.sku && { sku: form.sku }),
+      ...(form.barcode && { barcode: form.barcode }),
+      ...(form.weight && { weight: form.weight }),
     };
   };
 
   const handleSave = async (form: ProductForm) => {
+    // Fix 1: validate price is a valid positive number before proceeding
+    const parsedPrice = parseFloat(form.price as any);
+    if (!form.price || isNaN(parsedPrice) || parsedPrice <= 0) {
+      alert('Please enter a valid price greater than 0.');
+      return;
+    }
+
     if (editingProduct) {
       // Buffer the edit — optimistically update card, persist later
       setProducts(prev => prev.map(p => {
@@ -1396,9 +1439,16 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
 
     setImportProgress({ done: 0, total: rows.length, errors: [] });
     const errors: string[] = [];
+    let duplicatesSkipped = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
+      // Fix 5: validate column count
+      if (row.length < header.length) {
+        errors.push(`Row ${i + 2}: malformed — expected ${header.length} columns, got ${row.length}. Skipping.`);
+        setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] });
+        continue;
+      }
       const name = col(row, 'name');
       // Support both new ("Sold Price") and legacy ("Price (THB)") column names
       const colExact = (row: string[], exact: string) => {
@@ -1444,8 +1494,17 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         }),
       };
 
+      // Fix 8: skip duplicates (case-insensitive name match)
+      const isDuplicate = products.some(p => p.name.toLowerCase() === name.toLowerCase());
+      if (isDuplicate) {
+        duplicatesSkipped++;
+        setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] });
+        continue;
+      }
+
       try {
-        const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        // Fix 4: include auth header on CSV import fetch
+        const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret }, body: JSON.stringify(body) });
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
           errors.push(`Row ${i + 2} "${name}": ${d.error ?? 'failed'}`);
@@ -1456,6 +1515,12 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       setImportProgress({ done: i + 1, total: rows.length, errors: [...errors] });
     }
 
+    if (duplicatesSkipped > 0) {
+      setImportProgress(prev => prev ? {
+        ...prev,
+        errors: [...prev.errors, `${duplicatesSkipped} duplicate(s) skipped (same name already exists).`],
+      } : null);
+    }
     loadProducts();
   };
 
@@ -1478,6 +1543,25 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       ));
       loadProducts();
     } catch (err) { console.error(err); } finally { setIsBulkActing(false); setSelectedIds(new Set()); }
+  };
+
+  // Fix 9: bulk price update
+  const bulkSetPrice = async (newPrice: number) => {
+    if (isNaN(newPrice) || newPrice <= 0) return;
+    // Optimistic update
+    setProducts(prev => prev.map(p => selectedIds.has(p._id) ? { ...p, price: newPrice } : p));
+    setBulkPriceMode(false);
+    setBulkPriceValue('');
+    setIsBulkActing(true);
+    try {
+      await Promise.all([...selectedIds].map(id =>
+        fetch(`/api/products/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+          body: JSON.stringify({ price: newPrice }),
+        })
+      ));
+    } catch (err) { console.error(err); loadProducts(); } finally { setIsBulkActing(false); setSelectedIds(new Set()); }
   };
 
   const bulkDelete = async () => {
@@ -1692,6 +1776,37 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
               className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:bg-[#f8f9fc]")}>
               <EyeOff size={12} /> Hide
             </button>
+            {/* Fix 9: bulk set price */}
+            {bulkPriceMode ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  type="number"
+                  min="0.01"
+                  step="any"
+                  value={bulkPriceValue}
+                  onChange={e => setBulkPriceValue(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') bulkSetPrice(parseFloat(bulkPriceValue));
+                    if (e.key === 'Escape') { setBulkPriceMode(false); setBulkPriceValue(''); }
+                  }}
+                  placeholder="New price"
+                  className={cn("w-24 border rounded-xl px-2 py-1.5 text-xs font-bold outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}
+                />
+                <button
+                  onClick={() => bulkSetPrice(parseFloat(bulkPriceValue))}
+                  disabled={!bulkPriceValue || isNaN(parseFloat(bulkPriceValue)) || parseFloat(bulkPriceValue) <= 0}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-white disabled:opacity-40"
+                  style={{ background: 'var(--accent-gradient)' }}
+                >OK</button>
+                <button onClick={() => { setBulkPriceMode(false); setBulkPriceValue(''); }} className="px-2 py-1.5 rounded-xl text-xs text-[#8b92ad] hover:text-red-400">✕</button>
+              </div>
+            ) : (
+              <button disabled={selectedIds.size === 0 || isBulkActing} onClick={() => setBulkPriceMode(true)}
+                className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-blue-400 hover:bg-blue-500/10" : "border-[#e2e5ef] text-blue-600 hover:bg-blue-50")}>
+                <DollarSign size={12} /> Set Price
+              </button>
+            )}
             <button disabled={selectedIds.size === 0 || isBulkActing} onClick={bulkDelete}
               className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-red-500/20 text-red-500 hover:bg-red-500/10 transition-all disabled:opacity-40">
               <Trash2 size={12} /> Delete
@@ -2030,7 +2145,7 @@ function ProductCard({ product, theme, onEdit, onCardClick, onDelete, onToggleVi
         {totalStock !== null && (
           <div className={cn(
             "absolute bottom-3 right-3 text-[9px] font-black px-2 py-0.5 rounded-full backdrop-blur-sm",
-            totalStock === 0 ? "bg-red-500/80 text-white" : totalStock <= 5 ? "bg-amber-500/80 text-white" : "bg-[#1a1d2e]/70 text-white"
+            totalStock === 0 ? "bg-red-500/80 text-white" : totalStock <= LOW_STOCK_THRESHOLD ? "bg-amber-500/80 text-white" : "bg-[#1a1d2e]/70 text-white"
           )}>
             {totalStock === 0 ? 'OUT' : `${totalStock} left`}
           </div>
