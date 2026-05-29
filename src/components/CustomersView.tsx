@@ -731,6 +731,17 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   useEffect(() => { setBatchEditTotal(String(selectedTotal)); }, [selectedTotal, selectedOrderIds.size]);
   const parcelOrders = customerOrders.filter(o => o.status === 'preparing');
   const inTransitOrders = customerOrders.filter(o => o.status === 'shipped');
+  // Group shipped orders by parcel: same tracking+courier = same parcel
+  const inTransitGroups: Order[][] = (() => {
+    const map = new Map<string, Order[]>();
+    for (const o of inTransitOrders) {
+      const key = o.tracking ? `${o.courier ?? ''}::${o.tracking}` : `solo::${o._id}`;
+      const g = map.get(key);
+      if (g) g.push(o);
+      else map.set(key, [o]);
+    }
+    return [...map.values()];
+  })();
   const historyOrders = customerOrders.filter(o => ['delivered', 'cancelled'].includes(o.status));
   // Keep combined list for places that still need all post-active orders
   const shippedOrders = customerOrders.filter(o => ['shipped', 'delivered', 'cancelled'].includes(o.status));
@@ -1112,18 +1123,36 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 )}
 
                 {/* In Transit */}
-                {inTransitOrders.length > 0 && (
+                {inTransitGroups.length > 0 && (
                   <section aria-label="Orders in transit">
                     <SectionLabel>In Transit</SectionLabel>
                     <div className={`${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'} border rounded-3xl overflow-hidden mt-3`}>
-                      {inTransitOrders.map((order, i) => (
-                        <HistoryRow key={order._id} order={order} isDark={isDark} k={k}
-                          isLast={i === inTransitOrders.length - 1}
-                          onPatch={(patch) => patchOrder(order._id, patch)}
-                          onDelete={() => confirmDeleteOrder(order._id)}
-                          isHighlighted={highlightedOrderId === order._id}
-                        />
-                      ))}
+                      {inTransitGroups.map((group, i) => {
+                        const isLast = i === inTransitGroups.length - 1;
+                        const isGroupHighlighted = group.some(o => highlightedOrderId === o._id);
+                        if (group.length === 1) {
+                          return (
+                            <HistoryRow key={group[0]._id} order={group[0]} isDark={isDark} k={k}
+                              isLast={isLast}
+                              onPatch={(patch) => patchOrder(group[0]._id, patch)}
+                              onDelete={() => confirmDeleteOrder(group[0]._id)}
+                              isHighlighted={isGroupHighlighted}
+                            />
+                          );
+                        }
+                        return (
+                          <InTransitParcelGroup
+                            key={group[0].tracking || group[0]._id}
+                            orders={group}
+                            isDark={isDark}
+                            k={k}
+                            isLast={isLast}
+                            onPatchOrder={(id, patch) => patchOrder(id, patch)}
+                            onDeleteOrder={(id) => confirmDeleteOrder(id)}
+                            isGroupHighlighted={isGroupHighlighted}
+                          />
+                        );
+                      })}
                     </div>
                   </section>
                 )}
@@ -2340,6 +2369,125 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
               <Trash2 size={14} />
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── In-Transit Parcel Group ───────────────────────────────────────────────────
+function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDeleteOrder, isGroupHighlighted }: {
+  orders: Order[]; isDark: boolean; k: typeof DK; isLast: boolean;
+  onPatchOrder: (id: string, patch: object) => void;
+  onDeleteOrder: (id: string) => void;
+  isGroupHighlighted?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const firstOrder = orders[0];
+  const totalSold = orders.reduce((s, o) => s + (o.soldTHB || 0), 0);
+  const totalProfit = orders.reduce((s, o) => s + (o.profit || 0), 0);
+  const sc = firstOrder.soldCurrency || 'THB';
+  const date = new Date(firstOrder.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return (
+    <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''} ${isGroupHighlighted ? 'ring-2 ring-accent shadow-lg shadow-accent/20' : ''}`}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        className={`w-full flex items-center gap-4 px-6 py-5 text-left transition-all ${k.hover} outline-none`}
+      >
+        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}>
+          <Truck size={16} className="text-violet-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+              {orders.length} items · {firstOrder.courier}{firstOrder.tracking ? ` · ${firstOrder.tracking}` : ''}
+            </p>
+            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md flex-shrink-0 ${isDark ? 'bg-violet-500/10 text-violet-400' : 'bg-violet-50 text-violet-600'}`}>
+              IN TRANSIT
+            </span>
+          </div>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className={`text-[10px] ${k.muted} flex items-center gap-1`}>
+              <Clock size={9} />{date}
+            </span>
+          </div>
+          <p className={`text-[10px] mt-0.5 truncate ${k.muted}`}>
+            {orders.map(o => o.product).join(' · ')}
+          </p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className={`text-sm font-black ${totalProfit >= 0 ? 'text-accent' : 'text-red-500'}`}>
+            {sc} {fmt(totalProfit)}
+          </p>
+          <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(totalSold)}</p>
+        </div>
+        <button
+          onClick={e => { e.stopPropagation(); orders.forEach(o => onPatchOrder(o._id, { status: 'delivered' })); }}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black bg-emerald-500 hover:bg-emerald-600 text-white transition-all active:scale-95 flex-shrink-0"
+          title="Mark all as delivered"
+        >
+          <CheckCircle size={11} /> Delivered
+        </button>
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            const w = window.open('', '_blank', 'width=480,height=700');
+            if (!w) return;
+            const rows = orders.map(o =>
+              `<tr><td>${o.product}</td><td style="text-align:right;padding-left:16px">${sc} ${fmt(o.soldTHB)}</td></tr>`
+            ).join('');
+            w.document.write(`<html><head><title>Parcel Receipt</title><style>body{font-family:sans-serif;padding:24px;font-size:13px}h2{margin:0 0 4px}p{margin:4px 0}hr{border:none;border-top:1px solid #ddd;margin:12px 0}table{width:100%}.label{color:#888;font-size:11px}td{padding:4px 0}</style></head><body>
+              <h2>Parcel · ${orders.length} items</h2>
+              <p class="label">${firstOrder.courier ? `${firstOrder.courier} · ` : ''}${firstOrder.tracking || ''}</p>
+              <p class="label">${date}</p>
+              <hr/>
+              ${firstOrder.address ? `<p><b>Address:</b> ${firstOrder.address}</p><hr/>` : ''}
+              <table>${rows}<tr style="font-weight:bold;border-top:1px solid #ddd"><td>Total</td><td style="text-align:right;padding-left:16px">${sc} ${fmt(totalSold)}</td></tr></table>
+              <hr/>
+              <p><b>Profit:</b> ${sc} ${fmt(Math.round(totalProfit))}</p>
+              <script>window.onload=()=>window.print()</script>
+            </body></html>`);
+            w.document.close();
+          }}
+          className={`p-2 ml-2 rounded-lg flex-shrink-0 transition-colors ${k.muted} hover:text-accent`}
+          title="Print parcel receipt"
+          aria-label="Print parcel receipt"
+        >
+          <Printer size={14} />
+        </button>
+        <div className="flex items-center ml-1 flex-shrink-0">
+          <ChevronDown size={14} className={`${k.muted} transition-transform ${open ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+
+      {open && (
+        <div className={`px-5 pb-4 space-y-2 ${isDark ? 'bg-[#1a1d2e]' : 'bg-[#f8f9fc]'}`}>
+          {orders.map(order => {
+            const profit = order.profit || 0;
+            return (
+              <div key={order._id} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'}`}>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
+                  <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(order.soldTHB)} · Profit: {sc} {fmt(profit)}</p>
+                </div>
+                <button
+                  onClick={() => onPatchOrder(order._id, { status: 'delivered' })}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all flex-shrink-0"
+                >
+                  <CheckCircle size={9} /> Delivered
+                </button>
+                <button
+                  onClick={() => onDeleteOrder(order._id)}
+                  className={`p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0`}
+                  aria-label="Delete order"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
