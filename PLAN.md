@@ -14,17 +14,20 @@
 - Period selector at top, stalled-orders banner below it
 - Stalled threshold live selector in the banner (1 / 2 / 3 / 5 / 7 days)
 - KPI skeleton loaders with `animate-pulse`
+- Banner logic fixed: visible whenever any paid/preparing orders exist; shows
+  "0 in N days — all up to date" when none are older than threshold; no dismiss button
 
 **ShopOrdersView**
-- Orders page is read-only overview — no status advancement from row actions
-- Per-row actions: **Cancel** (keeps record, marks cancelled) + **Bin** (wipes record entirely) + **View in Chat**
-- Cancel available for all non-delivered, non-cancelled statuses including shipped
+- Orders page is read-only overview — no per-row status advancement
+- Per-row actions: **Cancel** (pending/paid/preparing only) + **Bin** (wipes record) + **View in Chat**
+- Shipped orders show no cancel — batch Delivered pill handles them
 - Batch selection: header checkbox selects/deselects all filtered orders
-- Floating pill toolbar appears when rows selected:
-  `N selected` · `Select All N` · `Delivered (N)` · `Cancel (N)` · `Delete (N)` · ✕
+- Floating pill toolbar: `N selected` · `Select All N` · `Delivered (N)` · `Cancel (N)` · `Delete (N)` · ✕
 - Batch Delivered only appears when shipped orders are in the selection
-- Batch Cancel covers pending / paid / preparing / shipped (not delivered / cancelled)
+- Batch Cancel covers pending / paid / preparing only
 - CSV export quotes all cells; "View in Chat" highlights the order card cross-component
+- Row click expands inline item detail panel (qty, name, variant, line total, cost, profit, shipping, notes)
+- Stalled banner between stats ribbon and filter toolbar (same logic as Reports)
 
 **CustomersView**
 - Section order: Active Orders → Delivery Addresses → Parcel → In Transit → Order History
@@ -33,6 +36,10 @@
   totals, Delivered button marks all items at once, print generates combined receipt
 - "Mark Delivered" and Print visible on collapsed in-transit row (no expand required)
 - `jumpToOrderId` prop highlights the correct order card when navigating from Orders page
+- **Item-level order edit modal** — per-line-item editor with qty stepper, unit price,
+  line totals, profit preview, add/remove items; PATCHes full items array
+- `onOrderMutated` prop — fires on every patchOrder success and deleteOrder,
+  triggering Orders + Reports to refresh on next tab visit
 
 **ProductManagement**
 - `+` = bigger cards (fewer columns), `−` = smaller (more columns)
@@ -42,6 +49,15 @@
 - Escape dismiss, `role="dialog" aria-modal`, `autoFocus` on safe action
 - All dead `dark:` Tailwind prefixes replaced with `theme === 'dark'` ternaries
 
+**SettingsView**
+- Auto-Deliver After Shipping card in Payment section: toggle + day stepper (3–60 days)
+
+**Dashboard (page.tsx)**
+- Auto-deliver check on load: if enabled, batch-PATCHes shipped orders older than
+  afterDays → delivered; shows dismissible emerald toast
+- Separate `ordersRefreshKey` + `reportsRefreshKey` alongside global `refreshKey`;
+  mutated by `onOrderMutated` from CustomersView without remounting Customers itself
+
 ---
 
 ## Page Responsibility Model (do not break this)
@@ -49,7 +65,7 @@
 | Page | Responsibility | What it can do |
 |------|---------------|----------------|
 | Orders | Read-only overview across all customers | View, filter, search, batch cancel, batch delete, batch deliver (power-user shortcut) |
-| Customers | Full order lifecycle management | Mark paid, parcel, ship, mark delivered, cancel, edit |
+| Customers | Full order lifecycle management | Mark paid, parcel, ship, mark delivered, cancel, edit (item-level) |
 | Reports | Financial analytics | Read-only |
 
 Status advancement (pending → paid → preparing → shipped → delivered) belongs on the
@@ -169,46 +185,23 @@ One-time script — online, no downtime:
 - Old `tracking`/`courier`/`address` on Order become read-only legacy fields
 
 ### Do not start until
-1. Gap 2 (auto-deliver) is shipped
-2. Current fixes are in production and stable for ≥1 week
-3. A test merchant with real split-shipment orders is available to validate the UI
+1. Current fixes are in production and stable for ≥1 week
+2. A test merchant with real split-shipment orders is available to validate the UI
 
 ---
 
 ## Deferred — Gap 2: Auto-Deliver for Non-Tracking Merchants
 
-**Priority: Medium — do before Partial Fulfilment**
-**Estimated scope: 1 day**
+**Status: SHIPPED ✅**
 
-### The problem
+Implemented in this branch:
+- `autoDeliver: { enabled, afterDays }` on SettingsSchema
+- Toggle + day stepper in SettingsView → Payment section
+- Client-side check on dashboard load; batch-PATCH shipped orders older than `afterDays`
+- Dismissible emerald toast on completion
 
-Merchants who ship and consider the job done never click "Mark Delivered". As a result:
-- In Transit fills with stale shipped orders
-- Reports realized profit is permanently understated (only delivered orders count)
-
-### The fix
-
-A merchant setting: **"Assume delivered after N days"**.
-
-```typescript
-// Settings schema addition
-autoDeliver: {
-  enabled:   Boolean, default: false
-  afterDays: Number,  default: 14, min: 3, max: 60
-}
-```
-
-On dashboard load, after orders fetch: any `shipped` order older than `afterDays` →
-batch PATCH to `delivered`. Show a dismissible toast: "3 orders auto-archived as delivered."
-
-A daily cron at `/api/cron/auto-deliver` can replace the client-side check later so it
-runs even when the merchant doesn't open the dashboard.
-
-**Files to change:**
-- `src/models/index.ts` — `autoDeliver` on Settings schema
-- `src/app/api/settings/route.ts` — persist the field
-- `src/components/SettingsView.tsx` — "Order Management" section with toggle + day selector
-- `src/app/dashboard/page.tsx` — run auto-deliver check after settings load
+A daily server-side cron at `/api/cron/auto-deliver` can replace the client-side check
+later so it runs even when the merchant doesn't open the dashboard.
 
 ---
 
@@ -216,18 +209,46 @@ runs even when the merchant doesn't open the dashboard.
 
 | # | Task | Size | Dependency | Status |
 |---|------|------|------------|--------|
-| 1 | Auto-deliver setting (Gap 2) | Small — 1 day | None | **NEXT** |
-| 2 | Orders page row expander (item detail) | Small — ½ day | None | **NEXT** |
-| 3 | Partial Fulfilment full build (Gap 1) | Large — 10–14 days | 1 & 2 stable | Deferred |
-| 4 | Auto-Reply / Product Intent (Stage B) | Medium — 5–7 days | Can parallel with 3 | Deferred |
-| 5 | Instagram + Telegram (Stage C) | Large — 2–3 weeks | Stage B | Deferred |
-| 6 | SaaS multi-tenant transformation | Very large | All above stable | Deferred |
+| 1 | Auto-deliver setting (Gap 2) | Small — 1 day | None | ✅ Done |
+| 2 | Orders page row expander (item detail) | Small — ½ day | None | ✅ Done |
+| 3 | Item-level order edit modal | Small — ½ day | None | ✅ Done |
+| 4 | Cross-page sync (onOrderMutated) | Tiny | None | ✅ Done |
+| 5 | Partial Fulfilment full build (Gap 1) | Large — 10–14 days | 1–4 stable in prod | Deferred |
+| 6 | Auto-Reply / Product Intent (Stage B) | Medium — 5–7 days | Can parallel with 5 | Deferred |
+| 7 | Instagram + Telegram (Stage C) | Large — 2–3 weeks | Stage B | Deferred |
+| 8 | SaaS multi-tenant transformation | Very large | All above stable | Deferred |
 
-Tasks 1 and 2 are independent and can be done in parallel.
-
-Task 6 (multi-tenant) must happen AFTER Task 3 because Task 3 introduces the
+Task 8 (multi-tenant) must happen AFTER Task 5 because Task 5 introduces the
 `Fulfilment` collection — if `merchantId` is added to all schemas before that
 collection exists, it has to be done twice.
+
+---
+
+## Phases
+
+### Phase A — Foundation & UX correctness (complete)
+Everything in "Current State" above. The dashboard accurately reflects the order
+lifecycle, pages have clear responsibilities, and the data model is honest about
+what's confirmed revenue vs. potential.
+
+### Phase B — Partial Fulfilment (next large milestone)
+Introduces the `Fulfilment` collection. This is the single biggest architectural
+change: it separates what the customer agreed to buy from what was physically shipped.
+Required before any split-shipment workflow is possible. Gate: Phase A stable in
+production for ≥1 week.
+
+### Phase C — Automation & Intelligence
+Auto-Reply, product intent detection, broadcast scheduling. Can start in parallel
+with Phase B once the Fulfilment API is drafted but before UI is complete.
+
+### Phase D — Channel expansion
+Instagram DM and Telegram bot. Requires the LINE foundation from Phase C to be
+abstracted into a channel-agnostic message handler first.
+
+### Phase E — Multi-tenant SaaS
+Add `merchantId` to every collection, per-merchant billing, onboarding flow,
+admin panel. Must come last because Phase B adds the `Fulfilment` collection —
+doing multi-tenant before that means touching every schema twice.
 
 ---
 
