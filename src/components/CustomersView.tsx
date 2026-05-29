@@ -217,6 +217,15 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     };
   }, []);
 
+  const selectCustomer = useCallback((c: Customer) => {
+    setSelectedCustomer(c);
+    setSelectedAddressIdx(0);
+    setSelectedOrderIds(new Set());
+    if (c.unreadCount > 0) {
+      fetch(`/api/customers/${c.userId}/read`, { method: 'POST' }).catch(() => {});
+    }
+  }, []);
+
   // Auto-select customer when navigating from Orders "View in Chat"
   useEffect(() => {
     if (!jumpToUserId || customers.length === 0) return;
@@ -328,13 +337,35 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
   useEffect(() => {
     if (!selectedCustomer) { setMessages([]); return; }
-    loadMessages(selectedCustomer.userId);
-    pollRef.current = setInterval(() => loadMessages(selectedCustomer.userId), 3000);
+    const userId = selectedCustomer.userId;
+    loadMessages(userId);
+    pollRef.current = setInterval(async () => {
+      // Guard: skip update if the selected customer has changed since interval was set
+      if (selectedRef.current?.userId !== userId) return;
+      const res = await fetch(`/api/messages/${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && selectedRef.current?.userId === userId) {
+          setMessages(data);
+        }
+      }
+    }, 3000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [selectedCustomer?.userId, loadMessages]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only auto-scroll when the user is already near the bottom
+    const container = messagesEndRef.current?.parentElement;
+    if (container) {
+      const { scrollHeight, scrollTop, clientHeight } = container;
+      const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      if (nearBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      // Fallback: scroll on first load (container not yet scrollable)
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   const closeQuickOrder = useCallback(() => {
@@ -353,15 +384,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showModal, closeQuickOrder]);
-
-  const selectCustomer = useCallback((c: Customer) => {
-    setSelectedCustomer(c);
-    setSelectedAddressIdx(0);
-    setSelectedOrderIds(new Set());
-    if (c.unreadCount > 0) {
-      fetch(`/api/customers/${c.userId}/read`, { method: 'POST' }).catch(() => {});
-    }
-  }, []);
 
   async function sendMessage() {
     if (!selectedCustomer || !inputText.trim() || sending) return;
@@ -436,10 +458,10 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     });
   }
 
-  async function sendBatchQR(ids: string[]) {
+  async function sendBatchQR(ids: string[], currentTotal: number) {
     setBatchActing(true);
     const override = parseFloat(batchEditTotal);
-    const hasOverride = !isNaN(override) && override > 0 && override !== selectedTotal;
+    const hasOverride = !isNaN(override) && override > 0 && override !== currentTotal;
     try {
       await fetch('/api/orders/batch/send-qr', {
         method: 'POST',
@@ -448,7 +470,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       });
       if (hasOverride) {
         // Reflect proportional redistribution in local state
-        const ratio = override / selectedTotal;
+        const ratio = override / currentTotal;
         setAllOrders(prev => prev.map(o =>
           ids.includes(o._id)
             ? { ...o, paymentQrSent: true, soldTHB: Math.round((o.soldTHB || 0) * ratio) }
@@ -703,7 +725,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   // Keep combined list for places that still need all post-active orders
   const shippedOrders = customerOrders.filter(o => ['shipped', 'delivered', 'cancelled'].includes(o.status));
 
-  const totalSpent = customerOrders.reduce((s, o) => s + (o.soldTHB || 0), 0);
+  const totalSpent = customerOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.soldTHB || 0), 0);
+  // Realized profit — delivered orders only (shipped orders are in-transit and not yet realized)
   const totalProfit = customerOrders.filter(o => o.status === 'delivered').reduce((s, o) => s + (o.profit || 0), 0);
 
   const filteredProducts = products.filter(p => {
@@ -781,6 +804,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               </div>
             </div>
 
+            {evsReconnecting && (
+              <div className={`px-3 py-1.5 text-[10px] font-bold text-center ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'} border-b ${k.border}`}>
+                Reconnecting…
+              </div>
+            )}
             <div className="flex-1 overflow-y-auto">
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center h-full gap-3 py-8 text-[#8b92ad]">
@@ -1092,8 +1120,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <div className="flex items-center justify-between mb-3">
                     <SectionLabel>Order History</SectionLabel>
                     {historyOrders.length > 0 && totalProfit > 0 && (
-                      <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
-                        Total profit: ฿{fmt(totalProfit)}
+                      <span
+                        className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full cursor-help"
+                        title="Realized profit — delivered orders only"
+                      >
+                        Realized profit: ฿{fmt(totalProfit)}
                       </span>
                     )}
                   </div>
@@ -1151,7 +1182,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               </div>
               <button
                 onClick={() => setChatDrawerOpen(false)}
-                className={`p-1.5 rounded-lg ${k.muted} hover:text-accent transition-colors`}
+                className={`p-2.5 rounded-lg w-11 h-11 flex items-center justify-center ${k.muted} hover:text-accent transition-colors`}
                 aria-label="Close chat"
               >
                 <X size={16} />
@@ -1485,8 +1516,16 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
       {/* Find Customer Modal */}
       {showFindCustomerModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${isDark ? 'bg-[#161925]' : 'bg-white'}`}>
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onKeyDown={(e) => { if (e.key === 'Escape') { setShowFindCustomerModal(false); setFindCustomerSearch(''); } }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Find customer"
+            className={`w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${isDark ? 'bg-[#161925]' : 'bg-white'}`}
+          >
             {/* Modal Header */}
             <div className={`px-6 py-5 border-b ${k.border} flex-shrink-0 text-center`}>
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 ${isDark ? 'bg-accent/10' : 'bg-accent/5'}`}>
@@ -1563,7 +1602,10 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                               {(c.displayName || '?')[0].toUpperCase()}
                             </div>
                           )}
-                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                          {/* Show presence dot only when lastSeen was within the last 5 minutes */}
+                          {c.lastSeen && (Date.now() - new Date(c.lastSeen).getTime()) < 5 * 60 * 1000 && (
+                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm font-bold truncate ${k.text}`}>{c.displayName}</p>
@@ -1629,7 +1671,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
             />
             <div className="flex gap-2 items-end">
               <div className="flex-1">
-                <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>Total (THB)</label>
+                <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>Total ({merchantSettings?.localCurrency || 'THB'})</label>
                 <input type="number" value={editingOrder.sold}
                   onChange={e => setEditingOrder(v => v && { ...v, sold: e.target.value })}
                   className={`w-full text-sm font-black rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1f2335] border-[#2a3050] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]'}`}
@@ -1676,7 +1718,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
             />
           </div>
           <button
-            onClick={() => sendBatchQR([...selectedOrderIds])}
+            onClick={() => sendBatchQR([...selectedOrderIds], selectedTotal)}
             disabled={batchActing}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold hover:bg-amber-500 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
           >
@@ -1855,17 +1897,23 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           {onToggleSelect && (
-            <button
+            <div
               onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+              role="checkbox"
+              aria-checked={selected}
               aria-label={selected ? 'Deselect order' : 'Select order'}
-              className={`w-4 h-4 flex-shrink-0 rounded border-2 flex items-center justify-center transition-all ${
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onToggleSelect(); } }}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 cursor-pointer"
+            >
+              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
                 selected
                   ? 'bg-accent border-accent'
                   : isDark ? 'border-white/30 hover:border-accent/60' : 'border-gray-300 hover:border-accent/60'
-              }`}
-            >
-              {selected && <Check size={10} className="text-white" strokeWidth={3} />}
-            </button>
+              }`}>
+                {selected && <Check size={10} className="text-white" strokeWidth={3} />}
+              </div>
+            </div>
           )}
           <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider ${
             isDark ? 'bg-white/5 text-white/70 border-white/10' : `${status.lightBg} ${status.text} ${status.border}`
@@ -1957,13 +2005,23 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
   const [tracking, setTracking] = useState('');
   const [courier, setCourier] = useState('');
   const [shipping, setShipping] = useState(false);
+  const [shipError, setShipError] = useState('');
 
-  const parcelId = orders[0]?._id.slice(-4).toUpperCase() || 'NEW';
+  const firstOrder = orders[0];
+  const parcelId = firstOrder?._id || 'NEW';
+  const parcelShortId = firstOrder?._id.slice(-4).toUpperCase() || 'NEW';
+  const parcelCreatedAt = firstOrder?.createdAt
+    ? new Date(firstOrder.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
   const inner = isDark ? 'bg-[#1a1d2e] border-[#2a3050]' : 'bg-white border-[#e2e5ef]';
   const outer = isDark ? 'border-[#2a3050]' : 'border-[#e2e5ef]';
 
   async function handleShip() {
-    if (!tracking || !courier) return;
+    if (!tracking || !courier) {
+      setShipError('Courier and tracking are required');
+      return;
+    }
+    setShipError('');
     setShipping(true);
     await onShip(tracking, courier);
     setShipping(false);
@@ -1978,7 +2036,10 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
           </div>
           <div>
             <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Parcel Identity</p>
-            <p className={`text-sm font-black ${k.text}`}>{parcelId}</p>
+            <p className={`text-sm font-black ${k.text}`} title={parcelId}>#{parcelShortId}</p>
+            {parcelCreatedAt && (
+              <p className={`text-[10px] ${k.muted} mt-0.5`}>{parcelCreatedAt}</p>
+            )}
           </div>
         </div>
         <button onClick={onAddItem} className="flex items-center gap-2 text-xs font-black px-5 py-2.5 rounded-2xl hover:opacity-90 text-white transition-all active:scale-95 shadow-lg" style={{ background: 'var(--accent-gradient)' }}>
@@ -2027,6 +2088,9 @@ function ParcelContainer({ orders, isDark, k, onPatch, onCancelParcel, onShip, o
           </div>
         </div>
 
+        {shipError && (
+          <p className="text-xs font-semibold text-red-500">{shipError}</p>
+        )}
         <button
           onClick={handleShip}
           disabled={shipping || orders.length === 0}
@@ -2111,8 +2175,8 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete }: {
   const [open, setOpen] = useState(false);
   const [sold, setSold] = useState(String(order.soldTHB || ''));
   const [cost, setCost] = useState(String(order.costKRW || ''));
-  // Use rateUsed or fallback to calculated rate
-  const initialRate = order.rateUsed || (order.costKRW ? (order.costTHB / order.costKRW) : 0);
+  // Use rateUsed or fallback to calculated rate; guard against division by zero
+  const initialRate = order.rateUsed || (order.costKRW > 0 ? (order.costTHB / order.costKRW) : 1);
   const [rate, setRate] = useState(String(initialRate || ''));
   const [saving, setSaving] = useState(false);
   
