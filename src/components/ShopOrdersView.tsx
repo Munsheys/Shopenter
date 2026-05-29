@@ -10,7 +10,9 @@ import {
   Clock,
   Package,
   CheckCircle2,
+  Check,
   X,
+  Ban,
   DollarSign,
   BarChart2,
   ChevronUp,
@@ -74,9 +76,15 @@ export default function ShopOrdersView({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
-  // Confirmation modals
+  // Single-order confirmation modals
   const [cancelConfirm, setCancelConfirm] = useState<{ open: boolean; orderId: string | null }>({ open: false, orderId: null });
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; orderId: string | null }>({ open: false, orderId: null });
+
+  // Batch selection
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [batchActing, setBatchActing] = useState(false);
+  const [batchCancelConfirm, setBatchCancelConfirm] = useState(false);
+  const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
 
   // Sorting
   const [sortField, setSortField] = useState<'createdAt' | 'soldTHB' | 'status' | 'displayName' | null>('createdAt');
@@ -86,17 +94,22 @@ export default function ShopOrdersView({
   const startDateRef = useRef<HTMLInputElement>(null);
   const endDateRef = useRef<HTMLInputElement>(null);
 
-  // Escape-key dismiss for Cancel + Delete modals (merged into one effect)
+  // Escape-key dismiss for all modals
   useEffect(() => {
-    if (!cancelConfirm.open && !deleteConfirm.open) return;
+    if (!cancelConfirm.open && !deleteConfirm.open && !batchCancelConfirm && !batchDeleteConfirm) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (cancelConfirm.open) setCancelConfirm({ open: false, orderId: null });
       if (deleteConfirm.open) setDeleteConfirm({ open: false, orderId: null });
+      if (batchCancelConfirm) setBatchCancelConfirm(false);
+      if (batchDeleteConfirm) setBatchDeleteConfirm(false);
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [cancelConfirm.open, deleteConfirm.open]);
+  }, [cancelConfirm.open, deleteConfirm.open, batchCancelConfirm, batchDeleteConfirm]);
+
+  // Clear selection when filters change
+  useEffect(() => { setSelectedOrderIds(new Set()); }, [selectedStatuses, searchTerm, startDate, endDate]);
 
   // Restore from localStorage
   useEffect(() => {
@@ -281,6 +294,53 @@ export default function ShopOrdersView({
     } catch { /* optimistic removal stays */ }
   }
 
+  // ── Batch operations ──────────────────────────────────────────────────────────
+  function toggleRow(id: string) {
+    setSelectedOrderIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
+
+  async function batchDeliver() {
+    const ids = [...selectedOrderIds].filter(id => orders?.find(o => o._id === id)?.status === 'shipped');
+    if (!ids.length) return;
+    setBatchActing(true);
+    const prev = orders;
+    setOrders(p => p?.map(o => ids.includes(o._id) ? { ...o, status: 'delivered' as const } : o) ?? p);
+    try {
+      await Promise.all(ids.map(id => fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'delivered' }) })));
+      setSelectedOrderIds(new Set());
+    } catch { setOrders(prev); }
+    finally { setBatchActing(false); }
+  }
+
+  async function batchCancelOrders() {
+    const ids = [...selectedOrderIds].filter(id => {
+      const o = orders?.find(x => x._id === id);
+      return o && !['cancelled', 'delivered', 'shipped'].includes(o.status);
+    });
+    if (!ids.length) return;
+    setBatchActing(true);
+    const prev = orders;
+    setOrders(p => p?.map(o => ids.includes(o._id) ? { ...o, status: 'cancelled' as const } : o) ?? p);
+    setBatchCancelConfirm(false);
+    try {
+      await Promise.all(ids.map(id => fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' }) })));
+      setSelectedOrderIds(new Set());
+    } catch { setOrders(prev); }
+    finally { setBatchActing(false); }
+  }
+
+  async function batchDeleteOrders() {
+    const ids = [...selectedOrderIds];
+    setBatchActing(true);
+    setOrders(p => p?.filter(o => !ids.includes(o._id)) ?? p);
+    setBatchDeleteConfirm(false);
+    setSelectedOrderIds(new Set());
+    try {
+      await Promise.all(ids.map(id => fetch(`/api/orders/${id}`, { method: 'DELETE' })));
+    } catch { fetchOrders(); }
+    finally { setBatchActing(false); }
+  }
+
   // Handler functions
   const toggleStatus = (status: string) => {
     setSelectedStatuses(prev =>
@@ -317,6 +377,17 @@ export default function ShopOrdersView({
       setSortDir('asc');
     }
   };
+
+  // Derived batch selection state
+  const allFilteredSelected = sortedOrders.length > 0 && sortedOrders.every(o => selectedOrderIds.has(o._id));
+  const someFilteredSelected = !allFilteredSelected && sortedOrders.some(o => selectedOrderIds.has(o._id));
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) setSelectedOrderIds(new Set());
+    else setSelectedOrderIds(new Set(sortedOrders.map(o => o._id)));
+  };
+  const selectedOrders = orders?.filter(o => selectedOrderIds.has(o._id)) ?? [];
+  const batchShippedCount = selectedOrders.filter(o => o.status === 'shipped').length;
+  const batchCancellableCount = selectedOrders.filter(o => !['cancelled', 'delivered', 'shipped'].includes(o.status)).length;
 
   const SortHeader = ({ field, label, align = 'left' }: { field: typeof sortField, label: string, align?: 'left' | 'right' }) => {
     const active = sortField === field;
@@ -558,12 +629,30 @@ export default function ShopOrdersView({
                 "text-[10px] font-black uppercase tracking-widest border-b transition-colors",
                 theme === 'dark' ? "bg-[#1f2335] text-[#8b92ad] border-[#2d324d]" : "bg-[#f8f9fc] text-[#8b92ad] border-[#e2e5ef]"
               )}>
+                {/* Select-all checkbox */}
+                <th className={cn("px-4 py-5 w-12 sticky left-0 z-10", theme === 'dark' ? "bg-[#1f2335]" : "bg-[#f8f9fc]")}>
+                  <div
+                    role="checkbox"
+                    aria-checked={allFilteredSelected ? true : someFilteredSelected ? 'mixed' : false}
+                    aria-label="Select all orders"
+                    tabIndex={0}
+                    onClick={toggleSelectAll}
+                    onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleSelectAll(); } }}
+                    className="w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer transition-all mx-auto"
+                    style={{
+                      background: allFilteredSelected ? 'var(--accent)' : someFilteredSelected ? 'var(--accent)' : undefined,
+                      borderColor: (allFilteredSelected || someFilteredSelected) ? 'var(--accent)' : undefined,
+                    }}
+                  >
+                    {allFilteredSelected && <Check size={9} className="text-white" strokeWidth={3} />}
+                    {someFilteredSelected && <div className="w-2 h-0.5 bg-white rounded-full" />}
+                  </div>
+                </th>
                 <SortHeader field="createdAt" label="Order Details" />
                 <SortHeader field="displayName" label="Customer" />
                 <th className="px-6 py-5">Items</th>
                 <SortHeader field="soldTHB" label="Total" align="left" />
                 <SortHeader field="status" label="Status" align="left" />
-                {/* Fix 15: sticky Actions column */}
                 <th className={cn(
                   "px-6 py-5 text-right sticky right-0",
                   theme === 'dark' ? "bg-[#1f2335]" : "bg-[#f8f9fc]"
@@ -571,11 +660,38 @@ export default function ShopOrdersView({
               </tr>
             </thead>
             <tbody className={cn("divide-y", theme === 'dark' ? "divide-[#1f2335]" : "divide-[#f4f6f9]")}>
-              {!isLoading && selectedStatuses.length > 0 && paginatedOrders?.map((o) => (
+              {!isLoading && selectedStatuses.length > 0 && paginatedOrders?.map((o) => {
+                const isSelected = selectedOrderIds.has(o._id);
+                return (
                 <tr key={o._id} className={cn(
                   "group transition-all",
-                  theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#f8f9fc]"
+                  isSelected
+                    ? theme === 'dark' ? "bg-accent/5" : "bg-accent/[3%]"
+                    : theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#f8f9fc]"
                 )}>
+                  {/* Row checkbox */}
+                  <td className={cn("px-4 py-5 sticky left-0 z-[1] transition-colors",
+                    isSelected
+                      ? theme === 'dark' ? "bg-accent/5" : "bg-accent/[3%]"
+                      : theme === 'dark' ? "bg-[#161925] group-hover:bg-[#1a1d2e]" : "bg-white group-hover:bg-[#f8f9fc]"
+                  )}>
+                    <div
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      aria-label={`Select order ${o._id.slice(-6)}`}
+                      tabIndex={0}
+                      onClick={e => { e.stopPropagation(); toggleRow(o._id); }}
+                      onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleRow(o._id); } }}
+                      className={cn(
+                        "w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer transition-all mx-auto",
+                        isSelected
+                          ? "border-accent bg-accent"
+                          : theme === 'dark' ? "border-white/20 hover:border-accent/60" : "border-gray-300 hover:border-accent/60"
+                      )}
+                    >
+                      {isSelected && <Check size={9} className="text-white" strokeWidth={3} />}
+                    </div>
+                  </td>
                   <td className="px-6 py-5">
                     <div className={cn("text-[11px] font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
                       #{o._id.slice(-6).toUpperCase()}
@@ -644,14 +760,14 @@ export default function ShopOrdersView({
                       </div>
                     )}
                   </td>
-                  {/* Fix 15: sticky Actions cell with matching background */}
+                  {/* Sticky Actions cell */}
                   <td className={cn(
-                    "px-6 py-5 sticky right-0",
-                    theme === 'dark' ? "bg-[#161925] group-hover:bg-[#1a1d2e]" : "bg-white group-hover:bg-[#f8f9fc]"
+                    "px-6 py-5 sticky right-0 transition-colors",
+                    isSelected
+                      ? theme === 'dark' ? "bg-accent/5" : "bg-accent/[3%]"
+                      : theme === 'dark' ? "bg-[#161925] group-hover:bg-[#1a1d2e]" : "bg-white group-hover:bg-[#f8f9fc]"
                   )}>
-                    {/* Fix 8: remove opacity-0/hover-only — always show action buttons */}
                     <div className="flex justify-end gap-2">
-                      {/* Advance status button */}
                       {nextStatusMap[o.status] && (
                         <button
                           onClick={() => advanceOrder(o._id, nextStatusMap[o.status]!)}
@@ -695,7 +811,8 @@ export default function ShopOrdersView({
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -817,6 +934,118 @@ export default function ShopOrdersView({
           </div>
         )}
       </div>
+
+      {/* ── Floating Batch Toolbar ── */}
+      {selectedOrderIds.size > 0 && (
+        <div className={cn(
+          "fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl border shadow-2xl backdrop-blur-sm w-fit max-w-[92vw] flex-wrap justify-center",
+          theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
+        )}>
+          <span className="text-xs font-black text-accent whitespace-nowrap">{selectedOrderIds.size} selected</span>
+          <div className={cn("w-px h-4 flex-shrink-0", theme === 'dark' ? "bg-[#2d324d]" : "bg-[#e2e5ef]")} />
+          <button
+            onClick={toggleSelectAll}
+            className="text-[11px] font-bold text-[#8b92ad] hover:text-accent transition-colors whitespace-nowrap"
+          >
+            {allFilteredSelected ? 'Deselect All' : `Select All ${sortedOrders.length}`}
+          </button>
+          <div className={cn("w-px h-4 flex-shrink-0", theme === 'dark' ? "bg-[#2d324d]" : "bg-[#e2e5ef]")} />
+          {batchShippedCount > 0 && (
+            <button
+              onClick={batchDeliver}
+              disabled={batchActing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black text-white bg-emerald-500 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+            >
+              <CheckCircle2 size={12} /> {batchActing ? 'Processing…' : `Delivered (${batchShippedCount})`}
+            </button>
+          )}
+          {batchCancellableCount > 0 && (
+            <button
+              onClick={() => setBatchCancelConfirm(true)}
+              disabled={batchActing}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap",
+                theme === 'dark' ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/10" : "border-rose-200 text-rose-600 hover:bg-rose-50"
+              )}
+            >
+              <Ban size={12} /> Cancel ({batchCancellableCount})
+            </button>
+          )}
+          <button
+            onClick={() => setBatchDeleteConfirm(true)}
+            disabled={batchActing}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap",
+              theme === 'dark' ? "border-red-500/30 text-red-400 hover:bg-red-500/10" : "border-red-200 text-red-500 hover:bg-red-50"
+            )}
+          >
+            <Trash2 size={12} /> Delete ({selectedOrderIds.size})
+          </button>
+          <button
+            onClick={() => setSelectedOrderIds(new Set())}
+            disabled={batchActing}
+            className="p-1.5 rounded-lg text-[#8b92ad] hover:text-red-500 transition-colors disabled:opacity-40 flex-shrink-0"
+            aria-label="Clear selection"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* Batch Cancel Confirmation Modal */}
+      {batchCancelConfirm && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={e => { if (e.target === e.currentTarget) setBatchCancelConfirm(false); }}
+        >
+          <div className={cn("w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+            <div className="p-10 text-center">
+              <div className="w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 bg-rose-500/10 text-rose-500">
+                <Ban size={36} />
+              </div>
+              <h3 className={cn("text-2xl font-black mb-4", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Cancel {batchCancellableCount} Orders?</h3>
+              <p className="text-sm leading-relaxed mb-10 text-[#8b92ad]">
+                Only pending, paid, and preparing orders will be cancelled.
+                Shipped and delivered orders are unaffected.
+              </p>
+              <div className="flex flex-col gap-4">
+                <button onClick={batchCancelOrders} className="w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 bg-rose-500 hover:bg-rose-600 text-white shadow-xl shadow-rose-500/20">
+                  Yes, Cancel {batchCancellableCount} Orders
+                </button>
+                <button onClick={() => setBatchCancelConfirm(false)} className={cn("w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95", theme === 'dark' ? "bg-white/5 hover:bg-white/10 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-600")}>
+                  Go Back
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Delete Confirmation Modal */}
+      {batchDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={e => { if (e.target === e.currentTarget) setBatchDeleteConfirm(false); }}
+        >
+          <div className={cn("w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+            <div className="p-10 text-center">
+              <div className="w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 bg-red-500/10 text-red-500">
+                <Trash2 size={36} />
+              </div>
+              <h3 className={cn("text-2xl font-black mb-4", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete {selectedOrderIds.size} Orders?</h3>
+              <p className="text-sm leading-relaxed mb-10 text-[#8b92ad]">All selected orders will be permanently removed. This cannot be undone.</p>
+              <div className="flex flex-col gap-4">
+                <button onClick={batchDeleteOrders} className="w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 bg-red-500 hover:bg-red-600 text-white shadow-xl shadow-red-500/20">
+                  Yes, Delete {selectedOrderIds.size} Orders
+                </button>
+                <button onClick={() => setBatchDeleteConfirm(false)} className={cn("w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95", theme === 'dark' ? "bg-white/5 hover:bg-white/10 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-600")}>
+                  Go Back
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Confirmation Modal */}
       {cancelConfirm.open && (
