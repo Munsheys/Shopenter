@@ -24,7 +24,11 @@ export async function sendTelegramPhoto(token: string, chatId: string, photoUrl:
   } catch { return false; }
 }
 
-export async function sendTelegramInlineKeyboard(token: string, chatId: string, text: string, buttons: Array<Array<{ text: string; callback_data: string }>>): Promise<boolean> {
+type TelegramButton =
+  | { text: string; callback_data: string }
+  | { text: string; url: string };
+
+export async function sendTelegramInlineKeyboard(token: string, chatId: string, text: string, buttons: Array<Array<TelegramButton>>): Promise<boolean> {
   try {
     const res = await fetch(`${BASE(token)}/sendMessage`, {
       method: 'POST',

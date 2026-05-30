@@ -54,24 +54,34 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [cartToast, setCartToast] = useState(false);
   const liffLock = useRef(false);
 
-  // Fix 17: LIFF cache with TTL
+  // Non-LINE platforms embed identity in URL params; LINE uses LIFF
   useEffect(() => {
-    const cached = localStorage.getItem(`liff_profile_${merchantId}`);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        // Support both plain profile objects (legacy) and {profile, cachedAt} shape
-        if (parsed && parsed.cachedAt !== undefined) {
-          if (Date.now() - parsed.cachedAt > 24 * 60 * 60 * 1000) {
-            localStorage.removeItem(`liff_profile_${merchantId}`);
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlUid = urlParams.get('uid');
+    const urlPlatform = urlParams.get('platform');
+    const urlName = urlParams.get('name');
+    const isNonLinePlatform = !!(urlUid && urlPlatform && urlPlatform !== 'line');
+
+    if (isNonLinePlatform) {
+      setCustomer({ userId: urlUid, displayName: urlName || urlUid, platform: urlPlatform });
+    } else {
+      const cached = localStorage.getItem(`liff_profile_${merchantId}`);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          // Support both plain profile objects (legacy) and {profile, cachedAt} shape
+          if (parsed && parsed.cachedAt !== undefined) {
+            if (Date.now() - parsed.cachedAt > 24 * 60 * 60 * 1000) {
+              localStorage.removeItem(`liff_profile_${merchantId}`);
+            } else {
+              setCustomer(parsed.profile);
+            }
           } else {
-            setCustomer(parsed.profile);
+            // Legacy cache without TTL — accept it but don't re-set
+            setCustomer(parsed);
           }
-        } else {
-          // Legacy cache without TTL — accept it but don't re-set
-          setCustomer(parsed);
-        }
-      } catch { localStorage.removeItem(`liff_profile_${merchantId}`); }
+        } catch { localStorage.removeItem(`liff_profile_${merchantId}`); }
+      }
     }
 
     async function init() {
@@ -85,14 +95,13 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         setShopInfo(info);
         setProducts(Array.isArray(prods) ? prods : []);
 
-        if (info.liffId && !liffLock.current) {
+        if (!isNonLinePlatform && info.liffId && !liffLock.current) {
           liffLock.current = true;
           try {
             await liff.init({ liffId: info.liffId, withLoginOnExternalBrowser: true });
             if (liff.isLoggedIn()) {
               const profile = await liff.getProfile();
               setCustomer(profile);
-              // Fix 17: store with cachedAt timestamp
               localStorage.setItem(`liff_profile_${merchantId}`, JSON.stringify({ profile, cachedAt: Date.now() }));
             }
           } catch { /* guest mode */ }
@@ -159,7 +168,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   }
 
   async function placeOrder(address: string, couponCode?: string, redeemPoints?: number): Promise<string | null> {
-    if (!customer) return 'Please open this store in LINE to place an order';
+    if (!customer) return 'Please open this store from your messaging app to place an order';
     setIsOrdering(true);
     try {
       const items = cart.map(i => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel, price: i.price, qty: i.qty, imageUrl: i.imageUrl }));
@@ -168,7 +177,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: customer.userId, platform: 'line', displayName: customer.displayName, address, items,
+          userId: customer.userId, platform: customer.platform || 'line', displayName: customer.displayName, address, items,
           product: items.map(i => `${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}`).join(', '),
           quantity: items.reduce((s, i) => s + i.qty, 0), soldTHB: cartTotal,
           couponCode: couponCode || undefined,
@@ -180,7 +189,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         const orderData = await res.json();
         // When inside LINE's browser, send the order summary from the customer to the OA chat
         // so it appears in both the merchant's LINE app and the dashboard chat view
-        if (isLiffClient) {
+        if (isLiffClient && (customer.platform || 'line') === 'line') {
           const finalPrice = orderData.soldTHB ?? cartTotal;
           const summary = `📦 สั่งซื้อแล้ว!\n${items.map(i => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n')}\n\nรวม ฿${finalPrice.toLocaleString()}`;
           try { await liff.sendMessages([{ type: 'text', text: summary }]); } catch { /* not available in all LIFF contexts */ }
@@ -228,7 +237,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       <div style={style.card} className="rounded-2xl p-8 w-full max-w-sm text-center">
         <CheckCircle size={48} className="mx-auto mb-4" style={{ color: p.accent }} />
         <h2 className="text-xl font-bold mb-2">Order placed!</h2>
-        <p style={style.muted} className="text-sm mb-6">We'll contact you on LINE when your order is ready for payment.</p>
+        <p style={style.muted} className="text-sm mb-6">We'll contact you when your order is ready for payment.</p>
         <button onClick={() => setView('home')} style={style.accent} className="w-full rounded-xl py-3 font-semibold text-sm">Continue shopping</button>
       </div>
     </div>
@@ -646,7 +655,7 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
 
         {!customer && (
           <div className="rounded-xl p-3 text-sm text-center" style={{ background: `${p.accent}20`, color: p.accent }}>
-            Please open this store in LINE to place an order
+            Please open this store from your messaging app to place an order
           </div>
         )}
         {orderError && (
