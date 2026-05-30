@@ -830,6 +830,9 @@ export function ProductModal({
                 </div>
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={form.trackStock}
+                  aria-label="Track stock quantity"
                   onClick={() => updateForm({ trackStock: !form.trackStock })}
                   className={cn(
                     "relative w-11 h-6 rounded-full transition-colors flex-shrink-0",
@@ -951,7 +954,7 @@ export function ProductModal({
                       </thead>
                       <tbody className={cn("divide-y", theme === 'dark' ? "divide-[#1f2335]" : "divide-[#f4f6f9]")}>
                         {form.variants.map((v, idx) => (
-                          <tr key={idx} className={cn("transition-colors", theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#fafbfc]")}>
+                          <tr key={JSON.stringify(v.combination || idx)} className={cn("transition-colors", theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#fafbfc]")}>
                             {activeOptions.map(o => (
                               <td key={o.name} className={cn("px-3 py-1.5 text-xs font-bold whitespace-nowrap", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
                                 {v.combination[o.name] || '—'}
@@ -994,17 +997,20 @@ export function ProductModal({
                             <td className="px-1.5 py-1">
                               <input type="number" value={v.price} onChange={e => updateVariant(idx, 'price', e.target.value)}
                                 placeholder={form.price || '—'}
+                                aria-label={`Price for ${Object.values(v.combination || {}).join('/')}`}
                                 className={cn("w-20 border rounded-lg px-2 py-1 text-xs font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
                             </td>
                             <td className="px-1.5 py-1">
                               <input type="number" value={v.cost} onChange={e => updateVariant(idx, 'cost', e.target.value)}
                                 placeholder={form.cost || '—'}
+                                aria-label={`Cost for ${Object.values(v.combination || {}).join('/')}`}
                                 className={cn("w-20 border rounded-lg px-2 py-1 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
                             </td>
                             {form.trackStock && (
                               <td className="px-1.5 py-1">
                                 <input type="number" min="0" value={v.stock} onChange={e => updateVariant(idx, 'stock', e.target.value)}
                                   placeholder="0"
+                                  aria-label={`Stock for ${Object.values(v.combination || {}).join('/')}`}
                                   className={cn("w-16 border rounded-lg px-2 py-1 text-xs font-bold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-emerald-400" : "bg-white border-[#e2e5ef] text-emerald-600")} />
                               </td>
                             )}
@@ -1777,14 +1783,18 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b92ad] pointer-events-none" size={14} />
           </div>
-          {/* Card size control — + bigger cards (fewer cols), − smaller cards (more cols) */}
+          {/* Card size control — + larger cards (fewer cols), − smaller cards (more cols) */}
           <div className={cn("flex items-center gap-1 pl-3 border-l", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
             <button
+              title="Smaller cards (more columns)"
+              aria-label="Smaller cards (more columns)"
               onClick={() => { const n = Math.min(5, cardSize + 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
               disabled={cardSize === 5}
               className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
             >−</button>
             <button
+              title="Larger cards (fewer columns)"
+              aria-label="Larger cards (fewer columns)"
               onClick={() => { const n = Math.max(1, cardSize - 1); setCardSize(n); localStorage.setItem('catalogCardSize', String(n)); }}
               disabled={cardSize === 1}
               className={cn("w-8 h-8 rounded-xl border text-sm font-bold flex items-center justify-center transition-all active:scale-90 disabled:opacity-30", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]")}
