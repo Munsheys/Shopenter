@@ -1,6 +1,6 @@
 import { sendLineMessage, sendFlexMessage } from '@/lib/platforms/line';
 import { sendTelegramMessage, sendTelegramPhotoWithKeyboard } from '@/lib/platforms/telegram';
-import { sendInstagramMessage, sendInstagramProductCards } from '@/lib/platforms/instagram';
+import { sendInstagramMessage, sendInstagramProductCards, type InstagramProductCard } from '@/lib/platforms/instagram';
 
 export type BroadcastPlatform = 'line' | 'telegram' | 'instagram';
 
@@ -9,7 +9,7 @@ export interface UnifiedMessage {
   text: string; // Fallback text for all platforms
   lineFlexPayload?: any; // LINE Flex message JSON
   telegramPhoto?: { url: string; caption: string }; // Telegram photo + caption
-  instagramCards?: Array<{ name: string; price: number; imageUrl?: string; url: string }>; // Instagram generic template
+  instagramCards?: InstagramProductCard[]; // Instagram generic template
 }
 
 export async function sendUnifiedBroadcast(
