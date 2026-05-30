@@ -237,7 +237,11 @@ export function CreatableDropdown({
       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-      <div
+      <button
+        type="button"
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
         className={cn("w-full border rounded-xl px-4 py-2.5 text-sm cursor-pointer transition-all flex items-center justify-between",
           theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]",
           "focus-within:border-accent focus-within:ring-1 focus-within:ring-accent")}
@@ -245,7 +249,7 @@ export function CreatableDropdown({
       >
         <span className={value ? (theme === 'dark' ? "text-white font-medium" : "text-[#1a1d2e] font-medium") : "text-[#8b92ad]"}>{value || placeholder}</span>
         <ChevronDown size={14} className="text-[#8b92ad]" />
-      </div>
+      </button>
       {isOpen && (
         <div className={cn("absolute top-full left-0 right-0 mt-2 border rounded-xl shadow-xl z-50 overflow-hidden",
           theme === 'dark' ? "bg-[#1f2335] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
@@ -258,13 +262,13 @@ export function CreatableDropdown({
                 className={cn("w-full rounded-lg pl-8 pr-3 py-2 text-sm outline-none", theme === 'dark' ? "bg-[#161925] text-white" : "bg-[#f4f6f9] text-[#1a1d2e]")} />
             </div>
           </div>
-          <div className="max-h-48 overflow-y-auto p-1">
+          <div role="listbox" className="max-h-48 overflow-y-auto p-1">
             {filtered.map(opt => (
-              <button key={opt} className={cn("w-full text-left px-3 py-2 text-sm rounded-lg transition-colors", theme === 'dark' ? "text-white hover:bg-[#2d324d]" : "text-[#1a1d2e] hover:bg-[#f4f6f9]")}
+              <button key={opt} role="option" aria-selected={value === opt} className={cn("w-full text-left px-3 py-2 text-sm rounded-lg transition-colors", theme === 'dark' ? "text-white hover:bg-[#2d324d]" : "text-[#1a1d2e] hover:bg-[#f4f6f9]")}
                 onClick={() => { onChange(opt); setIsOpen(false); setSearch(''); }}>{opt}</button>
             ))}
             {showCreate && (
-              <button className={cn("w-full text-left px-3 py-2 text-sm rounded-lg font-bold flex items-center gap-2", theme === 'dark' ? "text-accent hover:bg-accent/[7%]" : "text-accent hover:bg-accent/[3%]")}
+              <button role="option" aria-selected={false} className={cn("w-full text-left px-3 py-2 text-sm rounded-lg font-bold flex items-center gap-2", theme === 'dark' ? "text-accent hover:bg-accent/[7%]" : "text-accent hover:bg-accent/[3%]")}
                 onClick={() => { onChange(search.trim()); setIsOpen(false); setSearch(''); }}>
                 <Plus size={14} /> Create "{search.trim()}"
               </button>
@@ -298,19 +302,21 @@ export function TagSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const inputId = label ? `tag-selector-${label.toLowerCase().replace(/\s+/g, '-')}` : undefined;
+
   return (
     <div ref={wrapperRef}>
-      {label && <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">{label} {required && <span className="text-red-500">*</span>}</label>}
+      {label && <label htmlFor={inputId} className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">{label} {required && <span className="text-red-500">*</span>}</label>}
       <div className={cn("w-full border rounded-xl px-2 py-2 flex flex-wrap gap-2", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
         {selected.map(c => (
           <div key={c} className={cn("flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-lg text-xs font-bold", theme === 'dark' ? "bg-[#161925] text-white" : "bg-[#f4f6f9] text-[#1a1d2e]")}>
             {isHex(c) && <span className="w-2.5 h-2.5 rounded-full border border-white/20" style={{ backgroundColor: c }} />}
             {c}
-            <button onClick={() => onRemove(c)} className="hover:text-red-400 opacity-70 hover:opacity-100"><X size={10} /></button>
+            <button onClick={() => onRemove(c)} aria-label={`Remove ${c}`} className="hover:text-red-400 opacity-70 hover:opacity-100"><X size={10} /></button>
           </div>
         ))}
         <div className="relative flex-1 min-w-[150px]">
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setIsOpen(true)}
+          <input id={inputId} type="text" value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setIsOpen(true)}
             onKeyDown={e => { if (e.key === 'Enter' && search.trim()) { if (!selected.includes(search.trim())) onAdd(search.trim()); setSearch(''); setIsOpen(false); } }}
             placeholder={placeholder}
             className={cn("w-full bg-transparent border-none outline-none px-2 py-1.5 text-sm", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")} />
@@ -400,7 +406,7 @@ export function MultiImageUploader({ images, onChange, theme = 'light' }: {
       </label>
       <div className="flex flex-wrap gap-2">
         {images.map((img, i) => (
-          <div key={i} className="relative group w-20 h-20 rounded-xl overflow-hidden border border-[#e2e5ef] dark:border-[#1f2335] flex-shrink-0">
+          <div key={i} className={cn("relative group w-20 h-20 rounded-xl overflow-hidden border flex-shrink-0", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
             <img src={img} className="w-full h-full object-cover" alt="" />
             {i === 0 && (
               <div className="absolute bottom-0 left-0 right-0 text-white text-[8px] font-black text-center py-0.5 uppercase tracking-wider" style={{ background: 'var(--accent-gradient)' }}>
@@ -409,7 +415,8 @@ export function MultiImageUploader({ images, onChange, theme = 'light' }: {
             )}
             <button
               onClick={() => onChange(images.filter((_, idx) => idx !== i))}
-              className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full hidden group-hover:flex items-center justify-center shadow-lg z-10"
+              aria-label={`Remove image ${i + 1}`}
+              className="absolute top-1 right-1 w-7 h-7 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 focus-within:opacity-100 focus:opacity-100 flex items-center justify-center shadow-lg z-10 transition-opacity"
             >
               <X size={8} />
             </button>
@@ -559,7 +566,7 @@ function OptionCard({ option, index, existingOptions, onUpdate, onRemove, theme 
 }) {
   return (
     <div className={cn("border rounded-2xl p-4 relative animate-in slide-in-from-right-4 transition-colors", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f8f9fc] border-[#e2e5ef]")}>
-      <button onClick={onRemove} className={cn("absolute -top-2 -right-2 border text-red-400 p-1 rounded-full shadow-sm hover:text-red-600 z-50", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
+      <button onClick={onRemove} aria-label="Remove option" className={cn("absolute top-1 right-1 border text-red-400 p-2 rounded-full shadow-sm hover:text-red-600 z-50", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
         <Trash2 size={12} />
       </button>
       <div className="mb-3 relative z-[20]">
@@ -630,14 +637,14 @@ export function ImageUploader({ value, onChange }: { value: string; onChange: (u
 export function ProductModal({
   isOpen, initialData, onSave, onClose, isSaving,
   existingOptions, suggestedOptions, theme = 'light', quickOrderMode = false, defaultTrackStock = false,
-  defaultSoldCurrency = 'THB', defaultCostCurrency = 'THB', onSaveAsDefault,
+  defaultSoldCurrency = 'THB', defaultCostCurrency = 'THB', onSaveAsDefault, priceError = '',
 }: {
   isOpen: boolean; initialData: ProductForm | null;
   onSave: (data: ProductForm) => void; onClose: () => void; isSaving: boolean;
   existingOptions: { brands: string[], modelLines: string[], categories: string[], optionNames: string[], optionValues: string[] };
   suggestedOptions?: ProductOption[]; theme?: 'light' | 'dark'; quickOrderMode?: boolean; defaultTrackStock?: boolean;
   defaultSoldCurrency?: string; defaultCostCurrency?: string;
-  onSaveAsDefault?: (val: boolean) => void;
+  onSaveAsDefault?: (val: boolean) => void; priceError?: string;
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const [imagePickerRow, setImagePickerRow] = useState<number | null>(null);
@@ -714,11 +721,16 @@ export function ProductModal({
       className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className={cn("w-full max-w-4xl rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-modal-title"
+        className={cn("w-full max-w-4xl rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+      >
         {/* Header */}
         <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <div>
-            <h3 className={cn("text-xl font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
+            <h3 id="product-modal-title" className={cn("text-xl font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
             <p className="text-xs text-[#8b92ad]">{quickOrderMode ? 'Fill what you need now — manage stock and photos later' : 'Options auto-generate variant combinations'}</p>
           </div>
           <button onClick={onClose} className={cn("w-8 h-8 flex items-center justify-center rounded-full", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
@@ -761,6 +773,7 @@ export function ProductModal({
                       {ALL_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
+                  {priceError && <p role="alert" className="text-xs text-red-500 mt-1">{priceError}</p>}
                 </div>
                 <div>
                   <label className="text-[9px] text-[#8b92ad] mb-1.5 block">Cost Price</label>
@@ -950,7 +963,9 @@ export function ProductModal({
                                 <div className="relative" onClick={e => e.stopPropagation()}>
                                   <button
                                     onClick={() => setImagePickerRow(imagePickerRow === idx ? null : idx)}
-                                    className={cn("w-8 h-8 rounded-lg border overflow-hidden flex items-center justify-center transition-colors",
+                                    aria-label={`Assign image to variant ${Object.values(v.combination || {}).join('/')}`}
+                                    aria-expanded={imagePickerRow === idx}
+                                    className={cn("w-10 h-10 rounded-lg border overflow-hidden flex items-center justify-center transition-colors",
                                       v.imageUrl ? "border-accent" : (theme === 'dark' ? "border-[#1f2335] border-dashed" : "border-dashed border-[#e2e5ef]")
                                     )}
                                   >
@@ -1040,10 +1055,10 @@ export function ProductModal({
 
 // --- StockModal ---
 
-function StockModal({ product, onClose, onSave, isSaving, theme }: {
+function StockModal({ product, onClose, onSave, isSaving, theme, stockError = '' }: {
   product: Product; onClose: () => void;
   onSave: (updatedVariants: any[]) => void;
-  isSaving: boolean; theme?: 'light' | 'dark';
+  isSaving: boolean; theme?: 'light' | 'dark'; stockError?: string;
 }) {
   const [stocks, setStocks] = useState<Record<number, string>>({});
 
@@ -1073,10 +1088,15 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
       className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className={cn("w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stock-modal-title"
+        className={cn("w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+      >
         <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <div>
-            <h3 className={cn("text-lg font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Manage Stock</h3>
+            <h3 id="stock-modal-title" className={cn("text-lg font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Manage Stock</h3>
             <p className="text-xs text-[#8b92ad] truncate max-w-[220px]">{product.name}</p>
           </div>
           <button onClick={onClose} className={cn("w-8 h-8 flex items-center justify-center rounded-full", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
@@ -1114,21 +1134,24 @@ function StockModal({ product, onClose, onSave, isSaving, theme }: {
           ))}
         </div>
 
-        <div className={cn("px-8 pb-8 pt-4 border-t flex gap-3", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
-          <button onClick={onClose} className={cn("flex-1 py-3 text-sm font-bold rounded-2xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f8f9fc] text-[#8b92ad]")}>Cancel</button>
-          <button
-            disabled={isSaving}
-            onClick={() => {
-              if (product.variants.length === 0) {
-                onSave([{ combination: {}, imageUrl: '', price: null, cost: null, stock: parseInt(stocks[0] ?? '0') || 0 }]);
-              } else {
-                onSave(product.variants.map((v, i) => ({ ...v, stock: parseInt(stocks[i] ?? '0') || 0 })));
-              }
-            }}
-            className="flex-1 py-3 text-sm font-bold text-white rounded-2xl shadow-lg disabled:opacity-40"
-            style={{ background: 'var(--accent-gradient)' }}>
-            {isSaving ? 'Saving...' : 'Save Stock'}
-          </button>
+        <div className={cn("px-8 pb-8 pt-4 border-t", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
+          {stockError && <p role="alert" className="text-xs text-red-500 mb-3">{stockError}</p>}
+          <div className="flex gap-3">
+            <button onClick={onClose} className={cn("flex-1 py-3 text-sm font-bold rounded-2xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f8f9fc] text-[#8b92ad]")}>Cancel</button>
+            <button
+              disabled={isSaving}
+              onClick={() => {
+                if (product.variants.length === 0) {
+                  onSave([{ combination: {}, imageUrl: '', price: null, cost: null, stock: parseInt(stocks[0] ?? '0') || 0 }]);
+                } else {
+                  onSave(product.variants.map((v, i) => ({ ...v, stock: parseInt(stocks[i] ?? '0') || 0 })));
+                }
+              }}
+              className="flex-1 py-3 text-sm font-bold text-white rounded-2xl shadow-lg disabled:opacity-40"
+              style={{ background: 'var(--accent-gradient)' }}>
+              {isSaving ? 'Saving...' : 'Save Stock'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1988,10 +2011,11 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         defaultTrackStock={defaultTrackStock}
         defaultSoldCurrency={merchantCurrencies.sold}
         defaultCostCurrency={merchantCurrencies.cost}
-        onSaveAsDefault={(val) => { setDefaultTrackStock(val); localStorage.setItem('defaultTrackStock', String(val)); }} />
+        onSaveAsDefault={(val) => { setDefaultTrackStock(val); localStorage.setItem('defaultTrackStock', String(val)); }}
+        priceError={priceError} />
 
       {stockProduct && (
-        <StockModal product={stockProduct} onClose={() => setStockProduct(null)} onSave={handleStockSave} isSaving={isStockSaving} theme={theme} />
+        <StockModal product={stockProduct} onClose={() => { setStockProduct(null); setStockError(''); }} onSave={handleStockSave} isSaving={isStockSaving} theme={theme} stockError={stockError} />
       )}
 
       {/* ── CSV Import modal ── */}
@@ -2167,6 +2191,8 @@ function ProductCard({ product, theme, onEdit, onCardClick, onDelete, onToggleVi
   return (
     <div
       onClick={onCardClick}
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCardClick(); } }}
       className={cn(
         "rounded-[32px] border p-5 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden flex flex-col h-full cursor-pointer",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]",
@@ -2174,7 +2200,7 @@ function ProductCard({ product, theme, onEdit, onCardClick, onDelete, onToggleVi
         selected && "ring-2 ring-accent border-accent/40"
       )}
     >
-      <div className="relative aspect-[4/3] rounded-3xl overflow-hidden mb-5 bg-[#f4f6f9] dark:bg-[#1a1d2e] border border-[#e2e5ef] dark:border-[#1f2335]">
+      <div className={cn("relative aspect-[4/3] rounded-3xl overflow-hidden mb-5 border", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-[#f4f6f9] border-[#e2e5ef]")}>
         {displayImage ? (
           <img src={displayImage} alt={product.name} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
         ) : (
@@ -2226,14 +2252,14 @@ function ProductCard({ product, theme, onEdit, onCardClick, onDelete, onToggleVi
             {[product.brand, product.modelLine].filter(Boolean).join(' • ') || <span className="text-[#8b92ad] font-normal normal-case">No brand</span>}
           </div>
           {hasPendingEdit && (
-            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="Unsaved changes" />
+            <span className="flex-shrink-0 px-1.5 py-0.5 rounded-md bg-amber-400/20 border border-amber-400/50 text-amber-500 text-[8px] font-black uppercase tracking-wider">Unsaved</span>
           )}
         </div>
         <h3 className={cn("font-bold text-base mb-1", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{product.name}</h3>
         {product.isQuickAdd && (
           <div className="flex items-center gap-1 mb-1.5 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 w-fit">
             <AlertCircle size={9} className="text-amber-500 flex-shrink-0" />
-            <span className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wide">Incomplete · add more info</span>
+            <span className={cn("text-[8px] font-black uppercase tracking-wide", theme === 'dark' ? "text-amber-400" : "text-amber-600")}>Incomplete · add more info</span>
           </div>
         )}
         <div className="flex flex-wrap gap-1.5 mb-3">

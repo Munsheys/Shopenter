@@ -89,14 +89,14 @@ function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChan
 
   if (value) return (
     <div className="flex items-center gap-4">
-      <img src={value} alt="logo" className="w-20 h-20 rounded-2xl object-cover flex-shrink-0 border border-slate-200 dark:border-[#2d3555] shadow-md" onError={e => (e.currentTarget.style.display = 'none')} />
+      <img src={value} alt="logo" className={`w-20 h-20 rounded-2xl object-cover flex-shrink-0 shadow-md ${isDark ? 'border border-[#2d3555]' : 'border border-slate-200'}`} onError={e => (e.currentTarget.style.display = 'none')} />
       <div className="space-y-2">
         <p className={`text-xs font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Logo uploaded</p>
         <div className="flex gap-2">
-          <button onClick={() => inputRef.current?.click()} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:text-white hover:border-[#3a3f55]' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}>
+          <button aria-label="Replace logo" onClick={() => inputRef.current?.click()} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 min-h-[36px] rounded-lg border font-medium transition-colors ${isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:text-white hover:border-[#3a3f55]' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}>
             <Upload size={11} /> Replace
           </button>
-          <button onClick={() => onChange('')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${isDark ? 'border-red-500/20 text-red-400 hover:bg-red-500/10' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
+          <button aria-label="Remove logo" onClick={() => onChange('')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 min-h-[36px] rounded-lg border font-medium transition-colors ${isDark ? 'border-red-500/20 text-red-400 hover:bg-red-500/10' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
             <X size={11} /> Remove
           </button>
         </div>
@@ -107,12 +107,14 @@ function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChan
 
   return (
     <div>
-      <div
+      <button
+        type="button"
+        aria-label="Upload logo image"
         onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) upload(f); }}
         onClick={() => inputRef.current?.click()}
-        className={`flex flex-col items-center gap-2 px-6 py-8 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${dragging ? 'border-accent bg-accent/5 scale-[1.01]' : isDark ? 'border-[#2a2f45] hover:border-accent/40 hover:bg-white/5' : 'border-slate-200 hover:border-accent/40 hover:bg-slate-50/50'}`}
+        className={`w-full flex flex-col items-center gap-2 px-6 py-8 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${dragging ? 'border-accent bg-accent/5 scale-[1.01]' : isDark ? 'border-[#2a2f45] hover:border-accent/40 hover:bg-white/5' : 'border-slate-200 hover:border-accent/40 hover:bg-slate-50/50'}`}
       >
         {uploading
           ? <Loader2 size={22} className="animate-spin" style={{ color: accent }} />
