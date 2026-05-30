@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   ShieldCheck, ShieldAlert, Users, Package, ShoppingCart, DollarSign,
   HeartHandshake, Sparkles, AlertCircle, MessageSquare, HelpCircle,
@@ -113,9 +113,15 @@ export default function AdminPage() {
   // Premium Toast Alert state
   const [toastMessage, setToastMessage] = useState('');
 
+  // In-place refresh spinner state
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Toast timer ref for cleanup
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
   // Check existing credentials
   useEffect(() => {
-    const saved = localStorage.getItem('sys_admin_secret');
+    const saved = sessionStorage.getItem('sys_admin_secret');
     if (saved) {
       verifySecret(saved);
     } else {
@@ -123,12 +129,14 @@ export default function AdminPage() {
     }
   }, []);
 
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => {
-      setToastMessage('');
-    }, 4000);
-  };
+  // Cleanup toast timer on unmount
+  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMessage(''), 4000);
+  }, []);
 
   const verifySecret = async (secretToVerify: string) => {
     setVerifying(true);
@@ -143,11 +151,11 @@ export default function AdminPage() {
         setInfra(data.infra ?? null);
         setMerchants(data.merchants);
         setFeedbacks(data.feedbacks);
-        localStorage.setItem('sys_admin_secret', secretToVerify);
+        sessionStorage.setItem('sys_admin_secret', secretToVerify);
         setIsAuthenticated(true);
       } else {
         setLoginError('Invalid Administrator Passcode.');
-        localStorage.removeItem('sys_admin_secret');
+        sessionStorage.removeItem('sys_admin_secret');
       }
     } catch {
       setLoginError('Database connection error.');
@@ -164,7 +172,7 @@ export default function AdminPage() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('sys_admin_secret');
+    sessionStorage.removeItem('sys_admin_secret');
     setIsAuthenticated(false);
     setPasscode('');
     setMetrics(null);
@@ -173,8 +181,8 @@ export default function AdminPage() {
   };
 
   const handleRefresh = async () => {
-    const secret = localStorage.getItem('sys_admin_secret') || '';
-    setLoading(true);
+    const secret = sessionStorage.getItem('sys_admin_secret') || '';
+    setRefreshing(true);
     try {
       const res = await fetch('/api/admin/system', {
         headers: { 'x-admin-secret': secret }
@@ -186,15 +194,18 @@ export default function AdminPage() {
         setMerchants(data.merchants);
         setFeedbacks(data.feedbacks);
         showToast("Synchronized live system and LINE Messaging API diagnostics!");
+      } else {
+        handleLogout();
+        showToast("Session expired. Please log in again.");
       }
     } catch {}
     finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const handleUpdateStatus = async (feedbackId: string, newStatus: string) => {
-    const secret = localStorage.getItem('sys_admin_secret') || '';
+    const secret = sessionStorage.getItem('sys_admin_secret') || '';
     setUpdatingFeedbackId(feedbackId);
     try {
       const res = await fetch('/api/admin/system', {
@@ -219,7 +230,7 @@ export default function AdminPage() {
     const text = replyTexts[feedbackId];
     if (!text || !text.trim() || replyingFeedbackId) return;
 
-    const secret = localStorage.getItem('sys_admin_secret') || '';
+    const secret = sessionStorage.getItem('sys_admin_secret') || '';
     setReplyingFeedbackId(feedbackId);
     try {
       const res = await fetch('/api/admin/system', {
@@ -252,7 +263,7 @@ export default function AdminPage() {
   const handleDeleteFeedback = async () => {
     if (!feedbackToDelete || isDeleting) return;
 
-    const secret = localStorage.getItem('sys_admin_secret') || '';
+    const secret = sessionStorage.getItem('sys_admin_secret') || '';
     setIsDeleting(true);
     try {
       const res = await fetch(`/api/admin/system?id=${feedbackToDelete._id}`, {
@@ -273,7 +284,7 @@ export default function AdminPage() {
 
   const handleConfigureSlipok = async () => {
     if (!slipokModal || savingSlipok) return;
-    const secret = localStorage.getItem('sys_admin_secret') || '';
+    const secret = sessionStorage.getItem('sys_admin_secret') || '';
     setSavingSlipok(true);
     try {
       const res = await fetch('/api/admin/system', {
@@ -464,8 +475,9 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider ml-1">Administrator Passcode</label>
+              <label htmlFor="admin-passcode" className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider ml-1">Administrator Passcode</label>
               <input
+                id="admin-passcode"
                 type="password"
                 value={passcode}
                 onChange={e => setPasscode(e.target.value)}
@@ -499,6 +511,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                 </>
               )}
             </button>
+            <p className="text-[10px] text-[#8b92ad] mt-2">Session clears when you close this tab</p>
           </form>
 
           <p className="text-[10px] text-[#8b92ad] text-center leading-relaxed px-4">

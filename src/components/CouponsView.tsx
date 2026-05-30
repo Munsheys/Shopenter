@@ -25,14 +25,16 @@ function generateCode() {
   return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
+export default function CouponsView({ theme }: { theme?: 'light' | 'lite' | 'dark' }) {
   const isDark = theme === 'dark';
 
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteCode, setDeleteCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [createError, setCreateError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
@@ -56,9 +58,17 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!deleteId) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setDeleteId(null); setDeleteCode(null); } };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [deleteId]);
+
   const handleCreate = async () => {
     if (!form.code || !form.value) return;
     setSaving(true);
+    setCreateError('');
     try {
       const res = await fetch('/api/coupons', {
         method: 'POST',
@@ -78,7 +88,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
         load();
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Failed to create coupon');
+        setCreateError(err.error || 'Failed to create coupon');
       }
     } finally {
       setSaving(false);
@@ -86,25 +96,32 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
   };
 
   const toggleActive = async (coupon: Coupon) => {
-    await fetch(`/api/coupons/${coupon._id}`, {
+    const res = await fetch(`/api/coupons/${coupon._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isActive: !coupon.isActive }),
     });
-    load();
+    if (res.ok) load();
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await fetch(`/api/coupons/${deleteId}`, { method: 'DELETE' });
-    setDeleteId(null);
-    load();
+    const res = await fetch(`/api/coupons/${deleteId}`, { method: 'DELETE' });
+    if (res.ok) {
+      setDeleteId(null);
+      setDeleteCode(null);
+      load();
+    }
   };
 
   const copyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
+    try {
+      navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch {
+      // clipboard not available
+    }
   };
 
   const surface = isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]';
@@ -134,17 +151,18 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
 
       {/* Create Form */}
       {showForm && (
-        <div className={cn('border rounded-3xl p-6 mb-6', surface)}>
+        <form onSubmit={e => { e.preventDefault(); handleCreate(); }} className={cn('border rounded-3xl p-6 mb-6', surface)}>
           <div className="flex items-center justify-between mb-6">
             <h3 className={cn('text-base font-bold', isDark ? 'text-white' : 'text-[#1a1d2e]')}>New Coupon</h3>
-            <button onClick={() => setShowForm(false)} className="text-[#8b92ad] hover:text-red-400 transition-colors"><X size={18} /></button>
+            <button type="button" onClick={() => setShowForm(false)} className="text-[#8b92ad] hover:text-red-400 transition-colors"><X size={18} /></button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Coupon Code</label>
+              <label htmlFor="coupon-code" className={labelCls}>Coupon Code</label>
               <div className="flex gap-2">
                 <input
+                  id="coupon-code"
                   type="text"
                   value={form.code}
                   onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
@@ -153,6 +171,8 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
                   placeholder="e.g. SAVE10"
                 />
                 <button
+                  type="button"
+                  aria-label="Generate random code"
                   onClick={() => setForm(f => ({ ...f, code: generateCode() }))}
                   className={cn('px-3 py-2.5 border rounded-xl transition-colors', isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e]')}
                   title="Generate random code"
@@ -164,10 +184,13 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
 
             <div>
               <label className={labelCls}>Discount Type</label>
-              <div className="flex gap-2">
+              <div role="radiogroup" aria-label="Discount type" className="flex gap-2">
                 {(['percent', 'fixed'] as const).map(t => (
                   <button
                     key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.type === t}
                     onClick={() => setForm(f => ({ ...f, type: t }))}
                     className={cn('flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all',
                       form.type === t
@@ -183,8 +206,9 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
             </div>
 
             <div>
-              <label className={labelCls}>{form.type === 'percent' ? 'Discount %' : 'Discount Amount (฿)'}</label>
+              <label htmlFor="coupon-value" className={labelCls}>{form.type === 'percent' ? 'Discount %' : 'Discount Amount (฿)'}</label>
               <input
+                id="coupon-value"
                 type="number"
                 value={form.value}
                 onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
@@ -196,8 +220,9 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
             </div>
 
             <div>
-              <label className={labelCls}>Min. Order Amount (฿)</label>
+              <label htmlFor="coupon-min-order" className={labelCls}>Min. Order Amount (฿)</label>
               <input
+                id="coupon-min-order"
                 type="number"
                 value={form.minOrderAmount}
                 onChange={e => setForm(f => ({ ...f, minOrderAmount: e.target.value }))}
@@ -208,8 +233,9 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
             </div>
 
             <div>
-              <label className={labelCls}>Max Uses (0 = unlimited)</label>
+              <label htmlFor="coupon-max-uses" className={labelCls}>Max Uses (0 = unlimited)</label>
               <input
+                id="coupon-max-uses"
                 type="number"
                 value={form.maxUses}
                 onChange={e => setForm(f => ({ ...f, maxUses: e.target.value }))}
@@ -220,8 +246,9 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
             </div>
 
             <div>
-              <label className={labelCls}>Expires At (optional)</label>
+              <label htmlFor="coupon-expiry" className={labelCls}>Expires At (optional)</label>
               <input
+                id="coupon-expiry"
                 type="datetime-local"
                 value={form.expiresAt}
                 onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))}
@@ -232,13 +259,14 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
 
           <div className="flex gap-3 mt-6">
             <button
+              type="button"
               onClick={() => setShowForm(false)}
               className={cn('flex-1 py-3 text-sm font-bold rounded-2xl', isDark ? 'bg-[#1a1d2e] text-[#8b92ad]' : 'bg-[#f4f6f9] text-[#8b92ad]')}
             >
               Cancel
             </button>
             <button
-              onClick={handleCreate}
+              type="submit"
               disabled={saving || !form.code || !form.value}
               className="flex-1 py-3 text-sm font-bold text-white rounded-2xl disabled:opacity-40 hover:opacity-90"
               style={{ background: 'var(--accent-gradient)' }}
@@ -246,7 +274,8 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
               {saving ? 'Creating...' : 'Create Coupon'}
             </button>
           </div>
-        </div>
+          {createError && <p role="alert" className="text-xs text-red-400 mt-2">{createError}</p>}
+        </form>
       )}
 
       {/* Coupon List */}
@@ -270,16 +299,19 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
               <div key={coupon._id} className={cn('border rounded-3xl p-5 transition-all', surface, !coupon.isActive && 'opacity-60')}>
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={cn('px-3 py-1.5 rounded-xl font-mono font-black text-sm tracking-widest flex items-center gap-2 cursor-pointer select-none',
-                      isDark ? 'bg-[#1a1d2e] text-accent' : 'bg-[#f4f6f9] text-accent')}
+                    <button
+                      type="button"
+                      aria-label={`Copy code ${coupon.code}`}
                       onClick={() => copyCode(coupon.code)}
+                      className={cn('px-3 py-1.5 rounded-xl font-mono font-black text-sm tracking-widest flex items-center gap-2 select-none',
+                        isDark ? 'bg-[#1a1d2e] text-accent' : 'bg-[#f4f6f9] text-accent')}
                     >
                       {coupon.code}
                       {copiedCode === coupon.code
                         ? <Check size={12} className="text-accent" />
                         : <Copy size={12} className="text-[#8b92ad]" />
                       }
-                    </div>
+                    </button>
                     <div>
                       <p className={cn('text-sm font-bold', isDark ? 'text-white' : 'text-[#1a1d2e]')}>
                         {coupon.type === 'percent' ? `${coupon.value}% off` : `฿${coupon.value} off`}
@@ -301,17 +333,18 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => toggleActive(coupon)}
-                      className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all',
+                      className={cn('flex items-center gap-1.5 px-3 py-2 min-h-[36px] rounded-xl text-[10px] font-bold border transition-all',
                         coupon.isActive
                           ? 'border-accent/30 bg-accent/10 text-accent'
                           : isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-[#e2e5ef] text-[#8b92ad]'
                       )}
                     >
-                      {coupon.isActive ? <><ToggleRight size={14} /> Active</> : <><ToggleLeft size={14} /> Paused</>}
+                      {coupon.isActive ? <><ToggleRight size={14} /> Active</> : <><ToggleLeft size={14} /> Inactive</>}
                     </button>
                     <button
-                      onClick={() => setDeleteId(coupon._id)}
-                      className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors dark:bg-red-500/10 dark:hover:bg-red-500/20"
+                      onClick={() => { setDeleteId(coupon._id); setDeleteCode(coupon.code); }}
+                      aria-label={`Delete coupon ${coupon.code}`}
+                      className={cn('p-3 rounded-xl transition-colors', isDark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-500')}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -325,13 +358,18 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'dark' }) {
 
       {/* Delete confirmation */}
       {deleteId && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[400] flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setDeleteId(null); }}>
-          <div className={cn('rounded-[28px] w-full max-w-sm p-8 text-center shadow-2xl', isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white')}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[400] flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) { setDeleteId(null); setDeleteCode(null); } }}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-coupon-title"
+            className={cn('rounded-[28px] w-full max-w-sm p-8 text-center shadow-2xl', isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white')}
+          >
             <div className="w-14 h-14 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-5"><Trash2 size={28} /></div>
-            <h3 className={cn('text-lg font-bold mb-2', isDark ? 'text-white' : 'text-[#1a1d2e]')}>Delete Coupon?</h3>
+            <h3 id="delete-coupon-title" className={cn('text-lg font-bold mb-2', isDark ? 'text-white' : 'text-[#1a1d2e]')}>Delete coupon {deleteCode}?</h3>
             <p className="text-sm text-[#8b92ad] mb-6">This will permanently delete the coupon code.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)} className={cn('flex-1 py-3 text-sm font-bold rounded-xl', isDark ? 'bg-[#1a1d2e] text-[#8b92ad]' : 'bg-[#f4f6f9] text-[#8b92ad]')}>Cancel</button>
+              <button onClick={() => { setDeleteId(null); setDeleteCode(null); }} className={cn('flex-1 py-3 text-sm font-bold rounded-xl', isDark ? 'bg-[#1a1d2e] text-[#8b92ad]' : 'bg-[#f4f6f9] text-[#8b92ad]')}>Cancel</button>
               <button onClick={handleDelete} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl">Delete</button>
             </div>
           </div>

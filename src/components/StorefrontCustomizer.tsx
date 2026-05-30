@@ -48,7 +48,7 @@ interface Props {
   shopName: string;
   slug?: string | null;
   initial?: Partial<StorefrontConfig>;
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'lite' | 'dark';
   dashboardAccentColor?: string;
   onSave: (config: StorefrontConfig) => Promise<void>;
   onSaveSlug: (slug: string) => Promise<{ ok: boolean; error?: string }>;

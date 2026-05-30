@@ -12,23 +12,27 @@ import { getAccentText } from '@/lib/accent';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function CopyButton({ value }: { value: string }) {
+function CopyButton({ value, 'aria-label': ariaLabel }: { value: string; 'aria-label'?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
       type="button"
-      onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-      className="flex items-center gap-1 text-[10px] font-medium text-accent hover:text-accent flex-shrink-0 transition-colors"
+      aria-label={ariaLabel}
+      onClick={() => { navigator.clipboard.writeText(value).then(() => setCopied(true)).catch(() => {}); setTimeout(() => setCopied(false), 2000); }}
+      className="flex items-center gap-1 text-[10px] font-medium text-accent hover:text-accent flex-shrink-0 transition-colors min-h-[44px] min-w-[44px]"
     >
       {copied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy</>}
     </button>
   );
 }
 
-function Toggle({ enabled, onChange, isDark }: { enabled: boolean; onChange: (v: boolean) => void; isDark?: boolean }) {
+function Toggle({ enabled, onChange, isDark, label }: { enabled: boolean; onChange: (v: boolean) => void; isDark?: boolean; label?: string }) {
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={label}
       onClick={() => onChange(!enabled)}
       className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${enabled ? 'bg-accent' : isDark ? 'bg-[#2a2f45]' : 'bg-slate-300'}`}
     >
@@ -130,6 +134,8 @@ function SetupGuide({ isDark, isLite, webhookUrl }: { isDark: boolean; isLite: b
     <div className={`rounded-2xl border overflow-hidden ${surface}`}>
       <button
         onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-controls="setup-guide-content"
         className="w-full flex items-center justify-between px-5 py-4 text-left"
       >
         <div className="flex items-center gap-2">
@@ -140,7 +146,7 @@ function SetupGuide({ isDark, isLite, webhookUrl }: { isDark: boolean; isLite: b
       </button>
 
       {open && (
-        <div className={`border-t px-5 py-4 space-y-4 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+        <div id="setup-guide-content" className={`border-t px-5 py-4 space-y-4 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
           <p className={`text-xs ${muted}`}>Each merchant needs their own LINE OA and Messaging API channel. This is a one-time setup per store.</p>
           <div className="space-y-3">
             {steps.map(s => (
@@ -169,6 +175,15 @@ function SetupGuide({ isDark, isLite, webhookUrl }: { isDark: boolean; isLite: b
 
 const ACCENT_PRESETS = [
   '#00b900', '#3b82f6', '#f97316', '#ef4444', '#a855f7', '#ec4899', '#06b6d4',
+];
+
+const GRADIENT_PRESETS = [
+  { name: 'Sunset',  gradient: 'linear-gradient(135deg,#f97316,#ef4444)', primary: '#f97316' },
+  { name: 'Ocean',   gradient: 'linear-gradient(135deg,#06b6d4,#3b82f6)', primary: '#06b6d4' },
+  { name: 'Aurora',  gradient: 'linear-gradient(135deg,#8b5cf6,#ec4899)', primary: '#8b5cf6' },
+  { name: 'Forest',  gradient: 'linear-gradient(135deg,#10b981,#0ea5e9)', primary: '#10b981' },
+  { name: 'Gold',    gradient: 'linear-gradient(135deg,#f59e0b,#f97316)', primary: '#f59e0b' },
+  { name: 'Indigo',  gradient: 'linear-gradient(135deg,#6366f1,#8b5cf6)', primary: '#6366f1' },
 ];
 
 const THAI_BANKS = [
@@ -464,18 +479,9 @@ export default function SettingsView({
   const localAccentBg = settings?.dashboardAccentGradient || 'var(--accent)';
   const accentTextColor = getAccentText(settings?.dashboardAccent || '#00b900');
 
-  const GRADIENT_PRESETS = [
-    { name: 'Sunset',  gradient: 'linear-gradient(135deg,#f97316,#ef4444)', primary: '#f97316' },
-    { name: 'Ocean',   gradient: 'linear-gradient(135deg,#06b6d4,#3b82f6)', primary: '#06b6d4' },
-    { name: 'Aurora',  gradient: 'linear-gradient(135deg,#8b5cf6,#ec4899)', primary: '#8b5cf6' },
-    { name: 'Forest',  gradient: 'linear-gradient(135deg,#10b981,#0ea5e9)', primary: '#10b981' },
-    { name: 'Gold',    gradient: 'linear-gradient(135deg,#f59e0b,#f97316)', primary: '#f59e0b' },
-    { name: 'Indigo',  gradient: 'linear-gradient(135deg,#6366f1,#8b5cf6)', primary: '#6366f1' },
-  ];
-
   const inputCls  = `w-full rounded-xl px-4 py-3 text-sm border transition-colors ${K.inp}`;
   const inputMono = `${inputCls} font-mono text-xs pr-12`;
-  const lbl       = `block text-[10px] font-bold uppercase tracking-widest mb-2 ${K.muted}`;
+  const lbl       = `block text-xs font-bold uppercase tracking-widest mb-2 ${K.muted}`;
   const hint      = `text-[10px] mt-1 ml-1 ${K.muted}`;
 
   const hlCls = (id: string) => `rounded-xl px-3 py-2 -mx-3 transition-colors duration-1000 ${highlighted === id ? isDark ? 'bg-accent/20 ring-1 ring-accent/30' : 'bg-accent/5 ring-1 ring-accent/30' : ''}`;
@@ -505,6 +511,7 @@ export default function SettingsView({
               <button
                 key={s.id}
                 onClick={() => scrollTo(s.id)}
+                aria-current={active ? 'true' : undefined}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all border ${
                   active
                     ? isDark ? 'bg-white/[0.08] border-white/10' : 'bg-slate-100 border-slate-200'
@@ -537,11 +544,11 @@ export default function SettingsView({
 
         {/* Save */}
         <div className={`pt-4 mt-4 border-t ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
-          {saveError && <p className="text-[10px] text-red-400 mb-2 text-center">{saveError}</p>}
+          {saveError && <p role="alert" className="text-[10px] text-red-400 mb-2 text-center">{saveError}</p>}
           <button
             onClick={handleSave}
             disabled={isSaving || isSettingsLoading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-[0.98]"
             style={{ background: saved ? '#10b981' : localAccentBg, color: saved ? '#ffffff' : accentTextColor }}
           >
             {isSaving ? <Loader2 size={13} className="animate-spin" /> : saved ? <Check size={13} /> : <Save size={13} />}
@@ -555,8 +562,8 @@ export default function SettingsView({
         <div ref={containerRef} className="flex-1 overflow-y-auto">
           <div className="px-6 pb-16 max-w-3xl mx-auto space-y-16 pt-6">
             {isSettingsLoading ? (
-              <div className="py-32 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
-                <div className="w-10 h-10 border-4 border-t-transparent border-accent rounded-full animate-spin" />
+              <div role="status" aria-label="Loading settings" className="py-32 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
+                <div aria-hidden="true" className="w-10 h-10 border-4 border-t-transparent border-accent rounded-full animate-spin" />
                 <span className="text-xs font-bold uppercase tracking-[0.2em]">Syncing Merchant Profile…</span>
               </div>
             ) : (
@@ -861,7 +868,7 @@ export default function SettingsView({
                     <Toggle enabled={!!settings.businessHours?.enabled} onChange={v => setBh('enabled', v)} isDark={isDark} />
                   </div>
                   {settings.businessHours?.enabled && (
-                    <div className="space-y-3 pt-2 border-t border-dashed border-slate-200 dark:border-[#1f2335]">
+                    <div className={`space-y-3 pt-2 border-t border-dashed ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
                       {DAYS.map(({ key, label }) => {
                         const day = settings.businessHours?.[key] || { enabled: key !== 'sat' && key !== 'sun', open: '09:00', close: '18:00' };
                         return (
@@ -934,7 +941,7 @@ export default function SettingsView({
                       {fetchingRate ? 'Fetching…' : 'Fetch live rate'}
                     </button>
                   </div>
-                  {liveRateError && <p className="text-xs text-red-400">{liveRateError}</p>}
+                  {liveRateError && <p role="alert" className="text-xs text-red-400">{liveRateError}</p>}
                 </div>
 
                 {/* Order Numbering */}
@@ -1061,7 +1068,7 @@ export default function SettingsView({
                   </div>
                   <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
                     <code className="flex-1 text-xs font-mono truncate text-accent">{webhookUrl}</code>
-                    <CopyButton value={webhookUrl} />
+                    <CopyButton value={webhookUrl} aria-label="Copy webhook URL" />
                     <a href="https://developers.line.biz/" target="_blank" rel="noopener noreferrer" className={`flex items-center gap-1 text-[10px] ${K.muted} hover:text-accent transition-colors flex-shrink-0`}>Console <ExternalLink size={10} /></a>
                   </div>
                 </div>
@@ -1077,7 +1084,7 @@ export default function SettingsView({
                       <label className={lbl}>Channel Secret <span className={`normal-case font-normal ${K.muted}`}>(Basic Settings tab)</span></label>
                       <div className="relative">
                         <input type={showSecret ? 'text' : 'password'} value={settings.lineChannelSecret || ''} onChange={e => set('lineChannelSecret', e.target.value)} placeholder="32-character hex string" className={inputMono} autoComplete="new-password" />
-                        <button type="button" onClick={() => setShowSecret(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${K.muted} hover:text-white transition-colors`}>{showSecret ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                        <button type="button" aria-label={showSecret ? 'Hide channel secret' : 'Show channel secret'} onClick={() => setShowSecret(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 ${K.muted} hover:text-white transition-colors`}>{showSecret ? <EyeOff size={15} /> : <Eye size={15} />}</button>
                       </div>
                       <p className={hint}>Verifies webhook requests from LINE</p>
                     </div>
@@ -1085,7 +1092,7 @@ export default function SettingsView({
                       <label className={lbl}>Channel Access Token <span className={`normal-case font-normal ${K.muted}`}>(Messaging API tab)</span></label>
                       <div className="relative">
                         <input type={showToken ? 'text' : 'password'} value={settings.lineChannelAccessToken || ''} onChange={e => set('lineChannelAccessToken', e.target.value)} placeholder="Long-lived access token" className={inputMono} autoComplete="new-password" />
-                        <button type="button" onClick={() => setShowToken(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${K.muted} hover:text-white transition-colors`}>{showToken ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                        <button type="button" aria-label={showToken ? 'Hide channel access token' : 'Show channel access token'} onClick={() => setShowToken(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 ${K.muted} hover:text-white transition-colors`}>{showToken ? <EyeOff size={15} /> : <Eye size={15} />}</button>
                       </div>
                       <p className={hint}>Authorises messages, broadcasts, Rich Menu</p>
                     </div>
@@ -1103,7 +1110,7 @@ export default function SettingsView({
                       <label className={lbl}>LIFF ID</label>
                       <div className="relative">
                         <input type={showLiff ? 'text' : 'password'} value={settings.liffId || ''} onChange={e => set('liffId', e.target.value)} placeholder="1234567890-AbCdEfGh" className={inputMono} autoComplete="new-password" />
-                        <button type="button" onClick={() => setShowLiff(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${K.muted} hover:text-white transition-colors`}>{showLiff ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                        <button type="button" aria-label={showLiff ? 'Hide LIFF ID' : 'Show LIFF ID'} onClick={() => setShowLiff(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 ${K.muted} hover:text-white transition-colors`}>{showLiff ? <EyeOff size={15} /> : <Eye size={15} />}</button>
                       </div>
                       <p className={hint}>Lets customers log in with LINE on your storefront</p>
                     </div>
@@ -1117,7 +1124,7 @@ export default function SettingsView({
                     <label className={lbl}>Admin Secret</label>
                     <div className="relative">
                       <input type={showAdminSecret ? 'text' : 'password'} value={settings.adminSecret || ''} onChange={e => set('adminSecret', e.target.value)} placeholder="e.g. my-secret-phrase" className={inputMono} autoComplete="new-password" />
-                      <button type="button" onClick={() => setShowAdminSecret(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${K.muted} hover:text-white transition-colors`}>{showAdminSecret ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                      <button type="button" aria-label={showAdminSecret ? 'Hide admin secret' : 'Show admin secret'} onClick={() => setShowAdminSecret(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 ${K.muted} hover:text-white transition-colors`}>{showAdminSecret ? <EyeOff size={15} /> : <Eye size={15} />}</button>
                     </div>
                     <p className={hint}>Required to use admin-only bot commands via LINE chat</p>
                   </div>
@@ -1179,7 +1186,7 @@ export default function SettingsView({
                             <p className={`text-xs font-semibold truncate ${K.text}`}>{acc.bankName || 'Bank'}</p>
                             <p className={`text-xs ${K.muted}`}>{acc.accountNumber} · {acc.accountName}</p>
                           </div>
-                          <button onClick={() => removeBankAccount(i)} className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0"><X size={14} /></button>
+                          <button onClick={() => removeBankAccount(i)} aria-label={`Remove ${acc.bankName || 'bank account'}`} className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0"><X size={14} /></button>
                         </div>
                       ))}
                     </div>
@@ -1323,7 +1330,7 @@ export default function SettingsView({
                     <Toggle enabled={!!settings.loyalty?.enabled} onChange={v => set('loyalty', { ...(settings.loyalty || {}), enabled: v })} isDark={isDark} />
                   </div>
                   {settings.loyalty?.enabled && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-dashed border-slate-200 dark:border-[#1f2335]">
+                    <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-dashed ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
                       <div>
                         <label className={lbl}>Points per ฿1 spent</label>
                         <NumberStepper value={settings.loyalty?.pointsPerBaht ?? 1} onChange={v => set('loyalty', { ...(settings.loyalty || {}), pointsPerBaht: v })} min={0.1} step={0.1} isDark={isDark} />
@@ -1355,7 +1362,7 @@ export default function SettingsView({
                   <div className="flex flex-wrap gap-2">
                     {settings.shippingCompanies?.map((c: string, i: number) => (
                       <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
-                        {c}<button onClick={() => removeCompany(c)} className="text-red-400 hover:text-red-300 transition-colors"><X size={12} /></button>
+                        {c}<button onClick={() => removeCompany(c)} aria-label={`Remove ${c}`} className="text-red-400 hover:text-red-300 transition-colors"><X size={12} /></button>
                       </div>
                     ))}
                   </div>

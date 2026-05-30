@@ -1144,6 +1144,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deletingName, setDeletingName] = useState<string>('');
   const [showImport, setShowImport] = useState(false);
   const [importGuideOpen, setImportGuideOpen] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number; errors: string[] } | null>(null);
@@ -1151,6 +1152,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [isStockSaving, setIsStockSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [priceError, setPriceError] = useState('');
+  const [stockError, setStockError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [saveFailCount, setSaveFailCount] = useState(0);
   const [defaultTrackStock, setDefaultTrackStock] = useState<boolean>(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('defaultTrackStock') === 'true';
     return false;
@@ -1319,9 +1324,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     // Fix 1: validate price is a valid positive number before proceeding
     const parsedPrice = parseFloat(form.price as any);
     if (!form.price || isNaN(parsedPrice) || parsedPrice <= 0) {
-      alert('Please enter a valid price greater than 0.');
+      setPriceError('Please enter a valid selling price greater than 0.');
       return;
     }
+    setPriceError('');
 
     if (editingProduct) {
       // Buffer the edit — optimistically update card, persist later
