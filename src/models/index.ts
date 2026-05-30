@@ -117,9 +117,17 @@ const SettingsSchema = new mongoose.Schema({
     redeemRate: { type: Number, default: 100 },
     minRedeemPoints: { type: Number, default: 100 },
   },
+  lineIntentSearch: { type: Boolean, default: true },
   telegram: {
     botToken:      { type: String, default: '' },
     webhookActive: { type: Boolean, default: false },
+    intentSearch:  { type: Boolean, default: true },
+  },
+  instagram: {
+    pageAccessToken: { type: String, default: '' },
+    igAccountId:     { type: String, default: '' },
+    webhookActive:   { type: Boolean, default: false },
+    intentSearch:    { type: Boolean, default: true },
   },
   storefront: {
     preset: { type: String, default: 'midnight' },

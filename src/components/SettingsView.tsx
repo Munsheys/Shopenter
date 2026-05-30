@@ -5,7 +5,7 @@ import { ALL_CURRENCIES } from '@/components/ProductManagement';
 import {
   Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check,
   ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle, Bell,
-  Building2, ChevronRight, Send,
+  Building2, ChevronRight, Send, Camera,
 } from 'lucide-react';
 import NumberStepper from '@/components/NumberStepper';
 import { getAccentText } from '@/lib/accent';
@@ -42,7 +42,7 @@ function Toggle({ enabled, onChange, isDark, label }: { enabled: boolean; onChan
 }
 
 
-type SectionId = 'general' | 'line' | 'telegram' | 'payment' | 'shipping' | 'notifications';
+type SectionId = 'general' | 'line' | 'telegram' | 'instagram' | 'payment' | 'shipping' | 'notifications';
 
 interface LineStatus {
   configured: boolean;
@@ -263,6 +263,8 @@ export default function SettingsView({
   const [showTgToken,       setShowTgToken]       = useState(false);
   const [tgActivating,      setTgActivating]      = useState(false);
   const [tgActivateResult,  setTgActivateResult]  = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const [showIgToken,  setShowIgToken]  = useState(false);
 
   useEffect(() => {
     setShowGuide(localStorage.getItem('sg-dismissed') !== 'true');
@@ -495,6 +497,7 @@ export default function SettingsView({
     { id: 'general',       label: 'General',       icon: <SettingsIcon  size={14} />, desc: 'Theme, language & hours'    },
     { id: 'line',          label: 'LINE',          icon: <MessageSquare size={14} />, desc: 'Webhook & credentials'      },
     { id: 'telegram',      label: 'Telegram',      icon: <Send          size={14} />, desc: 'Bot token & webhook'        },
+    { id: 'instagram',     label: 'Instagram',     icon: <Camera        size={14} />, desc: 'DM bot & credentials'       },
     { id: 'payment',       label: 'Payment',       icon: <Zap           size={14} />, desc: 'Methods, SlipOK & loyalty'  },
     { id: 'shipping',      label: 'Shipping',      icon: <Package       size={14} />, desc: 'Rates & companies'          },
     { id: 'notifications', label: 'Notifications', icon: <Bell          size={14} />, desc: 'Alerts & templates'         },
@@ -1134,6 +1137,21 @@ export default function SettingsView({
                     <p className={hint}>Required to use admin-only bot commands via LINE chat</p>
                   </div>
                 </div>
+
+                {/* Smart Product Search */}
+                <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
+                  <div>
+                    <p className={`text-sm font-semibold ${K.text}`}>Smart Product Search</p>
+                    <p className={`text-xs mt-1 ${K.muted}`}>When a customer's message matches a product, reply with a Flex Message carousel of matching items they can tap to view and order.</p>
+                  </div>
+                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div>
+                      <p className={`text-xs font-semibold ${K.text}`}>Enable Smart Product Search</p>
+                      <p className={`text-[10px] ${K.muted}`}>Runs when no auto-reply rule matches the message</p>
+                    </div>
+                    <Toggle enabled={settings.lineIntentSearch !== false} onChange={v => set('lineIntentSearch', v)} isDark={isDark} />
+                  </div>
+                </div>
               </div>
 
               {/* ══ TELEGRAM ════════════════════════════════════════════ */}
@@ -1236,6 +1254,122 @@ export default function SettingsView({
                       <span className="break-all">{tgActivateResult.msg}</span>
                     </div>
                   )}
+                </div>
+
+                {/* Smart Product Search */}
+                <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
+                  <div>
+                    <p className={`text-sm font-semibold ${K.text}`}>Smart Product Search</p>
+                    <p className={`text-xs mt-1 ${K.muted}`}>When a customer's message matches a product, reply with photo cards they can tap to view and order.</p>
+                  </div>
+                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div>
+                      <p className={`text-xs font-semibold ${K.text}`}>Enable Smart Product Search</p>
+                      <p className={`text-[10px] ${K.muted}`}>Falls back to storefront link when no match found</p>
+                    </div>
+                    <Toggle
+                      enabled={settings.telegram?.intentSearch !== false}
+                      onChange={v => setSettings((s: any) => ({ ...s, telegram: { ...(s?.telegram || {}), intentSearch: v } }))}
+                      isDark={isDark}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ══ INSTAGRAM ═══════════════════════════════════════════ */}
+              <div id="instagram" className="space-y-6">
+                <div className={`flex items-center gap-2 ${hlCls('instagram')}`}>
+                  <Camera size={15} className="text-accent" />
+                  <h2 className={`text-base font-bold ${K.text}`}>Instagram DM Bot</h2>
+                </div>
+
+                {/* Credentials */}
+                <div id="instagram-credentials" className={ringCls('instagram-credentials')}>
+                  <div>
+                    <p className={`text-sm font-semibold ${K.text}`}>Instagram Credentials</p>
+                    <p className={`text-xs mt-1 ${K.muted}`}>
+                      Connect your Instagram Professional account. You need a Facebook Page linked to your
+                      Instagram, plus a Page Access Token from the Meta Graph API.
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className={lbl}>Page Access Token</label>
+                      <div className="relative">
+                        <input
+                          type={showIgToken ? 'text' : 'password'}
+                          value={settings.instagram?.pageAccessToken || ''}
+                          onChange={e => setSettings((s: any) => ({ ...s, instagram: { ...(s?.instagram || {}), pageAccessToken: e.target.value } }))}
+                          placeholder="EAAG… long-lived token"
+                          className={inputMono}
+                          autoComplete="new-password"
+                        />
+                        <button type="button" aria-label={showIgToken ? 'Hide access token' : 'Show access token'}
+                          onClick={() => setShowIgToken(v => !v)}
+                          className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 ${K.muted} hover:text-white transition-colors`}
+                        >
+                          {showIgToken ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+                      <p className={hint}>Meta Graph API Explorer → Generate token with <code>pages_messaging</code> permission</p>
+                    </div>
+                    <div>
+                      <label className={lbl}>Instagram Business Account ID</label>
+                      <input
+                        type="text"
+                        value={settings.instagram?.igAccountId || ''}
+                        onChange={e => setSettings((s: any) => ({ ...s, instagram: { ...(s?.instagram || {}), igAccountId: e.target.value } }))}
+                        placeholder="17841400000000000"
+                        className={`${inputCls} font-mono text-xs`}
+                        autoComplete="off"
+                      />
+                      <p className={hint}>Your IG Professional Account numeric ID (not the @handle)</p>
+                    </div>
+                    <div className={`px-4 py-3 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                      <strong>Note:</strong> Fields appear empty for security. Leave blank to keep current value; type to update.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Webhook Setup */}
+                <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
+                  <div>
+                    <p className={`text-sm font-semibold ${K.text}`}>Webhook Setup</p>
+                    <p className={`text-xs mt-0.5 ${K.muted}`}>In your Meta App → Webhooks → Instagram → subscribe to <strong>messages</strong>. Paste the URL below and use the verify token shown.</p>
+                  </div>
+                  <div>
+                    <p className={`text-[10px] font-bold uppercase tracking-widest mb-1.5 ${K.muted}`}>Callback URL</p>
+                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                      <code className="flex-1 text-xs font-mono truncate text-accent">
+                        {`${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/instagram/${settings?.merchantId || ''}`}
+                      </code>
+                      <CopyButton value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/instagram/${settings?.merchantId || ''}`} aria-label="Copy Instagram webhook URL" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className={`text-[10px] font-bold uppercase tracking-widest flex-shrink-0 ${K.muted}`}>Verify Token</p>
+                    <code className={`text-xs font-mono px-3 py-1 rounded-lg ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'} text-accent`}>shopenter</code>
+                    <CopyButton value="shopenter" aria-label="Copy verify token" />
+                  </div>
+                </div>
+
+                {/* Smart Product Search */}
+                <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
+                  <div>
+                    <p className={`text-sm font-semibold ${K.text}`}>Smart Product Search</p>
+                    <p className={`text-xs mt-1 ${K.muted}`}>When a customer's DM matches a product, reply with a Generic Template carousel of matching items.</p>
+                  </div>
+                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div>
+                      <p className={`text-xs font-semibold ${K.text}`}>Enable Smart Product Search</p>
+                      <p className={`text-[10px] ${K.muted}`}>Falls back to a storefront link when no match found</p>
+                    </div>
+                    <Toggle
+                      enabled={settings.instagram?.intentSearch !== false}
+                      onChange={v => setSettings((s: any) => ({ ...s, instagram: { ...(s?.instagram || {}), intentSearch: v } }))}
+                      isDark={isDark}
+                    />
+                  </div>
                 </div>
               </div>
 

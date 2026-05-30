@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import dbConnect from '@/lib/db';
-import { Customer, Message, Settings, ProcessedEvent, Order, Campaign, AutoReply } from '@/models';
+import { Customer, Message, Settings, ProcessedEvent, Order, Campaign, AutoReply, Merchant } from '@/models';
 import { messagingApi } from '@line/bot-sdk';
 import { enqueueCustomerUpdate } from '@/lib/customerQueue';
 import { notifyMerchant } from '@/lib/notifyMerchant';
+import { searchProducts } from '@/lib/intentSearch';
 
 export const runtime = 'nodejs';
 
@@ -12,6 +13,45 @@ const PROFILE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export async function GET() {
   return NextResponse.json({ message: 'Webhook endpoint is active. Use POST for LINE events.' });
+}
+
+function buildLineProductCarousel(products: any[], baseUrl: string, storePath: string): any {
+  const bubbles = products.map((product: any) => {
+    const productUrl = `${baseUrl}${storePath}?product=${product._id}`;
+    const bubble: any = {
+      type: 'bubble',
+      size: 'kilo',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '16px',
+        spacing: 'sm',
+        contents: [
+          { type: 'text', text: product.name, weight: 'bold', size: 'sm', wrap: true, maxLines: 2 },
+          ...(product.brand ? [{ type: 'text', text: product.brand, size: 'xs', color: '#888888' }] : []),
+          { type: 'text', text: `฿${(product.price as number).toLocaleString()}`, weight: 'bold', color: '#00b900', size: 'md', margin: 'sm' },
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '12px',
+        contents: [
+          { type: 'button', action: { type: 'uri', label: 'View Product', uri: productUrl }, style: 'primary', color: '#00b900', height: 'sm' },
+        ],
+      },
+    };
+    if (product.imageUrl) {
+      bubble.hero = { type: 'image', url: product.imageUrl, size: 'full', aspectRatio: '20:13', aspectMode: 'cover', action: { type: 'uri', uri: productUrl } };
+    }
+    return bubble;
+  });
+
+  return {
+    type: 'flex',
+    altText: `Found ${products.length} matching product${products.length > 1 ? 's' : ''} for you`,
+    contents: { type: 'carousel', contents: bubbles },
+  };
 }
 
 // Summarise a message block as plain text for chat log storage
@@ -274,6 +314,17 @@ export async function POST(req: Request) {
           if (rule) {
             await AutoReply.updateOne({ _id: rule._id }, { $set: { lastTriggeredAt: new Date() } });
             replyMessages.push(...rule.messages.slice(0, 5).map(toLineMessage));
+          } else if (matchedSettings?.lineIntentSearch !== false) {
+            const proto   = req.headers.get('x-forwarded-proto') || 'https';
+            const host    = req.headers.get('host') || '';
+            const baseUrl = `${proto}://${host}`;
+            const mid     = matchedSettings!.merchantId.toString();
+            const merchant = await Merchant.findById(mid).select('slug').lean() as any;
+            const storePath = merchant?.slug ? `/shop/${merchant.slug}` : `/merchant/${mid}`;
+            const matches = await searchProducts(mid, event.message.text);
+            if (matches.length > 0) {
+              replyMessages.push(buildLineProductCarousel(matches, baseUrl, storePath));
+            }
           }
 
           // Piggyback queued campaign if user hasn't received it yet and there's reply space

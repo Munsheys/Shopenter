@@ -2,24 +2,13 @@ export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Customer, Settings, Merchant, Product } from '@/models';
+import { Customer, Settings, Merchant } from '@/models';
 import {
   sendTelegramMessage,
   sendTelegramPhotoWithKeyboard,
   sendTelegramInlineKeyboard,
 } from '@/lib/platforms/telegram';
-
-// Common words that carry no product signal
-const STOP_WORDS = new Set([
-  'i', 'want', 'to', 'do', 'you', 'have', 'a', 'the', 'is', 'are', 'can',
-  'please', 'hi', 'hello', 'hey', 'me', 'my', 'get', 'need', 'buy', 'some',
-  'show', 'looking', 'for', 'what', 'where', 'any', 'of', 'in', 'at', 'on',
-  'and', 'or', 'it', 'this', 'that', 'an', 'be', 'with', 'from', 'sell',
-  'selling', 'order', 'like', 'how', 'price', 'much',
-  // Thai
-  'มี', 'ไหม', 'ได้', 'ไหน', 'ต้องการ', 'สั่ง', 'ขอ', 'ดู', 'หา', 'ซื้อ',
-  'อยาก', 'ผม', 'ฉัน', 'ราคา', 'เท่าไหร่', 'เท่าไร', 'ขาย', 'มั้ย',
-]);
+import { searchProducts } from '@/lib/intentSearch';
 
 export async function POST(
   req: Request,
@@ -67,9 +56,11 @@ async function handleUpdate(merchantId: string, update: any, baseUrl: string) {
     : `/merchant/${merchantId}`;
   const identityParams = `uid=${chatId}&platform=telegram&name=${encodeURIComponent(firstName || displayName)}`;
 
-  // Try to infer product intent from the message
+  // Try to infer product intent from the message (if enabled)
   const userText = (msg.text ?? '').trim();
-  const matches  = await searchProducts(merchantId, userText);
+  const matches  = settings.telegram?.intentSearch !== false
+    ? await searchProducts(merchantId, userText)
+    : [];
 
   if (matches.length > 0) {
     await sendTelegramMessage(token, chatId, `Here's what I found 👇`);
@@ -105,36 +96,6 @@ async function handleUpdate(merchantId: string, update: any, baseUrl: string) {
   ]]);
 }
 
-async function searchProducts(merchantId: string, query: string): Promise<any[]> {
-  const tokens = query
-    .toLowerCase()
-    .replace(/[^\w\s฀-鿿]/g, ' ')
-    .split(/\s+/)
-    .filter(t => t.length > 1 && !STOP_WORDS.has(t));
-
-  if (!tokens.length) return [];
-
-  const orClauses = tokens.flatMap(token => [
-    { name:        { $regex: token, $options: 'i' } },
-    { brand:       { $regex: token, $options: 'i' } },
-    { description: { $regex: token, $options: 'i' } },
-    { categories:  { $elemMatch: { $regex: token, $options: 'i' } } },
-  ]);
-
-  const products = await (Product as any).find({ merchantId, isActive: true, $or: orClauses })
-    .select('_id name brand description categories price imageUrl')
-    .limit(20)
-    .lean() as any[];
-
-  const haystack = (p: any) =>
-    [p.name, p.brand, p.description, ...(p.categories || [])].join(' ').toLowerCase();
-
-  return products
-    .map((p: any) => ({ p, score: tokens.filter((t: string) => haystack(p).includes(t)).length }))
-    .sort((a: any, b: any) => b.score - a.score)
-    .slice(0, 5)
-    .map((s: any) => s.p);
-}
 
 async function upsertCustomer(
   merchantId: string,

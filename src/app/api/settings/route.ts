@@ -54,6 +54,15 @@ export async function POST(req: NextRequest) {
     if (body.telegram && typeof body.telegram.botToken === 'string' && !body.telegram.botToken.trim()) {
       delete body.telegram.botToken;
     }
+    // Instagram credentials: skip blank to preserve existing values
+    if (body.instagram) {
+      if (typeof body.instagram.pageAccessToken === 'string' && !body.instagram.pageAccessToken.trim()) {
+        delete body.instagram.pageAccessToken;
+      }
+      if (typeof body.instagram.igAccountId === 'string' && !body.instagram.igAccountId.trim()) {
+        delete body.instagram.igAccountId;
+      }
+    }
     // Never let clients overwrite the merchantId binding
     delete body.merchantId;
 
