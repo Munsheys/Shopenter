@@ -685,17 +685,18 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 <option value="zh-TW">🇹🇼 Traditional Chinese (繁體中文)</option>
               </select>
             </Card>
-          </>
+          </div>
         )}
 
         {/* ── ADVANCED TAB ── */}
         {activeTab === 'advanced' && (
-          <>
-            <Card title="Store URL Handle" description="Your custom short URL. Customers reach your store at /shop/yourhandle instead of the long ID." icon={<Link size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
+          <div id="advanced-panel" role="tabpanel" className="space-y-4">
+            <Card title="Custom Store Link" description="Your custom short URL. Customers reach your store at /shop/yourhandle instead of the long ID." icon={<Link size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="space-y-3">
                 <div className={`flex items-center border rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-accent/30 transition-all ${isDark ? 'border-[#2a2f45]' : 'border-slate-200'}`}>
                   <span className={`px-3 py-2.5 text-sm border-r select-none flex-shrink-0 font-medium ${isDark ? 'text-[#4a5068] border-[#2a2f45] bg-white/5' : 'text-slate-400 border-slate-200 bg-slate-50'}`}>/shop/</span>
                   <input
+                    aria-label="Store URL handle"
                     type="text" value={slugInput}
                     onChange={e => { setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); setSlugError(''); setSlugSaved(false); }}
                     onKeyDown={e => e.key === 'Enter' && handleSaveSlug()}
@@ -708,36 +709,39 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   style={{ backgroundColor: slugSaved ? '#10b981' : dashboardAccent }}>
                   {slugSaved ? <><Check size={14} />Handle saved</> : slugSaving ? 'Saving…' : <><Link size={14} />Apply handle</>}
                 </button>
-                {slugError && <p className="text-xs text-red-400">{slugError}</p>}
+                {slugError && <p role="alert" className="text-xs text-red-400">{slugError}</p>}
                 {slugSaved && <p className={`text-xs font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Store reachable at <span className="font-bold">/shop/{slugInput}</span></p>}
                 <p className={`text-[10px] ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>Lowercase letters, numbers, and hyphens only · 3–30 characters</p>
               </div>
             </Card>
 
-            <Card title="Post-Checkout Redirect" description="Where to send customers after a successful order. Leave blank to stay on the storefront." icon={<ChevronRight size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
-              <input type="url" value={config.postCheckoutUrl} onChange={e => set('postCheckoutUrl', e.target.value)} placeholder="https://…" className={inputCls} />
-              <p className={`text-[10px] mt-1.5 ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>e.g. a LINE group link, a thank-you page, or your LINE OA chat</p>
+            <Card title="After-Purchase Page" description="Where to send customers after a successful order. Leave blank to stay on the storefront." icon={<ChevronRight size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
+              <div>
+                <label htmlFor="post-checkout-url" className={lbl}>Post-Checkout URL</label>
+                <input id="post-checkout-url" type="url" value={config.postCheckoutUrl} onChange={e => set('postCheckoutUrl', e.target.value)} placeholder="https://…" className={inputCls} />
+                <p className={`text-[10px] mt-1.5 ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>e.g. a LINE group link, a thank-you page, or your LINE OA chat</p>
+              </div>
             </Card>
 
             <Card title="Maintenance Mode" description="Temporarily take your store offline. Visitors see your message instead of products." icon={<Wrench size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>Store offline</p>
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>Enable maintenance mode</p>
                     <p className={`text-xs mt-0.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Visitors see a maintenance page instead of products</p>
                   </div>
-                  <Toggle enabled={config.maintenanceMode} onChange={v => set('maintenanceMode', v)} accent={dashboardAccent} />
+                  <Toggle enabled={config.maintenanceMode} onChange={v => set('maintenanceMode', v)} accent={dashboardAccent} label="Enable maintenance mode" />
                 </div>
                 {config.maintenanceMode && (
                   <div className={`rounded-xl p-4 border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
                     <p className={`text-xs font-semibold mb-3 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>⚠ Your store is currently offline</p>
-                    <label className={lbl}>Maintenance message</label>
-                    <input type="text" value={config.maintenanceMessage} onChange={e => set('maintenanceMessage', e.target.value)} placeholder="We will be back soon." className={inputCls} />
+                    <label htmlFor="maintenance-message" className={lbl}>Maintenance message</label>
+                    <input id="maintenance-message" type="text" value={config.maintenanceMessage} onChange={e => set('maintenanceMessage', e.target.value)} placeholder="We will be back soon." className={inputCls} />
                   </div>
                 )}
               </div>
             </Card>
-          </>
+          </div>
         )}
       </div>
 
