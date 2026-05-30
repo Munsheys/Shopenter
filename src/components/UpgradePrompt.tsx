@@ -5,14 +5,23 @@ import { useRouter } from 'next/navigation';
 import { X, Zap, Package, Megaphone, MessageSquare, Tag, Star } from 'lucide-react';
 
 const FEATURE_INFO: Record<string, { label: string; icon: React.ReactNode; description: string }> = {
-  products:     { label: 'Product Catalog', icon: <Package size={20} />, description: 'Add unlimited products to your catalog' },
-  campaigns:    { label: 'Broadcast Campaigns', icon: <Megaphone size={20} />, description: 'Send unlimited broadcast campaigns' },
-  autoReplies:  { label: 'Auto-Reply Rules', icon: <MessageSquare size={20} />, description: 'Create unlimited keyword auto-reply rules' },
-  ordersPerMonth: { label: 'Monthly Orders', icon: <Package size={20} />, description: 'Process unlimited orders per month' },
-  discountCodes:{ label: 'Discount Codes', icon: <Tag size={20} />, description: 'Create coupon codes for your customers' },
-  loyalty:      { label: 'Loyalty Points', icon: <Star size={20} />, description: 'Reward customers with a loyalty points program' },
-  csvExport:    { label: 'CSV Export', icon: <Package size={20} />, description: 'Export orders and customers as CSV files' },
+  products:       { label: 'Product Catalog',      icon: <Package size={20} />,     description: 'Add unlimited products to your catalog' },
+  campaigns:      { label: 'Broadcast Campaigns',  icon: <Megaphone size={20} />,   description: 'Send unlimited broadcast campaigns' },
+  autoReplies:    { label: 'Auto-Reply Rules',      icon: <MessageSquare size={20}/>, description: 'Create unlimited keyword auto-reply rules' },
+  ordersPerMonth: { label: 'Monthly Orders',        icon: <Package size={20} />,     description: 'Process unlimited orders per month' },
+  discountCodes:  { label: 'Discount Codes',        icon: <Tag size={20} />,         description: 'Create coupon codes for your customers' },
+  loyalty:        { label: 'Loyalty Points',        icon: <Star size={20} />,        description: 'Reward customers with a loyalty points program' },
+  csvExport:      { label: 'CSV Export',            icon: <Package size={20} />,     description: 'Export orders and customers as CSV files' },
 };
+
+const PRO_FEATURES = [
+  'Unlimited products (up to 500)',
+  'Unlimited broadcast campaigns',
+  'Unlimited auto-reply rules',
+  'Discount codes & coupons',
+  'Loyalty points program',
+  'CSV export for orders & customers',
+];
 
 interface UpgradePromptProps {
   feature: string;
@@ -20,7 +29,6 @@ interface UpgradePromptProps {
   current?: number;
   onClose: () => void;
   theme?: 'light' | 'dark';
-  /** Optional URL to navigate to on upgrade. Defaults to /dashboard/settings?tab=billing */
   upgradeUrl?: string;
 }
 
@@ -29,9 +37,6 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
   const router = useRouter();
   const info = FEATURE_INFO[feature] ?? { label: feature, icon: <Zap size={20} />, description: 'Upgrade to unlock this feature' };
 
-  const PRO_FEATURES = ['Unlimited products (up to 500)', 'Unlimited broadcast campaigns', 'Unlimited auto-reply rules', 'Discount codes & coupons', 'Loyalty points program', 'CSV export for orders & customers'];
-
-  // Fix 15: dismiss on Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -40,14 +45,12 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // Fix 14: navigate via SPA router so onClose() state cleanup runs before navigation
   const handleUpgrade = () => {
     onClose();
     router.push(upgradeUrl || '/dashboard/settings?tab=billing');
   };
 
   return (
-    // Fix 15: role="dialog", aria-modal
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[500] flex items-center justify-center p-4 animate-in fade-in duration-200"
       role="dialog"
@@ -60,14 +63,14 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
         <div className="relative bg-gradient-to-br from-accent to-[#007700] p-8 pb-10">
           <button
             onClick={onClose}
+            aria-label="Close upgrade prompt"
             className="absolute top-4 right-4 w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
           >
             <X size={16} />
           </button>
-          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-4">
+          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-4" aria-hidden="true">
             {info.icon}
           </div>
-          {/* Fix 15: id for aria-labelledby */}
           <h2 id="upgrade-prompt-title" className="text-xl font-black text-white mb-1">{info.label}</h2>
           <p className="text-sm text-white/80">{info.description}</p>
           {limit !== undefined && current !== undefined && (
@@ -75,7 +78,14 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
               <p className="text-xs text-white/90 font-medium">
                 You&apos;ve used <span className="font-black">{current}</span> of <span className="font-black">{limit}</span> on the Free plan
               </p>
-              <div className="mt-1.5 h-1.5 bg-white/20 rounded-full overflow-hidden">
+              <div
+                className="mt-1.5 h-1.5 bg-white/20 rounded-full overflow-hidden"
+                role="progressbar"
+                aria-valuenow={current}
+                aria-valuemin={0}
+                aria-valuemax={limit}
+                aria-label="Feature usage"
+              >
                 <div
                   className="h-full bg-white rounded-full transition-all"
                   style={{ width: `${Math.min(100, (current / limit) * 100)}%` }}
@@ -91,8 +101,8 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
           <ul className="space-y-2 mb-6">
             {PRO_FEATURES.map((feat) => (
               <li key={feat} className="flex items-center gap-2.5 text-sm">
-                <div className="w-4 h-4 bg-accent/10 rounded-full flex items-center justify-center flex-shrink-0">
-                  <div className="w-1.5 h-1.5 bg-accent rounded-full" />
+                <div aria-hidden="true" className="w-4 h-4 bg-accent/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div aria-hidden="true" className="w-1.5 h-1.5 bg-accent rounded-full" />
                 </div>
                 <span className={isDark ? 'text-[#8b92ad]' : 'text-[#4a5170]'}>{feat}</span>
               </li>
@@ -106,16 +116,15 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
             >
               Not now
             </button>
-            {/* Fix 14 + Fix 15: navigate to billing on click; autoFocus */}
             <button
               autoFocus
               onClick={handleUpgrade}
               className="flex-1 py-3 text-sm font-bold text-white bg-accent rounded-2xl shadow-lg shadow-accent/20 hover:opacity-90 flex items-center justify-center gap-2"
             >
-              <Zap size={16} /> Upgrade to Pro
+              <Zap size={16} aria-hidden="true" /> Upgrade to Pro
             </button>
           </div>
-          <p className={`text-center text-[10px] mt-3 ${isDark ? 'text-[#8b92ad]' : 'text-[#6b7280]'}`}>
+          <p className={`text-center text-[11px] mt-3 ${isDark ? 'text-[#8b92ad]' : 'text-[#6b7280]'}`}>
             Contact support to upgrade your plan
           </p>
         </div>

@@ -60,12 +60,12 @@ export default function FloatingGuide({
   const [isDragging, setIsDragging] = useState(false);
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   const dragRef = useRef<{ startX: number, startY: number, initX: number, initY: number, moved: boolean } | null>(null);
-  const [lineOk, setLineOk]       = useState(false);
-  const [hasProducts, setHasProducts]     = useState(false);
-  const [hasAutoReply, setHasAutoReply]   = useState(false);
-  const [hasRichMenu, setHasRichMenu]     = useState(false);
-  const [hasBroadcast, setHasBroadcast]   = useState(false);
-  const [showConfirm, setShowConfirm]     = useState(false);
+  const [lineOk, setLineOk]           = useState(false);
+  const [hasProducts, setHasProducts] = useState(false);
+  const [hasAutoReply, setHasAutoReply] = useState(false);
+  const [hasRichMenu, setHasRichMenu] = useState(false);
+  const [hasBroadcast, setHasBroadcast] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     const syncDismissed = () => {
@@ -123,7 +123,7 @@ export default function FloatingGuide({
     });
   }, []);
 
-  // Auto-collapse: start 8s timer when panel opens; clear when it closes
+  // Auto-collapse timer
   useEffect(() => {
     if (open) {
       scheduleAutoCollapse();
@@ -133,12 +133,22 @@ export default function FloatingGuide({
     return () => clearAutoCollapse();
   }, [open, scheduleAutoCollapse, clearAutoCollapse]);
 
+  // Escape key for dismiss confirm modal
+  useEffect(() => {
+    if (!showConfirm) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowConfirm(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showConfirm]);
+
   const onPointerDown = useCallback((e: React.PointerEvent, isHeader?: boolean) => {
-    if (e.button !== 0) return; // only left click
+    if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (open && !isHeader) return; // if expanded, only drag from header
-    if (target.closest('button') && !isHeader) return; // ignore clicks on buttons when collapsed
-    
+    if (open && !isHeader) return;
+    if (target.closest('button') && !isHeader) return;
+
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
     dragRef.current = {
@@ -160,7 +170,7 @@ export default function FloatingGuide({
       const dx = e.clientX - dragRef.current.startX;
       const dy = e.clientY - dragRef.current.startY;
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) dragRef.current.moved = true;
-      
+
       const targetY = dragRef.current.initY + dy;
       setPos({
         x: dragRef.current.initX + dx,
@@ -181,7 +191,6 @@ export default function FloatingGuide({
         setCorner(c);
         localStorage.setItem('sg-corner', c);
       } else {
-        // it was just a click
         if (!open) toggle();
       }
       setIsDragging(false);
@@ -296,7 +305,7 @@ export default function FloatingGuide({
     }
     const s: React.CSSProperties = { position: 'fixed', zIndex: 50, transition: 'all 0.3s ease-out' };
     const margin = 20;
-    if (corner.includes('t')) s.top = 76; // Offset top coordinates by 76px to stay cleanly below the top navbar
+    if (corner.includes('t')) s.top = 76;
     else s.bottom = nudgeUp ? margin + 70 : margin;
     if (corner.includes('l')) { s.left = margin + nudgeLeft; s.alignItems = 'flex-start'; }
     else { s.right = margin; s.alignItems = 'flex-end'; }
@@ -309,31 +318,40 @@ export default function FloatingGuide({
       style={getStyle()}
     >
 
-      {/* ── Expanded panel ── */}
+      {/* Expanded panel */}
       {open && (
         <div
           className={`rounded-2xl w-72 overflow-hidden pointer-events-auto ${bgOpen}`}
           onMouseEnter={clearAutoCollapse}
           onMouseLeave={scheduleAutoCollapse}
+          onFocus={clearAutoCollapse}
+          onBlur={scheduleAutoCollapse}
         >
-
-          {/* Header */}
-          <div 
+          {/* Header — draggable */}
+          <div
             className={`flex items-center justify-between px-4 py-3 border-b ${border} cursor-move`}
             onPointerDown={(e) => onPointerDown(e, true)}
           >
             <div className="flex items-center gap-2">
               <BookOpen size={13} className="text-accent" />
               <p className={`text-sm font-semibold ${text}`}>Getting Started</p>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${deep} ${muted}`}>
+              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${deep} ${muted}`}>
                 {doneCount}/{steps.length}
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={toggle} className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
+              <button
+                onClick={toggle}
+                aria-label="Collapse guide"
+                className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}
+              >
                 <ChevronDown size={14} />
               </button>
-              <button onClick={dismiss} title="Dismiss" className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-red-400' : 'text-slate-300 hover:text-red-400'}`}>
+              <button
+                onClick={dismiss}
+                aria-label="Dismiss setup guide"
+                className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-red-400' : 'text-slate-300 hover:text-red-400'}`}
+              >
                 <X size={13} />
               </button>
             </div>
@@ -341,7 +359,14 @@ export default function FloatingGuide({
 
           {/* Progress bar */}
           <div className="px-4 pt-3 pb-1">
-            <div className={`h-1 rounded-full ${deep}`}>
+            <div
+              className={`h-1 rounded-full ${deep}`}
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Setup completion: ${pct}%`}
+            >
               <div
                 className="h-1 rounded-full transition-all duration-500"
                 style={{ background: 'var(--accent-gradient)', width: `${pct}%` }}
@@ -360,7 +385,7 @@ export default function FloatingGuide({
                     : isDark ? 'hover:bg-[#1a1d2e]' : 'hover:bg-slate-50'
                 }`}
               >
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold ${
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold ${
                   step.done
                     ? 'bg-accent/15 text-accent'
                     : isDark ? 'bg-[#1a1d2e] text-[#8b92ad]' : 'bg-slate-100 text-slate-500'
@@ -374,10 +399,10 @@ export default function FloatingGuide({
 
                 {!step.done && step.action && (() => {
                   const a = step.action!;
-                  const cls = `text-[10px] font-semibold text-accent hover:text-accent transition-colors flex-shrink-0 flex items-center gap-0.5 whitespace-nowrap`;
+                  const cls = `text-[11px] font-semibold text-accent hover:text-accent transition-colors flex-shrink-0 flex items-center gap-0.5 whitespace-nowrap px-1 py-0.5 rounded`;
                   if (a.kind === 'href') return (
                     <a href={a.href} target="_blank" rel="noopener noreferrer" className={cls}>
-                      {a.label} <ExternalLink size={8} />
+                      {a.label} <ExternalLink size={10} />
                     </a>
                   );
                   return (
@@ -389,7 +414,7 @@ export default function FloatingGuide({
                       }}
                       className={cls}
                     >
-                      {a.label} <ArrowRight size={8} />
+                      {a.label} <ArrowRight size={10} />
                     </button>
                   );
                 })()}
@@ -399,48 +424,63 @@ export default function FloatingGuide({
         </div>
       )}
 
-      {/* ── Collapsed pill ── */}
+      {/* Collapsed pill — button for keyboard accessibility */}
       {!open && (
-        <div
+        <button
+          type="button"
           onPointerDown={(e) => onPointerDown(e, false)}
+          onClick={() => { if (!isDragging) toggle(); }}
+          aria-label={`Open Getting Started guide, ${doneCount} of ${steps.length} steps complete`}
+          aria-expanded={false}
           className={`relative flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-2xl transition-all pointer-events-auto ${bgCollapsed} active:scale-[0.98] cursor-pointer`}
         >
           <div className="absolute inset-0 rounded-2xl blur-lg pointer-events-none -z-10 opacity-20" style={{ background: 'var(--accent-gradient)' }} />
           <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-gradient)', color: 'var(--accent-text, white)' }}>
             <BookOpen size={13} />
           </div>
-        <div className="flex flex-col items-start gap-0.5">
-          <p className={`text-xs font-semibold leading-none ${text}`}>Getting Started</p>
-          <div className="flex items-center gap-2">
-            <div className={`w-14 h-1 rounded-full ${deep}`}>
+          <div className="flex flex-col items-start gap-0.5">
+            <p className={`text-xs font-semibold leading-none ${text}`}>Getting Started</p>
+            <div className="flex items-center gap-2">
               <div
-                className="h-1 rounded-full transition-all duration-500"
-                style={{ background: 'var(--accent-gradient)', width: `${pct}%` }}
-              />
+                className={`w-14 h-1 rounded-full ${deep}`}
+                role="progressbar"
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`${pct}% complete`}
+              >
+                <div
+                  className="h-1 rounded-full transition-all duration-500"
+                  style={{ background: 'var(--accent-gradient)', width: `${pct}%` }}
+                />
+              </div>
+              <span className={`text-[11px] leading-none ${muted}`}>{doneCount}/{steps.length}</span>
             </div>
-            <span className={`text-[10px] leading-none ${muted}`}>{doneCount}/{steps.length}</span>
           </div>
-        </div>
-        {open
-          ? <ChevronDown size={12} className={muted} />
-          : <ChevronUp   size={12} className={muted} />
-        }
-        </div>
+          <ChevronUp size={12} className={muted} />
+        </button>
       )}
-      {/* ── Custom Dismiss Confirmation Modal ── */}
+
+      {/* Dismiss Confirmation Modal */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200 pointer-events-auto">
-          <div 
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200 pointer-events-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowConfirm(false); }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dismiss-guide-title"
             className={`max-w-xl w-full rounded-[36px] p-9 shadow-2xl space-y-8 animate-in zoom-in-95 duration-200 ${
               isDark ? 'bg-[#161925] border border-[#1f2335] text-white' : 'bg-white border border-slate-100 text-slate-900'
             }`}
           >
             <div className="flex items-start gap-6">
-              <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0 text-amber-500">
+              <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0 text-amber-500" aria-hidden="true">
                 <AlertCircle size={28} />
               </div>
               <div className="space-y-3 flex-1 min-w-0">
-                <h4 className="text-xl font-bold tracking-tight">Dismiss Setup Guide?</h4>
+                <h4 id="dismiss-guide-title" className="text-xl font-bold tracking-tight">Dismiss Setup Guide?</h4>
                 <p className={`text-sm leading-relaxed ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>
                   Caution: Dismissing this setup guide will hide the helpful checklist widget. You can re-enable it anytime in your Settings page. Do you want to hide it now?
                 </p>
@@ -450,10 +490,11 @@ export default function FloatingGuide({
             <div className="flex items-center justify-end gap-4 pt-4">
               <button
                 type="button"
+                autoFocus
                 onClick={() => setShowConfirm(false)}
                 className={`px-6 py-3 rounded-2xl text-xs font-bold transition-all ${
-                  isDark 
-                    ? 'bg-[#1a1d2e] text-[#8b92ad] hover:bg-white/5 hover:text-white' 
+                  isDark
+                    ? 'bg-[#1a1d2e] text-[#8b92ad] hover:bg-white/5 hover:text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >

@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+'use client';
+
+import React, { useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -26,12 +28,25 @@ export default function UnsavedChangesModal({
 }: UnsavedChangesModalProps) {
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  // Fix 12: dismiss on Escape key
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape') { onCancel(); return; }
+      // Focus trap: cycle only within dialog
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        } else {
+          if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -40,12 +55,12 @@ export default function UnsavedChangesModal({
   if (!isOpen) return null;
 
   return (
-    // Fix 12: role="dialog", aria-modal, aria-labelledby
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="unsaved-title"
@@ -54,7 +69,6 @@ export default function UnsavedChangesModal({
           isDark ? "bg-[#161925] border-[#1f2335]" : isLite ? "bg-[#e7ecf3] border-[#cdd3dd]" : "bg-white border-[#e2e5ef]"
         )}
       >
-        {/* Icon + Title */}
         <div className="flex items-start gap-4">
           <div className={cn(
             "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
@@ -63,7 +77,6 @@ export default function UnsavedChangesModal({
             <AlertTriangle size={20} />
           </div>
           <div className="flex-1 min-w-0">
-            {/* Fix 12: id for aria-labelledby */}
             <h3
               id="unsaved-title"
               className={cn(
@@ -82,7 +95,6 @@ export default function UnsavedChangesModal({
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex gap-3 pt-2">
           <button
             autoFocus
@@ -116,14 +128,12 @@ export default function UnsavedChangesModal({
           <button
             onClick={onSave}
             disabled={isSaving}
-            // Fix 13: visually distinct muted state while saving (opacity-60 on save button)
             className={cn(
               "flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition-all text-white flex items-center justify-center gap-2",
               isSaving ? "opacity-60" : "hover:opacity-90"
             )}
             style={{ background: 'var(--accent)' }}
           >
-            {/* Fix 13: aria-live so screen readers announce saving state */}
             <span aria-live="polite">
               {isSaving ? (
                 <span className="flex items-center gap-2">
@@ -140,4 +150,3 @@ export default function UnsavedChangesModal({
     </div>
   );
 }
-

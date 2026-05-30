@@ -30,6 +30,12 @@ interface Merchant {
   paymentStatus?: string;
 }
 
+const TIER_BADGE_COLORS: Record<string, string> = {
+  free:       'bg-slate-100 text-slate-500',
+  pro:        'bg-accent/10 text-accent',
+  enterprise: 'bg-amber-50 text-amber-600',
+};
+
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'customers',  label: 'Customers',  icon: <MessageCircle size={15} /> },
   { id: 'orders',     label: 'Orders',     icon: <ShoppingCart size={15} /> },
@@ -65,6 +71,7 @@ export default function DashboardPage() {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [autoDeliverToast, setAutoDeliverToast] = useState<string | null>(null);
   const autoDeliverRan = useRef(false);
+  const autoDeliverToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [topNavStyle, setTopNavStyle] = useState<React.CSSProperties>({});
   const topNavContainerRef = useRef<HTMLElement>(null);
@@ -86,7 +93,7 @@ export default function DashboardPage() {
           fetch('/api/merchant/me'),
           fetch('/api/settings')
         ]);
-        if (!meRes.ok) { if (!hasCached) router.replace('/login'); return; }
+        if (!meRes.ok) { router.replace('/login'); return; }
         const [me, s] = await Promise.all([meRes.json(), settingsRes.json()]);
         setMerchant(me);
         setSettings(s);
@@ -177,9 +184,13 @@ export default function DashboardPage() {
           })
         ));
         setAutoDeliverToast(`${toDeliver.length} order${toDeliver.length !== 1 ? 's' : ''} auto-archived as delivered`);
-        setTimeout(() => setAutoDeliverToast(null), 6000);
+        if (autoDeliverToastTimer.current) clearTimeout(autoDeliverToastTimer.current);
+        autoDeliverToastTimer.current = setTimeout(() => setAutoDeliverToast(null), 6000);
       } catch {}
     })();
+    return () => {
+      if (autoDeliverToastTimer.current) clearTimeout(autoDeliverToastTimer.current);
+    };
   }, [settings]);
 
   // Update unread count from SSE stream payload
@@ -312,7 +323,7 @@ export default function DashboardPage() {
     return () => { clearTimeout(timer); window.removeEventListener('resize', updateTopNav); };
   }, [activeTab, loading]);
 
-  if (loading) return <LoadingView />;
+  if (loading) return <LoadingView theme={(settings?.theme as 'light' | 'dark') || 'light'} />;
 
   const theme = settings?.theme || 'light';
   const isDark = theme === 'dark';
@@ -323,12 +334,6 @@ export default function DashboardPage() {
   const tier = merchant?.tier ?? 'free';
   const tierLabel = getTierLabel(tier);
   const couponsUnlocked = checkBooleanFeature(tier, 'discountCodes');
-
-  const TIER_BADGE_COLORS: Record<string, string> = {
-    free:       'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-[#8b92ad]',
-    pro:        'bg-accent/10 text-accent',
-    enterprise: 'bg-amber-50 text-amber-600',
-  };
 
   return (
     <div className={`h-screen flex flex-col ${isDark ? 'bg-[#0f1117] text-white' : isLite ? 'bg-[#d9dfe8] text-[#2f3744]' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`} style={{ '--accent': accentColor, '--accent-gradient': accentGradient || accentColor, '--accent-text': getAccentText(accentColor) } as React.CSSProperties}>
@@ -369,7 +374,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Tab navigation */}
-        <nav ref={topNavContainerRef} className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
+        <nav ref={topNavContainerRef} role="tablist" aria-label="Dashboard sections" className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
           <div
             className={`absolute bottom-0 h-[2px] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
               topNavStyle.width ? 'opacity-100' : 'opacity-0'
@@ -384,6 +389,8 @@ export default function DashboardPage() {
           {tabs.map(tab => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => {
                 if (activeTab === 'settings' && settingsDirty && tab.id !== 'settings') {
                   setPendingTab(tab.id);
@@ -426,7 +433,8 @@ export default function DashboardPage() {
             onClick={handleRefresh}
             disabled={isRefreshing}
             title="Refresh data"
-            className={`relative p-1.5 rounded-lg transition-all disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+            aria-label="Refresh data"
+            className={`relative p-2.5 rounded-lg transition-all disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
             style={isRefreshing ? { color: accentColor } : undefined}
           >
             {isRefreshing && <div className="absolute inset-0 rounded-lg blur-md pointer-events-none -z-10" style={{ background: `var(--accent-gradient)`, opacity: 0.25 }} />}
@@ -438,20 +446,21 @@ export default function DashboardPage() {
             <button
               onClick={handleOpenNotif}
               title="Notifications"
-              className={`relative p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+              aria-label={unreadNotifCount > 0 ? `Notifications, ${unreadNotifCount} unread` : 'Notifications'}
+              className={`relative p-2.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
             >
               <Bell size={15} />
               {unreadNotifCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[9px] font-black flex items-center justify-center" style={{ background: 'var(--accent-gradient)' }}>
+                <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[11px] font-black flex items-center justify-center" style={{ background: 'var(--accent-gradient)' }}>
                   {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
                 </span>
               )}
             </button>
             {notifOpen && (
-              <div className={`absolute right-0 top-10 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-[#e2e5ef]'}`}>
+              <div role="dialog" aria-label="Notifications" className={`absolute right-0 top-10 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-[#e2e5ef]'}`}>
                 <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-[#e2e5ef]'}`}>
                   <span className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-[#3f4557]'}`}>Notifications</span>
-                  <button onClick={() => setNotifOpen(false)} className="text-[#8b92ad] hover:text-red-400"><X size={14} /></button>
+                  <button onClick={() => setNotifOpen(false)} aria-label="Close notifications" className="text-[#8b92ad] hover:text-red-400 p-1"><X size={14} /></button>
                 </div>
                 <div className="max-h-72 overflow-y-auto">
                   {notifications.length === 0 ? (
@@ -482,7 +491,9 @@ export default function DashboardPage() {
             <button
               onClick={() => setActiveTab('feedback')}
               title="Feedback"
-              className={`p-1.5 rounded-lg transition-all ${
+              aria-label="Feedback"
+              aria-pressed={activeTab === 'feedback'}
+              className={`p-2.5 rounded-lg transition-all ${
                 activeTab === 'feedback'
                   ? ''
                   : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
@@ -494,7 +505,9 @@ export default function DashboardPage() {
             <button
               onClick={() => setActiveTab('settings')}
               title="Settings"
-              className={`p-1.5 rounded-lg transition-all ${
+              aria-label="Settings"
+              aria-pressed={activeTab === 'settings'}
+              className={`p-2.5 rounded-lg transition-all ${
                 activeTab === 'settings'
                   ? ''
                   : isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
@@ -509,7 +522,8 @@ export default function DashboardPage() {
             <button
               onClick={handleLogout}
               title="Sign out"
-              className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+              aria-label="Sign out"
+              className={`p-2.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
             >
               <LogOut size={15} />
             </button>
