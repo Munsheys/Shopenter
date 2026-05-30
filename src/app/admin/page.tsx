@@ -44,6 +44,8 @@ interface MerchantItem {
   isLiffConfigured: boolean;
   isPromptPayConfigured: boolean;
   isSlipOkConfigured: boolean;
+  isTelegramConfigured: boolean;
+  isInstagramConfigured: boolean;
   // Volume stats
   productsCount: number;
   ordersCount: number;
@@ -73,6 +75,8 @@ interface FeedbackItem {
     isLiffConfigured: boolean;
     isPromptPayConfigured: boolean;
     isSlipOkConfigured: boolean;
+    isTelegramConfigured: boolean;
+    isInstagramConfigured: boolean;
     productsCount: number;
     ordersCount: number;
     lineOASyncStatus: 'success' | 'expired' | 'unconfigured';
@@ -923,10 +927,12 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
 
                           {/* 5. Integration flags */}
                           <td className="py-4 px-6">
-                            <div className="flex items-center justify-center gap-1.5">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
                               {[
                                 { key: 'LINE', active: m.isLineConfigured, label: 'LINE connection active' },
                                 { key: 'LIFF', active: m.isLiffConfigured, label: 'LIFF SDK configured' },
+                                { key: 'TG', active: m.isTelegramConfigured, label: 'Telegram bot active' },
+                                { key: 'IG', active: m.isInstagramConfigured, label: 'Instagram DM bot active' },
                                 { key: 'PAY', active: m.isPromptPayConfigured, label: 'PromptPay set' },
                                 { key: 'SLIP', active: m.isSlipOkConfigured, label: 'SlipOK active' },
                               ].map(diag => (
@@ -1091,17 +1097,23 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                       
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="text-[#8b92ad] font-bold uppercase tracking-wide text-[8px]">Client Setup:</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-bold ${fb.diagnostics.isLineConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`font-bold text-xs ${fb.diagnostics.isLineConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
                             LINE: {fb.diagnostics.isLineConfigured ? 'ON' : 'OFF'}
                           </span>
-                          <span className={`font-bold ${fb.diagnostics.isLiffConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <span className={`font-bold text-xs ${fb.diagnostics.isLiffConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
                             LIFF: {fb.diagnostics.isLiffConfigured ? 'ON' : 'OFF'}
                           </span>
-                          <span className={`font-bold ${fb.diagnostics.isPromptPayConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <span className={`font-bold text-xs ${fb.diagnostics.isTelegramConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                            TG: {fb.diagnostics.isTelegramConfigured ? 'ON' : 'OFF'}
+                          </span>
+                          <span className={`font-bold text-xs ${fb.diagnostics.isInstagramConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                            IG: {fb.diagnostics.isInstagramConfigured ? 'ON' : 'OFF'}
+                          </span>
+                          <span className={`font-bold text-xs ${fb.diagnostics.isPromptPayConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
                             QR PAY: {fb.diagnostics.isPromptPayConfigured ? 'ON' : 'OFF'}
                           </span>
-                          <span className={`font-bold ${fb.diagnostics.isSlipOkConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <span className={`font-bold text-xs ${fb.diagnostics.isSlipOkConfigured ? 'text-emerald-400' : 'text-red-400'}`}>
                             SLIP: {fb.diagnostics.isSlipOkConfigured ? 'ON' : 'OFF'}
                           </span>
                         </div>

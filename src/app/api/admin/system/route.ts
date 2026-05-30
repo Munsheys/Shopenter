@@ -110,6 +110,8 @@ export async function GET(req: NextRequest) {
         isLiffConfigured: !!s?.liffId,
         isPromptPayConfigured: !!s?.promptPayId,
         isSlipOkConfigured: !!(s?.slipokApiKey && s?.slipokBranchId),
+        isTelegramConfigured: !!(s?.telegram?.botToken && s?.telegram?.webhookActive),
+        isInstagramConfigured: !!(s?.instagram?.pageAccessToken && s?.instagram?.igAccountId && s?.instagram?.webhookActive),
         productsCount: productsCountMap.get(m._id.toString()) || 0,
         ordersCount: ordersCountMap.get(m._id.toString()) || 0,
       };
@@ -190,6 +192,8 @@ export async function GET(req: NextRequest) {
           isLiffConfigured: mInfo?.isLiffConfigured || false,
           isPromptPayConfigured: mInfo?.isPromptPayConfigured || false,
           isSlipOkConfigured: mInfo?.isSlipOkConfigured || false,
+          isTelegramConfigured: mInfo?.isTelegramConfigured || false,
+          isInstagramConfigured: mInfo?.isInstagramConfigured || false,
           productsCount: mInfo?.productsCount || 0,
           ordersCount: mInfo?.ordersCount || 0,
           lineOASyncStatus: mInfo?.lineOASyncStatus || 'unconfigured',
