@@ -185,6 +185,8 @@ const CustomerSchema = new mongoose.Schema({
   shopCredits:   { type: Number, default: 0 },
 });
 CustomerSchema.index({ merchantId: 1, userId: 1 }, { unique: true });
+CustomerSchema.index({ merchantId: 1, lastSeen: -1 });
+CustomerSchema.index({ merchantId: 1, loyaltyPoints: -1 });
 
 // CustomerProfile links platform-specific Customer records for the same real person (by phone)
 const CustomerProfileSchema = new mongoose.Schema({
@@ -246,6 +248,9 @@ const OrderSchema = new mongoose.Schema({
   redeemedPoints: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
+
+OrderSchema.index({ merchantId: 1, status: 1 });
+OrderSchema.index({ merchantId: 1, createdAt: -1 });
 
 const MessageSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
@@ -379,6 +384,7 @@ const FulfilmentSchema = new mongoose.Schema({
   deliveredAt:{ type: Date },
 });
 FulfilmentSchema.index({ orderId: 1, status: 1 });
+FulfilmentSchema.index({ merchantId: 1, createdAt: -1 });
 
 export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);

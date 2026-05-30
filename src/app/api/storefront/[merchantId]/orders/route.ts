@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Message } from '@/models';
+import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Message, Product } from '@/models';
 import { sendLineMessage } from '@/lib/platforms/line';
 import { notifyMerchant } from '@/lib/notifyMerchant';
 
@@ -22,7 +22,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     let redeemedPoints = 0;
     let loyaltyRedeemRate = 100;
 
-    const baseTotal: number = orderData.soldTHB || 0;
+    // Recompute total server-side — never trust the client-supplied price
+    let baseTotal = 0;
+    if (Array.isArray(orderData.items) && orderData.items.length > 0) {
+      const recomputedItems = await Promise.all(
+        orderData.items.map(async (item: any) => {
+          const product = await Product.findById(item.productId)
+            .select('price variants trackStock stock')
+            .lean() as any;
+
+          let serverPrice: number;
+          if (!product) {
+            // Product was deleted — fall back to client-supplied price so the order is not rejected
+            serverPrice = item.price ?? 0;
+          } else if (product.variants?.length && item.variantLabel) {
+            const matched = product.variants.find(
+              (v: any) => v.variantName === item.variantLabel
+            );
+            serverPrice = matched?.price ?? product.price;
+          } else {
+            serverPrice = product.price;
+          }
+
+          baseTotal += serverPrice * (item.qty ?? 1);
+          return { ...item, price: serverPrice };
+        })
+      );
+      orderData.items = recomputedItems;
+    } else {
+      // No structured items — fall back to client-supplied total (legacy single-product orders)
+      baseTotal = orderData.soldTHB || 0;
+    }
 
     // Validate and apply coupon
     if (couponCode) {
