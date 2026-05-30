@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const settings = await Settings.findOne({ merchantId: merchant.merchantId });
 
   // Validate that requested platforms are configured
-  const configuredPlatforms = [];
+  const configuredPlatforms: string[] = [];
   if (settings?.lineChannelAccessToken?.trim()) configuredPlatforms.push('line');
   if (settings?.telegram?.botToken?.trim() && settings?.telegram?.webhookActive) configuredPlatforms.push('telegram');
   if (settings?.instagram?.pageAccessToken?.trim() && settings?.instagram?.igAccountId) configuredPlatforms.push('instagram');
@@ -85,6 +85,8 @@ export async function POST(req: NextRequest) {
   });
 
   const results: Record<string, { sent: number; failed: number }> = {};
+  let totalSent = 0;
+  let totalFailed = 0;
   const CHUNK = 500;
 
   // Send to each platform
@@ -145,10 +147,9 @@ export async function POST(req: NextRequest) {
     }
 
     results[platform] = { sent, failed };
+    totalSent += sent;
+    totalFailed += failed;
   }
-
-  const totalSent = Object.values(results).reduce((sum, r) => sum + r.sent, 0);
-  const totalFailed = Object.values(results).reduce((sum, r) => sum + r.failed, 0);
 
   await Campaign.findByIdAndUpdate(campaign._id, {
     status: totalFailed === userIds.length * requestedPlatforms.length ? 'failed' : 'completed',
