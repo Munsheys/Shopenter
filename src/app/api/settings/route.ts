@@ -50,6 +50,10 @@ export async function POST(req: NextRequest) {
     // Allow adminSecret to be updated — it's a passphrase for bot commands, not a platform credential.
     // Treat it like other credential fields: skip save if blank (keeps existing value).
     if (typeof body.adminSecret === 'string' && !body.adminSecret.trim()) delete body.adminSecret;
+    // Telegram bot token: skip blank to preserve existing value
+    if (body.telegram && typeof body.telegram.botToken === 'string' && !body.telegram.botToken.trim()) {
+      delete body.telegram.botToken;
+    }
     // Never let clients overwrite the merchantId binding
     delete body.merchantId;
 

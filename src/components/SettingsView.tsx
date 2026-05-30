@@ -5,7 +5,7 @@ import { ALL_CURRENCIES } from '@/components/ProductManagement';
 import {
   Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check,
   ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle, Bell,
-  Building2, ChevronRight,
+  Building2, ChevronRight, Send,
 } from 'lucide-react';
 import NumberStepper from '@/components/NumberStepper';
 import { getAccentText } from '@/lib/accent';
@@ -42,7 +42,7 @@ function Toggle({ enabled, onChange, isDark, label }: { enabled: boolean; onChan
 }
 
 
-type SectionId = 'general' | 'line' | 'payment' | 'shipping' | 'notifications';
+type SectionId = 'general' | 'line' | 'telegram' | 'payment' | 'shipping' | 'notifications';
 
 interface LineStatus {
   configured: boolean;
@@ -260,6 +260,10 @@ export default function SettingsView({
   const [checkingLine, setCheckingLine] = useState(false);
   const [merchantPlan, setMerchantPlan] = useState<{ tier: string; paymentStatus: string } | null>(null);
 
+  const [showTgToken,       setShowTgToken]       = useState(false);
+  const [tgActivating,      setTgActivating]      = useState(false);
+  const [tgActivateResult,  setTgActivateResult]  = useState<{ ok: boolean; msg: string } | null>(null);
+
   useEffect(() => {
     setShowGuide(localStorage.getItem('sg-dismissed') !== 'true');
     const sync = () => setShowGuide(localStorage.getItem('sg-dismissed') !== 'true');
@@ -315,7 +319,7 @@ export default function SettingsView({
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
       const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 24;
       container.scrollTo({ top, behavior: 'smooth' });
-      const sectionIds: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
+      const sectionIds: SectionId[] = ['general', 'line', 'telegram', 'payment', 'shipping', 'notifications'];
       const section = sectionIds.find(s => id === s || id.startsWith(s + '-')) ?? 'general';
       setActiveSection(section);
       scrollTimeoutRef.current = setTimeout(() => { isScrollingRef.current = false; }, 600);
@@ -325,7 +329,7 @@ export default function SettingsView({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const ids: SectionId[] = ['general', 'line', 'payment', 'shipping', 'notifications'];
+    const ids: SectionId[] = ['general', 'line', 'telegram', 'payment', 'shipping', 'notifications'];
     const observerCallback = (entries: IntersectionObserverEntry[]) => {
       if (isScrollingRef.current) return;
       const visible = entries.filter(e => e.isIntersecting).map(e => e.target.id as SectionId);
@@ -490,6 +494,7 @@ export default function SettingsView({
   const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'general',       label: 'General',       icon: <SettingsIcon  size={14} />, desc: 'Theme, language & hours'    },
     { id: 'line',          label: 'LINE',          icon: <MessageSquare size={14} />, desc: 'Webhook & credentials'      },
+    { id: 'telegram',      label: 'Telegram',      icon: <Send          size={14} />, desc: 'Bot token & webhook'        },
     { id: 'payment',       label: 'Payment',       icon: <Zap           size={14} />, desc: 'Methods, SlipOK & loyalty'  },
     { id: 'shipping',      label: 'Shipping',      icon: <Package       size={14} />, desc: 'Rates & companies'          },
     { id: 'notifications', label: 'Notifications', icon: <Bell          size={14} />, desc: 'Alerts & templates'         },
@@ -1128,6 +1133,109 @@ export default function SettingsView({
                     </div>
                     <p className={hint}>Required to use admin-only bot commands via LINE chat</p>
                   </div>
+                </div>
+              </div>
+
+              {/* ══ TELEGRAM ════════════════════════════════════════════ */}
+              <div id="telegram" className="space-y-6">
+                <div className={`flex items-center gap-2 ${hlCls('telegram')}`}>
+                  <Send size={15} className="text-accent" />
+                  <h2 className={`text-base font-bold ${K.text}`}>Telegram Bot</h2>
+                </div>
+
+                {/* Telegram Bot Token */}
+                <div id="telegram-credentials" className={ringCls('telegram-credentials')}>
+                  <div>
+                    <p className={`text-sm font-semibold ${K.text}`}>Bot Credentials</p>
+                    <p className={`text-xs mt-1 ${K.muted}`}>Create a bot via <strong>@BotFather</strong> on Telegram, then paste the API token below.</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className={lbl}>Bot Token</label>
+                      <div className="relative">
+                        <input
+                          type={showTgToken ? 'text' : 'password'}
+                          value={settings.telegram?.botToken || ''}
+                          onChange={e => setSettings((s: any) => ({ ...s, telegram: { ...(s?.telegram || {}), botToken: e.target.value } }))}
+                          placeholder="123456789:AABBccDDeeFFggHHiiJJkkLLmmNNoo…"
+                          className={inputMono}
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          aria-label={showTgToken ? 'Hide bot token' : 'Show bot token'}
+                          onClick={() => setShowTgToken(v => !v)}
+                          className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 ${K.muted} hover:text-white transition-colors`}
+                        >
+                          {showTgToken ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+                      <p className={hint}>From BotFather → /newbot → API Token</p>
+                    </div>
+
+                    <div className={`px-4 py-3 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                      <strong>Note:</strong> Fields appear empty for security — saved values are never returned. Leave blank to keep the current value; type to update.
+                    </div>
+                  </div>
+
+                  {/* Status chip */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-semibold ${K.text}`}>Webhook Status</span>
+                      {settings.telegram?.webhookActive ? (
+                        <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">Active</span>
+                      ) : (
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${isDark ? 'bg-slate-500/15 text-slate-400 border-slate-500/30' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>Not configured</span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={tgActivating || !settings.telegram?.botToken}
+                      onClick={async () => {
+                        setTgActivating(true);
+                        setTgActivateResult(null);
+                        try {
+                          // Save settings first so the token is persisted before activation
+                          await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(settings),
+                          });
+                          const merchantId = String(settings.merchantId ?? '');
+                          const res = await fetch(`/api/webhooks/telegram/${merchantId}/activate`, { method: 'POST' });
+                          const data = await res.json();
+                          if (res.ok && data.success) {
+                            setSettings((s: any) => ({ ...s, telegram: { ...(s?.telegram || {}), webhookActive: true } }));
+                            setTgActivateResult({ ok: true, msg: `Webhook active ✓  ${data.webhookUrl}` });
+                          } else {
+                            setTgActivateResult({ ok: false, msg: data.error || 'Failed to activate webhook' });
+                          }
+                        } catch {
+                          setTgActivateResult({ ok: false, msg: 'Network error. Please try again.' });
+                        } finally {
+                          setTgActivating(false);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 hover:opacity-90 active:scale-[0.98]"
+                      style={{ background: 'var(--accent-gradient)', color: 'var(--accent-text, white)' }}
+                    >
+                      {tgActivating ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                      {tgActivating ? 'Activating…' : 'Activate Webhook'}
+                    </button>
+                  </div>
+
+                  {tgActivateResult && (
+                    <div className={`flex items-start gap-2 px-4 py-3 rounded-xl text-xs ${
+                      tgActivateResult.ok
+                        ? isDark ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                        : isDark ? 'bg-red-500/10 border border-red-500/20 text-red-300' : 'bg-red-50 border border-red-200 text-red-800'
+                    }`}>
+                      {tgActivateResult.ok ? <Check size={13} className="flex-shrink-0 mt-0.5" /> : <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />}
+                      <span className="break-all">{tgActivateResult.msg}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 

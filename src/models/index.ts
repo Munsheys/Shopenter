@@ -117,6 +117,10 @@ const SettingsSchema = new mongoose.Schema({
     redeemRate: { type: Number, default: 100 },
     minRedeemPoints: { type: Number, default: 100 },
   },
+  telegram: {
+    botToken:      { type: String, default: '' },
+    webhookActive: { type: Boolean, default: false },
+  },
   storefront: {
     preset: { type: String, default: 'midnight' },
     shopTagline: { type: String, default: "" },

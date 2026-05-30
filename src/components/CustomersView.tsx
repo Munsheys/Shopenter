@@ -5,7 +5,7 @@ import {
   MessageCircle, ShoppingCart, Send, Search, X, Plus, Minus, Trash2,
   Package, CheckCircle, QrCode, ChevronRight, ChevronLeft, MapPin,
   Clock, Printer, History, ChevronDown, AlertTriangle, Pencil, Check, Ban,
-  CornerUpLeft, Truck, Coins,
+  CornerUpLeft, Truck, Coins, PackagePlus,
 } from 'lucide-react';
 import { type ProductForm } from './ProductManagement';
 import NumberStepper from '@/components/NumberStepper';
@@ -19,6 +19,18 @@ type Customer = {
   loyaltyPoints?: number;
 };
 type OrderItem = { productId?: string; name: string; variantLabel?: string; price: number; qty: number };
+type FulfilmentItem = { productId?: string; name: string; variantLabel?: string; qty: number; price: number };
+type Fulfilment = {
+  _id: string;
+  orderId: string;
+  items: FulfilmentItem[];
+  tracking?: string;
+  courier?: string;
+  address?: string;
+  shipCostTHB: number;
+  status: 'pending' | 'shipped' | 'delivered';
+  createdAt: string;
+};
 type Order = {
   _id: string; userId: string; platform?: 'line' | 'instagram'; displayName: string; product: string;
   quantity: number; items: OrderItem[]; soldTHB: number; costKRW: number;
@@ -176,6 +188,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [chatButtonY, setChatButtonY] = useState(200);
   const [isDraggingButton, setIsDraggingButton] = useState(false);
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
+
+  // Fulfilment state
+  const [fulfilmentModalOrderId, setFulfilmentModalOrderId] = useState<string | null>(null);
+  const [fulfilmentModalOrder, setFulfilmentModalOrder] = useState<Order | null>(null);
+  const [expandedFulfilments, setExpandedFulfilments] = useState<Record<string, boolean>>({});
+  const [fulfilmentsCache, setFulfilmentsCache] = useState<Record<string, Fulfilment[]>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -439,6 +457,69 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     setAllOrders(prev => prev.filter(o => o._id !== id));
     onOrderMutated?.();
     fetch(`/api/orders/${id}`, { method: 'DELETE' }).catch(() => refreshOrders());
+  }
+
+  // Fulfilment helpers
+  async function fetchFulfilments(orderId: string) {
+    try {
+      const res = await fetch(`/api/orders/${orderId}/fulfilments`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setFulfilmentsCache(prev => ({ ...prev, [orderId]: data }));
+        }
+      }
+    } catch {}
+  }
+
+  function toggleFulfilmentsExpanded(orderId: string) {
+    setExpandedFulfilments(prev => {
+      const next = { ...prev, [orderId]: !prev[orderId] };
+      if (next[orderId] && !fulfilmentsCache[orderId]) {
+        fetchFulfilments(orderId);
+      }
+      return next;
+    });
+  }
+
+  async function patchFulfilment(fulfilmentId: string, orderId: string, patch: object) {
+    try {
+      const res = await fetch(`/api/fulfilments/${fulfilmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        await fetchFulfilments(orderId);
+        await refreshOrders();
+        onOrderMutated?.();
+      }
+    } catch {}
+  }
+
+  async function deleteFulfilment(fulfilmentId: string, orderId: string) {
+    try {
+      const res = await fetch(`/api/fulfilments/${fulfilmentId}`, { method: 'DELETE' });
+      if (res.ok) {
+        await fetchFulfilments(orderId);
+        await refreshOrders();
+        onOrderMutated?.();
+      }
+    } catch {}
+  }
+
+  function openFulfilmentModal(order: Order) {
+    setFulfilmentModalOrderId(order._id);
+    setFulfilmentModalOrder(order);
+    // Pre-fetch existing fulfilments for greying out
+    if (!fulfilmentsCache[order._id]) {
+      fetchFulfilments(order._id);
+    }
+  }
+
+  function closeFulfilmentModal() {
+    setFulfilmentModalOrderId(null);
+    setFulfilmentModalOrder(null);
   }
 
   async function sendQR(id: string) {
@@ -1080,6 +1161,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             onSendQR={() => sendQR(order._id)}
                             onMarkPaid={() => markPaid(order._id)}
                             onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
+                            onShipItems={['paid', 'preparing', 'partially_fulfilled'].includes(order.status) && (order.items?.length ?? 0) > 0 ? () => openFulfilmentModal(order) : undefined}
+                            onToggleFulfilments={['paid', 'preparing', 'partially_fulfilled', 'fulfilled'].includes(order.status) && ((order.fulfilmentSummary?.total ?? 0) > 0 || order.status === 'partially_fulfilled') ? () => toggleFulfilmentsExpanded(order._id) : undefined}
+                            fulfilmentsExpanded={!!expandedFulfilments[order._id]}
+                            fulfilments={fulfilmentsCache[order._id]}
+                            onPatchFulfilment={(fid, patch) => patchFulfilment(fid, order._id, patch)}
+                            onDeleteFulfilment={(fid) => deleteFulfilment(fid, order._id)}
                             selected={selectedOrderIds.has(order._id)}
                             onToggleSelect={order.status === 'pending' ? () => toggleOrderSelect(order._id) : undefined}
                             isActing={actingOrderIds.has(order._id)} />
@@ -1136,12 +1223,19 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         const isLast = i === inTransitGroups.length - 1;
                         const isGroupHighlighted = group.some(o => highlightedOrderId === o._id);
                         if (group.length === 1) {
+                          const o = group[0];
                           return (
-                            <HistoryRow key={group[0]._id} order={group[0]} isDark={isDark} k={k}
+                            <HistoryRow key={o._id} order={o} isDark={isDark} k={k}
                               isLast={isLast}
-                              onPatch={(patch) => patchOrder(group[0]._id, patch)}
-                              onDelete={() => confirmDeleteOrder(group[0]._id)}
+                              onPatch={(patch) => patchOrder(o._id, patch)}
+                              onDelete={() => confirmDeleteOrder(o._id)}
                               isHighlighted={isGroupHighlighted}
+                              onShipItems={o.status === 'partially_fulfilled' && (o.items?.length ?? 0) > 0 ? () => openFulfilmentModal(o) : undefined}
+                              onToggleFulfilments={o.status === 'partially_fulfilled' && (o.fulfilmentSummary?.total ?? 0) > 0 ? () => toggleFulfilmentsExpanded(o._id) : undefined}
+                              fulfilmentsExpanded={!!expandedFulfilments[o._id]}
+                              fulfilments={fulfilmentsCache[o._id]}
+                              onPatchFulfilment={(fid, patch) => patchFulfilment(fid, o._id, patch)}
+                              onDeleteFulfilment={(fid) => deleteFulfilment(fid, o._id)}
                             />
                           );
                         }
@@ -1190,6 +1284,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           isLast={i === historyOrders.length - 1}
                           onPatch={(patch) => patchOrder(order._id, patch)}
                           onDelete={() => confirmDeleteOrder(order._id)}
+                          onToggleFulfilments={['fulfilled'].includes(order.status) && (order.fulfilmentSummary?.total ?? 0) > 0 ? () => toggleFulfilmentsExpanded(order._id) : undefined}
+                          fulfilmentsExpanded={!!expandedFulfilments[order._id]}
+                          fulfilments={fulfilmentsCache[order._id]}
+                          onPatchFulfilment={(fid, patch) => patchFulfilment(fid, order._id, patch)}
+                          onDeleteFulfilment={(fid) => deleteFulfilment(fid, order._id)}
                         />
                       ))}
                     </div>
@@ -1854,6 +1953,24 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
       <ConfirmModal config={confirm} onClose={() => setConfirm(v => ({ ...v, open: false }))} isDark={isDark} k={k} />
 
+      {/* ── Fulfilment Modal ── */}
+      {fulfilmentModalOrderId && fulfilmentModalOrder && (
+        <FulfilmentModal
+          order={fulfilmentModalOrder}
+          existingFulfilments={fulfilmentsCache[fulfilmentModalOrderId] ?? []}
+          isDark={isDark}
+          k={k}
+          shippingCompanies={merchantSettings?.shippingCompanies ?? ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express']}
+          onClose={closeFulfilmentModal}
+          onSuccess={async () => {
+            await refreshOrders();
+            await fetchFulfilments(fulfilmentModalOrderId);
+            onOrderMutated?.();
+            closeFulfilmentModal();
+          }}
+        />
+      )}
+
       {/* Cancel + Credit Modal */}
       {cancelCreditModal?.open && (
         <div
@@ -1978,7 +2095,7 @@ const STATUS_LABEL: Record<string, string> = {
   shipped: 'Shipped', delivered: 'Delivered', fulfilled: 'Fulfilled', cancelled: 'Cancelled',
 };
 
-function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR, onMarkPaid, onMoveToParcel, onCancel, selected, onToggleSelect, isActing }: {
+function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR, onMarkPaid, onMoveToParcel, onCancel, onShipItems, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment, selected, onToggleSelect, isActing }: {
   order: Order; isDark: boolean; k: typeof DK;
   onDelete: () => void;
   onPatch?: (patch: object) => void;
@@ -1987,6 +2104,12 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR
   onMarkPaid?: () => void;
   onMoveToParcel?: () => void;
   onCancel?: () => void;
+  onShipItems?: () => void;
+  onToggleFulfilments?: () => void;
+  fulfilmentsExpanded?: boolean;
+  fulfilments?: Fulfilment[];
+  onPatchFulfilment?: (fulfilmentId: string, patch: object) => void;
+  onDeleteFulfilment?: (fulfilmentId: string) => void;
   selected?: boolean;
   onToggleSelect?: () => void;
   isActing?: boolean;
@@ -2103,6 +2226,16 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR
               <Package size={12} /> {isActing ? 'Moving...' : 'Move to Parcel'}
             </button>
           )}
+          {onShipItems && (
+            <button onClick={onShipItems} disabled={isActing}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all active:scale-95 disabled:opacity-50 ${
+                isDark
+                  ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20'
+                  : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
+              }`}>
+              <Truck size={12} /> Ship Items
+            </button>
+          )}
           {onSendQR && order.status === 'pending' && (
             <button onClick={onSendQR} disabled={isActing}
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-all active:scale-95 disabled:opacity-50 ${
@@ -2119,6 +2252,42 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR
               style={{ background: 'var(--accent-gradient)' }}>
               <CheckCircle size={12} /> {isActing ? 'Processing...' : 'Mark Paid'}
             </button>
+          )}
+        </div>
+      )}
+
+      {/* Parcels list (expandable) */}
+      {onToggleFulfilments && (
+        <div className={`mt-3 pt-3 border-t ${k.border}`}>
+          <button
+            onClick={onToggleFulfilments}
+            className={`flex items-center gap-1.5 text-[10px] font-bold transition-colors ${k.muted} hover:text-accent`}
+          >
+            <PackagePlus size={12} />
+            Parcels ({order.fulfilmentSummary?.total ?? '…'})
+            <ChevronDown size={10} className={`transition-transform ${fulfilmentsExpanded ? 'rotate-180' : ''}`} />
+          </button>
+          {fulfilmentsExpanded && (
+            <div className="mt-2 space-y-2">
+              {!fulfilments ? (
+                <div className={`text-[10px] ${k.muted} flex items-center gap-1.5`}>
+                  <div className="w-3 h-3 border border-t-transparent border-accent rounded-full animate-spin" /> Loading…
+                </div>
+              ) : fulfilments.length === 0 ? (
+                <p className={`text-[10px] ${k.muted}`}>No parcels yet.</p>
+              ) : (
+                fulfilments.map(f => (
+                  <ParcelRow
+                    key={f._id}
+                    fulfilment={f}
+                    isDark={isDark}
+                    k={k}
+                    onPatch={onPatchFulfilment ? (patch) => onPatchFulfilment(f._id, patch) : undefined}
+                    onDelete={onDeleteFulfilment ? () => onDeleteFulfilment(f._id) : undefined}
+                  />
+                ))
+              )}
+            </div>
           )}
         </div>
       )}
@@ -2301,11 +2470,17 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
 }
 
 // ── History Row ───────────────────────────────────────────────────────────────
-function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted }: {
+function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted, onShipItems, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment }: {
   order: Order; isDark: boolean; k: typeof DK; isLast: boolean;
   onPatch: (patch: object) => void;
   onDelete: () => void;
   isHighlighted?: boolean;
+  onShipItems?: () => void;
+  onToggleFulfilments?: () => void;
+  fulfilmentsExpanded?: boolean;
+  fulfilments?: Fulfilment[];
+  onPatchFulfilment?: (fulfilmentId: string, patch: object) => void;
+  onDeleteFulfilment?: (fulfilmentId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [sold, setSold] = useState(String(order.soldTHB || ''));
@@ -2446,11 +2621,17 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
               <NumberStepper value={parseFloat(rate) || 0} onChange={v => setRate(String(v))} min={0} step={0.001} isDark={isDark} />
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button onClick={saveUpdate} disabled={saving}
               className="flex-1 py-3 rounded-xl text-xs font-black bg-[#1a1d2e] hover:bg-black text-white transition-all active:scale-95 disabled:opacity-40">
               {saving ? 'Saving...' : 'Update Prices'}
             </button>
+            {onShipItems && (
+              <button onClick={onShipItems}
+                className={`flex items-center gap-1.5 px-4 py-3 rounded-xl text-xs font-black transition-all active:scale-95 ${isDark ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                <Truck size={13} /> Ship Items
+              </button>
+            )}
             {['shipped', 'partially_fulfilled'].includes(order.status) && (
               <button onClick={() => onPatch({ status: order.status === 'partially_fulfilled' ? 'fulfilled' : 'delivered' })}
                 className="flex items-center gap-1.5 px-4 py-3 rounded-xl text-xs font-black bg-emerald-500 hover:bg-emerald-600 text-white transition-all active:scale-95">
@@ -2462,6 +2643,42 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
               <Trash2 size={14} />
             </button>
           </div>
+
+          {/* Parcels list */}
+          {onToggleFulfilments && (
+            <div className={`pt-3 border-t ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+              <button
+                onClick={onToggleFulfilments}
+                className={`flex items-center gap-1.5 text-[10px] font-bold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-accent' : 'text-slate-500 hover:text-accent'}`}
+              >
+                <PackagePlus size={12} />
+                Parcels ({order.fulfilmentSummary?.total ?? '…'})
+                <ChevronDown size={10} className={`transition-transform ${fulfilmentsExpanded ? 'rotate-180' : ''}`} />
+              </button>
+              {fulfilmentsExpanded && (
+                <div className="mt-2 space-y-2">
+                  {!fulfilments ? (
+                    <div className={`text-[10px] flex items-center gap-1.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>
+                      <div className="w-3 h-3 border border-t-transparent border-accent rounded-full animate-spin" /> Loading…
+                    </div>
+                  ) : fulfilments.length === 0 ? (
+                    <p className={`text-[10px] ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>No parcels yet.</p>
+                  ) : (
+                    fulfilments.map(f => (
+                      <ParcelRow
+                        key={f._id}
+                        fulfilment={f}
+                        isDark={isDark}
+                        k={k}
+                        onPatch={onPatchFulfilment ? (patch) => onPatchFulfilment(f._id, patch) : undefined}
+                        onDelete={onDeleteFulfilment ? () => onDeleteFulfilment(f._id) : undefined}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2583,6 +2800,375 @@ function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDelet
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Parcel Row (single fulfilment inside an order card's parcel list) ─────────
+function ParcelRow({ fulfilment, isDark, k, onPatch, onDelete }: {
+  fulfilment: Fulfilment; isDark: boolean; k: typeof DK;
+  onPatch?: (patch: object) => void;
+  onDelete?: () => void;
+}) {
+  const [trackingInput, setTrackingInput] = useState(fulfilment.tracking ?? '');
+  const [courierInput, setCourierInput] = useState(fulfilment.courier ?? '');
+  const [promptTracking, setPromptTracking] = useState(false);
+  const [acting, setActing] = useState(false);
+
+  const statusPill: Record<string, string> = {
+    pending:   isDark ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'bg-amber-50 text-amber-600 border border-amber-200',
+    shipped:   isDark ? 'bg-violet-500/10 text-violet-400 border border-violet-500/30' : 'bg-violet-50 text-violet-600 border border-violet-200',
+    delivered: isDark ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-600 border border-emerald-200',
+  };
+  const statusLabel: Record<string, string> = { pending: 'Pending', shipped: 'Shipped', delivered: 'Delivered' };
+
+  async function markShipped() {
+    if (!fulfilment.tracking && !trackingInput.trim()) {
+      setPromptTracking(true);
+      return;
+    }
+    setActing(true);
+    await onPatch?.({ status: 'shipped', tracking: trackingInput.trim() || fulfilment.tracking, courier: courierInput.trim() || fulfilment.courier });
+    setActing(false);
+    setPromptTracking(false);
+  }
+
+  return (
+    <div className={`rounded-xl border p-3 space-y-2 ${isDark ? 'bg-[#1a1d2e] border-[#2a3050]' : 'bg-slate-50 border-slate-200'}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${statusPill[fulfilment.status]}`}>
+          {statusLabel[fulfilment.status]}
+        </span>
+        <div className="flex items-center gap-1 text-[10px]">
+          {fulfilment.courier && <span className={k.muted}>{fulfilment.courier}</span>}
+          {fulfilment.tracking && <span className={`font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>· {fulfilment.tracking}</span>}
+        </div>
+        <div className="flex items-center gap-1 ml-auto">
+          {fulfilment.status === 'pending' && (
+            <>
+              <button
+                onClick={markShipped}
+                disabled={acting}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black transition-all active:scale-95 disabled:opacity-50 ${isDark ? 'bg-violet-500/10 text-violet-400 hover:bg-violet-500/20' : 'bg-violet-50 text-violet-600 hover:bg-violet-100'}`}
+              >
+                <Truck size={9} /> {acting ? '…' : 'Mark Shipped'}
+              </button>
+              <button
+                onClick={onDelete}
+                disabled={acting}
+                className={`p-1 rounded-lg transition-colors disabled:opacity-50 text-red-400 hover:bg-red-500/10`}
+                aria-label="Delete parcel"
+              >
+                <Trash2 size={11} />
+              </button>
+            </>
+          )}
+          {fulfilment.status === 'shipped' && (
+            <button
+              onClick={async () => { setActing(true); await onPatch?.({ status: 'delivered' }); setActing(false); }}
+              disabled={acting}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black transition-all active:scale-95 disabled:opacity-50 ${isDark ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+            >
+              <CheckCircle size={9} /> {acting ? '…' : 'Mark Delivered'}
+            </button>
+          )}
+        </div>
+      </div>
+      {/* Inline tracking prompt */}
+      {promptTracking && fulfilment.status === 'pending' && (
+        <div className="flex gap-2 items-center">
+          <input
+            value={courierInput}
+            onChange={e => setCourierInput(e.target.value)}
+            placeholder="Courier"
+            className={`w-24 text-[10px] rounded-lg px-2 py-1 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-slate-200 text-[#1a1d2e]'}`}
+          />
+          <input
+            value={trackingInput}
+            onChange={e => setTrackingInput(e.target.value)}
+            placeholder="Tracking number"
+            className={`flex-1 text-[10px] rounded-lg px-2 py-1 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-slate-200 text-[#1a1d2e]'}`}
+          />
+          <button
+            onClick={markShipped}
+            disabled={acting}
+            className="text-[9px] font-black px-2 py-1 rounded-lg bg-violet-500 text-white hover:bg-violet-600 transition-all disabled:opacity-50"
+          >
+            Ship
+          </button>
+        </div>
+      )}
+      {/* Items list */}
+      <p className={`text-[10px] ${k.muted} leading-relaxed`}>
+        {fulfilment.items.map(i => `${i.qty}x ${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join(', ')}
+      </p>
+    </div>
+  );
+}
+
+// ── Fulfilment Modal ───────────────────────────────────────────────────────────
+function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompanies, onClose, onSuccess }: {
+  order: Order;
+  existingFulfilments: Fulfilment[];
+  isDark: boolean;
+  k: typeof DK;
+  shippingCompanies: string[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  // Compute how many of each item have already been assigned to parcels
+  const alreadyFulfilledQty: Record<string, number> = {};
+  existingFulfilments.forEach(f => {
+    f.items.forEach(fi => {
+      const key = `${fi.name}::${fi.variantLabel ?? ''}`;
+      alreadyFulfilledQty[key] = (alreadyFulfilledQty[key] ?? 0) + fi.qty;
+    });
+  });
+
+  const defaultSelected: Record<number, boolean> = {};
+  order.items.forEach((item, idx) => {
+    const key = `${item.name}::${item.variantLabel ?? ''}`;
+    const done = alreadyFulfilledQty[key] ?? 0;
+    defaultSelected[idx] = done < item.qty;
+  });
+
+  const [selectedItems, setSelectedItems] = useState<Record<number, boolean>>(defaultSelected);
+  const [courier, setCourier] = useState('');
+  const [customCourier, setCustomCourier] = useState('');
+  const [tracking, setTracking] = useState('');
+  const [shipCost, setShipCost] = useState('0');
+  const [address, setAddress] = useState(order.address ?? '');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const effectiveCourier = courier === '__other__' ? customCourier : courier;
+  const selectedCount = Object.values(selectedItems).filter(Boolean).length;
+  const shipCostNum = parseFloat(shipCost) || 0;
+
+  const itemsForParcel = order.items
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ idx }) => selectedItems[idx])
+    .map(({ item }) => ({
+      productId: item.productId,
+      name: item.name,
+      variantLabel: item.variantLabel,
+      qty: item.qty,
+      price: item.price,
+    }));
+
+  async function handleSubmit() {
+    if (itemsForParcel.length === 0) { setError('Select at least one item.'); return; }
+    setError('');
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/orders/${order._id}/fulfilments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: itemsForParcel,
+          tracking: tracking.trim() || undefined,
+          courier: effectiveCourier.trim() || undefined,
+          address: address.trim() || undefined,
+          shipCostTHB: shipCostNum,
+        }),
+      });
+      if (res.ok) {
+        setSuccess(true);
+        setTimeout(() => { onSuccess(); }, 1000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? 'Failed to create shipment.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Ship items"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className={`w-full max-w-lg rounded-3xl shadow-2xl border flex flex-col max-h-[90vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'}`}>
+        {/* Header */}
+        <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border} flex-shrink-0`}>
+          <div>
+            <h3 className={`font-black text-sm ${k.text}`}>Ship Items</h3>
+            <p className={`text-[10px] mt-0.5 ${k.muted}`}>{order.product}</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className={`p-1.5 rounded-xl ${k.muted} ${k.hover} transition-colors`}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-6 space-y-5">
+          {success ? (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+                <CheckCircle size={28} className="text-emerald-500" />
+              </div>
+              <p className={`text-sm font-black ${k.text}`}>Shipment Created!</p>
+              <p className={`text-[10px] ${k.muted}`}>Closing…</p>
+            </div>
+          ) : (
+            <>
+              {/* Item selector */}
+              <div>
+                <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Items in this parcel</p>
+                <div className="space-y-1.5">
+                  {order.items.map((item, idx) => {
+                    const key = `${item.name}::${item.variantLabel ?? ''}`;
+                    const alreadyDone = alreadyFulfilledQty[key] ?? 0;
+                    const isFullyFulfilled = alreadyDone >= item.qty;
+                    const isChecked = !!selectedItems[idx];
+                    return (
+                      <label
+                        key={idx}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                          isChecked
+                            ? isDark ? 'bg-accent/10 border-accent/30' : 'bg-accent/5 border-accent/30'
+                            : isDark ? 'bg-white/5 border-[#2a3050]' : 'bg-slate-50 border-slate-200'
+                        } ${isFullyFulfilled ? 'opacity-50' : ''}`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                            isChecked ? 'bg-accent border-accent' : isDark ? 'border-white/30' : 'border-slate-300'
+                          }`}
+                          onClick={() => setSelectedItems(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                        >
+                          {isChecked && <Check size={10} className="text-white" strokeWidth={3} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-semibold truncate ${k.text}`}>{item.name}</p>
+                          {item.variantLabel && <p className={`text-[10px] ${k.muted}`}>{item.variantLabel}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`text-[10px] font-bold ${k.muted}`}>x{item.qty}</span>
+                          {isFullyFulfilled && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                              done
+                            </span>
+                          )}
+                          {!isFullyFulfilled && alreadyDone > 0 && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600'}`}>
+                              {alreadyDone} shipped
+                            </span>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Shipment details */}
+              <div className="space-y-3">
+                <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Shipment details</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Courier</label>
+                    <select
+                      value={courier}
+                      onChange={e => setCourier(e.target.value)}
+                      className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+                    >
+                      <option value="">Choose courier</option>
+                      {shippingCompanies.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="__other__">Other…</option>
+                    </select>
+                    {courier === '__other__' && (
+                      <input
+                        value={customCourier}
+                        onChange={e => setCustomCourier(e.target.value)}
+                        placeholder="Courier name"
+                        className={`w-full mt-1.5 text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Tracking No.</label>
+                    <input
+                      value={tracking}
+                      onChange={e => setTracking(e.target.value)}
+                      placeholder="e.g. TH12345678"
+                      className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Shipping Cost (THB)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={shipCost}
+                    onChange={e => setShipCost(e.target.value)}
+                    className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Delivery Address</label>
+                  <textarea
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                    rows={2}
+                    placeholder="Delivery address"
+                    className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all resize-none ${k.input}`}
+                  />
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
+                <span className={`text-[10px] font-bold ${k.muted}`}>
+                  {selectedCount} item{selectedCount !== 1 ? 's' : ''} in this parcel
+                </span>
+                {shipCostNum > 0 && (
+                  <span className={`text-[10px] font-black ${k.text}`}>฿{fmt(shipCostNum)} shipping</span>
+                )}
+              </div>
+
+              {error && <p className="text-xs font-semibold text-red-500">{error}</p>}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        {!success && (
+          <div className={`flex gap-3 px-6 py-4 border-t ${k.border} flex-shrink-0`}>
+            <button
+              onClick={onClose}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || selectedCount === 0}
+              className="flex-1 py-2.5 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              style={{ background: 'var(--accent-gradient)' }}
+            >
+              <Truck size={12} /> {submitting ? 'Creating…' : 'Create Shipment'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

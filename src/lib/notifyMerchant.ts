@@ -35,6 +35,12 @@ export async function notifyMerchant({ merchantId, type, message, metadata = {},
     if (alertCfg?.line && settings.adminLineId && settings.lineChannelAccessToken) {
       await pushAdminAlert(settings.lineChannelAccessToken, settings.adminLineId, message);
     }
+
+    // TODO: Add Telegram admin notification channel.
+    // When the merchant sets a personal Telegram chat ID (e.g. settings.adminTelegramChatId),
+    // send alerts via sendTelegramMessage(settings.telegram.botToken, settings.adminTelegramChatId, message).
+    // For now, Telegram orders notify the merchant via LINE (above). The telegram.botToken is
+    // already available on settings for customer-facing bot messages.
   } catch (err) {
     console.error('[notifyMerchant]', type, err);
   }
