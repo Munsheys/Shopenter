@@ -29,8 +29,8 @@ export async function sendUnifiedBroadcast(
       for (const userId of userIds) {
         try {
           const success = message.lineFlexPayload
-            ? await sendFlexMessage(token, userId, message.lineFlexPayload)
-            : await sendLineMessage(token, userId, message.text); // Fallback to text
+            ? await sendFlexMessage(token, userId, message.text, message.lineFlexPayload)
+            : await sendLineMessage(token, userId, message.text);
           if (success) sent++;
           else failed++;
         } catch {
