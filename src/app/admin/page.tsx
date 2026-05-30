@@ -117,7 +117,7 @@ export default function AdminPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Toast timer ref for cleanup
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Check existing credentials
   useEffect(() => {
@@ -773,9 +773,9 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                           <div className="flex items-center gap-2">
                             {getCategoryIcon(fb.category)}
                             <span className="text-[10px] font-bold text-white uppercase">{fb.category}</span>
-                            <span className="text-[9px] text-[#8b92ad]">from {fb.merchantShopName}</span>
+                            <span className="text-[11px] text-[#8b92ad]">from {fb.merchantShopName}</span>
                           </div>
-                          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${getStatusStyles(fb.status)}`}>
+                          <span className={`text-[11px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${getStatusStyles(fb.status)}`}>
                             {fb.status}
                           </span>
                         </div>
@@ -854,7 +854,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                               {m.shopName}
                               {m.tier === 'enterprise' && <UserCheck size={11} className="text-purple-400" />}
                             </div>
-                            <div className="text-[9px] text-[#8b92ad] mt-0.5 font-mono">{m.email}</div>
+                            <div className="text-[11px] text-[#8b92ad] mt-0.5 font-mono">{m.email}</div>
                           </td>
 
                           {/* 2. Shopenter subscription tier */}
@@ -897,7 +897,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                           <td className="py-4 px-6">
                             {m.lineOASyncStatus === 'success' && m.lineQuotaValue > 0 ? (
                               <div className="w-full max-w-[130px] mx-auto space-y-1">
-                                <div className="flex items-center justify-between text-[9px] font-bold">
+                                <div className="flex items-center justify-between text-[11px] font-bold">
                                   <span className="text-white">{m.lineQuotaUsage.toLocaleString()} / {m.lineQuotaValue.toLocaleString()}</span>
                                   <span className="text-[#8b92ad] font-mono">{((m.lineQuotaUsage / m.lineQuotaValue) * 100).toFixed(0)}%</span>
                                 </div>
@@ -915,7 +915,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                                 </div>
                               </div>
                             ) : (
-                              <div className="text-center text-[9px] text-[#8b92ad] font-semibold italic">
+                              <div className="text-center text-[11px] text-[#8b92ad] font-semibold italic">
                                 {m.lineOASyncStatus === 'expired' ? 'Token verification failed' : 'Setup not integrated'}
                               </div>
                             )}
@@ -949,7 +949,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                           <td className="py-4 px-6 text-center">
                             <div className="flex flex-col gap-0.5 items-center">
                               <span className="text-[10px] font-bold text-white">{m.productsCount} products</span>
-                              <span className="text-[9px] text-[#8b92ad] font-medium">{m.ordersCount} orders</span>
+                              <span className="text-[11px] text-[#8b92ad] font-medium">{m.ordersCount} orders</span>
                             </div>
                           </td>
 
@@ -1040,7 +1040,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                             submitted by <span className="text-white font-bold">{fb.merchantShopName}</span> ({fb.merchantEmail})
                           </span>
                           <span className="text-[10px] text-[#8b92ad] font-semibold">•</span>
-                          <span className="text-[9px] text-[#8b92ad]">
+                          <span className="text-[11px] text-[#8b92ad]">
                             {new Date(fb.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
@@ -1170,8 +1170,8 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                           })
                         ) : (
                           <div className="text-center py-4 border border-[#1f2335]/30 border-dashed rounded-xl">
-                            <span className="text-[9px] text-[#8b92ad] font-bold block">No replies recorded yet</span>
-                            <span className="text-[8px] text-slate-500">Send an inquiry below to ask for more details.</span>
+                            <span className="text-[11px] text-[#8b92ad] font-bold block">No replies recorded yet</span>
+                            <span className="text-[11px] text-slate-500">Send an inquiry below to ask for more details.</span>
                           </div>
                         )}
                       </div>
