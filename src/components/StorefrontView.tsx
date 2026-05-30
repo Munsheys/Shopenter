@@ -60,6 +60,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     const urlUid = urlParams.get('uid');
     const urlPlatform = urlParams.get('platform');
     const urlName = urlParams.get('name');
+    const urlProduct = urlParams.get('product');
     const isNonLinePlatform = !!(urlUid && urlPlatform && urlPlatform !== 'line');
 
     if (isNonLinePlatform) {
@@ -93,7 +94,21 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         if (!infoRes.ok) { setNotFound(true); return; }
         const [info, prods] = await Promise.all([infoRes.json(), productsRes.json()]);
         setShopInfo(info);
-        setProducts(Array.isArray(prods) ? prods : []);
+        const prodList: any[] = Array.isArray(prods) ? prods : [];
+        setProducts(prodList);
+
+        // Deep-link: open specific product if ?product= param is present
+        if (urlProduct) {
+          const found = prodList.find((p: any) => String(p._id) === urlProduct);
+          if (found) {
+            setSelectedProduct(found);
+            setSelectedVariant(null);
+            setSelections({});
+            setQty(1);
+            setActiveImgIdx(0);
+            setView('detail');
+          }
+        }
 
         if (!isNonLinePlatform && info.liffId && !liffLock.current) {
           liffLock.current = true;

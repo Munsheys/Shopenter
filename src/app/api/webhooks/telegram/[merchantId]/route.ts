@@ -2,8 +2,24 @@ export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Customer, Settings, Merchant } from '@/models';
-import { sendTelegramInlineKeyboard } from '@/lib/platforms/telegram';
+import { Customer, Settings, Merchant, Product } from '@/models';
+import {
+  sendTelegramMessage,
+  sendTelegramPhotoWithKeyboard,
+  sendTelegramInlineKeyboard,
+} from '@/lib/platforms/telegram';
+
+// Common words that carry no product signal
+const STOP_WORDS = new Set([
+  'i', 'want', 'to', 'do', 'you', 'have', 'a', 'the', 'is', 'are', 'can',
+  'please', 'hi', 'hello', 'hey', 'me', 'my', 'get', 'need', 'buy', 'some',
+  'show', 'looking', 'for', 'what', 'where', 'any', 'of', 'in', 'at', 'on',
+  'and', 'or', 'it', 'this', 'that', 'an', 'be', 'with', 'from', 'sell',
+  'selling', 'order', 'like', 'how', 'price', 'much',
+  // Thai
+  'มี', 'ไหม', 'ได้', 'ไหน', 'ต้องการ', 'สั่ง', 'ขอ', 'ดู', 'หา', 'ซื้อ',
+  'อยาก', 'ผม', 'ฉัน', 'ราคา', 'เท่าไหร่', 'เท่าไร', 'ขาย', 'มั้ย',
+]);
 
 export async function POST(
   req: Request,
@@ -14,12 +30,10 @@ export async function POST(
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ ok: true }); }
 
-  // Derive base URL from the incoming request so it works in any environment
   const proto = req.headers.get('x-forwarded-proto') || 'https';
   const host  = req.headers.get('host') || '';
   const baseUrl = `${proto}://${host}`;
 
-  // Fire-and-forget — Telegram retries non-200 responses
   handleUpdate(merchantId, body, baseUrl).catch(err => console.error('[telegram webhook]', err));
   return NextResponse.json({ ok: true });
 }
@@ -34,36 +48,92 @@ async function handleUpdate(merchantId: string, update: any, baseUrl: string) {
   const shopName: string = settings.shopName || 'Our Shop';
   const tagline: string  = settings.storefront?.shopTagline || '';
 
-  // ── Only handle regular messages ───────────────────────────────────────────
   if (!update.message) return;
 
   const msg    = update.message;
   const chatId = String(msg.chat?.id ?? '');
   if (!chatId) return;
 
-  const firstName  = msg.from?.first_name || '';
-  const lastName   = msg.from?.last_name  || '';
-  const username   = msg.from?.username   || '';
+  const firstName   = msg.from?.first_name || '';
+  const lastName    = msg.from?.last_name  || '';
+  const username    = msg.from?.username   || '';
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || username || chatId;
 
-  // Upsert customer so they appear in the dashboard
   await upsertCustomer(merchantId, chatId, firstName, lastName, username);
 
-  // Build the storefront URL with the customer's Telegram identity embedded
   const merchant = await Merchant.findById(merchantId).select('slug').lean() as any;
   const storePath = merchant?.slug
     ? `/shop/${merchant.slug}`
     : `/merchant/${merchantId}`;
-  const shopUrl = `${baseUrl}${storePath}?uid=${chatId}&platform=telegram&name=${encodeURIComponent(firstName || displayName)}`;
+  const identityParams = `uid=${chatId}&platform=telegram&name=${encodeURIComponent(firstName || displayName)}`;
 
-  // Send a single message with a button that opens the storefront
-  const text = `🛍️ <b>${shopName}</b>` +
+  // Try to infer product intent from the message
+  const userText = (msg.text ?? '').trim();
+  const matches  = await searchProducts(merchantId, userText);
+
+  if (matches.length > 0) {
+    await sendTelegramMessage(token, chatId, `Here's what I found 👇`);
+    for (const product of matches) {
+      const productUrl = `${baseUrl}${storePath}?${identityParams}&product=${product._id}`;
+      const caption    =
+        `<b>${product.name}</b>` +
+        (product.brand ? `\n<i>${product.brand}</i>` : '') +
+        `\n฿${(product.price as number).toLocaleString()}` +
+        (product.description
+          ? `\n${(product.description as string).slice(0, 120)}${(product.description as string).length > 120 ? '…' : ''}`
+          : '');
+      const buttons = [[{ text: `🛍️ View ${product.name}`, url: productUrl }]];
+
+      if (product.imageUrl) {
+        await sendTelegramPhotoWithKeyboard(token, chatId, product.imageUrl as string, caption, buttons);
+      } else {
+        await sendTelegramInlineKeyboard(token, chatId, caption, buttons);
+      }
+    }
+    return;
+  }
+
+  // Fallback: send storefront entry link
+  const shopUrl = `${baseUrl}${storePath}?${identityParams}`;
+  const text    =
+    `🛍️ <b>${shopName}</b>` +
     (tagline ? `\n<i>${tagline}</i>` : '') +
-    `\n\nTap the button below to browse and order. Your identity is saved automatically — no login needed! 🙌`;
+    `\n\nTap the button to browse and order. Your identity is saved automatically — no login needed! 🙌`;
 
   await sendTelegramInlineKeyboard(token, chatId, text, [[
     { text: `🛒 Open ${shopName}`, url: shopUrl },
   ]]);
+}
+
+async function searchProducts(merchantId: string, query: string): Promise<any[]> {
+  const tokens = query
+    .toLowerCase()
+    .replace(/[^\w\s฀-鿿]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 1 && !STOP_WORDS.has(t));
+
+  if (!tokens.length) return [];
+
+  const orClauses = tokens.flatMap(token => [
+    { name:        { $regex: token, $options: 'i' } },
+    { brand:       { $regex: token, $options: 'i' } },
+    { description: { $regex: token, $options: 'i' } },
+    { categories:  { $elemMatch: { $regex: token, $options: 'i' } } },
+  ]);
+
+  const products = await (Product as any).find({ merchantId, isActive: true, $or: orClauses })
+    .select('_id name brand description categories price imageUrl')
+    .limit(20)
+    .lean() as any[];
+
+  const haystack = (p: any) =>
+    [p.name, p.brand, p.description, ...(p.categories || [])].join(' ').toLowerCase();
+
+  return products
+    .map((p: any) => ({ p, score: tokens.filter((t: string) => haystack(p).includes(t)).length }))
+    .sort((a: any, b: any) => b.score - a.score)
+    .slice(0, 5)
+    .map((s: any) => s.p);
 }
 
 async function upsertCustomer(

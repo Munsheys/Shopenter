@@ -28,6 +28,29 @@ type TelegramButton =
   | { text: string; callback_data: string }
   | { text: string; url: string };
 
+export async function sendTelegramPhotoWithKeyboard(
+  token: string,
+  chatId: string,
+  photoUrl: string,
+  caption: string,
+  buttons: Array<Array<TelegramButton>>,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE(token)}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        photo: photoUrl,
+        caption,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons },
+      }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 export async function sendTelegramInlineKeyboard(token: string, chatId: string, text: string, buttons: Array<Array<TelegramButton>>): Promise<boolean> {
   try {
     const res = await fetch(`${BASE(token)}/sendMessage`, {
