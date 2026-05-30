@@ -1386,15 +1386,29 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     const entries = Object.entries(pendingEdits);
     if (!entries.length) return;
     setIsSaving(true);
+    setSaveFailCount(0);
     try {
-      await Promise.all(entries.map(([id, form]) =>
+      const results = await Promise.allSettled(entries.map(([id, form]) =>
         fetch(`/api/products/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
           body: JSON.stringify(buildPayload(form)),
-        })
+        }).then(res => ({ id, ok: res.ok }))
       ));
-      setPendingEdits({});
+      const failedIds = new Set<string>();
+      let failCount = 0;
+      results.forEach((result, i) => {
+        if (result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.ok)) {
+          failedIds.add(entries[i][0]);
+          failCount++;
+        }
+      });
+      if (failCount > 0) setSaveFailCount(failCount);
+      setPendingEdits(prev => {
+        const next: Record<string, ProductForm> = {};
+        failedIds.forEach(id => { if (prev[id]) next[id] = prev[id]; });
+        return next;
+      });
       loadProducts();
     } catch (err) { console.error(err); } finally { setIsSaving(false); }
   };
@@ -1414,7 +1428,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         body: JSON.stringify({ variants: updatedVariants }),
       });
       if (res.ok) { setStockProduct(null); loadProducts(); }
-      else alert('Stock save failed');
+      else setStockError('Stock save failed. Please try again.');
     } catch (err) { console.error(err); } finally { setIsStockSaving(false); }
   };
 
@@ -1535,12 +1549,19 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
 
   const handleDelete = async (id: string) => {
     setIsDeleting(true);
+    setDeleteError('');
     try {
-      await fetch(`/api/products/${id}`, { method: 'DELETE', headers: { 'x-admin-secret': secret } });
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE', headers: { 'x-admin-secret': secret } });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setDeleteError(`Delete failed: ${err?.error || res.status}`);
+        return;
+      }
       loadProducts();
-    } catch (err) { console.error(err); } finally {
-      setIsDeleting(false);
       setDeleteConfirm(null);
+      setDeletingName('');
+    } catch (err) { console.error(err); setDeleteError('Delete failed. Please try again.'); } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1601,6 +1622,27 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       console.error(err);
     }
   };
+
+  // Escape key: deselect bulk selection
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedIds.size > 0) setSelectedIds(new Set());
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [selectedIds]);
+
+  // Escape key: close delete confirm modals
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (deleteConfirm) { setDeleteConfirm(null); setDeletingName(''); }
+        if (bulkDeleteConfirmOpen) setBulkDeleteConfirmOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [deleteConfirm, bulkDeleteConfirmOpen]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 pb-20">
@@ -1763,7 +1805,10 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
 
       {/* Bulk action toolbar */}
       {selectedIds.size > 0 && (
-        <div className={cn(
+        <div
+          role="toolbar"
+          aria-label="Bulk actions"
+          className={cn(
           "fixed bottom-6 left-1/2 -translate-x-1/2 z-40 rounded-2xl border px-4 py-3 flex items-center gap-3 shadow-2xl w-fit max-w-[90vw]",
           theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]"
         )}>
@@ -1826,7 +1871,9 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
 
       {/* Unsaved changes warning */}
       {Object.keys(pendingEdits).length > 0 && (
-        <div className={cn(
+        <div
+          role="alert"
+          className={cn(
           "sticky top-4 z-40 rounded-2xl border px-4 py-3 flex items-center justify-between gap-3 mb-4 shadow-lg",
           theme === 'dark' ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"
         )}>
@@ -1834,6 +1881,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             <AlertCircle size={14} className="text-amber-500 flex-shrink-0" />
             <span className={cn("text-xs font-bold", theme === 'dark' ? "text-amber-400" : "text-amber-600")}>
               {Object.keys(pendingEdits).length} unsaved change{Object.keys(pendingEdits).length !== 1 ? 's' : ''}
+              {saveFailCount > 0 && <span className="ml-2 text-red-500">({saveFailCount} failed to save)</span>}
             </span>
             <span className="hidden sm:inline text-xs text-amber-500/80">— edits will be lost if you leave</span>
           </div>
@@ -1871,7 +1919,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             <ProductCard key={p._id} product={p} theme={theme}
               onEdit={() => { setEditingProduct(p); setIsModalOpen(true); }}
               onCardClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
-              onDelete={() => setDeleteConfirm(p._id)}
+              onDelete={() => { setDeleteConfirm(p._id); setDeletingName(p.name); }}
               onToggleVisibility={() => toggleVisibility(p)}
               onManageStock={() => setStockProduct(p)}
               hasPendingEdit={!!pendingEdits[p._id]}
@@ -1881,9 +1929,9 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           ))}
           {filteredProducts.length === 0 && products.length === 0 && (
             <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
-              <div className="w-16 h-16 bg-[#f8f9fc] dark:bg-[#1a1d2e] rounded-3xl flex items-center justify-center"><Package size={32} className="opacity-20" /></div>
+              <div className={cn("w-16 h-16 rounded-3xl flex items-center justify-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}><Package size={32} className="opacity-20" /></div>
               <div className="text-center">
-                <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No products yet</p>
+                <p className={cn("text-sm font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>No products yet</p>
                 <p className="text-xs mt-1">Add your first product to get started</p>
               </div>
               <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="text-white text-xs font-bold px-4 py-2 rounded-xl" style={{ background: 'var(--accent-gradient)' }}>
@@ -1893,9 +1941,9 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           )}
           {filteredProducts.length === 0 && products.length > 0 && (
             <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
-              <div className="w-16 h-16 bg-[#f8f9fc] dark:bg-[#1a1d2e] rounded-3xl flex items-center justify-center"><Search size={32} className="opacity-20" /></div>
+              <div className={cn("w-16 h-16 rounded-3xl flex items-center justify-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}><Search size={32} className="opacity-20" /></div>
               <div className="text-center">
-                <p className="text-sm font-bold text-[#1a1d2e] dark:text-white">No products match</p>
+                <p className={cn("text-sm font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>No products match</p>
                 <p className="text-xs mt-1">Try adjusting your filters</p>
               </div>
               <button onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setStatusFilter('all'); setSortOrder('newest'); }} className="text-accent text-xs font-bold hover:underline">Clear filters</button>
@@ -2065,14 +2113,20 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
       {deleteConfirm && (
         <div
           className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setDeleteConfirm(null); setDeletingName(''); } }}
         >
-          <div className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-confirm-title"
+            className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+          >
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6"><Trash2 size={32} /></div>
-            <h3 className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete Product?</h3>
+            <h3 id="delete-confirm-title" className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete &ldquo;{deletingName}&rdquo;?</h3>
             <p className="text-sm text-[#8b92ad] mb-6">This will remove it from the catalog permanently.</p>
+            {deleteError && <p role="alert" className="text-xs text-red-500 mb-4">{deleteError}</p>}
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} disabled={isDeleting} className={cn("flex-1 py-3 text-sm font-bold rounded-xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>Cancel</button>
+              <button onClick={() => { setDeleteConfirm(null); setDeletingName(''); setDeleteError(''); }} disabled={isDeleting} className={cn("flex-1 py-3 text-sm font-bold rounded-xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>Cancel</button>
               <button onClick={() => handleDelete(deleteConfirm!)} disabled={isDeleting} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl disabled:opacity-50">{isDeleting ? 'Deleting…' : 'Delete'}</button>
             </div>
           </div>
@@ -2084,9 +2138,14 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setBulkDeleteConfirmOpen(false); }}
         >
-          <div className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-delete-confirm-title"
+            className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+          >
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6"><Trash2 size={32} /></div>
-            <h3 className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete {selectedIds.size} Product{selectedIds.size !== 1 ? 's' : ''}?</h3>
+            <h3 id="bulk-delete-confirm-title" className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete {selectedIds.size} Product{selectedIds.size !== 1 ? 's' : ''}?</h3>
             <p className="text-sm text-[#8b92ad] mb-6">This will permanently remove all selected products from the catalog.</p>
             <div className="flex gap-3">
               <button onClick={() => setBulkDeleteConfirmOpen(false)} className={cn("flex-1 py-3 text-sm font-bold rounded-xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>Cancel</button>

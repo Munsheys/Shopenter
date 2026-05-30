@@ -132,6 +132,26 @@ export default function AdminPage() {
   // Cleanup toast timer on unmount
   useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
+  // Escape key handler for deletion modal
+  useEffect(() => {
+    if (!feedbackToDelete) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFeedbackToDelete(null);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [feedbackToDelete]);
+
+  // Escape key handler for SlipOK modal
+  useEffect(() => {
+    if (!slipokModal) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSlipokModal(null);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [slipokModal]);
+
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     clearTimeout(toastTimerRef.current);
@@ -539,7 +559,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
         </div>
 
         {/* Tab Selection */}
-        <nav className="flex items-stretch h-full gap-1">
+        <nav role="tablist" className="flex items-stretch h-full gap-1">
           {([
             { id: 'overview', label: 'System Overview', icon: <Activity size={14} /> },
             { id: 'merchants', label: 'Merchants Directory', icon: <Users size={14} /> },
@@ -547,8 +567,10 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
           ] as const).map(tab => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeSubTab === tab.id}
               onClick={() => setActiveSubTab(tab.id)}
-              className={`flex items-center gap-2 px-5 h-full text-xs font-bold transition-all relative border-b-2 ${
+              className={`flex items-center gap-2 px-5 h-full text-xs font-bold transition-all relative border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00b900] focus-visible:ring-inset ${
                 activeSubTab === tab.id
                   ? 'border-[#00b900] text-white bg-[#0f1117]/30'
                   : 'border-transparent text-[#8b92ad] hover:text-white hover:bg-white/5'
@@ -565,13 +587,13 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
           <button
             onClick={handleRefresh}
             title="Refresh System & Live LINE Usage"
-            className="p-2 rounded-lg border border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e] transition-colors"
+            className="p-3 rounded-lg border border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e] transition-colors"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500 hover:text-white transition-all text-xs font-bold active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500 hover:text-white transition-all text-xs font-bold active:scale-95"
           >
             <LogOut size={13} />
             Sign Out
@@ -580,7 +602,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-8 max-w-7xl mx-auto w-full space-y-8">
+      <main id={`panel-${activeSubTab}`} role="tabpanel" className="flex-1 overflow-y-auto p-8 max-w-7xl mx-auto w-full space-y-8">
         
         {/* ── SUB-TAB: OVERVIEW ── */}
         {activeSubTab === 'overview' && metrics && (
@@ -655,8 +677,8 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                           <div className={`h-full rounded-full transition-all ${barColor(storageWarn)}`} style={{ width: `${usedPct}%` }} />
                         </div>
                         <div className="flex justify-between mt-1">
-                          <span className="text-[9px] text-[#8b92ad]">Data {infra.dbDataMB} MB · Index {infra.dbIndexMB} MB</span>
-                          <span className={`text-[9px] font-bold ${textColor(storageWarn)}`}>{usedPct.toFixed(1)}%</span>
+                          <span className="text-[11px] text-[#8b92ad]">Data {infra.dbDataMB} MB · Index {infra.dbIndexMB} MB</span>
+                          <span className={`text-[11px] font-bold ${textColor(storageWarn)}`}>{usedPct.toFixed(1)}%</span>
                         </div>
                       </div>
                     </div>
@@ -672,8 +694,8 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                           <span className={`text-2xl font-black ${textColor(msgWarn)}`}>{infra.messagesToday.toLocaleString()}</span>
                           <span className="text-[#8b92ad] text-xs mb-1">msgs</span>
                         </div>
-                        <p className="text-[9px] text-[#8b92ad] mt-1">Total all-time: {infra.totalMessages.toLocaleString()}</p>
-                        <p className="text-[9px] text-[#8b92ad]">Customers: {infra.totalCustomers.toLocaleString()}</p>
+                        <p className="text-[11px] text-[#8b92ad] mt-1">Total all-time: {infra.totalMessages.toLocaleString()}</p>
+                        <p className="text-[11px] text-[#8b92ad]">Customers: {infra.totalCustomers.toLocaleString()}</p>
                       </div>
                     </div>
 
@@ -1039,7 +1061,7 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                         >
                           <option value="new">New (Received)</option>
                           <option value="reviewing">In Review</option>
-                          <option value="planned">Planned (Planned)</option>
+                          <option value="planned">Planned</option>
                           <option value="completed">Completed (Closed)</option>
                         </select>
 
@@ -1157,7 +1179,9 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
 
                     {/* Interactive Admin Response Area */}
                     <div className="flex gap-3 pt-1">
+                      <label className="sr-only" htmlFor={`reply-${fb._id}`}>Reply to {fb.merchantShopName}</label>
                       <input
+                        id={`reply-${fb._id}`}
                         type="text"
                         value={replyTexts[fb._id] || ''}
                         onChange={(e) => setReplyTexts(prev => ({ ...prev, [fb._id]: e.target.value }))}
@@ -1193,13 +1217,13 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
       {/* ── GLOBAL CUSTOM DELETION MODAL ── */}
       {feedbackToDelete && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="max-w-sm w-full bg-[#161925] border border-[#1f2335] rounded-[24px] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-fb-title" className="max-w-sm w-full bg-[#161925] border border-[#1f2335] rounded-[24px] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0 text-red-500 animate-pulse">
                 <ShieldAlert size={20} />
               </div>
               <div className="space-y-1.5 flex-1 min-w-0">
-                <h4 className="text-sm font-bold tracking-tight text-white">Permanently Delete Feedback?</h4>
+                <h4 id="delete-fb-title" className="text-sm font-bold tracking-tight text-white">Permanently Delete Feedback?</h4>
                 <p className="text-[11px] text-[#8b92ad] leading-relaxed">
                   Warning: Purging this report removes the submission, status states, and all dialogue logs permanently from the database. This action is irreversible.
                 </p>
@@ -1241,21 +1265,22 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
       {/* ── SLIPOK CONFIGURATION MODAL ── */}
       {slipokModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="max-w-sm w-full bg-[#161925] border border-[#1f2335] rounded-[24px] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+          <div role="dialog" aria-modal="true" aria-labelledby="slipok-modal-title" className="max-w-sm w-full bg-[#161925] border border-[#1f2335] rounded-[24px] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-full bg-[#00b900]/10 border border-[#00b900]/20 flex items-center justify-center flex-shrink-0 text-[#00b900]">
                 <Key size={18} />
               </div>
               <div className="space-y-0.5 flex-1 min-w-0">
-                <h4 className="text-sm font-bold tracking-tight text-white">Configure SlipOK</h4>
+                <h4 id="slipok-modal-title" className="text-sm font-bold tracking-tight text-white">Configure SlipOK</h4>
                 <p className="text-[11px] text-[#8b92ad] truncate">{slipokModal.shopName}</p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Branch ID</label>
+                <label htmlFor="slipok-branch-id" className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Branch ID</label>
                 <input
+                  id="slipok-branch-id"
                   type="text"
                   value={slipokBranchId}
                   onChange={e => setSlipokBranchId(e.target.value)}
@@ -1264,8 +1289,9 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">API Key</label>
+                <label htmlFor="slipok-api-key" className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">API Key</label>
                 <input
+                  id="slipok-api-key"
                   type="password"
                   value={slipokApiKey}
                   onChange={e => setSlipokApiKey(e.target.value)}
@@ -1311,16 +1337,18 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
       )}
 
       {/* ── PREMIUM GLASSMORPHIC TOAST ALERTS ── */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-[110000] max-w-sm rounded-2xl bg-[#161925]/90 border border-[#00b900]/30 backdrop-blur-md px-5 py-4 shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
-          <div className="w-8 h-8 rounded-full bg-[#00b900]/10 flex items-center justify-center text-[#00b900] flex-shrink-0 animate-pulse">
-            <CheckCircle2 size={16} />
-          </div>
-          <p className="text-[11px] font-bold text-white leading-tight flex-1">
-            {toastMessage}
-          </p>
+      <div
+        role="status"
+        aria-live="polite"
+        className={`fixed bottom-6 right-6 z-[110000] max-w-sm rounded-2xl bg-[#161925]/90 border border-[#00b900]/30 backdrop-blur-md px-5 py-4 shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300 ${toastMessage ? '' : 'hidden'}`}
+      >
+        <div className="w-8 h-8 rounded-full bg-[#00b900]/10 flex items-center justify-center text-[#00b900] flex-shrink-0 animate-pulse">
+          <CheckCircle2 size={16} />
         </div>
-      )}
+        <p className="text-[11px] font-bold text-white leading-tight flex-1">
+          {toastMessage}
+        </p>
+      </div>
 
       <footer className="h-10 border-t border-[#1f2335] bg-[#161925] flex items-center justify-center text-[10px] text-[#8b92ad] flex-shrink-0">
         © {new Date().getFullYear()} Shopenter Administration Overseer. Privacy Shield Active.
