@@ -123,18 +123,24 @@ function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChan
           <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Drop logo or <span style={{ color: accent }}>browse</span></p>
           <p className={`text-xs mt-0.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`}>PNG, JPG, WebP · max 2 MB · square recommended</p>
         </div>
-      </div>
-      {err && <p className="text-xs text-red-400 mt-1.5">{err}</p>}
+      </button>
+      {err && <p role="alert" className="text-xs text-red-400 mt-1.5">{err}</p>}
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ''; }} />
     </div>
   );
 }
 
-function Toggle({ enabled, onChange, accent }: { enabled: boolean; onChange: (v: boolean) => void; accent: string }) {
+function Toggle({ enabled, onChange, accent, label }: { enabled: boolean; onChange: (v: boolean) => void; accent: string; label?: string }) {
   return (
-    <button type="button" onClick={() => onChange(!enabled)}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={label}
+      onClick={() => onChange(!enabled)}
       className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-      style={{ backgroundColor: enabled ? accent : '#374151' }}>
+      style={{ backgroundColor: enabled ? accent : '#374151' }}
+    >
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : ''}`} />
     </button>
   );
@@ -166,6 +172,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   const [config, setConfig] = useState<StorefrontConfig>({ ...DEFAULT_CONFIG, ...initial });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('identity');
   const [accentTab, setAccentTab] = useState<'solid' | 'gradient'>(
     initial?.accentGradient ? 'gradient' : 'solid'
@@ -203,8 +210,16 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
   async function handleSave() {
     setSaving(true);
-    try { await onSave(config); setSaved(true); setTimeout(() => setSaved(false), 2000); }
-    finally { setSaving(false); }
+    setSaveError('');
+    try {
+      await onSave(config);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setSaveError('Failed to save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSaveSlug() {
@@ -217,7 +232,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   }
 
   const lbl = `text-xs font-medium block mb-1.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`;
-  const inputCls = `w-full border rounded-xl px-3 py-2.5 text-sm bg-transparent focus:outline-none focus:ring-2 transition-all ${isDark ? 'border-[#2a2f45] text-white placeholder-[#4a5068]' : 'border-slate-200 text-slate-900 placeholder-slate-400'}`;
+  const inputCls = `w-full border rounded-xl px-3 py-2.5 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all ${isDark ? 'border-[#2a2f45] text-white placeholder-[#4a5068]' : 'border-slate-200 text-slate-900 placeholder-slate-400'}`;
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'identity', label: 'Identity',  icon: <User size={14} />,            desc: 'Name, logo & timezone'     },
@@ -231,29 +246,34 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
       {/* ── Tab sidebar ─────────────────────────────────────────────────────── */}
       <div className="w-44 flex-shrink-0 space-y-1 sticky top-4">
-        {TABS.map(tab => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
-                active
-                  ? isDark ? 'bg-white/8 border border-white/10' : 'bg-slate-100 border border-slate-200'
-                  : isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
-              }`}
-            >
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${active ? '' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}
-                style={active ? { background: dashboardAccent, color: dashboardAccentText } : undefined}>
-                {tab.icon}
-              </div>
-              <div className="min-w-0">
-                <p className={`text-xs font-semibold leading-tight truncate ${active ? isDark ? 'text-white' : 'text-slate-900' : isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>{tab.label}</p>
-              </div>
-              {active && <ChevronRight size={12} className="ml-auto flex-shrink-0" style={{ color: dashboardAccent }} />}
-            </button>
-          );
-        })}
+        <div role="tablist">
+          {TABS.map(tab => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`${tab.id}-panel`}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                  active
+                    ? isDark ? 'bg-white/8 border border-white/10' : 'bg-slate-100 border border-slate-200'
+                    : isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
+                }`}
+              >
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${active ? '' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}
+                  style={active ? { background: dashboardAccent, color: dashboardAccentText } : undefined}>
+                  {tab.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-semibold leading-tight truncate ${active ? isDark ? 'text-white' : 'text-slate-900' : isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>{tab.label}</p>
+                </div>
+                {active && <ChevronRight size={12} className="ml-auto flex-shrink-0" style={{ color: dashboardAccent }} />}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Save button */}
         <div className="pt-4">
@@ -262,6 +282,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             style={{ background: saved ? '#10b981' : dashboardAccent, color: saved ? '#ffffff' : dashboardAccentText }}>
             {saved ? <><Check size={13} />Saved!</> : saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : <><Save size={13} />Save</>}
           </button>
+          {saveError && <p role="alert" className="text-xs text-red-400 mt-2">{saveError}</p>}
         </div>
       </div>
 
@@ -270,16 +291,16 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
         {/* ── IDENTITY TAB ── */}
         {activeTab === 'identity' && (
-          <>
+          <div id="identity-panel" role="tabpanel" className="space-y-4">
             <Card title="Shop Name & Description" description="Shown on your storefront and all outgoing LINE messages." icon={<Store size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="space-y-4">
                 <div>
-                  <label className={lbl}>Shop Name</label>
-                  <input type="text" value={config.shopName} onChange={e => set('shopName', e.target.value)} placeholder="My Awesome Shop" className={inputCls} autoComplete="off" />
+                  <label htmlFor="shop-name" className={lbl}>Shop Name</label>
+                  <input id="shop-name" type="text" value={config.shopName} onChange={e => set('shopName', e.target.value)} placeholder="My Awesome Shop" className={inputCls} autoComplete="off" />
                 </div>
                 <div>
-                  <label className={lbl}>Shop Description</label>
-                  <textarea rows={3} value={config.shopDescription} onChange={e => set('shopDescription', e.target.value)} placeholder="Short tagline or bio shown on your storefront" className={`${inputCls} resize-none`} maxLength={160} autoComplete="off" />
+                  <label htmlFor="shop-description" className={lbl}>Shop Description</label>
+                  <textarea id="shop-description" rows={3} value={config.shopDescription} onChange={e => set('shopDescription', e.target.value)} placeholder="Short tagline or bio shown on your storefront" className={`${inputCls} resize-none`} maxLength={160} autoComplete="off" />
                   <p className={`text-[10px] mt-1 ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>{config.shopDescription.length}/160 characters</p>
                 </div>
               </div>
@@ -301,18 +322,19 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 <option value="America/New_York">🇺🇸 America/New_York (UTC-5)</option>
               </select>
             </Card>
-          </>
+          </div>
         )}
 
         {/* ── DESIGN TAB ── */}
         {activeTab === 'design' && (
-          <>
+          <div id="design-panel" role="tabpanel" className="space-y-4">
             <Card title="Theme Preset" description="Pick a base look for your storefront. You can override the accent color below." icon={<Palette size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {Object.values(PRESETS).map(preset => {
                   const active = config.preset === preset.id;
                   return (
                     <button key={preset.id} onClick={() => set('preset', preset.id)}
+                      aria-pressed={config.preset === preset.id}
                       className={`relative rounded-xl border-2 overflow-hidden text-left transition-all hover:scale-[1.02] ${active ? 'shadow-lg' : 'border-transparent hover:border-white/10'}`}
                       style={active ? { borderColor: dashboardAccent, boxShadow: `0 8px 20px -4px ${dashboardAccent}40` } : undefined}>
                       <div className="h-14 flex gap-1 p-2" style={{ background: preset.pageBg }}>
@@ -354,7 +376,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 {/* ── Solid tab ── */}
                 {accentTab === 'solid' && (
                   <div className="space-y-2.5">
-                    <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Presets</p>
+                    <p className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Presets</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       {SC_ACCENT_PRESETS.map(color => {
                         const isActive = !config.accentGradient && config.accentColor === color;
@@ -367,7 +389,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     </div>
                     <div className={`h-px ${isDark ? 'bg-[#1f2335]' : 'bg-slate-100'}`} />
                     <div className="flex items-center justify-between">
-                      <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Custom</p>
+                      <p className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Custom</p>
                       {customSolids.length < 3 && (
                         <button
                           onClick={() => {
@@ -434,7 +456,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 {/* ── Gradient tab ── */}
                 {accentTab === 'gradient' && (
                   <div className="space-y-2.5">
-                    <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Presets</p>
+                    <p className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Presets</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       {GRADIENT_PRESETS.map(preset => {
                         const isActive = config.accentGradient === preset.gradient;
@@ -447,7 +469,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     </div>
                     <div className={`h-px ${isDark ? 'bg-[#1f2335]' : 'bg-slate-100'}`} />
                     <div className="flex items-center justify-between">
-                      <p className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Custom</p>
+                      <p className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Custom</p>
                       {customGrads.length < 3 && (
                         <button
                           onClick={() => setShowCustomGradBuilder(v => !v)}
@@ -559,25 +581,25 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
             <Card title="Branding" description="Tagline and banner shown on your storefront header." icon={<ImageIcon size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="space-y-4">
                 <div>
-                  <label className={lbl}>Tagline</label>
-                  <input type="text" value={config.shopTagline} onChange={e => set('shopTagline', e.target.value)} placeholder="e.g. Fresh Korean fashion, delivered fast" className={inputCls} />
+                  <label htmlFor="shop-tagline" className={lbl}>Tagline</label>
+                  <input id="shop-tagline" type="text" value={config.shopTagline} onChange={e => set('shopTagline', e.target.value)} placeholder="e.g. Fresh Korean fashion, delivered fast" className={inputCls} />
                   <p className={`text-[10px] mt-1 ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>Appears under your shop name in the store header</p>
                 </div>
                 <div>
-                  <label className={lbl}>Banner Image URL</label>
-                  <input type="url" value={config.bannerUrl} onChange={e => set('bannerUrl', e.target.value)} placeholder="https://..." className={inputCls} />
+                  <label htmlFor="shop-banner-url" className={lbl}>Banner Image URL</label>
+                  <input id="shop-banner-url" type="url" value={config.bannerUrl} onChange={e => set('bannerUrl', e.target.value)} placeholder="https://..." className={inputCls} />
                   {config.bannerUrl && (
                     <img src={config.bannerUrl} alt="Banner preview" className="mt-3 w-full h-24 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = 'none')} />
                   )}
                 </div>
               </div>
             </Card>
-          </>
+          </div>
         )}
 
         {/* ── CONTENT TAB ── */}
         {activeTab === 'content' && (
-          <>
+          <div id="content-panel" role="tabpanel" className="space-y-4">
             <Card title="Announcement Bar" description="A banner displayed at the very top of your store." icon={<Megaphone size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -585,22 +607,26 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>Enable announcement</p>
                     <p className={`text-xs mt-0.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Show a message bar above everything</p>
                   </div>
-                  <Toggle enabled={config.announcementEnabled} onChange={v => set('announcementEnabled', v)} accent={dashboardAccent} />
+                  <Toggle enabled={config.announcementEnabled} onChange={v => set('announcementEnabled', v)} accent={dashboardAccent} label="Enable announcement bar" />
                 </div>
                 {config.announcementEnabled && (
                   <>
                     <input type="text" value={config.announcementText} onChange={e => set('announcementText', e.target.value)} placeholder="e.g. Free shipping on orders over ฿500 🎉" className={inputCls} />
                     <div>
                       <label className={lbl}>Banner color</label>
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-3 flex-wrap">
                         {(['accent', 'blue', 'amber', 'red'] as const).map(color => {
                           const bg = color === 'accent' ? accent : color === 'blue' ? '#3b82f6' : color === 'amber' ? '#f59e0b' : '#ef4444';
+                          const colorLabel = color === 'accent' ? 'Theme' : color.charAt(0).toUpperCase() + color.slice(1);
                           const isActive = config.announcementColor === color;
                           return (
-                            <button key={color} onClick={() => set('announcementColor', color)}
-                              style={{ backgroundColor: bg, ...(isActive ? { outline: `2px solid ${bg}`, outlineOffset: '2px' } : {}) }}
-                              className={`w-7 h-7 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
-                              title={color} />
+                            <div key={color} className="flex flex-col items-center gap-1">
+                              <button onClick={() => set('announcementColor', color)}
+                                style={{ backgroundColor: bg, ...(isActive ? { outline: `2px solid ${bg}`, outlineOffset: '2px' } : {}) }}
+                                className={`w-7 h-7 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                                title={color} />
+                              <span className={`text-[10px] ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>{colorLabel}</span>
+                            </div>
                           );
                         })}
                       </div>
@@ -644,7 +670,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                       <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{label}</p>
                       <p className={`text-xs ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>{desc}</p>
                     </div>
-                    <Toggle enabled={!!config[key]} onChange={v => set(key, v as any)} accent={dashboardAccent} />
+                    <Toggle enabled={!!config[key]} onChange={v => set(key, v as any)} accent={dashboardAccent} label={label} />
                   </div>
                 ))}
               </div>
