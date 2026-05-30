@@ -50,12 +50,28 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [qty, setQty] = useState(1);
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [notFound, setNotFound] = useState(false);
+  // Fix 14: cart toast state
+  const [cartToast, setCartToast] = useState(false);
   const liffLock = useRef(false);
 
+  // Fix 17: LIFF cache with TTL
   useEffect(() => {
     const cached = localStorage.getItem(`liff_profile_${merchantId}`);
     if (cached) {
-      try { setCustomer(JSON.parse(cached)); } catch { localStorage.removeItem(`liff_profile_${merchantId}`); }
+      try {
+        const parsed = JSON.parse(cached);
+        // Support both plain profile objects (legacy) and {profile, cachedAt} shape
+        if (parsed && parsed.cachedAt !== undefined) {
+          if (Date.now() - parsed.cachedAt > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem(`liff_profile_${merchantId}`);
+          } else {
+            setCustomer(parsed.profile);
+          }
+        } else {
+          // Legacy cache without TTL — accept it but don't re-set
+          setCustomer(parsed);
+        }
+      } catch { localStorage.removeItem(`liff_profile_${merchantId}`); }
     }
 
     async function init() {
@@ -76,7 +92,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
             if (liff.isLoggedIn()) {
               const profile = await liff.getProfile();
               setCustomer(profile);
-              localStorage.setItem(`liff_profile_${merchantId}`, JSON.stringify(profile));
+              // Fix 17: store with cachedAt timestamp
+              localStorage.setItem(`liff_profile_${merchantId}`, JSON.stringify({ profile, cachedAt: Date.now() }));
             }
           } catch { /* guest mode */ }
         }
@@ -109,9 +126,23 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       && (activeBrand === 'All' || pr.brand === activeBrand);
   }), [products, searchQuery, activeCategory, activeBrand]);
 
-  const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+  // Fix 13: memoize cartTotal and cartCount
+  const cartTotal = useMemo(() => cart.reduce((s, i) => s + i.price * i.qty, 0), [cart]);
+  const cartCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
 
+  // Fix 18: memoize style object
+  const style = useMemo(() => ({
+    page: { background: p.pageBg, color: p.textPrimary, minHeight: '100vh' } as React.CSSProperties,
+    header: { background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` } as React.CSSProperties,
+    card: { background: p.cardBg, border: `1px solid ${p.cardBorder}` } as React.CSSProperties,
+    input: { background: p.inputBg, border: `1px solid ${p.inputBorder}`, color: p.textPrimary } as React.CSSProperties,
+    accent: { background: sf.accentGradient || p.accent, color: accentText } as React.CSSProperties,
+    pill: (active: boolean): React.CSSProperties => ({ background: active ? p.pillActiveBg : p.pillBg, color: active ? p.pillActiveText : p.textMuted }),
+    muted: { color: p.textMuted } as React.CSSProperties,
+    sub: { color: p.textSecondary } as React.CSSProperties,
+  }), [p, sf, accentText]);
+
+  // Fix 14: addToCart with toast
   function addToCart() {
     if (!selectedProduct) return;
     const variantLabel = Object.values(selections).filter(Boolean).join(' / ');
@@ -122,6 +153,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       if (existing) return prev.map(i => `${i.productId}-${i.variantLabel}` === key ? { ...i, qty: i.qty + qty } : i);
       return [...prev, { productId: selectedProduct._id, name: selectedProduct.name, price, variantLabel, qty, imageUrl: selectedProduct.imageUrl }];
     });
+    setCartToast(true);
+    setTimeout(() => setCartToast(false), 2000);
     setView('home'); setQty(1);
   }
 
@@ -161,17 +194,6 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     } finally { setIsOrdering(false); }
   }
 
-  const style = {
-    page: { background: p.pageBg, color: p.textPrimary, minHeight: '100vh' } as React.CSSProperties,
-    header: { background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` } as React.CSSProperties,
-    card: { background: p.cardBg, border: `1px solid ${p.cardBorder}` } as React.CSSProperties,
-    input: { background: p.inputBg, border: `1px solid ${p.inputBorder}`, color: p.textPrimary } as React.CSSProperties,
-    accent: { background: sf.accentGradient || p.accent, color: accentText } as React.CSSProperties,
-    pill: (active: boolean): React.CSSProperties => ({ background: active ? p.pillActiveBg : p.pillBg, color: active ? p.pillActiveText : p.textMuted }),
-    muted: { color: p.textMuted } as React.CSSProperties,
-    sub: { color: p.textSecondary } as React.CSSProperties,
-  };
-
   if (notFound) return (
     <div style={style.page} className="flex items-center justify-center">
       <div className="text-center p-8">
@@ -192,9 +214,12 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     </div>
   );
 
+  // Fix 9: loading spinner with role="status"
   if (!shopInfo) return (
     <div style={{ ...style.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${p.accent}40`, borderTopColor: p.accent }} />
+      <div role="status" aria-label="Loading store">
+        <div aria-hidden="true" className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${p.accent}40`, borderTopColor: p.accent }} />
+      </div>
     </div>
   );
 
@@ -214,23 +239,40 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     const allSelected = productOptions.every(o => selections[o.name]);
     const imgs: string[] = selectedProduct.images?.length ? selectedProduct.images : (selectedProduct.imageUrl ? [selectedProduct.imageUrl] : []);
     const displayImg = selectedVariant?.imageUrl || imgs[activeImgIdx] || imgs[0] || null;
+    // Fix 16: out-of-stock detection
+    const isOutOfStock = selectedProduct.trackStock === true && (selectedProduct.stock ?? 0) <= 0;
     return (
       <div style={style.page}>
+        {/* Fix 5 & 15: back button p-3, aria-label, cart button in header */}
         <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
-          <button onClick={() => setView('home')} style={{ color: p.textPrimary }} className="p-1.5 rounded-xl"><ChevronLeft size={20} /></button>
-          <span className="font-semibold text-sm">{selectedProduct.name}</span>
+          <button onClick={() => setView('home')} aria-label="Back" style={{ color: p.textPrimary }} className="p-3 rounded-xl"><ChevronLeft size={20} /></button>
+          <span className="font-semibold text-sm flex-1">{selectedProduct.name}</span>
+          {cartCount > 0 && (
+            <button
+              onClick={() => setView('cart')}
+              aria-label={`View cart, ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
+              className="relative p-2"
+              style={{ color: p.textPrimary }}
+            >
+              <ShoppingBag size={20} />
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-xs flex items-center justify-center font-bold" style={style.accent}>{cartCount}</span>
+            </button>
+          )}
         </div>
         <div className="p-4 space-y-4 max-w-lg mx-auto">
           {displayImg
             ? <img src={displayImg} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl" />
             : <div className="w-full aspect-square rounded-2xl flex items-center justify-center" style={{ background: p.inputBg }}><Package size={48} style={style.muted} /></div>
           }
+          {/* Fix 6: thumbnail buttons with aria-label and aria-pressed */}
           {imgs.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
               {imgs.map((img, i) => (
                 <button
                   key={i}
                   onClick={() => setActiveImgIdx(i)}
+                  aria-label={`View image ${i + 1}`}
+                  aria-pressed={activeImgIdx === i}
                   className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all"
                   style={{ borderColor: !selectedVariant?.imageUrl && activeImgIdx === i ? p.accent : 'transparent', opacity: !selectedVariant?.imageUrl && activeImgIdx === i ? 1 : 0.6 }}
                 >
@@ -261,18 +303,30 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
               </div>
             </div>
           ))}
+          {/* Fix 1: qty stepper touch targets w-8 h-8 -> w-11 h-11 */}
           <div className="flex items-center gap-3">
             <p className="text-sm font-medium">Qty</p>
             <div className="flex items-center gap-2">
-              <button onClick={() => setQty(q => Math.max(1, q - 1))} style={style.card} className="w-8 h-8 rounded-lg flex items-center justify-center"><Minus size={14} /></button>
+              <button onClick={() => setQty(q => Math.max(1, q - 1))} style={style.card} className="w-11 h-11 rounded-lg flex items-center justify-center"><Minus size={14} /></button>
               <span className="w-6 text-center font-semibold">{qty}</span>
-              <button onClick={() => setQty(q => q + 1)} style={style.card} className="w-8 h-8 rounded-lg flex items-center justify-center"><Plus size={14} /></button>
+              <button onClick={() => setQty(q => q + 1)} style={style.card} className="w-11 h-11 rounded-lg flex items-center justify-center"><Plus size={14} /></button>
             </div>
           </div>
-          <button onClick={addToCart} disabled={!allSelected} style={allSelected ? style.accent : { background: '#ccc', color: '#fff' }} className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-            <ShoppingBag size={16} /> {allSelected ? 'Add to cart' : 'Select options'}
-          </button>
+          {/* Fix 16: disable add-to-cart and show out-of-stock */}
+          {isOutOfStock ? (
+            <button disabled style={{ background: '#ccc', color: '#fff' }} className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 opacity-60">
+              Out of stock
+            </button>
+          ) : (
+            <button onClick={addToCart} disabled={!allSelected} style={allSelected ? style.accent : { background: '#ccc', color: '#fff' }} className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              <ShoppingBag size={16} /> {allSelected ? 'Add to cart' : 'Select options'}
+            </button>
+          )}
         </div>
+        {/* Fix 14: cart toast */}
+        {cartToast && (
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium text-white z-50" style={{ background: p.accent }}>Added to cart</div>
+        )}
       </div>
     );
   }
@@ -295,17 +349,16 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
   return (
     <div style={style.page}>
-      {sf.announcementEnabled && sf.announcementText && (
+      {/* Fix 8: single announcement block — only show when enabled */}
+      {sf.announcementText && sf.announcementEnabled && (
         <div className="px-4 py-1.5 text-xs text-center font-medium" style={{ background: announcementBg, color: sf.announcementColor === 'accent' ? accentText : '#ffffff' }}>{sf.announcementText}</div>
-      )}
-      {!sf.announcementEnabled && sf.announcementText && (
-        <div className="px-4 py-1.5 text-xs text-center font-medium" style={style.accent}>{sf.announcementText}</div>
       )}
       <div style={style.header} className="sticky top-0 z-10">
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
+            {/* Fix 7: logo alt text */}
             {shopInfo.shopLogoUrl
-              ? <img src={shopInfo.shopLogoUrl} alt="logo" className="w-8 h-8 rounded-xl object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+              ? <img src={shopInfo.shopLogoUrl} alt={`${shopInfo.shopName} logo`} className="w-8 h-8 rounded-xl object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
               : <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold" style={style.accent}>{(shopInfo.shopName || 'S')[0]}</div>
             }
             <div>
@@ -313,76 +366,115 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
               {sf.shopTagline && <p className="text-xs" style={style.muted}>{sf.shopTagline}</p>}
             </div>
           </div>
+          {/* Fix 2: cart button aria-label */}
           {cartCount > 0 && (
-            <button onClick={() => setView('cart')} className="relative p-2" style={{ color: p.textPrimary }}>
+            <button
+              onClick={() => setView('cart')}
+              aria-label={`View cart, ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
+              className="relative p-2"
+              style={{ color: p.textPrimary }}
+            >
               <ShoppingBag size={20} />
               <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-xs flex items-center justify-center font-bold" style={style.accent}>{cartCount}</span>
             </button>
           )}
         </div>
+        {/* Fix 7: banner alt text */}
         {sf.bannerUrl && (
-          <img src={sf.bannerUrl} alt="banner" className="w-full h-28 object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+          <img src={sf.bannerUrl} alt={`${shopInfo.shopName} banner`} className="w-full h-28 object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
         )}
+        {/* Fix 3: search role and aria-labels */}
         {sf.showSearch !== false && (
           <div className="px-4 pb-2">
-            <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={style.input}>
+            <div role="search" className="flex items-center gap-2 rounded-xl px-3 py-2" style={style.input}>
               <Search size={14} style={style.muted} />
-              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products..."
-                className="flex-1 bg-transparent text-sm outline-none" style={{ color: p.textPrimary }} />
-              {searchQuery && <button onClick={() => setSearchQuery('')}><X size={14} style={style.muted} /></button>}
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search products..."
+                aria-label="Search products"
+                className="flex-1 bg-transparent text-sm outline-none"
+                style={{ color: p.textPrimary }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} aria-label="Clear search" className="p-3">
+                  <X size={14} style={style.muted} />
+                </button>
+              )}
             </div>
           </div>
         )}
+        {/* Fix 4: category filter pill padding and focus-visible */}
         {sf.showCategoryFilter !== false && categories.length > 1 && (
           <div className="flex gap-2 px-4 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
             {categories.map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)} className="flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium" style={style.pill(activeCategory === cat)}>{cat}</button>
+              <button key={cat} onClick={() => setActiveCategory(cat)} className="flex-shrink-0 px-3 py-2.5 rounded-lg text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={style.pill(activeCategory === cat)}>{cat}</button>
             ))}
           </div>
         )}
+        {/* Fix 4: brand filter pill padding and focus-visible */}
         {sf.showBrandFilter !== false && brands.length > 1 && (
           <div className="flex gap-2 px-4 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
             {brands.map(b => (
-              <button key={b} onClick={() => setActiveBrand(b)} className="flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium" style={style.pill(activeBrand === b)}>{b}</button>
+              <button key={b} onClick={() => setActiveBrand(b)} className="flex-shrink-0 px-3 py-2.5 rounded-lg text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={style.pill(activeBrand === b)}>{b}</button>
             ))}
           </div>
         )}
       </div>
 
       <div className={`p-4 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}`}>
-        {filtered.map(pr => (
-          <button key={pr._id}
-            onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
-            className={`rounded-2xl overflow-hidden text-left transition-all active:scale-95 ${cardLayout === 'list' ? 'flex gap-3 p-3' : ''}`}
-            style={style.card}
-          >
-            {cardLayout === 'grid' ? (
-              <>
-                {pr.imageUrl
-                  ? <img src={pr.imageUrl} alt={pr.name} className="w-full aspect-square object-cover" />
-                  : <div className="w-full aspect-square flex items-center justify-center" style={{ background: p.inputBg }}><Package size={32} style={style.muted} /></div>
-                }
-                <div className="p-3">
-                  <p className="font-semibold text-sm leading-tight line-clamp-2">{pr.name}</p>
-                  {pr.brand && <p className="text-xs mt-0.5" style={style.muted}>{pr.brand}</p>}
-                  <p className="font-bold text-sm mt-1" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
-                </div>
-              </>
-            ) : (
-              <>
-                {pr.imageUrl
-                  ? <img src={pr.imageUrl} alt={pr.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-                  : <div className="w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: p.inputBg }}><Package size={20} style={style.muted} /></div>
-                }
-                <div className="flex-1 min-w-0 py-1">
-                  <p className="font-semibold text-sm line-clamp-2">{pr.name}</p>
-                  {pr.brand && <p className="text-xs mt-0.5" style={style.muted}>{pr.brand}</p>}
-                  <p className="font-bold text-sm mt-1" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
-                </div>
-              </>
-            )}
-          </button>
-        ))}
+        {filtered.map(pr => {
+          // Fix 16: out-of-stock on product card
+          const cardOutOfStock = pr.trackStock === true && (pr.stock ?? 0) <= 0;
+          return (
+            <button key={pr._id}
+              onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
+              className={`rounded-2xl overflow-hidden text-left transition-all active:scale-95 ${cardLayout === 'list' ? 'flex gap-3 p-3' : ''}`}
+              style={style.card}
+            >
+              {cardLayout === 'grid' ? (
+                <>
+                  <div className="relative">
+                    {pr.imageUrl
+                      ? <img src={pr.imageUrl} alt={pr.name} className="w-full aspect-square object-cover" />
+                      : <div className="w-full aspect-square flex items-center justify-center" style={{ background: p.inputBg }}><Package size={32} style={style.muted} /></div>
+                    }
+                    {cardOutOfStock && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <span className="text-white text-xs font-bold px-2 py-1 rounded-lg bg-black/60">Out of stock</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="font-semibold text-sm leading-tight line-clamp-2">{pr.name}</p>
+                    {pr.brand && <p className="text-xs mt-0.5" style={style.muted}>{pr.brand}</p>}
+                    <p className="font-bold text-sm mt-1" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="relative flex-shrink-0">
+                    {pr.imageUrl
+                      ? <img src={pr.imageUrl} alt={pr.name} className="w-16 h-16 rounded-xl object-cover" />
+                      : <div className="w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: p.inputBg }}><Package size={20} style={style.muted} /></div>
+                    }
+                    {cardOutOfStock && (
+                      <div className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">OOS</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 py-1">
+                    <p className="font-semibold text-sm line-clamp-2">{pr.name}</p>
+                    {pr.brand && <p className="text-xs mt-0.5" style={style.muted}>{pr.brand}</p>}
+                    <p className="font-bold text-sm mt-1" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
+                    {cardOutOfStock && <p className="text-xs font-medium mt-0.5" style={{ color: '#ef4444' }}>Out of stock</p>}
+                  </div>
+                </>
+              )}
+            </button>
+          );
+        })}
         {filtered.length === 0 && (
           <div className={`${cardLayout === 'grid' ? 'col-span-2' : ''} py-16 text-center`}>
             <Package size={40} className="mx-auto mb-3 opacity-30" />
@@ -390,6 +482,10 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           </div>
         )}
       </div>
+      {/* Fix 14: toast shown on home view after navigating back */}
+      {cartToast && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium text-white z-50" style={{ background: p.accent }}>Added to cart</div>
+      )}
     </div>
   );
 }
@@ -447,8 +543,9 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
 
   return (
     <div style={style.page}>
+      {/* Fix 5: back button p-3 and aria-label */}
       <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
-        <button onClick={onBack} style={{ color: p.textPrimary }} className="p-1.5 rounded-xl"><ChevronLeft size={20} /></button>
+        <button onClick={onBack} aria-label="Back" style={{ color: p.textPrimary }} className="p-3 rounded-xl"><ChevronLeft size={20} /></button>
         <span className="font-semibold text-sm">Cart ({cart.length} items)</span>
       </div>
       <div className="p-4 space-y-3 max-w-lg mx-auto">
@@ -463,20 +560,22 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
               {item.variantLabel && <p className="text-xs" style={style.muted}>{item.variantLabel}</p>}
               <p className="font-bold text-sm" style={{ color: p.accent }}>฿{(item.price * item.qty).toLocaleString()}</p>
             </div>
+            {/* Fix 1: cart row qty buttons w-7 h-7 -> w-10 h-10; trash w-7 h-7 -> w-10 h-10 */}
             <div className="flex items-center gap-1">
-              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, -1)} style={style.card} className="w-7 h-7 rounded-lg flex items-center justify-center"><Minus size={12} /></button>
+              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, -1)} style={style.card} className="w-10 h-10 rounded-lg flex items-center justify-center"><Minus size={12} /></button>
               <span className="w-5 text-center text-sm font-semibold">{item.qty}</span>
-              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, 1)} style={style.card} className="w-7 h-7 rounded-lg flex items-center justify-center"><Plus size={12} /></button>
-              <button onClick={() => onRemove(`${item.productId}-${item.variantLabel}`)} className="w-7 h-7 ml-1 rounded-lg flex items-center justify-center" style={{ color: '#ef4444' }}><Trash2 size={12} /></button>
+              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, 1)} style={style.card} className="w-10 h-10 rounded-lg flex items-center justify-center"><Plus size={12} /></button>
+              <button onClick={() => onRemove(`${item.productId}-${item.variantLabel}`)} className="w-10 h-10 ml-1 rounded-lg flex items-center justify-center" style={{ color: '#ef4444' }}><Trash2 size={12} /></button>
             </div>
           </div>
         ))}
 
-        {/* Coupon input */}
+        {/* Fix 11: Coupon input label */}
         <div style={style.card} className="rounded-2xl p-4">
-          <p className="text-sm font-medium mb-2">Coupon Code</p>
+          <label htmlFor="coupon-code" className="text-sm font-medium mb-2 block">Coupon Code</label>
           <div className="flex gap-2">
             <input
+              id="coupon-code"
               type="text"
               value={couponInput}
               onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponResult(null); setCouponError(''); }}
@@ -496,7 +595,7 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
           {couponError && <p className="text-xs mt-1.5" style={{ color: '#ef4444' }}>{couponError}</p>}
         </div>
 
-        {/* Loyalty points */}
+        {/* Fix 12: Loyalty points toggle ARIA */}
         {loyalty && loyalty.points >= loyalty.minRedeemPoints && (
           <div style={style.card} className="rounded-2xl p-4">
             <div className="flex items-center justify-between">
@@ -508,6 +607,9 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
                 {usePoints && <span className="text-xs font-bold" style={{ color: '#00b900' }}>-฿{pointsDiscount.toLocaleString()}</span>}
                 <button
                   onClick={() => setUsePoints(v => !v)}
+                  role="switch"
+                  aria-checked={usePoints}
+                  aria-label="Use loyalty points for discount"
                   style={usePoints ? { background: '#00b900' } : style.card}
                   className="relative w-11 h-6 rounded-full transition-colors"
                 >
@@ -518,9 +620,10 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
           </div>
         )}
 
+        {/* Fix 10: Delivery address label and textarea id */}
         <div style={style.card} className="rounded-2xl p-4">
-          <p className="text-sm font-medium mb-2">Delivery address</p>
-          <textarea value={address} onChange={e => setAddress(e.target.value)} rows={3} placeholder="Enter your delivery address..."
+          <label htmlFor="delivery-address" className="text-sm font-medium mb-2 block">Delivery address</label>
+          <textarea id="delivery-address" value={address} onChange={e => setAddress(e.target.value)} rows={3} placeholder="Enter your delivery address..."
             style={{ ...style.input, resize: 'none' as const, width: '100%', borderRadius: '0.75rem', padding: '0.75rem', fontSize: '0.875rem', outline: 'none', display: 'block' }} />
         </div>
 
