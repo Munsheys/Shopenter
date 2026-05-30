@@ -202,6 +202,25 @@ const DAYS = [
   { key: 'sun', label: 'Sunday' },
 ] as const;
 
+const TG_SETUP_STEPS = [
+  { n: 1, title: 'Create a Telegram Bot via BotFather', body: 'Open Telegram → Search for @BotFather → /newbot → Follow prompts. You\'ll get an API token like "123456789:AABBccDDeeFF…"', link: 'https://t.me/botfather', linkLabel: '@BotFather' },
+  { n: 2, title: 'Copy the API Token', body: 'BotFather sends your token in a message. Copy the full token (everything including the colon and alphanumerics).', link: null as string | null, linkLabel: null as string | null },
+  { n: 3, title: 'Paste into the field below', body: 'Paste the token in the "Bot Token" field below. Do NOT share this token with anyone.', link: null as string | null, linkLabel: null as string | null },
+  { n: 4, title: 'Activate the Webhook', body: 'Click the "Activate Webhook" button below. Shopenter will register your bot to receive messages from your users.', link: null as string | null, linkLabel: null as string | null },
+  { n: 5, title: 'Done!', body: 'Your Telegram bot is now active. When customers message your bot, they\'ll get a storefront link with their identity embedded. Enable "Smart Product Search" above to have the bot suggest matching products.', link: null as string | null, linkLabel: null as string | null },
+];
+
+const IG_SETUP_STEPS = [
+  { n: 1, title: 'Switch to a Professional Instagram Account', body: 'Open your Instagram app → Settings → Account type and tools → Switch to professional account. Choose "Creator" or "Business". This is free and takes 1 minute.', link: 'https://www.instagram.com', linkLabel: 'Instagram app' },
+  { n: 2, title: 'Link a Facebook Business Page', body: 'Go to facebook.com → Create a Business Page (if you don\'t have one) → From Instagram Settings, link it to your account. Your IG account must be linked to a FB page to get a Page Access Token.', link: 'https://www.facebook.com/business', linkLabel: 'Facebook Business' },
+  { n: 3, title: 'Create a Meta App', body: 'Go to developers.facebook.com → My Apps → Create App → Choose "Business" type → Name it (e.g. "MyShop DM Bot") → Complete setup. Save your App ID.', link: 'https://developers.facebook.com/apps', linkLabel: 'Meta App Dashboard' },
+  { n: 4, title: 'Generate a Page Access Token', body: 'In your Meta App: Add Instagram Messaging → Select your FB page → Generate a Page Access Token with pages_messaging permission. Copy the token (starts with "EAAG…").', link: 'https://developers.facebook.com/tools/explorer', linkLabel: 'Graph API Explorer' },
+  { n: 5, title: 'Get Your Instagram Account ID', body: 'In the Graph API Explorer: Select your access token → Query GET /me/accounts → Find your page → Query GET /me/instagram_business_account → Copy the id (17-digit number).', link: null as string | null, linkLabel: null as string | null },
+  { n: 6, title: 'Paste Credentials Below', body: 'Paste both the Page Access Token and Instagram Account ID into the fields below. Then click Save.', link: null as string | null, linkLabel: null as string | null },
+  { n: 7, title: 'Set Up the Webhook', body: 'Back in your Meta App → Webhooks → Subscribe to instagram. Paste the Callback URL and Verify Token from below. Click Subscribe.', link: null as string | null, linkLabel: null as string | null },
+  { n: 8, title: 'Done!', body: 'Your Instagram bot is now active. When customers send DMs, they\'ll get a storefront link. Enable "Smart Product Search" to have the bot suggest matching products via carousel.', link: null as string | null, linkLabel: null as string | null },
+];
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SettingsView({
@@ -223,6 +242,7 @@ export default function SettingsView({
 }) {
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
+  const guideSurface = isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : isLite ? 'bg-white border-slate-200' : 'bg-white border-[#e2e5ef]';
 
   const containerRef       = useRef<HTMLDivElement>(null);
   const isScrollingRef     = useRef(false);
@@ -265,6 +285,8 @@ export default function SettingsView({
   const [tgActivateResult,  setTgActivateResult]  = useState<{ ok: boolean; msg: string } | null>(null);
 
   const [showIgToken,  setShowIgToken]  = useState(false);
+  const [tgGuideOpen,  setTgGuideOpen]  = useState(false);
+  const [igGuideOpen,  setIgGuideOpen]  = useState(false);
 
   useEffect(() => {
     setShowGuide(localStorage.getItem('sg-dismissed') !== 'true');
@@ -1162,70 +1184,37 @@ export default function SettingsView({
                 </div>
 
                 {/* Telegram Setup Guide */}
-                {(() => {
-                  const [tgGuideOpen, setTgGuideOpen] = React.useState(false);
-                  const surface = isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : isLite ? 'bg-white border-slate-200' : 'bg-white border-[#e2e5ef]';
-                  const tgSteps = [
-                    {
-                      n: 1, title: 'Create a Telegram Bot via BotFather',
-                      body: 'Open Telegram → Search for @BotFather → /newbot → Follow prompts. You\'ll get an API token like "123456789:AABBccDDeeFF…"',
-                      link: 'https://t.me/botfather', linkLabel: '@BotFather',
-                    },
-                    {
-                      n: 2, title: 'Copy the API Token',
-                      body: 'BotFather sends your token in a message. Copy the full token (everything including the colon and alphanumerics).',
-                      link: null, linkLabel: null,
-                    },
-                    {
-                      n: 3, title: 'Paste into the field below',
-                      body: 'Paste the token in the "Bot Token" field below. Do NOT share this token with anyone.',
-                      link: null, linkLabel: null,
-                    },
-                    {
-                      n: 4, title: 'Activate the Webhook',
-                      body: 'Click the "Activate Webhook" button below. Shopenter will register your bot to receive messages from your users.',
-                      link: null, linkLabel: null,
-                    },
-                    {
-                      n: 5, title: 'Done!',
-                      body: 'Your Telegram bot is now active. When customers message your bot, they\'ll get a storefront link with their identity embedded. Enable "Smart Product Search" above to have the bot suggest matching products.',
-                      link: null, linkLabel: null,
-                    },
-                  ];
-                  return (
-                    <div className={`rounded-2xl border overflow-hidden ${surface}`}>
-                      <button
-                        onClick={() => setTgGuideOpen(o => !o)}
-                        aria-expanded={tgGuideOpen}
-                        aria-controls="telegram-guide-content"
-                        className="w-full flex items-center justify-between px-5 py-4 text-left"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-500">Setup Guide</span>
-                          <span className={`text-sm font-semibold ${K.text}`}>How to create your Telegram bot</span>
-                        </div>
-                        <span className={`text-[10px] font-bold ${K.muted}`}>{tgGuideOpen ? '▲ Collapse' : '▼ Expand'}</span>
-                      </button>
-                      {tgGuideOpen && (
-                        <div id="telegram-guide-content" className={`border-t px-5 py-4 space-y-4 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
-                          <p className={`text-xs ${K.muted}`}>Set up a Telegram bot in just a few minutes using BotFather. This is a one-time setup per store.</p>
-                          <div className="space-y-3">
-                            {tgSteps.map((s: any) => (
-                              <div key={s.n} className="flex gap-3">
-                                <div className="w-6 h-6 rounded-full bg-accent/10 text-accent text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{s.n}</div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-bold ${K.text}`}>{s.title}</p>
-                                  <p className={`text-[11px] mt-0.5 whitespace-pre-line leading-relaxed ${K.muted}`}>{s.body}</p>
-                                  {s.link && <a href={s.link} target="_blank" rel="noopener noreferrer" className="text-[11px] text-accent hover:underline mt-0.5 inline-block flex items-center gap-1">{s.linkLabel} <ExternalLink size={10} /></a>}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                <div className={`rounded-2xl border overflow-hidden ${guideSurface}`}>
+                  <button
+                    onClick={() => setTgGuideOpen(o => !o)}
+                    aria-expanded={tgGuideOpen}
+                    aria-controls="telegram-guide-content"
+                    className="w-full flex items-center justify-between px-5 py-4 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-500">Setup Guide</span>
+                      <span className={`text-sm font-semibold ${K.text}`}>How to create your Telegram bot</span>
                     </div>
-                  );
-                })()}
+                    <span className={`text-[10px] font-bold ${K.muted}`}>{tgGuideOpen ? '▲ Collapse' : '▼ Expand'}</span>
+                  </button>
+                  {tgGuideOpen && (
+                    <div id="telegram-guide-content" className={`border-t px-5 py-4 space-y-4 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                      <p className={`text-xs ${K.muted}`}>Set up a Telegram bot in just a few minutes using BotFather. This is a one-time setup per store.</p>
+                      <div className="space-y-3">
+                        {TG_SETUP_STEPS.map(s => (
+                          <div key={s.n} className="flex gap-3">
+                            <div className="w-6 h-6 rounded-full bg-accent/10 text-accent text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{s.n}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-bold ${K.text}`}>{s.title}</p>
+                              <p className={`text-[11px] mt-0.5 whitespace-pre-line leading-relaxed ${K.muted}`}>{s.body}</p>
+                              {s.link && <a href={s.link} target="_blank" rel="noopener noreferrer" className="text-[11px] text-accent hover:underline mt-0.5 inline-block flex items-center gap-1">{s.linkLabel} <ExternalLink size={10} /></a>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Telegram Bot Token */}
                 <div id="telegram-credentials" className={ringCls('telegram-credentials')}>
@@ -1350,85 +1339,37 @@ export default function SettingsView({
                 </div>
 
                 {/* Instagram Setup Guide */}
-                {(() => {
-                  const [igGuideOpen, setIgGuideOpen] = React.useState(false);
-                  const surface = isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : isLite ? 'bg-white border-slate-200' : 'bg-white border-[#e2e5ef]';
-                  const igSteps = [
-                    {
-                      n: 1, title: 'Switch to a Professional Instagram Account',
-                      body: 'Open your Instagram app → Settings → Account type and tools → Switch to professional account. Choose "Creator" or "Business". This is free and takes 1 minute.',
-                      link: 'https://www.instagram.com', linkLabel: 'Instagram app',
-                    },
-                    {
-                      n: 2, title: 'Link a Facebook Business Page',
-                      body: 'Go to facebook.com → Create a Business Page (if you don\'t have one) → From Instagram Settings, link it to your account. Your IG account must be linked to a FB page to get a Page Access Token.',
-                      link: 'https://www.facebook.com/business', linkLabel: 'Facebook Business',
-                    },
-                    {
-                      n: 3, title: 'Create a Meta App',
-                      body: 'Go to developers.facebook.com → My Apps → Create App → Choose "Business" type → Name it (e.g. "MyShop DM Bot") → Complete setup. Save your App ID.',
-                      link: 'https://developers.facebook.com/apps', linkLabel: 'Meta App Dashboard',
-                    },
-                    {
-                      n: 4, title: 'Generate a Page Access Token',
-                      body: 'In your Meta App: Add Instagram Messaging → Select your FB page → Generate a Page Access Token with pages_messaging permission. Copy the token (starts with "EAAG…").',
-                      link: 'https://developers.facebook.com/tools/explorer', linkLabel: 'Graph API Explorer',
-                    },
-                    {
-                      n: 5, title: 'Get Your Instagram Account ID',
-                      body: 'In the Graph API Explorer: Select your access token → Query GET /me/accounts → Find your page → Query GET /me/instagram_business_account → Copy the id (17-digit number).',
-                      link: null, linkLabel: null,
-                    },
-                    {
-                      n: 6, title: 'Paste Credentials Below',
-                      body: 'Paste both the Page Access Token and Instagram Account ID into the fields below. Then click Save.',
-                      link: null, linkLabel: null,
-                    },
-                    {
-                      n: 7, title: 'Set Up the Webhook',
-                      body: 'Back in your Meta App → Webhooks → Subscribe to instagram. Paste the Callback URL and Verify Token from below. Click Subscribe.',
-                      link: null, linkLabel: null,
-                    },
-                    {
-                      n: 8, title: 'Done!',
-                      body: 'Your Instagram bot is now active. When customers send DMs, they\'ll get a storefront link. Enable "Smart Product Search" to have the bot suggest matching products via carousel.',
-                      link: null, linkLabel: null,
-                    },
-                  ];
-                  return (
-                    <div className={`rounded-2xl border overflow-hidden ${surface}`}>
-                      <button
-                        onClick={() => setIgGuideOpen(o => !o)}
-                        aria-expanded={igGuideOpen}
-                        aria-controls="instagram-guide-content"
-                        className="w-full flex items-center justify-between px-5 py-4 text-left"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-pink-500/10 text-pink-500">Setup Guide</span>
-                          <span className={`text-sm font-semibold ${K.text}`}>How to set up Instagram DM bot</span>
-                        </div>
-                        <span className={`text-[10px] font-bold ${K.muted}`}>{igGuideOpen ? '▲ Collapse' : '▼ Expand'}</span>
-                      </button>
-                      {igGuideOpen && (
-                        <div id="instagram-guide-content" className={`border-t px-5 py-4 space-y-4 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
-                          <p className={`text-xs ${K.muted}`}>Set up Instagram DM automation in about 10 minutes. You control everything — we just bridge the connection.</p>
-                          <div className="space-y-3">
-                            {igSteps.map((s: any) => (
-                              <div key={s.n} className="flex gap-3">
-                                <div className="w-6 h-6 rounded-full bg-accent/10 text-accent text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{s.n}</div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-bold ${K.text}`}>{s.title}</p>
-                                  <p className={`text-[11px] mt-0.5 whitespace-pre-line leading-relaxed ${K.muted}`}>{s.body}</p>
-                                  {s.link && <a href={s.link} target="_blank" rel="noopener noreferrer" className="text-[11px] text-accent hover:underline mt-0.5 inline-block flex items-center gap-1">{s.linkLabel} <ExternalLink size={10} /></a>}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                <div className={`rounded-2xl border overflow-hidden ${guideSurface}`}>
+                  <button
+                    onClick={() => setIgGuideOpen(o => !o)}
+                    aria-expanded={igGuideOpen}
+                    aria-controls="instagram-guide-content"
+                    className="w-full flex items-center justify-between px-5 py-4 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-pink-500/10 text-pink-500">Setup Guide</span>
+                      <span className={`text-sm font-semibold ${K.text}`}>How to set up Instagram DM bot</span>
                     </div>
-                  );
-                })()}
+                    <span className={`text-[10px] font-bold ${K.muted}`}>{igGuideOpen ? '▲ Collapse' : '▼ Expand'}</span>
+                  </button>
+                  {igGuideOpen && (
+                    <div id="instagram-guide-content" className={`border-t px-5 py-4 space-y-4 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                      <p className={`text-xs ${K.muted}`}>Set up Instagram DM automation in about 10 minutes. You control everything — we just bridge the connection.</p>
+                      <div className="space-y-3">
+                        {IG_SETUP_STEPS.map(s => (
+                          <div key={s.n} className="flex gap-3">
+                            <div className="w-6 h-6 rounded-full bg-accent/10 text-accent text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{s.n}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-bold ${K.text}`}>{s.title}</p>
+                              <p className={`text-[11px] mt-0.5 whitespace-pre-line leading-relaxed ${K.muted}`}>{s.body}</p>
+                              {s.link && <a href={s.link} target="_blank" rel="noopener noreferrer" className="text-[11px] text-accent hover:underline mt-0.5 inline-block flex items-center gap-1">{s.linkLabel} <ExternalLink size={10} /></a>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Credentials */}
                 <div id="instagram-credentials" className={ringCls('instagram-credentials')}>
