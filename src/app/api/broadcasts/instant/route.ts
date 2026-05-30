@@ -4,6 +4,8 @@ import dbConnect from '@/lib/db';
 import { Settings, Customer, Order, Campaign } from '@/models';
 import { randomUUID } from 'crypto';
 import mongoose from 'mongoose';
+import { sendTelegramMessage } from '@/lib/platforms/telegram';
+import { sendInstagramMessage } from '@/lib/platforms/instagram';
 
 export const runtime = 'nodejs';
 
@@ -40,23 +42,35 @@ export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { messages, audience = 'all', name = '' } = await req.json();
+  const { messages, audience = 'all', name = '', platforms = ['line'] } = await req.json();
   if (!Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json({ error: 'No messages provided' }, { status: 400 });
   }
   if (messages.length > 5) {
     return NextResponse.json({ error: 'Maximum 5 message blocks per broadcast' }, { status: 400 });
   }
+  if (!Array.isArray(platforms) || platforms.length === 0) {
+    return NextResponse.json({ error: 'At least one platform must be selected' }, { status: 400 });
+  }
 
   await dbConnect();
   const settings = await Settings.findOne({ merchantId: merchant.merchantId });
-  const token = settings?.lineChannelAccessToken?.trim();
-  if (!token) return NextResponse.json({ error: 'LINE token not configured' }, { status: 400 });
+
+  // Validate that requested platforms are configured
+  const configuredPlatforms = [];
+  if (settings?.lineChannelAccessToken?.trim()) configuredPlatforms.push('line');
+  if (settings?.telegram?.botToken?.trim() && settings?.telegram?.webhookActive) configuredPlatforms.push('telegram');
+  if (settings?.instagram?.pageAccessToken?.trim() && settings?.instagram?.igAccountId) configuredPlatforms.push('instagram');
+
+  const requestedPlatforms = platforms.filter((p: string) => configuredPlatforms.includes(p));
+  if (requestedPlatforms.length === 0) {
+    return NextResponse.json({ error: 'No selected platforms are configured' }, { status: 400 });
+  }
 
   const userIds = await resolveAudience(merchant.merchantId, audience);
   if (userIds.length === 0) return NextResponse.json({ error: 'No recipients in selected audience' }, { status: 400 });
 
-  // Create the record before sending so a mid-send crash still leaves an auditable trail.
+  // Create the record before sending
   const campaign = await Campaign.create({
     merchantId: merchant.merchantId,
     name,
@@ -67,44 +81,79 @@ export async function POST(req: NextRequest) {
     recipientCount: 0,
     totalTargeted: userIds.length,
     sentAt: new Date(),
+    platforms: requestedPlatforms, // Store which platforms were targeted
   });
 
+  const results: Record<string, { sent: number; failed: number }> = {};
   const CHUNK = 500;
-  let sent = 0;
-  let failed = 0;
 
-  for (let i = 0; i < userIds.length; i += CHUNK) {
-    const chunk = userIds.slice(i, i + CHUNK);
-    // Each chunk is a separate LINE API request — it needs its own retry key so LINE
-    // can deduplicate retries of that specific chunk without affecting the others.
-    const retryKey = randomUUID();
-    try {
-      const res = await fetch('https://api.line.me/v2/bot/message/multicast', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-          'X-Line-Retry-Key': retryKey,
-        },
-        body: JSON.stringify({ to: chunk, messages }),
-      });
-      if (res.ok) {
-        sent += chunk.length;
-      } else {
-        failed += chunk.length;
-        console.error('[multicast chunk]', await res.text());
+  // Send to each platform
+  for (const platform of requestedPlatforms) {
+    let sent = 0;
+    let failed = 0;
+    const text = messages[0]?.text || 'New broadcast message'; // Fallback text
+
+    if (platform === 'line') {
+      const token = settings?.lineChannelAccessToken?.trim();
+      for (let i = 0; i < userIds.length; i += CHUNK) {
+        const chunk = userIds.slice(i, i + CHUNK);
+        const retryKey = randomUUID();
+        try {
+          const res = await fetch('https://api.line.me/v2/bot/message/multicast', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+              'X-Line-Retry-Key': retryKey,
+            },
+            body: JSON.stringify({ to: chunk, messages }),
+          });
+          if (res.ok) {
+            sent += chunk.length;
+          } else {
+            failed += chunk.length;
+            console.error('[line multicast]', await res.text());
+          }
+        } catch (err) {
+          failed += chunk.length;
+          console.error('[line error]', err);
+        }
+        if (i + CHUNK < userIds.length) await new Promise(r => setTimeout(r, 100));
       }
-    } catch (err) {
-      failed += chunk.length;
-      console.error('[multicast error]', err);
+    } else if (platform === 'telegram') {
+      const token = settings?.telegram?.botToken?.trim();
+      for (const userId of userIds) {
+        try {
+          const success = await sendTelegramMessage(token, userId, text);
+          if (success) sent++;
+          else failed++;
+        } catch {
+          failed++;
+        }
+      }
+    } else if (platform === 'instagram') {
+      const token = settings?.instagram?.pageAccessToken?.trim();
+      for (const userId of userIds) {
+        try {
+          const success = await sendInstagramMessage(token, userId, text);
+          if (success) sent++;
+          else failed++;
+        } catch {
+          failed++;
+        }
+      }
     }
-    if (i + CHUNK < userIds.length) await new Promise(r => setTimeout(r, 200));
+
+    results[platform] = { sent, failed };
   }
 
+  const totalSent = Object.values(results).reduce((sum, r) => sum + r.sent, 0);
+  const totalFailed = Object.values(results).reduce((sum, r) => sum + r.failed, 0);
+
   await Campaign.findByIdAndUpdate(campaign._id, {
-    status: failed === userIds.length ? 'failed' : 'completed',
-    recipientCount: sent,
+    status: totalFailed === userIds.length * requestedPlatforms.length ? 'failed' : 'completed',
+    recipientCount: totalSent,
   });
 
-  return NextResponse.json({ sent, failed, total: userIds.length });
+  return NextResponse.json({ results, total: userIds.length, platforms: requestedPlatforms });
 }
