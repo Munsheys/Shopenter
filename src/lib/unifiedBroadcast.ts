@@ -1,4 +1,4 @@
-import { sendLineFlexMessage, sendFlexMessage } from '@/lib/platforms/line';
+import { sendLineMessage, sendFlexMessage } from '@/lib/platforms/line';
 import { sendTelegramMessage, sendTelegramPhotoWithKeyboard } from '@/lib/platforms/telegram';
 import { sendInstagramMessage, sendInstagramProductCards } from '@/lib/platforms/instagram';
 
@@ -30,7 +30,7 @@ export async function sendUnifiedBroadcast(
         try {
           const success = message.lineFlexPayload
             ? await sendFlexMessage(token, userId, message.lineFlexPayload)
-            : await sendLineFlexMessage(token, userId, message.text); // Fallback to text
+            : await sendLineMessage(token, userId, message.text); // Fallback to text
           if (success) sent++;
           else failed++;
         } catch {
