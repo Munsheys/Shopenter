@@ -2810,59 +2810,31 @@ function ParcelRow({ fulfilment, isDark, k, onPatch, onDelete }: {
   onPatch?: (patch: object) => void;
   onDelete?: () => void;
 }) {
-  const [trackingInput, setTrackingInput] = useState(fulfilment.tracking ?? '');
-  const [courierInput, setCourierInput] = useState(fulfilment.courier ?? '');
-  const [promptTracking, setPromptTracking] = useState(false);
   const [acting, setActing] = useState(false);
 
   const statusPill: Record<string, string> = {
-    pending:   isDark ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'bg-amber-50 text-amber-600 border border-amber-200',
-    shipped:   isDark ? 'bg-violet-500/10 text-violet-400 border border-violet-500/30' : 'bg-violet-50 text-violet-600 border border-violet-200',
+    shipped:   isDark ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'bg-amber-50 text-amber-600 border border-amber-200',
     delivered: isDark ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-600 border border-emerald-200',
   };
-  const statusLabel: Record<string, string> = { pending: 'Pending', shipped: 'Shipped', delivered: 'Delivered' };
+  const statusLabel: Record<string, string> = { shipped: 'In Transit', delivered: 'Delivered' };
 
-  async function markShipped() {
-    if (!fulfilment.tracking && !trackingInput.trim()) {
-      setPromptTracking(true);
-      return;
+  function handleDelete() {
+    if (window.confirm('Delete this shipment? This will update the order status.')) {
+      onDelete?.();
     }
-    setActing(true);
-    await onPatch?.({ status: 'shipped', tracking: trackingInput.trim() || fulfilment.tracking, courier: courierInput.trim() || fulfilment.courier });
-    setActing(false);
-    setPromptTracking(false);
   }
 
   return (
     <div className={`rounded-xl border p-3 space-y-2 ${isDark ? 'bg-[#1a1d2e] border-[#2a3050]' : 'bg-slate-50 border-slate-200'}`}>
       <div className="flex items-center justify-between gap-2">
-        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${statusPill[fulfilment.status]}`}>
-          {statusLabel[fulfilment.status]}
+        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${statusPill[fulfilment.status] ?? ''}`}>
+          {statusLabel[fulfilment.status] ?? fulfilment.status}
         </span>
         <div className="flex items-center gap-1 text-[10px]">
           {fulfilment.courier && <span className={k.muted}>{fulfilment.courier}</span>}
           {fulfilment.tracking && <span className={`font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>· {fulfilment.tracking}</span>}
         </div>
         <div className="flex items-center gap-1 ml-auto">
-          {fulfilment.status === 'pending' && (
-            <>
-              <button
-                onClick={markShipped}
-                disabled={acting}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black transition-all active:scale-95 disabled:opacity-50 ${isDark ? 'bg-violet-500/10 text-violet-400 hover:bg-violet-500/20' : 'bg-violet-50 text-violet-600 hover:bg-violet-100'}`}
-              >
-                <Truck size={9} /> {acting ? '…' : 'Mark Shipped'}
-              </button>
-              <button
-                onClick={onDelete}
-                disabled={acting}
-                className={`p-1 rounded-lg transition-colors disabled:opacity-50 text-red-400 hover:bg-red-500/10`}
-                aria-label="Delete parcel"
-              >
-                <Trash2 size={11} />
-              </button>
-            </>
-          )}
           {fulfilment.status === 'shipped' && (
             <button
               onClick={async () => { setActing(true); await onPatch?.({ status: 'delivered' }); setActing(false); }}
@@ -2872,32 +2844,18 @@ function ParcelRow({ fulfilment, isDark, k, onPatch, onDelete }: {
               <CheckCircle size={9} /> {acting ? '…' : 'Mark Delivered'}
             </button>
           )}
+          {onDelete && (
+            <button
+              onClick={handleDelete}
+              disabled={acting}
+              className={`p-1 rounded-lg transition-colors disabled:opacity-50 text-red-400 hover:bg-red-500/10`}
+              aria-label="Delete parcel"
+            >
+              <Trash2 size={11} />
+            </button>
+          )}
         </div>
       </div>
-      {/* Inline tracking prompt */}
-      {promptTracking && fulfilment.status === 'pending' && (
-        <div className="flex gap-2 items-center">
-          <input
-            value={courierInput}
-            onChange={e => setCourierInput(e.target.value)}
-            placeholder="Courier"
-            className={`w-24 text-[10px] rounded-lg px-2 py-1 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-slate-200 text-[#1a1d2e]'}`}
-          />
-          <input
-            value={trackingInput}
-            onChange={e => setTrackingInput(e.target.value)}
-            placeholder="Tracking number"
-            className={`flex-1 text-[10px] rounded-lg px-2 py-1 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-slate-200 text-[#1a1d2e]'}`}
-          />
-          <button
-            onClick={markShipped}
-            disabled={acting}
-            className="text-[9px] font-black px-2 py-1 rounded-lg bg-violet-500 text-white hover:bg-violet-600 transition-all disabled:opacity-50"
-          >
-            Ship
-          </button>
-        </div>
-      )}
       {/* Items list */}
       <p className={`text-[10px] ${k.muted} leading-relaxed`}>
         {fulfilment.items.map(i => `${i.qty}x ${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join(', ')}
@@ -2959,6 +2917,7 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
 
   async function handleSubmit() {
     if (itemsForParcel.length === 0) { setError('Select at least one item.'); return; }
+    if (!tracking.trim()) { setError('Tracking number is required.'); return; }
     setError('');
     setSubmitting(true);
     try {
@@ -2971,6 +2930,7 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
           courier: effectiveCourier.trim() || undefined,
           address: address.trim() || undefined,
           shipCostTHB: shipCostNum,
+          status: 'shipped',
         }),
       });
       if (res.ok) {
@@ -3005,7 +2965,7 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
         {/* Header */}
         <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border} flex-shrink-0`}>
           <div>
-            <h3 className={`font-black text-sm ${k.text}`}>Ship Items</h3>
+            <h3 className={`font-black text-sm ${k.text}`}>Create Shipment</h3>
             <p className={`text-[10px] mt-0.5 ${k.muted}`}>{order.product}</p>
           </div>
           <button onClick={onClose} aria-label="Close" className={`p-1.5 rounded-xl ${k.muted} ${k.hover} transition-colors`}>
@@ -3019,7 +2979,7 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
                 <CheckCircle size={28} className="text-emerald-500" />
               </div>
-              <p className={`text-sm font-black ${k.text}`}>Shipment Created!</p>
+              <p className={`text-sm font-black ${k.text}`}>Shipment created — parcel is now in transit</p>
               <p className={`text-[10px] ${k.muted}`}>Closing…</p>
             </div>
           ) : (
@@ -3101,13 +3061,14 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
                     )}
                   </div>
                   <div>
-                    <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Tracking No.</label>
+                    <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Tracking No. *</label>
                     <input
                       value={tracking}
                       onChange={e => setTracking(e.target.value)}
                       placeholder="e.g. TH12345678"
                       className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
                     />
+                    <p className={`text-[9px] mt-1 ${k.muted}`}>Enter the tracking number from your courier label</p>
                   </div>
                 </div>
 
@@ -3160,11 +3121,11 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
             </button>
             <button
               onClick={handleSubmit}
-              disabled={submitting || selectedCount === 0}
+              disabled={submitting || selectedCount === 0 || !tracking.trim()}
               className="flex-1 py-2.5 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-1.5"
               style={{ background: 'var(--accent-gradient)' }}
             >
-              <Truck size={12} /> {submitting ? 'Creating…' : 'Create Shipment'}
+              <Truck size={12} /> {submitting ? 'Creating…' : 'Ship Now'}
             </button>
           </div>
         )}

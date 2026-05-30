@@ -55,7 +55,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       courier: courier ?? undefined,
       address: address ?? undefined,
       shipCostTHB: shipCostTHB ?? 0,
-      status: 'pending',
+      status: body.status === 'shipped' ? 'shipped' : 'pending',
+      shippedAt: body.status === 'shipped' ? new Date() : undefined,
     });
 
     await recomputeOrderStatus(id);

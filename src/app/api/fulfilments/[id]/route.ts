@@ -58,10 +58,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const fulfilment = await Fulfilment.findOne({ _id: id, merchantId: merchant.merchantId });
     if (!fulfilment) return NextResponse.json({ error: 'Fulfilment not found' }, { status: 404 });
 
-    if (fulfilment.status !== 'pending') {
-      return NextResponse.json({ error: 'Only pending fulfilments can be deleted' }, { status: 400 });
-    }
-
     const orderId = String(fulfilment.orderId);
     await Fulfilment.findByIdAndDelete(id);
     await recomputeOrderStatus(orderId);
