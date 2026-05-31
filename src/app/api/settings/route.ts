@@ -64,17 +64,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build flat $set update for telegram/instagram welcome fields
-    const update: Record<string, any> = { ...body };
-    if (body.telegram) {
-      if (body.telegram.welcomeEnabled !== undefined) update['telegram.welcomeEnabled'] = body.telegram.welcomeEnabled;
-      if (body.telegram.welcomeMessage  !== undefined) update['telegram.welcomeMessage']  = body.telegram.welcomeMessage;
-      if (body.telegram.welcomeStorefrontLink !== undefined) update['telegram.welcomeStorefrontLink'] = body.telegram.welcomeStorefrontLink;
-    }
-    if (body.instagram) {
-      if (body.instagram.welcomeEnabled !== undefined) update['instagram.welcomeEnabled'] = body.instagram.welcomeEnabled;
-      if (body.instagram.welcomeMessage  !== undefined) update['instagram.welcomeMessage']  = body.instagram.welcomeMessage;
-      if (body.instagram.welcomeStorefrontLink !== undefined) update['instagram.welcomeStorefrontLink'] = body.instagram.welcomeStorefrontLink;
+    // Build flat $set — convert nested telegram/instagram to dotted keys to avoid
+    // MongoDB "path conflict" errors when mixing nested objects with dotted paths
+    const update: Record<string, any> = {};
+    for (const [key, val] of Object.entries(body)) {
+      if (key === 'telegram' && val && typeof val === 'object' && !Array.isArray(val)) {
+        for (const [subKey, subVal] of Object.entries(val as Record<string, unknown>)) {
+          if (subVal !== undefined) update[`telegram.${subKey}`] = subVal;
+        }
+      } else if (key === 'instagram' && val && typeof val === 'object' && !Array.isArray(val)) {
+        for (const [subKey, subVal] of Object.entries(val as Record<string, unknown>)) {
+          if (subVal !== undefined) update[`instagram.${subKey}`] = subVal;
+        }
+      } else {
+        update[key] = val;
+      }
     }
     // Never let clients overwrite the merchantId binding
     delete body.merchantId;

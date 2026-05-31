@@ -609,7 +609,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const isLite = theme === 'lite';
   const k = isDark ? DK : isLite ? LITK : LK;
 
-  const [section, setSection] = useState<'broadcast' | 'smart-search' | 'welcome' | 'line'>('broadcast');
+  const [section, setSection] = useState<'broadcast' | 'smart-search' | 'line' | 'instagram' | 'telegram'>('broadcast');
   const [lineStatus, setLineStatus] = useState<LineStatus | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [rules, setRules] = useState<AutoReplyRule[]>([]);
@@ -631,8 +631,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [platformStatus, setPlatformStatus] = useState<PlatformStatus>({ line: false, telegram: false, instagram: false });
 
   // Page structure state
-  const [lineSubSection, setLineSubSection] = useState<'auto-reply' | 'rich-menu'>('auto-reply');
-  const [welcomeSection, setWelcomeSection] = useState<'line' | 'telegram' | 'instagram'>('line');
+  const [lineSubSection, setLineSubSection] = useState<'auto-reply' | 'rich-menu' | 'welcome'>('auto-reply');
 
   // Settings data (for smart search toggles + welcome config)
   const [settingsData, setSettingsData] = useState<any>(null);
@@ -960,10 +959,11 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const remaining = lineStatus?.quota?.type === 'none' ? Infinity : (lineStatus?.quota?.value ?? 0) - (lineStatus?.consumption?.totalUsage ?? 0);
 
   const SECTIONS = [
-    { id: 'broadcast',     label: 'Broadcast',     icon: <Zap size={14} /> },
-    { id: 'smart-search',  label: 'Smart Search',  icon: <Search size={14} /> },
-    { id: 'welcome',       label: 'Welcome',        icon: <Hand size={14} /> },
-    { id: 'line',          label: 'LINE',           icon: <LayoutGrid size={14} /> },
+    { id: 'broadcast',    label: 'Broadcast',    icon: <Zap size={14} /> },
+    { id: 'smart-search', label: 'Smart Search', icon: <Search size={14} /> },
+    { id: 'line',         label: 'LINE',         icon: <LayoutGrid size={14} /> },
+    { id: 'instagram',    label: 'Instagram',    icon: <Camera size={14} /> },
+    { id: 'telegram',     label: 'Telegram',     icon: <Send size={14} /> },
   ] as const;
 
   return (
@@ -1524,51 +1524,211 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
         </div>
       )}
 
-      {/* ── Welcome ── */}
-      {section === 'welcome' && (
+      {/* ── Instagram ── */}
+      {section === 'instagram' && (
         <div className="space-y-5">
-          <div>
-            <p className={`text-sm font-semibold ${k.text}`}>Welcome Messages</p>
-            <p className={`text-xs mt-1 ${k.muted}`}>Two automatic triggers: <strong>First ever</strong> — brand-new customer. <strong>24h gap</strong> — returning customer not seen in 24 hours.</p>
+          {!platformStatus.instagram && (
+            <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+              <AlertTriangle size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-400">Instagram not connected. Add your Page Access Token and Instagram Account ID in <strong>Settings → Channels</strong>.</p>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <p className={`text-sm font-semibold ${k.text}`}>Instagram</p>
+            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">Instagram</span>
           </div>
 
-          {/* Platform selector */}
+          <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-semibold ${k.text}`}>Welcome — first message ever</p>
+                <p className={`text-xs mt-1 ${k.muted}`}>Sent the first time a customer DMs your Instagram account.</p>
+              </div>
+              <button onClick={() => setIgWelcome(w => ({ ...w, enabled: !w.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.enabled ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+            {igWelcome.enabled && (
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
+                  <textarea value={igWelcome.message} onChange={e => setIgWelcome(w => ({ ...w, message: e.target.value }))} placeholder="Welcome! 🛍️ Browse our collection below." rows={3} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                  <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default.</p>
+                </div>
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                  <div>
+                    <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
+                    <p className={`text-[10px] mt-0.5 ${k.muted}`}>Appends your store URL — customer identity auto-embedded</p>
+                  </div>
+                  <button onClick={() => setIgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.storefrontLink ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
+            )}
+            <button disabled={welcomeSaving} onClick={async () => { setWelcomeSaving(true); await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instagram: { welcomeEnabled: igWelcome.enabled, welcomeMessage: igWelcome.message, welcomeStorefrontLink: igWelcome.storefrontLink } }) }); setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
+              {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save'}
+            </button>
+          </div>
+
+          <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
+                <p className={`text-xs mt-1 ${k.muted}`}>Sent when an existing customer DMs after not interacting for 24+ hours.</p>
+              </div>
+              <button onClick={() => setIgReEngage(r => ({ ...r, enabled: !r.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igReEngage.enabled ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+            {igReEngage.enabled && (
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
+                  <textarea value={igReEngage.message} onChange={e => setIgReEngage(r => ({ ...r, message: e.target.value }))} placeholder="Welcome back! 👋 We've missed you — check out what's new." rows={3} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                  <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default.</p>
+                </div>
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                  <div>
+                    <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
+                    <p className={`text-[10px] mt-0.5 ${k.muted}`}>Appends your store URL with customer identity pre-embedded</p>
+                  </div>
+                  <button onClick={() => setIgReEngage(r => ({ ...r, storefrontLink: !r.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igReEngage.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igReEngage.storefrontLink ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
+            )}
+            <button disabled={welcomeSaving} onClick={async () => { setWelcomeSaving(true); await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instagram: { reEngageEnabled: igReEngage.enabled, reEngageMessage: igReEngage.message, reEngageStorefrontLink: igReEngage.storefrontLink } }) }); setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
+              {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Telegram ── */}
+      {section === 'telegram' && (
+        <div className="space-y-5">
+          {!platformStatus.telegram && (
+            <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+              <AlertTriangle size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-400">Telegram not connected. Add your Bot Token in <strong>Settings → Channels</strong>.</p>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <p className={`text-sm font-semibold ${k.text}`}>Telegram</p>
+            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/25">Telegram</span>
+          </div>
+
+          <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-semibold ${k.text}`}>Welcome — first message ever</p>
+                <p className={`text-xs mt-1 ${k.muted}`}>Sent the first time a customer messages your Telegram bot.</p>
+              </div>
+              <button onClick={() => setTgWelcome(w => ({ ...w, enabled: !w.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.enabled ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+            {tgWelcome.enabled && (
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
+                  <textarea value={tgWelcome.message} onChange={e => setTgWelcome(w => ({ ...w, message: e.target.value }))} placeholder="Welcome! 🎉 Browse our products and order directly from chat." rows={3} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                  <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default.</p>
+                </div>
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                  <div>
+                    <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
+                    <p className={`text-[10px] mt-0.5 ${k.muted}`}>Adds a "Browse Store 🛒" button — customer identity auto-embedded</p>
+                  </div>
+                  <button onClick={() => setTgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.storefrontLink ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
+            )}
+            <button disabled={welcomeSaving} onClick={async () => { setWelcomeSaving(true); await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram: { welcomeEnabled: tgWelcome.enabled, welcomeMessage: tgWelcome.message, welcomeStorefrontLink: tgWelcome.storefrontLink } }) }); setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
+              {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save'}
+            </button>
+          </div>
+
+          <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
+                <p className={`text-xs mt-1 ${k.muted}`}>Sent when an existing customer messages after not interacting for 24+ hours.</p>
+              </div>
+              <button onClick={() => setTgReEngage(r => ({ ...r, enabled: !r.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgReEngage.enabled ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+            {tgReEngage.enabled && (
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
+                  <textarea value={tgReEngage.message} onChange={e => setTgReEngage(r => ({ ...r, message: e.target.value }))} placeholder="Welcome back! 👋 We've missed you — here's what's new." rows={3} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                  <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default.</p>
+                </div>
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                  <div>
+                    <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
+                    <p className={`text-[10px] mt-0.5 ${k.muted}`}>Adds a "Browse Store 🛒" button with customer identity pre-embedded</p>
+                  </div>
+                  <button onClick={() => setTgReEngage(r => ({ ...r, storefrontLink: !r.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgReEngage.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgReEngage.storefrontLink ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
+            )}
+            <button disabled={welcomeSaving} onClick={async () => { setWelcomeSaving(true); await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram: { reEngageEnabled: tgReEngage.enabled, reEngageMessage: tgReEngage.message, reEngageStorefrontLink: tgReEngage.storefrontLink } }) }); setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
+              {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── LINE Tools ── */}
+      {section === 'line' && (
+        <div className="space-y-5">
+          {/* LINE status bar */}
+          <StatusBar status={lineStatus} onSync={syncing ? () => {} : handleSync} isDark={isDark} />
+
+          {/* LINE Exclusive header */}
+          <div className="flex items-center gap-2">
+            <p className={`text-sm font-semibold ${k.text}`}>LINE Tools</p>
+            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">LINE Exclusive</span>
+          </div>
+
+          {/* Sub-tabs */}
           <div className={`flex gap-1 p-1 rounded-xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
-            {(['line', 'telegram', 'instagram'] as const).map(p => {
-              const labels = { line: 'LINE', telegram: 'Telegram', instagram: 'Instagram' };
-              const configured = p === 'line' ? platformStatus.line : p === 'telegram' ? platformStatus.telegram : platformStatus.instagram;
-              return (
-                <button
-                  key={p}
-                  onClick={() => setWelcomeSection(p)}
-                  disabled={!configured}
-                  title={!configured ? `${labels[p]} not configured — go to Settings` : undefined}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    welcomeSection === p
-                      ? 'text-white shadow-sm'
-                      : configured
-                      ? isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
-                      : 'opacity-30 cursor-not-allowed'
-                  }`}
-                  style={welcomeSection === p ? { background: 'var(--accent-gradient)' } : undefined}
-                >
-                  {labels[p]}
-                  {!configured && <span className="text-[9px]">(not set up)</span>}
-                </button>
-              );
-            })}
+            {[
+              { id: 'auto-reply' as const, label: 'Auto-Reply', icon: <MessageSquare size={13} /> },
+              { id: 'rich-menu'  as const, label: 'Rich Menu',  icon: <LayoutGrid size={13} /> },
+              { id: 'welcome'   as const, label: 'Welcome',     icon: <Hand size={13} /> },
+            ].map(s => (
+              <button
+                key={s.id}
+                onClick={() => setLineSubSection(s.id)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                  lineSubSection === s.id
+                    ? 'text-white shadow-sm'
+                    : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                style={lineSubSection === s.id ? { background: 'var(--accent-gradient)' } : undefined}
+              >
+                {s.icon}{s.label}
+              </button>
+            ))}
           </div>
 
-          {/* ── LINE welcome ── */}
-          {welcomeSection === 'line' && (
+          {/* ── LINE: Welcome sub-tab ── */}
+          {lineSubSection === 'welcome' && (
             <>
             <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-semibold ${k.text}`}>LINE Welcome Message</p>
-                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">LINE</span>
-                  </div>
+                  <p className={`text-sm font-semibold ${k.text}`}>Welcome — first message ever</p>
                   <p className={`text-xs mt-1 ${k.muted}`}>Sent when a customer follows your LINE OA. Delivered free via reply token.</p>
                 </div>
                 <button
@@ -1597,15 +1757,11 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               </button>
             </div>
 
-            {/* LINE re-engagement */}
             <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
-                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">LINE</span>
-                  </div>
-                  <p className={`text-xs mt-1 ${k.muted}`}>Sent when an existing LINE customer messages after not interacting for 24+ hours.</p>
+                  <p className={`text-sm font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
+                  <p className={`text-xs mt-1 ${k.muted}`}>Sent when an existing LINE customer messages after 24+ hours away.</p>
                 </div>
                 <button
                   onClick={() => setLineReEngage(r => ({ ...r, enabled: !r.enabled }))}
@@ -1629,10 +1785,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                   await fetch('/api/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      reEngageEnabled: lineReEngage.enabled,
-                      reEngageMessages: lineReEngage.messages,
-                    }),
+                    body: JSON.stringify({ reEngageEnabled: lineReEngage.enabled, reEngageMessages: lineReEngage.messages }),
                   });
                   setWelcomeSaving(false);
                   setWelcomeSaved(true);
@@ -1647,333 +1800,6 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
             </div>
             </>
           )}
-
-          {/* ── Telegram welcome ── */}
-          {welcomeSection === 'telegram' && (
-            <>
-            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-semibold ${k.text}`}>Telegram Welcome Message</p>
-                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/25">Telegram</span>
-                  </div>
-                  <p className={`text-xs mt-1 ${k.muted}`}>Sent the first time a customer messages your Telegram bot.</p>
-                </div>
-                <button
-                  onClick={() => setTgWelcome(w => ({ ...w, enabled: !w.enabled }))}
-                  className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.enabled ? 'left-6' : 'left-1'}`} />
-                </button>
-              </div>
-              {tgWelcome.enabled && (
-                <div className="space-y-4">
-                  <div>
-                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
-                    <textarea
-                      value={tgWelcome.message}
-                      onChange={e => setTgWelcome(w => ({ ...w, message: e.target.value }))}
-                      placeholder={`Welcome! 🎉 Browse our products and order directly from chat.`}
-                      rows={3}
-                      className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`}
-                    />
-                    <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default message.</p>
-                  </div>
-                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                    <div>
-                      <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
-                      <p className={`text-[10px] mt-0.5 ${k.muted}`}>Adds a "Browse Store 🛒" button — customer's identity is embedded so they're auto-logged in</p>
-                    </div>
-                    <button
-                      onClick={() => setTgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))}
-                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.storefrontLink ? 'left-6' : 'left-1'}`} />
-                    </button>
-                  </div>
-                </div>
-              )}
-              <button
-                disabled={welcomeSaving}
-                onClick={async () => {
-                  setWelcomeSaving(true);
-                  await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      telegram: {
-                        welcomeEnabled: tgWelcome.enabled,
-                        welcomeMessage: tgWelcome.message,
-                        welcomeStorefrontLink: tgWelcome.storefrontLink,
-                      },
-                    }),
-                  });
-                  setWelcomeSaving(false);
-                  setWelcomeSaved(true);
-                  setTimeout(() => setWelcomeSaved(false), 2000);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                {welcomeSaved ? 'Saved!' : 'Save'}
-              </button>
-            </div>
-
-            {/* Telegram re-engagement */}
-            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
-                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/25">Telegram</span>
-                  </div>
-                  <p className={`text-xs mt-1 ${k.muted}`}>Sent when an existing customer messages after not interacting for 24+ hours.</p>
-                </div>
-                <button
-                  onClick={() => setTgReEngage(r => ({ ...r, enabled: !r.enabled }))}
-                  className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgReEngage.enabled ? 'left-6' : 'left-1'}`} />
-                </button>
-              </div>
-              {tgReEngage.enabled && (
-                <div className="space-y-4">
-                  <div>
-                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
-                    <textarea
-                      value={tgReEngage.message}
-                      onChange={e => setTgReEngage(r => ({ ...r, message: e.target.value }))}
-                      placeholder={`Welcome back! 👋 We've missed you — here's what's new.`}
-                      rows={3}
-                      className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`}
-                    />
-                    <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default message.</p>
-                  </div>
-                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                    <div>
-                      <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
-                      <p className={`text-[10px] mt-0.5 ${k.muted}`}>Adds a "Browse Store 🛒" button with the customer's identity pre-embedded</p>
-                    </div>
-                    <button
-                      onClick={() => setTgReEngage(r => ({ ...r, storefrontLink: !r.storefrontLink }))}
-                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgReEngage.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgReEngage.storefrontLink ? 'left-6' : 'left-1'}`} />
-                    </button>
-                  </div>
-                </div>
-              )}
-              <button
-                disabled={welcomeSaving}
-                onClick={async () => {
-                  setWelcomeSaving(true);
-                  await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      telegram: {
-                        reEngageEnabled: tgReEngage.enabled,
-                        reEngageMessage: tgReEngage.message,
-                        reEngageStorefrontLink: tgReEngage.storefrontLink,
-                      },
-                    }),
-                  });
-                  setWelcomeSaving(false);
-                  setWelcomeSaved(true);
-                  setTimeout(() => setWelcomeSaved(false), 2000);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                {welcomeSaved ? 'Saved!' : 'Save'}
-              </button>
-            </div>
-            </>
-          )}
-
-          {/* ── Instagram welcome ── */}
-          {welcomeSection === 'instagram' && (
-            <>
-            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-semibold ${k.text}`}>Instagram Welcome Message</p>
-                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">Instagram</span>
-                  </div>
-                  <p className={`text-xs mt-1 ${k.muted}`}>Sent the first time a customer DMs your Instagram account.</p>
-                </div>
-                <button
-                  onClick={() => setIgWelcome(w => ({ ...w, enabled: !w.enabled }))}
-                  className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.enabled ? 'left-6' : 'left-1'}`} />
-                </button>
-              </div>
-              {igWelcome.enabled && (
-                <div className="space-y-4">
-                  <div>
-                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
-                    <textarea
-                      value={igWelcome.message}
-                      onChange={e => setIgWelcome(w => ({ ...w, message: e.target.value }))}
-                      placeholder={`Welcome! 🛍️ Browse our collection below.`}
-                      rows={3}
-                      className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`}
-                    />
-                    <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default message.</p>
-                  </div>
-                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                    <div>
-                      <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
-                      <p className={`text-[10px] mt-0.5 ${k.muted}`}>Appends a clickable store URL — customer's identity is embedded so they're auto-logged in</p>
-                    </div>
-                    <button
-                      onClick={() => setIgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))}
-                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.storefrontLink ? 'left-6' : 'left-1'}`} />
-                    </button>
-                  </div>
-                </div>
-              )}
-              <button
-                disabled={welcomeSaving}
-                onClick={async () => {
-                  setWelcomeSaving(true);
-                  await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      instagram: {
-                        welcomeEnabled: igWelcome.enabled,
-                        welcomeMessage: igWelcome.message,
-                        welcomeStorefrontLink: igWelcome.storefrontLink,
-                      },
-                    }),
-                  });
-                  setWelcomeSaving(false);
-                  setWelcomeSaved(true);
-                  setTimeout(() => setWelcomeSaved(false), 2000);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                {welcomeSaved ? 'Saved!' : 'Save'}
-              </button>
-            </div>
-
-            {/* Instagram re-engagement */}
-            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
-                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">Instagram</span>
-                  </div>
-                  <p className={`text-xs mt-1 ${k.muted}`}>Sent when an existing customer DMs after not interacting for 24+ hours.</p>
-                </div>
-                <button
-                  onClick={() => setIgReEngage(r => ({ ...r, enabled: !r.enabled }))}
-                  className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igReEngage.enabled ? 'left-6' : 'left-1'}`} />
-                </button>
-              </div>
-              {igReEngage.enabled && (
-                <div className="space-y-4">
-                  <div>
-                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
-                    <textarea
-                      value={igReEngage.message}
-                      onChange={e => setIgReEngage(r => ({ ...r, message: e.target.value }))}
-                      placeholder={`Welcome back! 👋 We've missed you — check out what's new.`}
-                      rows={3}
-                      className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`}
-                    />
-                    <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default message.</p>
-                  </div>
-                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                    <div>
-                      <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
-                      <p className={`text-[10px] mt-0.5 ${k.muted}`}>Appends a clickable store URL with the customer's identity pre-embedded</p>
-                    </div>
-                    <button
-                      onClick={() => setIgReEngage(r => ({ ...r, storefrontLink: !r.storefrontLink }))}
-                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igReEngage.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igReEngage.storefrontLink ? 'left-6' : 'left-1'}`} />
-                    </button>
-                  </div>
-                </div>
-              )}
-              <button
-                disabled={welcomeSaving}
-                onClick={async () => {
-                  setWelcomeSaving(true);
-                  await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      instagram: {
-                        reEngageEnabled: igReEngage.enabled,
-                        reEngageMessage: igReEngage.message,
-                        reEngageStorefrontLink: igReEngage.storefrontLink,
-                      },
-                    }),
-                  });
-                  setWelcomeSaving(false);
-                  setWelcomeSaved(true);
-                  setTimeout(() => setWelcomeSaved(false), 2000);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                {welcomeSaved ? 'Saved!' : 'Save'}
-              </button>
-            </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── LINE Tools ── */}
-      {section === 'line' && (
-        <div className="space-y-5">
-          {/* LINE status bar */}
-          <StatusBar status={lineStatus} onSync={syncing ? () => {} : handleSync} isDark={isDark} />
-
-          {/* LINE Exclusive header */}
-          <div className="flex items-center gap-2">
-            <p className={`text-sm font-semibold ${k.text}`}>LINE Tools</p>
-            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">LINE Exclusive</span>
-          </div>
-
-          {/* Sub-tabs */}
-          <div className={`flex gap-1 p-1 rounded-xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
-            {[
-              { id: 'auto-reply' as const, label: 'Auto-Reply', icon: <MessageSquare size={13} /> },
-              { id: 'rich-menu'  as const, label: 'Rich Menu',  icon: <LayoutGrid size={13} /> },
-            ].map(s => (
-              <button
-                key={s.id}
-                onClick={() => setLineSubSection(s.id)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
-                  lineSubSection === s.id
-                    ? 'text-white shadow-sm'
-                    : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
-                }`}
-                style={lineSubSection === s.id ? { background: 'var(--accent-gradient)' } : undefined}
-              >
-                {s.icon}{s.label}
-              </button>
-            ))}
-          </div>
 
           {/* Auto-Reply content */}
           {lineSubSection === 'auto-reply' && (
