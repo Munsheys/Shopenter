@@ -6,6 +6,7 @@ import {
   Plus, Trash2, Edit2, Check, X, AlertTriangle,
   RefreshCw, Send, Pause, Play, Ban, Loader2, ExternalLink,
   Image as ImageIcon, Video, Smile, Type, Info, Upload, Link,
+  Camera, Settings as SettingsIcon,
 } from 'lucide-react';
 
 interface BroadcastsViewProps {
@@ -23,6 +24,18 @@ interface LineBlock {
   duration?: number;
   packageId?: string;
   stickerId?: string;
+}
+
+interface PlatformStatus {
+  line: boolean;
+  telegram: boolean;
+  instagram: boolean;
+}
+
+interface BroadcastResult {
+  results: Record<string, { sent: number; failed: number; postId?: string; postType?: string; error?: string }>;
+  total: number;
+  platforms: string[];
 }
 
 interface Campaign {
@@ -605,12 +618,17 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [defaultRichMenuId, setDefaultRichMenuId] = useState<string | null>(null);
 
   // Broadcast form
+  const [bCaption, setBCaption] = useState('');
+  const [bImageUrl, setBImageUrl] = useState('');
+  const [bPlatforms, setBPlatforms] = useState<string[]>(['line']);
+  const [bIgPostType, setBIgPostType] = useState<'feed' | 'story'>('feed');
+  const [bLineExtras, setBLineExtras] = useState<LineBlock[]>([]);
   const [bAudience, setBAudience] = useState('all');
-  const [bMessages, setBMessages] = useState<LineBlock[]>([{ type: 'text', text: '' }]);
   const [bName, setBName] = useState('');
   const [bSending, setBSending] = useState(false);
-  const [bResult, setBResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+  const [bResult, setBResult] = useState<BroadcastResult | null>(null);
   const [bError, setBError] = useState('');
+  const [platformStatus, setPlatformStatus] = useState<PlatformStatus>({ line: false, telegram: false, instagram: false });
 
   // Queued campaign form
   const [qMessages, setQMessages] = useState<LineBlock[]>([{ type: 'text', text: '' }]);
@@ -683,13 +701,21 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
     } catch { /* ignore */ }
   }, []);
 
+  const loadPlatformStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/broadcasts/platform-status');
+      if (res.ok) setPlatformStatus(await res.json());
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     loadStatus();
     loadCampaigns();
     loadRules();
     loadGreeting();
     loadRichMenus();
-  }, [loadStatus, loadCampaigns, loadRules, loadGreeting, loadRichMenus]);
+    loadPlatformStatus();
+  }, [loadStatus, loadCampaigns, loadRules, loadGreeting, loadRichMenus, loadPlatformStatus]);
 
   async function handleSync() {
     setSyncing(true);
@@ -704,7 +730,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
 
   async function handleInstantSend() {
     setShowSendConfirm(false);
-    if (bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)) return;
+    if (!bCaption.trim() && !bImageUrl) return;
     setBSending(true);
     setBResult(null);
     setBError('');
@@ -712,7 +738,15 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
       const res = await fetch('/api/broadcasts/instant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: bMessages, audience: bAudience, name: bName }),
+        body: JSON.stringify({
+          caption: bCaption,
+          imageUrl: bImageUrl || undefined,
+          platforms: bPlatforms,
+          audience: bAudience,
+          name: bName,
+          igPostType: bIgPostType,
+          lineExtraBlocks: bLineExtras,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -910,31 +944,191 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
       {/* ── Campaigns ── */}
       {section === 'campaigns' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Instant broadcast */}
+          {/* ── Unified Instant Broadcast ── */}
           <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            {/* Header */}
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
                 <Zap size={16} className="text-accent" />
               </div>
               <div>
-                <p className={`text-sm font-semibold ${k.text}`}>Instant Broadcast</p>
-                <p className={`text-xs ${k.muted}`}>Sends immediately via multicast — uses your monthly quota</p>
+                <p className={`text-sm font-semibold ${k.text}`}>Broadcast</p>
+                <p className={`text-xs ${k.muted}`}>Send to all customers across platforms instantly</p>
               </div>
             </div>
 
+            {/* Platform selector */}
             <div>
-              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Audience</label>
-              <div className="space-y-1.5">
-                {Object.entries(AUDIENCE_LABELS).map(([val, label]) => (
-                  <label key={val} className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${bAudience === val ? 'bg-accent/10 border border-accent/30' : isDark ? 'border border-[#1f2335] hover:border-[#2d3555]' : 'border border-slate-200 hover:border-slate-300'}`}>
-                    <input type="radio" name="audience" value={val} checked={bAudience === val} onChange={() => setBAudience(val)} className="accent-accent" />
-                    <span className={`text-sm ${k.text}`}>{label}</span>
-                  </label>
-                ))}
+              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Platforms</label>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { id: 'line', label: 'LINE', configured: platformStatus.line, dot: 'bg-emerald-400', ring: 'ring-emerald-500/30', activeBg: isDark ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-300 text-emerald-700' },
+                  { id: 'telegram', label: 'Telegram', configured: platformStatus.telegram, dot: 'bg-blue-400', ring: 'ring-blue-500/30', activeBg: isDark ? 'bg-blue-500/15 border-blue-500/30 text-blue-300' : 'bg-blue-50 border-blue-300 text-blue-700' },
+                  { id: 'instagram', label: 'Instagram', configured: platformStatus.instagram, dot: 'bg-pink-400', ring: 'ring-pink-500/30', activeBg: isDark ? 'bg-pink-500/15 border-pink-500/30 text-pink-300' : 'bg-pink-50 border-pink-300 text-pink-700' },
+                ] as const).map(p => {
+                  const selected = bPlatforms.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={!p.configured}
+                      title={!p.configured ? `${p.label} not configured — go to Settings` : undefined}
+                      onClick={() => setBPlatforms(prev =>
+                        selected ? prev.filter(x => x !== p.id) : [...prev, p.id]
+                      )}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                        !p.configured
+                          ? isDark ? 'border-[#1f2335] text-[#4a5068] cursor-not-allowed' : 'border-slate-200 text-slate-300 cursor-not-allowed'
+                          : selected
+                          ? `${p.activeBg} ring-1 ${p.ring}`
+                          : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-[#2d3555] hover:text-white' : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-800'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${p.configured ? p.dot : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`} />
+                      {p.label}
+                      {!p.configured && <span className="text-[9px] opacity-60">not configured</span>}
+                      {selected && p.configured && <Check size={10} />}
+                    </button>
+                  );
+                })}
+              </div>
+              {bPlatforms.length === 0 && (
+                <p className="text-xs text-amber-400 mt-1.5">Select at least one platform.</p>
+              )}
+            </div>
+
+            {/* Caption */}
+            <div>
+              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Caption / Message</label>
+              <textarea
+                value={bCaption}
+                onChange={e => setBCaption(e.target.value)}
+                placeholder="Write your broadcast message here…"
+                rows={3}
+                className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`}
+              />
+            </div>
+
+            {/* Image */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <label className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Image</label>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-slate-200 text-slate-400'}`}>optional for LINE &amp; Telegram · required for Instagram</span>
+              </div>
+              <UploadZone
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                maxMB={UPLOAD_LIMITS.image}
+                value={bImageUrl}
+                onUploaded={url => setBImageUrl(url)}
+                isDark={isDark}
+                isLite={isLite}
+                previewType="image"
+              />
+            </div>
+
+            {/* Instagram-exclusive: post type */}
+            {bPlatforms.includes('instagram') && (
+              <div className={`rounded-xl p-4 space-y-3 border ${isDark ? 'bg-[#1a1d2e] border-pink-500/20' : 'bg-pink-50/50 border-pink-200'}`}>
+                <div className="flex items-center gap-2">
+                  <Camera size={13} className="text-pink-400" />
+                  <span className={`text-xs font-semibold ${isDark ? 'text-pink-300' : 'text-pink-700'}`}>Instagram</span>
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">IG Exclusive</span>
+                </div>
+                <div>
+                  <p className={`text-[11px] font-semibold mb-2 ${k.muted}`}>Post type</p>
+                  <div className="flex gap-2">
+                    {(['feed', 'story'] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setBIgPostType(t)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all capitalize ${
+                          bIgPostType === t
+                            ? isDark ? 'bg-pink-500/15 border-pink-500/30 text-pink-300' : 'bg-pink-50 border-pink-300 text-pink-700'
+                            : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        {t === 'feed' ? '🖼 Feed Post' : '⭕ Story'}
+                      </button>
+                    ))}
+                  </div>
+                  {!bImageUrl && (
+                    <p className={`text-[10px] mt-2 text-amber-400`}>⚠ Upload an image above — Instagram posts require an image.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* LINE-exclusive extras */}
+            <div className={`rounded-xl p-4 space-y-3 border ${isDark ? 'bg-[#1a1d2e] border-emerald-500/15' : 'bg-emerald-50/30 border-emerald-200'}`}>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">LINE Exclusive</span>
+                <span className={`text-xs ${k.muted}`}>Extra blocks sent only to LINE customers</span>
+              </div>
+              {bLineExtras.length > 0 && (
+                <div className="space-y-2">
+                  {bLineExtras.map((block, i) => (
+                    <div key={i} className={`rounded-lg p-3 space-y-2 ${isDark ? 'bg-[#0f1117] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${k.muted}`}>{block.type}</span>
+                        <button onClick={() => setBLineExtras(prev => prev.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 p-0.5"><X size={12} /></button>
+                      </div>
+                      {block.type === 'video' && (
+                        <div className="space-y-2">
+                          <input type="url" value={block.originalContentUrl ?? ''} onChange={e => setBLineExtras(prev => prev.map((b, idx) => idx === i ? { ...b, originalContentUrl: e.target.value } : b))} placeholder="Video URL (.mp4)" className={`w-full rounded-lg px-3 py-2 text-xs border ${k.input}`} />
+                          <input type="url" value={block.previewImageUrl ?? ''} onChange={e => setBLineExtras(prev => prev.map((b, idx) => idx === i ? { ...b, previewImageUrl: e.target.value } : b))} placeholder="Thumbnail URL (required by LINE)" className={`w-full rounded-lg px-3 py-2 text-xs border ${k.input}`} />
+                        </div>
+                      )}
+                      {block.type === 'sticker' && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="text" value={block.packageId ?? ''} onChange={e => setBLineExtras(prev => prev.map((b, idx) => idx === i ? { ...b, packageId: e.target.value } : b))} placeholder="Package ID" className={`rounded-lg px-3 py-2 text-xs border ${k.input}`} />
+                          <input type="text" value={block.stickerId ?? ''} onChange={e => setBLineExtras(prev => prev.map((b, idx) => idx === i ? { ...b, stickerId: e.target.value } : b))} placeholder="Sticker ID" className={`rounded-lg px-3 py-2 text-xs border ${k.input}`} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBLineExtras(prev => [...prev, { type: 'video' }])}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-accent/50'}`}
+                >
+                  <Video size={11} /> + Video
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBLineExtras(prev => [...prev, { type: 'sticker' }])}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-accent/50'}`}
+                >
+                  <Smile size={11} /> + Sticker
+                </button>
               </div>
             </div>
 
-            {remaining !== Infinity && remaining < 100 && (
+            {/* Audience — LINE + Telegram only */}
+            {(bPlatforms.includes('line') || bPlatforms.includes('telegram')) && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Audience</label>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-slate-200 text-slate-400'}`}>LINE &amp; Telegram</span>
+                  {bPlatforms.includes('instagram') && (
+                    <span className={`text-[10px] ${k.muted}`}>· Instagram posts go to all followers</span>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  {Object.entries(AUDIENCE_LABELS).map(([val, label]) => (
+                    <label key={val} className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${bAudience === val ? 'bg-accent/10 border border-accent/30' : isDark ? 'border border-[#1f2335] hover:border-[#2d3555]' : 'border border-slate-200 hover:border-slate-300'}`}>
+                      <input type="radio" name="audience" value={val} checked={bAudience === val} onChange={() => setBAudience(val)} className="accent-accent" />
+                      <span className={`text-sm ${k.text}`}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {remaining !== Infinity && remaining < 100 && bPlatforms.includes('line') && (
               <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <AlertTriangle size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-amber-400">Only {remaining} messages remaining this month. Consider using a Queued Campaign instead.</p>
@@ -946,20 +1140,31 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               <input type="text" value={bName} onChange={e => setBName(e.target.value)} placeholder="e.g. May Flash Sale" className={`w-full rounded-lg px-3 py-2 text-sm border ${k.input}`} />
             </div>
 
-            <div>
-              <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message Content</label>
-              <BlockComposer blocks={bMessages} onChange={setBMessages} isDark={isDark} isLite={isLite} />
-            </div>
-
+            {/* Results */}
             {bResult && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <Check size={13} className="text-emerald-400" />
-                <span className="text-xs text-emerald-400">Sent to {bResult.sent} customers{bResult.failed > 0 ? `, ${bResult.failed} failed` : ''}.</span>
+              <div className="space-y-1.5">
+                {bResult.platforms.map(p => {
+                  const r = bResult.results[p];
+                  const isIg = p === 'instagram';
+                  const ok = !r.error && (isIg ? r.sent === 1 : r.failed === 0);
+                  return (
+                    <div key={p} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${ok ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-amber-500/10 border border-amber-500/20'}`}>
+                      {ok ? <Check size={13} className="text-emerald-400 flex-shrink-0" /> : <AlertTriangle size={13} className="text-amber-400 flex-shrink-0" />}
+                      <span className={`text-xs font-semibold uppercase tracking-wider ${ok ? 'text-emerald-400' : 'text-amber-400'} flex-shrink-0`}>{p}</span>
+                      <span className={`text-xs ${ok ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {isIg
+                          ? (ok ? `Post published (${r.postType ?? bIgPostType})` : r.error ?? 'Failed to publish')
+                          : (ok ? `Sent to ${r.sent} customers` : `${r.sent} sent · ${r.failed} failed`)
+                        }
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
             {bError && (
-              <div className={`rounded-2xl p-4 ${isDark ? 'bg-[#161925] border border-red-500/20' : 'bg-red-50 border border-red-200'} flex items-start gap-3`}>
+              <div className={`rounded-xl p-4 ${isDark ? 'bg-[#161925] border border-red-500/20' : 'bg-red-50 border border-red-200'} flex items-start gap-3`}>
                 <AlertTriangle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
                 <p className={`text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>{bError}</p>
               </div>
@@ -967,12 +1172,12 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
 
             <button
               onClick={() => setShowSendConfirm(true)}
-              disabled={bSending || bMessages.every(b => !b.text && !b.originalContentUrl && !b.packageId)}
+              disabled={bSending || bPlatforms.length === 0 || (!bCaption.trim() && !bImageUrl)}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: 'var(--accent-gradient)' }}
             >
               {bSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-              {bSending ? 'Sending…' : 'Send Now'}
+              {bSending ? 'Sending…' : `Broadcast${bPlatforms.length > 0 ? ` · ${bPlatforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' + ')}` : ''}`}
             </button>
           </div>
 
@@ -1324,8 +1529,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                   </div>
                 )}
                 <div className="flex items-center justify-between">
-                  <span className={`text-xs font-semibold uppercase tracking-widest ${k.muted}`}>Blocks</span>
-                  <span className={`text-sm font-medium ${k.text}`}>{bMessages.length} message{bMessages.length !== 1 ? 's' : ''}</span>
+                  <span className={`text-xs font-semibold uppercase tracking-widest ${k.muted}`}>Platforms</span>
+                  <span className={`text-sm font-medium ${k.text}`}>{bPlatforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')}</span>
                 </div>
               </div>
             </div>

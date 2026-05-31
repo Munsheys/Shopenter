@@ -60,6 +60,55 @@ export async function sendInstagramProductCards(
   } catch { return false; }
 }
 
+export async function createInstagramPost(
+  pageAccessToken: string,
+  igAccountId: string,
+  imageUrl: string,
+  caption: string,
+): Promise<{ success: boolean; postId?: string }> {
+  try {
+    const createRes = await fetch(`${GRAPH}/${igAccountId}/media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_url: imageUrl, caption, access_token: pageAccessToken }),
+    });
+    const createData = await createRes.json();
+    if (!createRes.ok || !createData.id) return { success: false };
+
+    const publishRes = await fetch(`${GRAPH}/${igAccountId}/media_publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creation_id: createData.id, access_token: pageAccessToken }),
+    });
+    const publishData = await publishRes.json();
+    return publishRes.ok && publishData.id ? { success: true, postId: publishData.id } : { success: false };
+  } catch { return { success: false }; }
+}
+
+export async function createInstagramStory(
+  pageAccessToken: string,
+  igAccountId: string,
+  imageUrl: string,
+): Promise<{ success: boolean; postId?: string }> {
+  try {
+    const createRes = await fetch(`${GRAPH}/${igAccountId}/media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_url: imageUrl, media_type: 'STORIES', access_token: pageAccessToken }),
+    });
+    const createData = await createRes.json();
+    if (!createRes.ok || !createData.id) return { success: false };
+
+    const publishRes = await fetch(`${GRAPH}/${igAccountId}/media_publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creation_id: createData.id, access_token: pageAccessToken }),
+    });
+    const publishData = await publishRes.json();
+    return publishRes.ok && publishData.id ? { success: true, postId: publishData.id } : { success: false };
+  } catch { return { success: false }; }
+}
+
 export const instagramAdapter: PlatformAdapter = {
   async sendMessage(token, userId, text) { return sendInstagramMessage(token, userId, text); },
   async sendRichMessage(token, userId, altText, _content) { return sendInstagramMessage(token, userId, altText); },
