@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw, Tag, Zap, Bell, X, ShoppingBag, CheckCheck, AlertTriangle, TrendingDown } from 'lucide-react';
+import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw, Tag, Zap, Bell, X, ShoppingBag, CheckCheck, AlertTriangle, TrendingDown, Radio } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ProductManagement from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
@@ -41,7 +41,7 @@ const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'orders',     label: 'Orders',     icon: <ShoppingCart size={15} /> },
   { id: 'products',   label: 'Products',   icon: <Package size={15} /> },
   { id: 'reports',    label: 'Reports',    icon: <BarChart3 size={15} /> },
-  { id: 'broadcasts', label: 'Broadcasts', icon: <Megaphone size={15} /> },
+  { id: 'broadcasts', label: 'Messaging',  icon: <Radio size={15} /> },
   { id: 'storefront', label: 'Storefront', icon: <Store size={15} /> },
   { id: 'coupons',    label: 'Coupons',    icon: <Tag size={15} /> },
 ];
