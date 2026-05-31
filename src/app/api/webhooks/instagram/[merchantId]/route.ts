@@ -63,7 +63,7 @@ async function handleUpdate(merchantId: string, body: any, baseUrl: string) {
 
       const text = (event.message.text as string).trim();
 
-      const { isNew } = await upsertCustomer(merchantId, senderId);
+      const { isNew, isReEngage } = await upsertCustomer(merchantId, senderId);
 
       const merchant   = await Merchant.findById(merchantId).select('slug').lean() as any;
       const storePath  = merchant?.slug ? `/shop/${merchant.slug}` : `/merchant/${merchantId}`;
@@ -77,6 +77,18 @@ async function handleUpdate(merchantId: string, body: any, baseUrl: string) {
         const msg = settings.instagram?.welcomeStorefrontLink !== false
           ? `${welcomeText}\n\nBrowse and order here:\n${shopUrl}`
           : welcomeText;
+        await sendInstagramMessage(token, senderId, msg);
+        continue;
+      }
+
+      // Re-engagement message after 24h absence
+      if (isReEngage && settings.instagram?.reEngageEnabled) {
+        const reEngageText = settings.instagram?.reEngageMessage?.trim()
+          || `Welcome back to ${shopName}! 👋 We've missed you.`;
+        const shopUrl = `${baseUrl}${storePath}?${identityParams}`;
+        const msg = settings.instagram?.reEngageStorefrontLink !== false
+          ? `${reEngageText}\n\nBrowse and order here:\n${shopUrl}`
+          : reEngageText;
         await sendInstagramMessage(token, senderId, msg);
         continue;
       }
@@ -107,8 +119,9 @@ async function handleUpdate(merchantId: string, body: any, baseUrl: string) {
   }
 }
 
-async function upsertCustomer(merchantId: string, userId: string): Promise<{ isNew: boolean }> {
+async function upsertCustomer(merchantId: string, userId: string): Promise<{ isNew: boolean; isReEngage: boolean }> {
   try {
+    const before = await Customer.findOne({ merchantId, userId }).select('lastSeen').lean() as any;
     const result = await Customer.updateOne(
       { merchantId, userId },
       {
@@ -117,9 +130,12 @@ async function upsertCustomer(merchantId: string, userId: string): Promise<{ isN
       },
       { upsert: true }
     );
-    return { isNew: result.upsertedCount > 0 };
+    const isNew = result.upsertedCount > 0;
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const isReEngage = !isNew && !!before?.lastSeen && new Date(before.lastSeen) < twentyFourHoursAgo;
+    return { isNew, isReEngage };
   } catch (err) {
     console.error('[instagram upsertCustomer]', err);
-    return { isNew: false };
+    return { isNew: false, isReEngage: false };
   }
 }

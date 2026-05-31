@@ -243,8 +243,10 @@ export async function POST(req: Request) {
       }
 
       // ── Profile sync for all remaining event types ────────────────────────────
+      let prevLastSeen: Date | null = null;
       try {
         const existing = await Customer.findOne({ merchantId, userId }).lean() as any;
+        prevLastSeen = existing?.lastSeen ? new Date(existing.lastSeen) : null;
         const isStale = !existing?.profileCachedAt ||
           (Date.now() - new Date(existing.profileCachedAt).getTime()) > PROFILE_CACHE_TTL_MS;
 
@@ -291,6 +293,24 @@ export async function POST(req: Request) {
 
           // Suppress auto-reply for order confirmations sent via LIFF checkout
           if (event.message.text.startsWith('📦') && event.message.text.includes('สั่งซื้อแล้ว')) {
+            continue;
+          }
+
+          // Re-engagement message after 24h absence
+          const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          if (
+            prevLastSeen && prevLastSeen < twentyFourHoursAgo &&
+            matchedSettings?.reEngageEnabled && matchedSettings?.reEngageMessages?.length > 0 &&
+            event.replyToken
+          ) {
+            try {
+              const reEngageMsgs = matchedSettings.reEngageMessages.slice(0, 5).map(toLineMessage);
+              await client.replyMessage({ replyToken: event.replyToken, messages: reEngageMsgs });
+              const logTexts = matchedSettings.reEngageMessages.slice(0, 5).map(blockToLogText).filter(Boolean);
+              if (logTexts.length > 0) {
+                await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
+              }
+            } catch (err) { console.error('[reEngage reply]', err); }
             continue;
           }
 

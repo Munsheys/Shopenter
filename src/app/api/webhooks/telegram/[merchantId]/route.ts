@@ -48,7 +48,7 @@ async function handleUpdate(merchantId: string, update: any, baseUrl: string) {
   const username    = msg.from?.username   || '';
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || username || chatId;
 
-  const { isNew } = await upsertCustomer(merchantId, chatId, firstName, lastName, username);
+  const { isNew, isReEngage } = await upsertCustomer(merchantId, chatId, firstName, lastName, username);
 
   const merchant = await Merchant.findById(merchantId).select('slug').lean() as any;
   const storePath = merchant?.slug
@@ -67,6 +67,21 @@ async function handleUpdate(merchantId: string, update: any, baseUrl: string) {
       ]]);
     } else {
       await sendTelegramMessage(token, chatId, welcomeText);
+    }
+    return;
+  }
+
+  // Re-engagement message after 24h absence
+  if (isReEngage && settings.telegram?.reEngageEnabled) {
+    const reEngageText = settings.telegram?.reEngageMessage?.trim()
+      || `Welcome back to ${shopName}! 👋 We've missed you.`;
+    if (settings.telegram?.reEngageStorefrontLink !== false) {
+      const shopUrl = `${baseUrl}${storePath}?${identityParams}`;
+      await sendTelegramInlineKeyboard(token, chatId, reEngageText, [[
+        { text: `🛒 Browse ${shopName}`, url: shopUrl },
+      ]]);
+    } else {
+      await sendTelegramMessage(token, chatId, reEngageText);
     }
     return;
   }
@@ -118,9 +133,10 @@ async function upsertCustomer(
   firstName?: string,
   lastName?: string,
   username?: string,
-): Promise<{ isNew: boolean }> {
+): Promise<{ isNew: boolean; isReEngage: boolean }> {
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || username || chatId;
   try {
+    const before = await Customer.findOne({ merchantId, userId: chatId }).select('lastSeen').lean() as any;
     const result = await Customer.updateOne(
       { merchantId, userId: chatId },
       {
@@ -129,9 +145,12 @@ async function upsertCustomer(
       },
       { upsert: true }
     );
-    return { isNew: result.upsertedCount > 0 };
+    const isNew = result.upsertedCount > 0;
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const isReEngage = !isNew && !!before?.lastSeen && new Date(before.lastSeen) < twentyFourHoursAgo;
+    return { isNew, isReEngage };
   } catch (err) {
     console.error('[telegram upsertCustomer]', err);
-    return { isNew: false };
+    return { isNew: false, isReEngage: false };
   }
 }
