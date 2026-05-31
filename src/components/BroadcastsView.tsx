@@ -637,6 +637,14 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
 
   // Settings data (for smart search toggles + welcome config)
   const [settingsData, setSettingsData] = useState<any>(null);
+  const [defaultWelcome, setDefaultWelcome] = useState({ message: '', storefrontLink: true });
+  const [defaultReEngage, setDefaultReEngage] = useState({ message: '', storefrontLink: true });
+  const [lineWelcomeCustom, setLineWelcomeCustom] = useState(false);
+  const [lineReEngageCustom, setLineReEngageCustom] = useState(false);
+  const [tgWelcomeCustom, setTgWelcomeCustom] = useState(false);
+  const [tgReEngageCustom, setTgReEngageCustom] = useState(false);
+  const [igWelcomeCustom, setIgWelcomeCustom] = useState(false);
+  const [igReEngageCustom, setIgReEngageCustom] = useState(false);
   const [tgWelcome, setTgWelcome] = useState({ enabled: true, message: '', storefrontLink: true });
   const [igWelcome, setIgWelcome] = useState({ enabled: true, message: '', storefrontLink: true });
   const [tgReEngage, setTgReEngage] = useState({ enabled: false, message: '', storefrontLink: true });
@@ -644,6 +652,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [lineReEngage, setLineReEngage] = useState({ enabled: false, messages: [] as any[], storefrontLink: true });
   const [welcomeSaving, setWelcomeSaving] = useState(false);
   const [welcomeSaved, setWelcomeSaved] = useState(false);
+  const [defaultSaving, setDefaultSaving] = useState(false);
+  const [defaultSaved, setDefaultSaved] = useState(false);
 
   // Smart search test
   const [searchTestQuery, setSearchTestQuery] = useState('');
@@ -706,7 +716,14 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const loadGreeting = useCallback(async () => {
     try {
       const res = await fetch('/api/greeting');
-      if (res.ok) setGreeting(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setGreeting(data);
+        setLineWelcomeCustom(
+          data.greetingCustom === true ||
+          (data.greetingCustom == null && (data.greetingMessages?.length ?? 0) > 0)
+        );
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -734,6 +751,14 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
       if (!res.ok) return;
       const data = await res.json();
       setSettingsData(data);
+      setDefaultWelcome({
+        message: data.defaultWelcomeMessage || '',
+        storefrontLink: data.defaultWelcomeStorefrontLink !== false,
+      });
+      setDefaultReEngage({
+        message: data.defaultReEngageMessage || '',
+        storefrontLink: data.defaultReEngageStorefrontLink !== false,
+      });
       setTgWelcome({
         enabled: data.telegram?.welcomeEnabled !== false,
         message: data.telegram?.welcomeMessage || '',
@@ -759,6 +784,31 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
         messages: data.reEngageMessages || [],
         storefrontLink: data.reEngageStorefrontLink !== false,
       });
+      // Custom flags: infer from existing messages if the flag is not explicitly set
+      setLineWelcomeCustom(
+        data.greetingCustom === true ||
+        (data.greetingCustom == null && (data.greetingMessages?.length ?? 0) > 0)
+      );
+      setLineReEngageCustom(
+        data.reEngageCustom === true ||
+        (data.reEngageCustom == null && (data.reEngageMessages?.length ?? 0) > 0)
+      );
+      setTgWelcomeCustom(
+        data.telegram?.welcomeCustom === true ||
+        (data.telegram?.welcomeCustom == null && !!data.telegram?.welcomeMessage?.trim())
+      );
+      setTgReEngageCustom(
+        data.telegram?.reEngageCustom === true ||
+        (data.telegram?.reEngageCustom == null && !!data.telegram?.reEngageMessage?.trim())
+      );
+      setIgWelcomeCustom(
+        data.instagram?.welcomeCustom === true ||
+        (data.instagram?.welcomeCustom == null && !!data.instagram?.welcomeMessage?.trim())
+      );
+      setIgReEngageCustom(
+        data.instagram?.reEngageCustom === true ||
+        (data.instagram?.reEngageCustom == null && !!data.instagram?.reEngageMessage?.trim())
+      );
     } catch { /* ignore */ }
   }, []);
 
@@ -913,7 +963,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
     await fetch('/api/greeting', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(greeting),
+      body: JSON.stringify({ ...greeting, greetingCustom: lineWelcomeCustom }),
     });
   }
 
@@ -1525,211 +1575,365 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
           </div>
 
           {/* ── Welcome Messages ── */}
-          <div>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${k.muted}`}>Welcome Messages</p>
+          <div className="space-y-6">
+            <p className={`text-xs font-semibold uppercase tracking-widest ${k.muted}`}>Welcome Messages</p>
 
-            {/* LINE Welcome */}
-            <div className="space-y-4 mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`text-sm font-semibold ${k.text}`}>LINE</span>
-                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">LINE</span>
-                {!platformStatus.line && <span className={`text-[10px] ${k.muted}`}>· not connected</span>}
+            {/* ── Default messages ── */}
+            <div className={`rounded-2xl p-5 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+              <div>
+                <p className={`text-sm font-semibold ${k.text}`}>Default messages</p>
+                <p className={`text-xs mt-0.5 ${k.muted}`}>Sent by all platforms unless a platform has a custom override enabled.</p>
               </div>
-              <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-                <div className="flex items-center justify-between">
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>First visit</label>
+                  <textarea value={defaultWelcome.message} onChange={e => setDefaultWelcome(d => ({ ...d, message: e.target.value }))} placeholder={`Welcome to ${settingsData?.shopName || 'Your Shop'}! 🛍️`} rows={2} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                  <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the built-in fallback.</p>
+                </div>
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
                   <div>
-                    <p className={`text-sm font-semibold ${k.text}`}>First visit</p>
-                    <p className={`text-xs mt-0.5 ${k.muted}`}>Sent when a customer follows your LINE OA for the first time.</p>
+                    <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
+                    <p className={`text-[10px] mt-0.5 ${k.muted}`}>Appends your store URL — customer identity auto-embedded</p>
                   </div>
-                  <button onClick={() => setGreeting(g => ({ ...g, greetingEnabled: !g.greetingEnabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${greeting.greetingEnabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${greeting.greetingEnabled ? 'left-6' : 'left-1'}`} />
+                  <button onClick={() => setDefaultWelcome(d => ({ ...d, storefrontLink: !d.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${defaultWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${defaultWelcome.storefrontLink ? 'left-6' : 'left-1'}`} />
                   </button>
                 </div>
-                {greeting.greetingEnabled && (
-                  <>
-                    <BlockComposer
-                      blocks={greeting.greetingMessages.length > 0 ? greeting.greetingMessages : [{ type: 'text', text: '' }]}
-                      onChange={msgs => setGreeting(g => ({ ...g, greetingMessages: msgs }))}
-                      isDark={isDark}
-                      isLite={isLite}
-                    />
-                    <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                      <Info size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
-                      <p className={`text-xs ${k.muted}`}>To include a storefront link, add an <strong>Image</strong> block with a URI button action, or a <strong>Text</strong> block with the URL embedded.</p>
-                    </div>
-                  </>
-                )}
-                <button onClick={handleSaveGreeting} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style={{ background: 'var(--accent-gradient)' }}>
-                  <Check size={14} /> Save
-                </button>
-              </div>
-              <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-                <div className="flex items-center justify-between">
+                <div>
+                  <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Re-engagement (24h gap)</label>
+                  <textarea value={defaultReEngage.message} onChange={e => setDefaultReEngage(d => ({ ...d, message: e.target.value }))} placeholder={`Welcome back to ${settingsData?.shopName || 'Your Shop'}! 👋 We've missed you.`} rows={2} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                  <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the built-in fallback.</p>
+                </div>
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
                   <div>
-                    <p className={`text-sm font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
-                    <p className={`text-xs mt-0.5 ${k.muted}`}>Sent when a LINE customer messages after 24+ hours away.</p>
+                    <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
+                    <p className={`text-[10px] mt-0.5 ${k.muted}`}>Appends your store URL — customer identity auto-embedded</p>
                   </div>
-                  <button onClick={() => setLineReEngage(r => ({ ...r, enabled: !r.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${lineReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${lineReEngage.enabled ? 'left-6' : 'left-1'}`} />
+                  <button onClick={() => setDefaultReEngage(d => ({ ...d, storefrontLink: !d.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${defaultReEngage.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${defaultReEngage.storefrontLink ? 'left-6' : 'left-1'}`} />
                   </button>
                 </div>
-                {lineReEngage.enabled && (
-                  <BlockComposer
-                    blocks={lineReEngage.messages.length > 0 ? lineReEngage.messages : [{ type: 'text', text: '' }]}
-                    onChange={msgs => setLineReEngage(r => ({ ...r, messages: msgs }))}
-                    isDark={isDark}
-                    isLite={isLite}
-                  />
-                )}
-                <button disabled={welcomeSaving} onClick={async () => { setWelcomeSaving(true); await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reEngageEnabled: lineReEngage.enabled, reEngageMessages: lineReEngage.messages }) }); setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
-                  {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save'}
-                </button>
               </div>
+              <button
+                disabled={defaultSaving}
+                onClick={async () => {
+                  setDefaultSaving(true);
+                  await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ defaultWelcomeMessage: defaultWelcome.message, defaultWelcomeStorefrontLink: defaultWelcome.storefrontLink, defaultReEngageMessage: defaultReEngage.message, defaultReEngageStorefrontLink: defaultReEngage.storefrontLink }) });
+                  setDefaultSaving(false); setDefaultSaved(true); setTimeout(() => setDefaultSaved(false), 2000);
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                {defaultSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{defaultSaved ? 'Saved!' : 'Save Defaults'}
+              </button>
             </div>
 
-            {/* Instagram Welcome */}
-            <div className="space-y-4 mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`text-sm font-semibold ${k.text}`}>Instagram</span>
-                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">Instagram</span>
-                {!platformStatus.instagram && <span className={`text-[10px] ${k.muted}`}>· not connected</span>}
-              </div>
-              <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-sm font-semibold ${k.text}`}>First visit</p>
-                    <p className={`text-xs mt-0.5 ${k.muted}`}>Sent the first time a customer DMs your Instagram account.</p>
-                  </div>
-                  <button onClick={() => setIgWelcome(w => ({ ...w, enabled: !w.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.enabled ? 'left-6' : 'left-1'}`} />
-                  </button>
-                </div>
-                {igWelcome.enabled && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
-                      <textarea value={igWelcome.message} onChange={e => setIgWelcome(w => ({ ...w, message: e.target.value }))} placeholder="Welcome! 🛍️ Browse our collection below." rows={3} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
-                      <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default.</p>
-                    </div>
-                    <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                      <div>
-                        <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
-                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Appends your store URL — customer identity auto-embedded</p>
-                      </div>
-                      <button onClick={() => setIgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.storefrontLink ? 'left-6' : 'left-1'}`} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <button disabled={welcomeSaving} onClick={async () => { setWelcomeSaving(true); await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instagram: { welcomeEnabled: igWelcome.enabled, welcomeMessage: igWelcome.message, welcomeStorefrontLink: igWelcome.storefrontLink } }) }); setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
-                  {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save'}
-                </button>
-              </div>
-              <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-sm font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
-                    <p className={`text-xs mt-0.5 ${k.muted}`}>Sent when an existing customer DMs after not interacting for 24+ hours.</p>
-                  </div>
-                  <button onClick={() => setIgReEngage(r => ({ ...r, enabled: !r.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igReEngage.enabled ? 'left-6' : 'left-1'}`} />
-                  </button>
-                </div>
-                {igReEngage.enabled && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
-                      <textarea value={igReEngage.message} onChange={e => setIgReEngage(r => ({ ...r, message: e.target.value }))} placeholder="Welcome back! 👋 We've missed you — check out what's new." rows={3} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
-                      <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default.</p>
-                    </div>
-                    <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                      <div>
-                        <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
-                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Appends your store URL with customer identity pre-embedded</p>
-                      </div>
-                      <button onClick={() => setIgReEngage(r => ({ ...r, storefrontLink: !r.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igReEngage.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igReEngage.storefrontLink ? 'left-6' : 'left-1'}`} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <button disabled={welcomeSaving} onClick={async () => { setWelcomeSaving(true); await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instagram: { reEngageEnabled: igReEngage.enabled, reEngageMessage: igReEngage.message, reEngageStorefrontLink: igReEngage.storefrontLink } }) }); setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
-                  {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save'}
-                </button>
-              </div>
-            </div>
+            {/* ── Per-platform overrides ── */}
+            <div>
+              <p className={`text-[11px] font-semibold uppercase tracking-widest mb-3 ${k.muted}`}>Per-platform overrides</p>
+              <div className="space-y-4">
 
-            {/* Telegram Welcome */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`text-sm font-semibold ${k.text}`}>Telegram</span>
-                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/25">Telegram</span>
-                {!platformStatus.telegram && <span className={`text-[10px] ${k.muted}`}>· not connected</span>}
-              </div>
-              <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-sm font-semibold ${k.text}`}>First visit</p>
-                    <p className={`text-xs mt-0.5 ${k.muted}`}>Sent the first time a customer messages your Telegram bot.</p>
+                {/* ─ LINE ─ */}
+                <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-semibold ${k.text}`}>LINE</span>
+                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">LINE</span>
+                    {!platformStatus.line && <span className={`text-[10px] ${k.muted}`}>· not connected</span>}
                   </div>
-                  <button onClick={() => setTgWelcome(w => ({ ...w, enabled: !w.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.enabled ? 'left-6' : 'left-1'}`} />
-                  </button>
-                </div>
-                {tgWelcome.enabled && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
-                      <textarea value={tgWelcome.message} onChange={e => setTgWelcome(w => ({ ...w, message: e.target.value }))} placeholder="Welcome! 🎉 Browse our products and order directly from chat." rows={3} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
-                      <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default.</p>
-                    </div>
-                    <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+
+                  {/* First visit */}
+                  <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
-                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Adds a "Browse Store 🛒" button — customer identity auto-embedded</p>
+                        <p className={`text-xs font-semibold ${k.text}`}>First visit</p>
+                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Sent when a customer follows your LINE OA.</p>
                       </div>
-                      <button onClick={() => setTgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.storefrontLink ? 'left-6' : 'left-1'}`} />
+                      <button onClick={() => setGreeting(g => ({ ...g, greetingEnabled: !g.greetingEnabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${greeting.greetingEnabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${greeting.greetingEnabled ? 'left-6' : 'left-1'}`} />
                       </button>
                     </div>
+                    {greeting.greetingEnabled && (
+                      <>
+                        <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                          <p className={`text-xs ${k.muted}`}>Customize for LINE</p>
+                          <button onClick={() => setLineWelcomeCustom(v => !v)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${lineWelcomeCustom ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${lineWelcomeCustom ? 'left-4' : 'left-0.5'}`} />
+                          </button>
+                        </div>
+                        {!lineWelcomeCustom ? (
+                          <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100 border border-slate-200'}`}>
+                            <Info size={11} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                            <p className={`text-[11px] italic ${k.muted}`}>Using default: &ldquo;{defaultWelcome.message || `Welcome to ${settingsData?.shopName || 'Your Shop'}! 🛍️`}&rdquo;</p>
+                          </div>
+                        ) : (
+                          <>
+                            <BlockComposer
+                              blocks={greeting.greetingMessages.length > 0 ? greeting.greetingMessages : [{ type: 'text', text: '' }]}
+                              onChange={msgs => setGreeting(g => ({ ...g, greetingMessages: msgs }))}
+                              isDark={isDark}
+                              isLite={isLite}
+                            />
+                            <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'}`}>
+                              <Info size={11} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                              <p className={`text-[11px] ${k.muted}`}>To include a storefront link, add an Image block with a URI action or embed the URL in a Text block.</p>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
-                )}
-                <button disabled={welcomeSaving} onClick={async () => { setWelcomeSaving(true); await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram: { welcomeEnabled: tgWelcome.enabled, welcomeMessage: tgWelcome.message, welcomeStorefrontLink: tgWelcome.storefrontLink } }) }); setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
-                  {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save'}
-                </button>
-              </div>
-              <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-sm font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
-                    <p className={`text-xs mt-0.5 ${k.muted}`}>Sent when an existing customer messages after not interacting for 24+ hours.</p>
-                  </div>
-                  <button onClick={() => setTgReEngage(r => ({ ...r, enabled: !r.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgReEngage.enabled ? 'left-6' : 'left-1'}`} />
-                  </button>
-                </div>
-                {tgReEngage.enabled && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
-                      <textarea value={tgReEngage.message} onChange={e => setTgReEngage(r => ({ ...r, message: e.target.value }))} placeholder="Welcome back! 👋 We've missed you — here's what's new." rows={3} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
-                      <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default.</p>
-                    </div>
-                    <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+
+                  {/* Re-engagement */}
+                  <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
-                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Adds a "Browse Store 🛒" button with customer identity pre-embedded</p>
+                        <p className={`text-xs font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
+                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Sent when a LINE customer messages after 24+ hours away.</p>
                       </div>
-                      <button onClick={() => setTgReEngage(r => ({ ...r, storefrontLink: !r.storefrontLink }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgReEngage.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgReEngage.storefrontLink ? 'left-6' : 'left-1'}`} />
+                      <button onClick={() => setLineReEngage(r => ({ ...r, enabled: !r.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${lineReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${lineReEngage.enabled ? 'left-6' : 'left-1'}`} />
                       </button>
                     </div>
+                    {lineReEngage.enabled && (
+                      <>
+                        <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                          <p className={`text-xs ${k.muted}`}>Customize for LINE</p>
+                          <button onClick={() => setLineReEngageCustom(v => !v)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${lineReEngageCustom ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${lineReEngageCustom ? 'left-4' : 'left-0.5'}`} />
+                          </button>
+                        </div>
+                        {!lineReEngageCustom ? (
+                          <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100 border border-slate-200'}`}>
+                            <Info size={11} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                            <p className={`text-[11px] italic ${k.muted}`}>Using default: &ldquo;{defaultReEngage.message || `Welcome back to ${settingsData?.shopName || 'Your Shop'}! 👋 We've missed you.`}&rdquo;</p>
+                          </div>
+                        ) : (
+                          <BlockComposer
+                            blocks={lineReEngage.messages.length > 0 ? lineReEngage.messages : [{ type: 'text', text: '' }]}
+                            onChange={msgs => setLineReEngage(r => ({ ...r, messages: msgs }))}
+                            isDark={isDark}
+                            isLite={isLite}
+                          />
+                        )}
+                      </>
+                    )}
                   </div>
-                )}
-                <button disabled={welcomeSaving} onClick={async () => { setWelcomeSaving(true); await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram: { reEngageEnabled: tgReEngage.enabled, reEngageMessage: tgReEngage.message, reEngageStorefrontLink: tgReEngage.storefrontLink } }) }); setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50" style={{ background: 'var(--accent-gradient)' }}>
-                  {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save'}
-                </button>
+
+                  <button
+                    disabled={welcomeSaving}
+                    onClick={async () => {
+                      setWelcomeSaving(true);
+                      await handleSaveGreeting();
+                      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reEngageEnabled: lineReEngage.enabled, reEngageMessages: lineReEngage.messages, reEngageCustom: lineReEngageCustom }) });
+                      setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                    style={{ background: 'var(--accent-gradient)' }}
+                  >
+                    {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save LINE'}
+                  </button>
+                </div>
+
+                {/* ─ Instagram ─ */}
+                <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-semibold ${k.text}`}>Instagram</span>
+                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">Instagram</span>
+                    {!platformStatus.instagram && <span className={`text-[10px] ${k.muted}`}>· not connected</span>}
+                  </div>
+
+                  {/* First visit */}
+                  <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={`text-xs font-semibold ${k.text}`}>First visit</p>
+                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Sent the first time a customer DMs your Instagram account.</p>
+                      </div>
+                      <button onClick={() => setIgWelcome(w => ({ ...w, enabled: !w.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.enabled ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                    {igWelcome.enabled && (
+                      <>
+                        <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                          <p className={`text-xs ${k.muted}`}>Customize for Instagram</p>
+                          <button onClick={() => setIgWelcomeCustom(v => !v)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${igWelcomeCustom ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcomeCustom ? 'left-4' : 'left-0.5'}`} />
+                          </button>
+                        </div>
+                        {!igWelcomeCustom ? (
+                          <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100 border border-slate-200'}`}>
+                            <Info size={11} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                            <p className={`text-[11px] italic ${k.muted}`}>Using default: &ldquo;{defaultWelcome.message || `Welcome to ${settingsData?.shopName || 'Your Shop'}! 🛍️`}&rdquo;</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <textarea value={igWelcome.message} onChange={e => setIgWelcome(w => ({ ...w, message: e.target.value }))} placeholder="Welcome! 🛍️ Browse our collection below." rows={2} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                            <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                              <p className={`text-xs ${k.muted}`}>Include storefront link</p>
+                              <button onClick={() => setIgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.storefrontLink ? 'left-4' : 'left-0.5'}`} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Re-engagement */}
+                  <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={`text-xs font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
+                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Sent when an existing customer DMs after 24+ hours away.</p>
+                      </div>
+                      <button onClick={() => setIgReEngage(r => ({ ...r, enabled: !r.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igReEngage.enabled ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                    {igReEngage.enabled && (
+                      <>
+                        <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                          <p className={`text-xs ${k.muted}`}>Customize for Instagram</p>
+                          <button onClick={() => setIgReEngageCustom(v => !v)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${igReEngageCustom ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${igReEngageCustom ? 'left-4' : 'left-0.5'}`} />
+                          </button>
+                        </div>
+                        {!igReEngageCustom ? (
+                          <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100 border border-slate-200'}`}>
+                            <Info size={11} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                            <p className={`text-[11px] italic ${k.muted}`}>Using default: &ldquo;{defaultReEngage.message || `Welcome back to ${settingsData?.shopName || 'Your Shop'}! 👋 We've missed you.`}&rdquo;</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <textarea value={igReEngage.message} onChange={e => setIgReEngage(r => ({ ...r, message: e.target.value }))} placeholder="Welcome back! 👋 Check out what's new." rows={2} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                            <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                              <p className={`text-xs ${k.muted}`}>Include storefront link</p>
+                              <button onClick={() => setIgReEngage(r => ({ ...r, storefrontLink: !r.storefrontLink }))} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${igReEngage.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${igReEngage.storefrontLink ? 'left-4' : 'left-0.5'}`} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  <button
+                    disabled={welcomeSaving}
+                    onClick={async () => {
+                      setWelcomeSaving(true);
+                      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instagram: { welcomeEnabled: igWelcome.enabled, welcomeMessage: igWelcome.message, welcomeStorefrontLink: igWelcome.storefrontLink, welcomeCustom: igWelcomeCustom, reEngageEnabled: igReEngage.enabled, reEngageMessage: igReEngage.message, reEngageStorefrontLink: igReEngage.storefrontLink, reEngageCustom: igReEngageCustom } }) });
+                      setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                    style={{ background: 'var(--accent-gradient)' }}
+                  >
+                    {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save Instagram'}
+                  </button>
+                </div>
+
+                {/* ─ Telegram ─ */}
+                <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-semibold ${k.text}`}>Telegram</span>
+                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/25">Telegram</span>
+                    {!platformStatus.telegram && <span className={`text-[10px] ${k.muted}`}>· not connected</span>}
+                  </div>
+
+                  {/* First visit */}
+                  <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={`text-xs font-semibold ${k.text}`}>First visit</p>
+                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Sent the first time a customer messages your Telegram bot.</p>
+                      </div>
+                      <button onClick={() => setTgWelcome(w => ({ ...w, enabled: !w.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.enabled ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                    {tgWelcome.enabled && (
+                      <>
+                        <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                          <p className={`text-xs ${k.muted}`}>Customize for Telegram</p>
+                          <button onClick={() => setTgWelcomeCustom(v => !v)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${tgWelcomeCustom ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcomeCustom ? 'left-4' : 'left-0.5'}`} />
+                          </button>
+                        </div>
+                        {!tgWelcomeCustom ? (
+                          <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100 border border-slate-200'}`}>
+                            <Info size={11} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                            <p className={`text-[11px] italic ${k.muted}`}>Using default: &ldquo;{defaultWelcome.message || `Welcome to ${settingsData?.shopName || 'Your Shop'}! 🛍️`}&rdquo;</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <textarea value={tgWelcome.message} onChange={e => setTgWelcome(w => ({ ...w, message: e.target.value }))} placeholder="Welcome! 🎉 Browse our products directly from chat." rows={2} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                            <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                              <p className={`text-xs ${k.muted}`}>Include storefront link</p>
+                              <button onClick={() => setTgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.storefrontLink ? 'left-4' : 'left-0.5'}`} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Re-engagement */}
+                  <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={`text-xs font-semibold ${k.text}`}>Re-engagement — 24h gap</p>
+                        <p className={`text-[10px] mt-0.5 ${k.muted}`}>Sent when an existing customer messages after 24+ hours away.</p>
+                      </div>
+                      <button onClick={() => setTgReEngage(r => ({ ...r, enabled: !r.enabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgReEngage.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgReEngage.enabled ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                    {tgReEngage.enabled && (
+                      <>
+                        <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                          <p className={`text-xs ${k.muted}`}>Customize for Telegram</p>
+                          <button onClick={() => setTgReEngageCustom(v => !v)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${tgReEngageCustom ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${tgReEngageCustom ? 'left-4' : 'left-0.5'}`} />
+                          </button>
+                        </div>
+                        {!tgReEngageCustom ? (
+                          <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100 border border-slate-200'}`}>
+                            <Info size={11} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                            <p className={`text-[11px] italic ${k.muted}`}>Using default: &ldquo;{defaultReEngage.message || `Welcome back to ${settingsData?.shopName || 'Your Shop'}! 👋 We've missed you.`}&rdquo;</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <textarea value={tgReEngage.message} onChange={e => setTgReEngage(r => ({ ...r, message: e.target.value }))} placeholder="Welcome back! 👋 Here's what's new." rows={2} className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`} />
+                            <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'} border ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
+                              <p className={`text-xs ${k.muted}`}>Include storefront link</p>
+                              <button onClick={() => setTgReEngage(r => ({ ...r, storefrontLink: !r.storefrontLink }))} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${tgReEngage.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${tgReEngage.storefrontLink ? 'left-4' : 'left-0.5'}`} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  <button
+                    disabled={welcomeSaving}
+                    onClick={async () => {
+                      setWelcomeSaving(true);
+                      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram: { welcomeEnabled: tgWelcome.enabled, welcomeMessage: tgWelcome.message, welcomeStorefrontLink: tgWelcome.storefrontLink, welcomeCustom: tgWelcomeCustom, reEngageEnabled: tgReEngage.enabled, reEngageMessage: tgReEngage.message, reEngageStorefrontLink: tgReEngage.storefrontLink, reEngageCustom: tgReEngageCustom } }) });
+                      setWelcomeSaving(false); setWelcomeSaved(true); setTimeout(() => setWelcomeSaved(false), 2000);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                    style={{ background: 'var(--accent-gradient)' }}
+                  >
+                    {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{welcomeSaved ? 'Saved!' : 'Save Telegram'}
+                  </button>
+                </div>
+
               </div>
             </div>
           </div>

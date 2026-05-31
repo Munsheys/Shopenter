@@ -69,13 +69,22 @@ const SettingsSchema = new mongoose.Schema({
     sat: { enabled: { type: Boolean, default: false }, open: { type: String, default: '10:00' }, close: { type: String, default: '16:00' } },
     sun: { enabled: { type: Boolean, default: false }, open: { type: String, default: '10:00' }, close: { type: String, default: '16:00' } },
   },
+  // Global default messages — used when a platform has not enabled per-platform override
+  defaultWelcomeMessage:        { type: String,  default: '' },
+  defaultWelcomeStorefrontLink: { type: Boolean, default: true },
+  defaultReEngageMessage:        { type: String,  default: '' },
+  defaultReEngageStorefrontLink: { type: Boolean, default: true },
   // Greeting message sent on follow event
   greetingEnabled: { type: Boolean, default: false },
   greetingMessages: { type: Array, default: [] },
+  // greetingCustom: if true, uses greetingMessages; if false/absent, uses defaultWelcomeMessage
+  greetingCustom: { type: Boolean },
   // Re-engagement message sent when a LINE customer messages after 24h absence
   reEngageEnabled:        { type: Boolean, default: false },
   reEngageMessages:       { type: Array,   default: [] },
   reEngageStorefrontLink: { type: Boolean, default: true },
+  // reEngageCustom: if true, uses reEngageMessages; if false/absent, uses defaultReEngageMessage
+  reEngageCustom: { type: Boolean },
   // Rich Menu reference
   richMenuSavedId: { type: String, default: '' },
   // Payment configuration
@@ -123,27 +132,31 @@ const SettingsSchema = new mongoose.Schema({
   },
   lineIntentSearch: { type: Boolean, default: true },
   telegram: {
-    botToken:             { type: String,  default: '' },
-    webhookActive:        { type: Boolean, default: false },
+    botToken:              { type: String,  default: '' },
+    webhookActive:         { type: Boolean, default: false },
     intentSearch:          { type: Boolean, default: true },
     welcomeEnabled:        { type: Boolean, default: true },
     welcomeMessage:        { type: String,  default: '' },
     welcomeStorefrontLink: { type: Boolean, default: true },
+    welcomeCustom:         { type: Boolean }, // if absent/false → uses defaultWelcomeMessage
     reEngageEnabled:       { type: Boolean, default: false },
     reEngageMessage:       { type: String,  default: '' },
     reEngageStorefrontLink:{ type: Boolean, default: true },
+    reEngageCustom:        { type: Boolean }, // if absent/false → uses defaultReEngageMessage
   },
   instagram: {
-    pageAccessToken:      { type: String,  default: '' },
-    igAccountId:          { type: String,  default: '' },
-    webhookActive:        { type: Boolean, default: false },
+    pageAccessToken:       { type: String,  default: '' },
+    igAccountId:           { type: String,  default: '' },
+    webhookActive:         { type: Boolean, default: false },
     intentSearch:          { type: Boolean, default: true },
     welcomeEnabled:        { type: Boolean, default: true },
     welcomeMessage:        { type: String,  default: '' },
     welcomeStorefrontLink: { type: Boolean, default: true },
+    welcomeCustom:         { type: Boolean }, // if absent/false → uses defaultWelcomeMessage
     reEngageEnabled:       { type: Boolean, default: false },
     reEngageMessage:       { type: String,  default: '' },
     reEngageStorefrontLink:{ type: Boolean, default: true },
+    reEngageCustom:        { type: Boolean }, // if absent/false → uses defaultReEngageMessage
   },
   storefront: {
     preset: { type: String, default: 'midnight' },

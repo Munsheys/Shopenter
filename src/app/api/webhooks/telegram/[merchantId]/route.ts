@@ -58,9 +58,15 @@ async function handleUpdate(merchantId: string, update: any, baseUrl: string) {
 
   // Send welcome message on first contact
   if (isNew && settings.telegram?.welcomeEnabled !== false) {
-    const welcomeText = settings.telegram?.welcomeMessage?.trim()
-      || `Welcome to ${shopName}! 🎉 Browse our products and order directly from chat.`;
-    if (settings.telegram?.welcomeStorefrontLink !== false) {
+    const useCustomWelcome = settings.telegram?.welcomeCustom === true ||
+      (settings.telegram?.welcomeCustom == null && !!settings.telegram?.welcomeMessage?.trim());
+    const welcomeText = useCustomWelcome
+      ? (settings.telegram?.welcomeMessage?.trim() || `Welcome to ${shopName}! 🎉`)
+      : (settings.defaultWelcomeMessage?.trim() || `Welcome to ${shopName}! 🎉`);
+    const useStorefrontLink = useCustomWelcome
+      ? settings.telegram?.welcomeStorefrontLink !== false
+      : settings.defaultWelcomeStorefrontLink !== false;
+    if (useStorefrontLink) {
       const shopUrl = `${baseUrl}${storePath}?${identityParams}`;
       await sendTelegramInlineKeyboard(token, chatId, welcomeText, [[
         { text: `🛒 Browse ${shopName}`, url: shopUrl },
@@ -73,9 +79,15 @@ async function handleUpdate(merchantId: string, update: any, baseUrl: string) {
 
   // Re-engagement message after 24h absence
   if (isReEngage && settings.telegram?.reEngageEnabled) {
-    const reEngageText = settings.telegram?.reEngageMessage?.trim()
-      || `Welcome back to ${shopName}! 👋 We've missed you.`;
-    if (settings.telegram?.reEngageStorefrontLink !== false) {
+    const useCustomReEngage = settings.telegram?.reEngageCustom === true ||
+      (settings.telegram?.reEngageCustom == null && !!settings.telegram?.reEngageMessage?.trim());
+    const reEngageText = useCustomReEngage
+      ? (settings.telegram?.reEngageMessage?.trim() || `Welcome back to ${shopName}! 👋 We've missed you.`)
+      : (settings.defaultReEngageMessage?.trim() || `Welcome back to ${shopName}! 👋 We've missed you.`);
+    const useStorefrontLink = useCustomReEngage
+      ? settings.telegram?.reEngageStorefrontLink !== false
+      : settings.defaultReEngageStorefrontLink !== false;
+    if (useStorefrontLink) {
       const shopUrl = `${baseUrl}${storePath}?${identityParams}`;
       await sendTelegramInlineKeyboard(token, chatId, reEngageText, [[
         { text: `🛒 Browse ${shopName}`, url: shopUrl },

@@ -211,23 +211,30 @@ export async function POST(req: Request) {
         }
 
         // Send greeting if enabled, using reply token (free)
-        if (matchedSettings?.greetingEnabled && matchedSettings?.greetingMessages?.length > 0 && event.replyToken) {
+        if (matchedSettings?.greetingEnabled && event.replyToken) {
+          const useCustom = matchedSettings?.greetingCustom === true ||
+            (matchedSettings?.greetingCustom == null && (matchedSettings?.greetingMessages?.length ?? 0) > 0);
+          let greetingMsgs: any[];
+          if (useCustom && matchedSettings?.greetingMessages?.length > 0) {
+            greetingMsgs = matchedSettings.greetingMessages.slice(0, 5).map(toLineMessage);
+          } else {
+            const shopName = matchedSettings?.shopName || 'Our Shop';
+            const defaultText = (matchedSettings as any)?.defaultWelcomeMessage?.trim() || `Welcome to ${shopName}! 🛍️`;
+            greetingMsgs = [{ type: 'text', text: defaultText }];
+          }
           let greetingSent = false;
           try {
-            const greetingMsgs = matchedSettings.greetingMessages.slice(0, 5).map(toLineMessage);
             await client.replyMessage({ replyToken: event.replyToken, messages: greetingMsgs });
             greetingSent = true;
           } catch (err) {
             console.error('[greeting reply]', err);
-            // Fallback to push if reply token expired
             try {
-              const greetingMsgs = matchedSettings.greetingMessages.slice(0, 5).map(toLineMessage);
               await client.pushMessage({ to: userId, messages: greetingMsgs });
               greetingSent = true;
             } catch { /* ignore */ }
           }
           if (greetingSent) {
-            const logTexts = matchedSettings.greetingMessages.slice(0, 5).map(blockToLogText).filter(Boolean);
+            const logTexts = greetingMsgs.map((m: any) => m.text || blockToLogText(m)).filter(Boolean);
             if (logTexts.length > 0) {
               await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
             }
@@ -298,15 +305,20 @@ export async function POST(req: Request) {
 
           // Re-engagement message after 24h absence
           const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-          if (
-            prevLastSeen && prevLastSeen < twentyFourHoursAgo &&
-            matchedSettings?.reEngageEnabled && matchedSettings?.reEngageMessages?.length > 0 &&
-            event.replyToken
-          ) {
+          if (prevLastSeen && prevLastSeen < twentyFourHoursAgo && matchedSettings?.reEngageEnabled && event.replyToken) {
+            const useCustom = (matchedSettings as any)?.reEngageCustom === true ||
+              ((matchedSettings as any)?.reEngageCustom == null && (matchedSettings?.reEngageMessages?.length ?? 0) > 0);
+            let reEngageMsgs: any[];
+            if (useCustom && matchedSettings?.reEngageMessages?.length > 0) {
+              reEngageMsgs = matchedSettings.reEngageMessages.slice(0, 5).map(toLineMessage);
+            } else {
+              const shopName = matchedSettings?.shopName || 'Our Shop';
+              const defaultText = (matchedSettings as any)?.defaultReEngageMessage?.trim() || `Welcome back to ${shopName}! 👋 We've missed you.`;
+              reEngageMsgs = [{ type: 'text', text: defaultText }];
+            }
             try {
-              const reEngageMsgs = matchedSettings.reEngageMessages.slice(0, 5).map(toLineMessage);
               await client.replyMessage({ replyToken: event.replyToken, messages: reEngageMsgs });
-              const logTexts = matchedSettings.reEngageMessages.slice(0, 5).map(blockToLogText).filter(Boolean);
+              const logTexts = reEngageMsgs.map((m: any) => m.text || blockToLogText(m)).filter(Boolean);
               if (logTexts.length > 0) {
                 await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
               }

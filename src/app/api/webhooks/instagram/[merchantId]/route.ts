@@ -71,10 +71,16 @@ async function handleUpdate(merchantId: string, body: any, baseUrl: string) {
 
       // Send welcome message on first contact
       if (isNew && settings.instagram?.welcomeEnabled !== false) {
-        const welcomeText = settings.instagram?.welcomeMessage?.trim()
-          || `Welcome to ${shopName}! 🛍️`;
+        const useCustomWelcome = settings.instagram?.welcomeCustom === true ||
+          (settings.instagram?.welcomeCustom == null && !!settings.instagram?.welcomeMessage?.trim());
+        const welcomeText = useCustomWelcome
+          ? (settings.instagram?.welcomeMessage?.trim() || `Welcome to ${shopName}! 🛍️`)
+          : (settings.defaultWelcomeMessage?.trim() || `Welcome to ${shopName}! 🛍️`);
+        const useStorefrontLink = useCustomWelcome
+          ? settings.instagram?.welcomeStorefrontLink !== false
+          : settings.defaultWelcomeStorefrontLink !== false;
         const shopUrl = `${baseUrl}${storePath}?${identityParams}`;
-        const msg = settings.instagram?.welcomeStorefrontLink !== false
+        const msg = useStorefrontLink
           ? `${welcomeText}\n\nBrowse and order here:\n${shopUrl}`
           : welcomeText;
         await sendInstagramMessage(token, senderId, msg);
@@ -83,10 +89,16 @@ async function handleUpdate(merchantId: string, body: any, baseUrl: string) {
 
       // Re-engagement message after 24h absence
       if (isReEngage && settings.instagram?.reEngageEnabled) {
-        const reEngageText = settings.instagram?.reEngageMessage?.trim()
-          || `Welcome back to ${shopName}! 👋 We've missed you.`;
+        const useCustomReEngage = settings.instagram?.reEngageCustom === true ||
+          (settings.instagram?.reEngageCustom == null && !!settings.instagram?.reEngageMessage?.trim());
+        const reEngageText = useCustomReEngage
+          ? (settings.instagram?.reEngageMessage?.trim() || `Welcome back to ${shopName}! 👋 We've missed you.`)
+          : (settings.defaultReEngageMessage?.trim() || `Welcome back to ${shopName}! 👋 We've missed you.`);
+        const useStorefrontLink = useCustomReEngage
+          ? settings.instagram?.reEngageStorefrontLink !== false
+          : settings.defaultReEngageStorefrontLink !== false;
         const shopUrl = `${baseUrl}${storePath}?${identityParams}`;
-        const msg = settings.instagram?.reEngageStorefrontLink !== false
+        const msg = useStorefrontLink
           ? `${reEngageText}\n\nBrowse and order here:\n${shopUrl}`
           : reEngageText;
         await sendInstagramMessage(token, senderId, msg);

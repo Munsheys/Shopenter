@@ -10,11 +10,12 @@ export async function GET(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   await dbConnect();
-  const settings = await Settings.findOne({ merchantId: merchant.merchantId }).select('greetingEnabled greetingMessages').lean() as any;
+  const settings = await Settings.findOne({ merchantId: merchant.merchantId }).select('greetingEnabled greetingMessages greetingCustom').lean() as any;
 
   return NextResponse.json({
     greetingEnabled: settings?.greetingEnabled ?? false,
     greetingMessages: settings?.greetingMessages ?? [],
+    greetingCustom: settings?.greetingCustom,
   });
 }
 
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { greetingEnabled, greetingMessages } = await req.json();
+  const { greetingEnabled, greetingMessages, greetingCustom } = await req.json();
 
   if (typeof greetingEnabled !== 'boolean') {
     return NextResponse.json({ error: 'greetingEnabled must be a boolean' }, { status: 400 });
@@ -32,9 +33,11 @@ export async function POST(req: NextRequest) {
   }
 
   await dbConnect();
+  const update: any = { greetingEnabled, greetingMessages };
+  if (typeof greetingCustom === 'boolean') update.greetingCustom = greetingCustom;
   await Settings.findOneAndUpdate(
     { merchantId: merchant.merchantId },
-    { $set: { greetingEnabled, greetingMessages } },
+    { $set: update },
     { upsert: true }
   );
 
