@@ -63,11 +63,23 @@ async function handleUpdate(merchantId: string, body: any, baseUrl: string) {
 
       const text = (event.message.text as string).trim();
 
-      await upsertCustomer(merchantId, senderId);
+      const { isNew } = await upsertCustomer(merchantId, senderId);
 
       const merchant   = await Merchant.findById(merchantId).select('slug').lean() as any;
       const storePath  = merchant?.slug ? `/shop/${merchant.slug}` : `/merchant/${merchantId}`;
       const identityParams = `uid=${senderId}&platform=instagram`;
+
+      // Send welcome message on first contact
+      if (isNew && settings.instagram?.welcomeEnabled !== false) {
+        const welcomeText = settings.instagram?.welcomeMessage?.trim()
+          || `Welcome to ${shopName}! 🛍️`;
+        const shopUrl = `${baseUrl}${storePath}?${identityParams}`;
+        const msg = settings.instagram?.welcomeStorefrontLink !== false
+          ? `${welcomeText}\n\nBrowse and order here:\n${shopUrl}`
+          : welcomeText;
+        await sendInstagramMessage(token, senderId, msg);
+        continue;
+      }
 
       if (settings.instagram?.intentSearch !== false) {
         const matches = await searchProducts(merchantId, text);
@@ -95,9 +107,9 @@ async function handleUpdate(merchantId: string, body: any, baseUrl: string) {
   }
 }
 
-async function upsertCustomer(merchantId: string, userId: string) {
+async function upsertCustomer(merchantId: string, userId: string): Promise<{ isNew: boolean }> {
   try {
-    await Customer.findOneAndUpdate(
+    const result = await Customer.updateOne(
       { merchantId, userId },
       {
         $set: { platform: 'instagram', lastSeen: new Date() },
@@ -105,7 +117,9 @@ async function upsertCustomer(merchantId: string, userId: string) {
       },
       { upsert: true }
     );
+    return { isNew: result.upsertedCount > 0 };
   } catch (err) {
     console.error('[instagram upsertCustomer]', err);
+    return { isNew: false };
   }
 }

@@ -48,13 +48,28 @@ async function handleUpdate(merchantId: string, update: any, baseUrl: string) {
   const username    = msg.from?.username   || '';
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || username || chatId;
 
-  await upsertCustomer(merchantId, chatId, firstName, lastName, username);
+  const { isNew } = await upsertCustomer(merchantId, chatId, firstName, lastName, username);
 
   const merchant = await Merchant.findById(merchantId).select('slug').lean() as any;
   const storePath = merchant?.slug
     ? `/shop/${merchant.slug}`
     : `/merchant/${merchantId}`;
   const identityParams = `uid=${chatId}&platform=telegram&name=${encodeURIComponent(firstName || displayName)}`;
+
+  // Send welcome message on first contact
+  if (isNew && settings.telegram?.welcomeEnabled !== false) {
+    const welcomeText = settings.telegram?.welcomeMessage?.trim()
+      || `Welcome to ${shopName}! 🎉 Browse our products and order directly from chat.`;
+    if (settings.telegram?.welcomeStorefrontLink !== false) {
+      const shopUrl = `${baseUrl}${storePath}?${identityParams}`;
+      await sendTelegramInlineKeyboard(token, chatId, welcomeText, [[
+        { text: `🛒 Browse ${shopName}`, url: shopUrl },
+      ]]);
+    } else {
+      await sendTelegramMessage(token, chatId, welcomeText);
+    }
+    return;
+  }
 
   // Try to infer product intent from the message (if enabled)
   const userText = (msg.text ?? '').trim();
@@ -103,10 +118,10 @@ async function upsertCustomer(
   firstName?: string,
   lastName?: string,
   username?: string,
-) {
+): Promise<{ isNew: boolean }> {
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || username || chatId;
   try {
-    await Customer.findOneAndUpdate(
+    const result = await Customer.updateOne(
       { merchantId, userId: chatId },
       {
         $set: { displayName, platform: 'telegram', lastSeen: new Date() },
@@ -114,7 +129,9 @@ async function upsertCustomer(
       },
       { upsert: true }
     );
+    return { isNew: result.upsertedCount > 0 };
   } catch (err) {
     console.error('[telegram upsertCustomer]', err);
+    return { isNew: false };
   }
 }

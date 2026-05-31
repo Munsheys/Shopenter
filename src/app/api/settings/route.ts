@@ -63,6 +63,19 @@ export async function POST(req: NextRequest) {
         delete body.instagram.igAccountId;
       }
     }
+
+    // Build flat $set update for telegram/instagram welcome fields
+    const update: Record<string, any> = { ...body };
+    if (body.telegram) {
+      if (body.telegram.welcomeEnabled !== undefined) update['telegram.welcomeEnabled'] = body.telegram.welcomeEnabled;
+      if (body.telegram.welcomeMessage  !== undefined) update['telegram.welcomeMessage']  = body.telegram.welcomeMessage;
+      if (body.telegram.welcomeStorefrontLink !== undefined) update['telegram.welcomeStorefrontLink'] = body.telegram.welcomeStorefrontLink;
+    }
+    if (body.instagram) {
+      if (body.instagram.welcomeEnabled !== undefined) update['instagram.welcomeEnabled'] = body.instagram.welcomeEnabled;
+      if (body.instagram.welcomeMessage  !== undefined) update['instagram.welcomeMessage']  = body.instagram.welcomeMessage;
+      if (body.instagram.welcomeStorefrontLink !== undefined) update['instagram.welcomeStorefrontLink'] = body.instagram.welcomeStorefrontLink;
+    }
     // Never let clients overwrite the merchantId binding
     delete body.merchantId;
 
@@ -86,7 +99,7 @@ export async function POST(req: NextRequest) {
 
     const s = await Settings.findOneAndUpdate(
       { merchantId: merchant.merchantId },
-      { $set: body },
+      { $set: update },
       { upsert: true, new: true }
     );
     return NextResponse.json(s);

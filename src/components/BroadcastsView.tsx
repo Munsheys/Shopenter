@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Edit2, Check, X, AlertTriangle,
   RefreshCw, Send, Pause, Play, Ban, Loader2, ExternalLink,
   Image as ImageIcon, Video, Smile, Type, Info, Upload, Link,
-  Camera, Settings as SettingsIcon,
+  Camera, Settings as SettingsIcon, Search,
 } from 'lucide-react';
 
 interface BroadcastsViewProps {
@@ -609,7 +609,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const isLite = theme === 'lite';
   const k = isDark ? DK : isLite ? LITK : LK;
 
-  const [section, setSection] = useState<'campaigns' | 'auto-reply' | 'greeting' | 'rich-menu'>('campaigns');
+  const [section, setSection] = useState<'broadcast' | 'smart-search' | 'welcome' | 'line'>('broadcast');
   const [lineStatus, setLineStatus] = useState<LineStatus | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [rules, setRules] = useState<AutoReplyRule[]>([]);
@@ -629,6 +629,22 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [bResult, setBResult] = useState<BroadcastResult | null>(null);
   const [bError, setBError] = useState('');
   const [platformStatus, setPlatformStatus] = useState<PlatformStatus>({ line: false, telegram: false, instagram: false });
+
+  // Page structure state
+  const [lineSubSection, setLineSubSection] = useState<'auto-reply' | 'rich-menu'>('auto-reply');
+  const [welcomeSection, setWelcomeSection] = useState<'line' | 'telegram' | 'instagram'>('line');
+
+  // Settings data (for smart search toggles + welcome config)
+  const [settingsData, setSettingsData] = useState<any>(null);
+  const [tgWelcome, setTgWelcome] = useState({ enabled: true, message: '', storefrontLink: true });
+  const [igWelcome, setIgWelcome] = useState({ enabled: true, message: '', storefrontLink: true });
+  const [welcomeSaving, setWelcomeSaving] = useState(false);
+  const [welcomeSaved, setWelcomeSaved] = useState(false);
+
+  // Smart search test
+  const [searchTestQuery, setSearchTestQuery] = useState('');
+  const [searchTestResult, setSearchTestResult] = useState<{ tokens: string[]; products: any[] } | null>(null);
+  const [searchTestLoading, setSearchTestLoading] = useState(false);
 
   // Queued campaign form
   const [qMessages, setQMessages] = useState<LineBlock[]>([{ type: 'text', text: '' }]);
@@ -708,6 +724,25 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
     } catch { /* ignore */ }
   }, []);
 
+  const loadSettingsData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/settings');
+      if (!res.ok) return;
+      const data = await res.json();
+      setSettingsData(data);
+      setTgWelcome({
+        enabled: data.telegram?.welcomeEnabled !== false,
+        message: data.telegram?.welcomeMessage || '',
+        storefrontLink: data.telegram?.welcomeStorefrontLink !== false,
+      });
+      setIgWelcome({
+        enabled: data.instagram?.welcomeEnabled !== false,
+        message: data.instagram?.welcomeMessage || '',
+        storefrontLink: data.instagram?.welcomeStorefrontLink !== false,
+      });
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     loadStatus();
     loadCampaigns();
@@ -715,7 +750,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
     loadGreeting();
     loadRichMenus();
     loadPlatformStatus();
-  }, [loadStatus, loadCampaigns, loadRules, loadGreeting, loadRichMenus, loadPlatformStatus]);
+    loadSettingsData();
+  }, [loadStatus, loadCampaigns, loadRules, loadGreeting, loadRichMenus, loadPlatformStatus, loadSettingsData]);
 
   async function handleSync() {
     setSyncing(true);
@@ -888,6 +924,17 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
     await loadRichMenus();
   }
 
+  async function handleSearchTest() {
+    if (!searchTestQuery.trim()) return;
+    setSearchTestLoading(true);
+    setSearchTestResult(null);
+    try {
+      const res = await fetch(`/api/broadcasts/search-test?q=${encodeURIComponent(searchTestQuery)}`);
+      if (res.ok) setSearchTestResult(await res.json());
+    } catch { /* ignore */ }
+    finally { setSearchTestLoading(false); }
+  }
+
   const activeCampaign = campaigns.find(c => c.deliveryMode === 'queued' && (c.status === 'active' || c.status === 'paused'));
   const instantHistory = campaigns.filter(c => c.deliveryMode === 'instant');
   const queuedHistory = campaigns.filter(c => c.deliveryMode === 'queued' && c.status !== 'active' && c.status !== 'paused');
@@ -895,20 +942,39 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const remaining = lineStatus?.quota?.type === 'none' ? Infinity : (lineStatus?.quota?.value ?? 0) - (lineStatus?.consumption?.totalUsage ?? 0);
 
   const SECTIONS = [
-    { id: 'campaigns', label: 'Campaigns', icon: <Megaphone size={14} /> },
-    { id: 'auto-reply', label: 'Auto-Reply', icon: <MessageSquare size={14} /> },
-    { id: 'greeting', label: 'Greeting', icon: <Hand size={14} /> },
-    { id: 'rich-menu', label: 'Rich Menu', icon: <LayoutGrid size={14} /> },
+    { id: 'broadcast',     label: 'Broadcast',     icon: <Zap size={14} /> },
+    { id: 'smart-search',  label: 'Smart Search',  icon: <Search size={14} /> },
+    { id: 'welcome',       label: 'Welcome',        icon: <Hand size={14} /> },
+    { id: 'line',          label: 'LINE',           icon: <LayoutGrid size={14} /> },
   ] as const;
 
   return (
     <div className={`flex-1 overflow-y-auto ${k.bg} p-6 space-y-6`}>
-      {/* Status bar */}
-      <StatusBar
-        status={lineStatus}
-        onSync={syncing ? () => {} : handleSync}
-        isDark={isDark}
-      />
+      {/* Multi-platform status row */}
+      <div className="flex flex-wrap gap-2">
+        {[
+          {
+            id: 'line', label: 'LINE',
+            configured: platformStatus.line,
+            extra: lineStatus?.valid
+              ? (lineStatus.quota?.type === 'none' ? 'Unlimited' : `${lineStatus.consumption?.totalUsage ?? 0}/${lineStatus.quota?.value ?? 0} msgs`)
+              : lineStatus?.configured ? 'Invalid token' : '',
+          },
+          { id: 'telegram',  label: 'Telegram',  configured: platformStatus.telegram },
+          { id: 'instagram', label: 'Instagram', configured: platformStatus.instagram },
+        ].map(p => (
+          <div key={p.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+            p.configured
+              ? isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : isDark ? 'bg-[#161925] border-[#1f2335] text-[#4a5068]'            : 'bg-slate-50 border-slate-200 text-slate-400'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${p.configured ? 'bg-emerald-400' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`} />
+            <span>{p.label}</span>
+            <span className="opacity-60">{p.configured ? 'Active' : 'Not configured'}</span>
+            {(p as any).extra && <span className="opacity-80">· {(p as any).extra}</span>}
+          </div>
+        ))}
+      </div>
 
       {syncing && (
         <div className={`rounded-xl px-4 py-3 flex items-center gap-2 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
@@ -941,8 +1007,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
         ))}
       </div>
 
-      {/* ── Campaigns ── */}
-      {section === 'campaigns' && (
+      {/* ── Broadcast ── */}
+      {section === 'broadcast' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* ── Unified Instant Broadcast ── */}
           <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
@@ -1302,202 +1368,568 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
         </div>
       )}
 
-      {/* ── Auto-Reply ── */}
-      {section === 'auto-reply' && (
-        <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className={`text-sm font-semibold ${k.text}`}>Auto-Reply Rules</p>
-              <p className={`text-xs ${k.muted}`}>Keyword-triggered replies sent free via reply token. Checked in priority order.</p>
-            </div>
-            <button onClick={openNewRule} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 transition-all" style={{ background: 'var(--accent-gradient)' }}>
-              <Plus size={14} /> Add Rule
-            </button>
-          </div>
-
-          {lineStatus?.bot?.chatMode === 'chat' && (
-            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <AlertTriangle size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-amber-400">Your LINE OA is in <strong>Chat mode</strong>. Auto-replies are suppressed while a human operator is responding. Switch to Bot mode in LINE OA Manager to enable them.</p>
-            </div>
-          )}
-
-          {rules.length === 0 ? (
-            <div className={`text-center py-12 ${k.muted}`}>
-              <MessageSquare size={32} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No rules yet. Add your first keyword rule.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {rules.map(rule => (
-                <div key={rule._id} className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
-                  <button onClick={() => handleToggleRule(rule)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rule.isActive ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rule.isActive ? 'left-4' : 'left-0.5'}`} />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-sm font-medium ${k.text}`}>{rule.matchType === 'default' ? '⚡ Default reply' : `"${rule.keyword}"`}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-slate-200 text-slate-400'}`}>{rule.matchType}</span>
-                      {rule.lastTriggeredAt && <span className={`text-[10px] ${k.muted}`}>Last triggered {new Date(rule.lastTriggeredAt).toLocaleDateString()}</span>}
-                    </div>
-                    <p className={`text-xs truncate mt-0.5 ${k.muted}`}>{rule.messages[0]?.text || rule.messages[0]?.type || '—'}</p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button onClick={() => openEditRule(rule)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}><Edit2 size={14} /></button>
-                    <button onClick={() => handleDeleteRule(rule._id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={14} /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Greeting ── */}
-      {section === 'greeting' && (
-        <div className={`rounded-2xl p-6 space-y-5 max-w-2xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className={`text-sm font-semibold ${k.text}`}>Greeting Message</p>
-              <p className={`text-xs ${k.muted}`}>Sent automatically when a new customer follows your LINE OA. Uses the reply token — free.</p>
-            </div>
-            <button
-              onClick={() => setGreeting(g => ({ ...g, greetingEnabled: !g.greetingEnabled }))}
-              className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${greeting.greetingEnabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
-            >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${greeting.greetingEnabled ? 'left-6' : 'left-1'}`} />
-            </button>
-          </div>
-
-          {greeting.greetingEnabled && (
-            <BlockComposer blocks={greeting.greetingMessages.length > 0 ? greeting.greetingMessages : [{ type: 'text', text: '' }]} onChange={msgs => setGreeting(g => ({ ...g, greetingMessages: msgs }))} isDark={isDark} isLite={isLite} />
-          )}
-
-          <button onClick={handleSaveGreeting} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style={{ background: 'var(--accent-gradient)' }}>
-            <Check size={14} /> Save Greeting
-          </button>
-        </div>
-      )}
-
-      {/* ── Rich Menu ── */}
-      {section === 'rich-menu' && (
+      {/* ── Smart Search ── */}
+      {section === 'smart-search' && (
         <div className="space-y-6">
-          {/* Published menus */}
-          {richMenus.length > 0 && (
-            <div className={`rounded-2xl p-6 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-              <p className={`text-sm font-semibold ${k.text}`}>Published Menus</p>
-              {richMenus.map(menu => (
-                <div key={menu.richMenuId} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
-                  <div>
-                    <p className={`text-sm font-medium ${k.text}`}>{menu.chatBarText || menu.name}</p>
-                    <p className={`text-xs ${k.muted}`}>{menu.richMenuId}{menu.richMenuId === defaultRichMenuId && <span className="text-emerald-400 ml-1"> · Default</span>}</p>
-                  </div>
-                  <button onClick={() => handleDeleteRichMenu(menu.richMenuId)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"><Trash2 size={14} /></button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Create new — 2-col layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            {/* Left: configuration */}
-            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
-              <p className={`text-sm font-semibold ${k.text}`}>Create Rich Menu</p>
-
-              {/* Size */}
-              <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Menu Size</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {([['large', 'Large', '2500 × 1686 px'], ['compact', 'Compact', '2500 × 843 px']] as const).map(([val, label, sub]) => (
-                    <button key={val}
-                      onClick={() => { setRmSize(val); setRmTemplate('3col'); setRmButtons(defaultRmButtons(3)); }}
-                      className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${rmSize === val ? 'text-white border-transparent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}
-                      style={rmSize === val ? { background: 'var(--accent-gradient)' } : undefined}>
-                      <p>{label}</p>
-                      <p className={`text-[10px] mt-0.5 ${rmSize === val ? 'text-white/70' : k.muted}`}>{sub}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Layout template gallery */}
-              <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Layout Template</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {RM_TEMPLATES[rmSize].map(tpl => (
-                    <button key={tpl.id}
-                      onClick={() => { setRmTemplate(tpl.id); setRmButtons(defaultRmButtons(tpl.count)); }}
-                      className={`py-2 px-2 rounded-xl text-[11px] font-medium border transition-colors flex flex-col items-center gap-2 ${rmTemplate === tpl.id ? 'border-accent bg-accent/10 text-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#2d3555]' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
-                      <LayoutPreview template={tpl.id} size={rmSize} active={rmTemplate === tpl.id} isDark={isDark} accentColor={accentColor} />
-                      <span>{tpl.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Chat bar text */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Chat Bar Text</label>
-                  <button
-                    onClick={() => setRmShowChatBar(v => !v)}
-                    className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmShowChatBar ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rmShowChatBar ? 'left-4' : 'left-0.5'}`} />
-                  </button>
-                </div>
-                {rmShowChatBar && (
-                  <div className="relative">
-                    <input type="text" value={rmChatBarText} onChange={e => setRmChatBarText(e.target.value.slice(0, 14))} placeholder="Open Menu" className={`w-full rounded-lg px-3 py-2 text-sm border pr-14 ${k.input}`} />
-                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] tabular-nums ${rmChatBarText.length >= 14 ? 'text-red-400' : k.muted}`}>{rmChatBarText.length}/14</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Auto-open */}
-              <div className={`flex items-center justify-between py-3 border-t ${k.border}`}>
-                <div>
-                  <p className={`text-sm font-medium ${k.text}`}>Auto-open menu</p>
-                  <p className={`text-xs ${k.muted}`}>Menu expands when user opens chat</p>
-                </div>
-                <button
-                  onClick={() => setRmSelected(v => !v)}
-                  className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmSelected ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rmSelected ? 'left-4' : 'left-0.5'}`} />
-                </button>
-              </div>
+          {/* Overview + toggles */}
+          <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            <div>
+              <p className={`text-sm font-semibold ${k.text}`}>Smart Product Search</p>
+              <p className={`text-xs mt-1 ${k.muted}`}>When a customer messages your bot, Shopenter tokenises the text, removes stop words, and searches your product catalog. Matching products are sent as rich cards. If nothing matches, the storefront link is sent instead.</p>
             </div>
 
-            {/* Right: image + buttons + publish */}
-            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            {/* How it works */}
+            <div className={`rounded-xl px-4 py-3 space-y-1.5 ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+              <p className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Pipeline</p>
+              {[
+                '1  Customer message → tokenised, stop words removed',
+                '2  Remaining tokens matched against name · brand · description · categories',
+                '3  Products scored by number of matching tokens',
+                '4  Top 5 sent as photo cards with a "View Product" button',
+                '5  No match → storefront link sent as fallback',
+              ].map(s => <p key={s} className={`text-[11px] font-mono ${k.muted}`}>{s}</p>)}
+            </div>
 
-              {/* Background image */}
-              <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-1 ${k.muted}`}>Background Image</label>
-                <p className={`text-xs ${k.muted} mb-3`}>JPEG or PNG · max 1 MB · {rmSize === 'large' ? '2500×1686' : '2500×843'} px recommended</p>
-                <UploadZone accept="image/jpeg,image/png" maxMB={UPLOAD_LIMITS.image} value={rmImageUrl} onUploaded={url => setRmImageUrl(url)} isDark={isDark} isLite={isLite} previewType="image" />
+            {/* Per-platform toggles */}
+            <div>
+              <p className={`text-[11px] font-semibold uppercase tracking-widest mb-3 ${k.muted}`}>Enable per platform</p>
+              <div className="space-y-2">
+                {([
+                  { id: 'line',      label: 'LINE',      badge: 'emerald', configured: platformStatus.line },
+                  { id: 'telegram',  label: 'Telegram',  badge: 'blue',    configured: platformStatus.telegram },
+                  { id: 'instagram', label: 'Instagram', badge: 'pink',    configured: platformStatus.instagram },
+                ] as const).map(p => {
+                  const enabled = p.id === 'line'
+                    ? settingsData?.lineIntentSearch !== false
+                    : settingsData?.[p.id]?.intentSearch !== false;
+                  return (
+                    <div key={p.id} className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-semibold ${k.text}`}>{p.label}</span>
+                        {!p.configured && <span className={`text-[10px] ${k.muted}`}>· not configured</span>}
+                      </div>
+                      <button
+                        disabled={!p.configured}
+                        onClick={async () => {
+                          const newVal = !enabled;
+                          const patch = p.id === 'line'
+                            ? { lineIntentSearch: newVal }
+                            : { [p.id]: { intentSearch: newVal } };
+                          await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(patch),
+                          });
+                          setSettingsData((s: any) => p.id === 'line'
+                            ? { ...s, lineIntentSearch: newVal }
+                            : { ...s, [p.id]: { ...(s?.[p.id] || {}), intentSearch: newVal } });
+                        }}
+                        className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 disabled:opacity-30 ${enabled && p.configured ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${enabled && p.configured ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+          </div>
 
-              {/* Button action editors */}
-              <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-3 ${k.muted}`}>Button Actions · {rmButtons.length} area{rmButtons.length !== 1 ? 's' : ''}</label>
-                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                  {rmButtons.map((btn, i) => (
-                    <RmButtonEditor key={i} index={i} btn={btn} onChange={updated => setRmButtons(bs => bs.map((b, idx) => idx === i ? updated : b))} isDark={isDark} k={isDark ? DK : LK} />
-                  ))}
-                </div>
-              </div>
-
+          {/* Test panel */}
+          <div className={`rounded-2xl p-6 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+            <div>
+              <p className={`text-sm font-semibold ${k.text}`}>Test Search</p>
+              <p className={`text-xs mt-1 ${k.muted}`}>Type any customer message to see exactly which products the bot would return — and why</p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={searchTestQuery}
+                onChange={e => setSearchTestQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSearchTest(); }}
+                placeholder="e.g. do you have nike sneakers?"
+                className={`flex-1 rounded-lg px-3 py-2 text-sm border ${k.input}`}
+              />
               <button
-                onClick={handlePublishRichMenu}
-                disabled={rmSaving || !rmImageUrl}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: 'var(--accent-gradient)' }}>
-                {rmSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                {rmSaving ? 'Publishing…' : 'Publish Rich Menu'}
+                onClick={handleSearchTest}
+                disabled={searchTestLoading || !searchTestQuery.trim()}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-2"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                {searchTestLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                Test
               </button>
             </div>
+
+            {searchTestResult && (
+              <div className="space-y-3">
+                <div className={`flex items-center gap-2 text-xs flex-wrap ${k.muted}`}>
+                  <span>Tokens:</span>
+                  {searchTestResult.tokens.length === 0
+                    ? <span>none — message contained only stop words</span>
+                    : searchTestResult.tokens.map(t => (
+                        <span key={t} className="px-2 py-0.5 rounded-full bg-accent/10 text-accent font-mono">{t}</span>
+                      ))
+                  }
+                </div>
+                {searchTestResult.tokens.length > 0 && (
+                  searchTestResult.products.length === 0 ? (
+                    <div className={`py-8 text-center rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                      <p className={`text-sm ${k.muted}`}>No products matched — bot would send the storefront link</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {searchTestResult.products.map((p: any, i: number) => (
+                        <div key={String(p._id)} className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                          <span className={`text-sm font-bold w-5 text-center flex-shrink-0 ${k.muted}`}>{i + 1}</span>
+                          {p.imageUrl && <img src={p.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />}
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium truncate ${k.text}`}>{p.name}</p>
+                            <p className={`text-xs ${k.muted}`}>{p.brand ? `${p.brand} · ` : ''}฿{Number(p.price).toLocaleString()}</p>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
+                            {p.matchedTokens.map((t: string) => (
+                              <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent font-mono">{t}</span>
+                            ))}
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-slate-200 text-slate-400'}`}>
+                              {p.score}/{searchTestResult.tokens.length}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* ── Welcome ── */}
+      {section === 'welcome' && (
+        <div className="space-y-5">
+          <div>
+            <p className={`text-sm font-semibold ${k.text}`}>Welcome Message</p>
+            <p className={`text-xs mt-1 ${k.muted}`}>Sent automatically when a new customer first contacts your bot. Each platform delivers it differently.</p>
+          </div>
+
+          {/* Platform selector */}
+          <div className={`flex gap-1 p-1 rounded-xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
+            {(['line', 'telegram', 'instagram'] as const).map(p => {
+              const labels = { line: 'LINE', telegram: 'Telegram', instagram: 'Instagram' };
+              const configured = p === 'line' ? platformStatus.line : p === 'telegram' ? platformStatus.telegram : platformStatus.instagram;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setWelcomeSection(p)}
+                  disabled={!configured}
+                  title={!configured ? `${labels[p]} not configured — go to Settings` : undefined}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    welcomeSection === p
+                      ? 'text-white shadow-sm'
+                      : configured
+                      ? isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
+                      : 'opacity-30 cursor-not-allowed'
+                  }`}
+                  style={welcomeSection === p ? { background: 'var(--accent-gradient)' } : undefined}
+                >
+                  {labels[p]}
+                  {!configured && <span className="text-[9px]">(not set up)</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── LINE welcome ── */}
+          {welcomeSection === 'line' && (
+            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm font-semibold ${k.text}`}>LINE Welcome Message</p>
+                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">LINE</span>
+                  </div>
+                  <p className={`text-xs mt-1 ${k.muted}`}>Sent when a customer follows your LINE OA. Delivered free via reply token.</p>
+                </div>
+                <button
+                  onClick={() => setGreeting(g => ({ ...g, greetingEnabled: !g.greetingEnabled }))}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${greeting.greetingEnabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${greeting.greetingEnabled ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+              {greeting.greetingEnabled && (
+                <>
+                  <BlockComposer
+                    blocks={greeting.greetingMessages.length > 0 ? greeting.greetingMessages : [{ type: 'text', text: '' }]}
+                    onChange={msgs => setGreeting(g => ({ ...g, greetingMessages: msgs }))}
+                    isDark={isDark}
+                    isLite={isLite}
+                  />
+                  <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <Info size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                    <p className={`text-xs ${k.muted}`}>To include a storefront link, add an <strong>Image</strong> block with a URI button action, or a <strong>Text</strong> block with the URL embedded.</p>
+                  </div>
+                </>
+              )}
+              <button onClick={handleSaveGreeting} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style={{ background: 'var(--accent-gradient)' }}>
+                <Check size={14} /> Save
+              </button>
+            </div>
+          )}
+
+          {/* ── Telegram welcome ── */}
+          {welcomeSection === 'telegram' && (
+            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm font-semibold ${k.text}`}>Telegram Welcome Message</p>
+                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/25">Telegram</span>
+                  </div>
+                  <p className={`text-xs mt-1 ${k.muted}`}>Sent the first time a customer messages your Telegram bot.</p>
+                </div>
+                <button
+                  onClick={() => setTgWelcome(w => ({ ...w, enabled: !w.enabled }))}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.enabled ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+              {tgWelcome.enabled && (
+                <div className="space-y-4">
+                  <div>
+                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
+                    <textarea
+                      value={tgWelcome.message}
+                      onChange={e => setTgWelcome(w => ({ ...w, message: e.target.value }))}
+                      placeholder={`Welcome! 🎉 Browse our products and order directly from chat.`}
+                      rows={3}
+                      className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`}
+                    />
+                    <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default message.</p>
+                  </div>
+                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div>
+                      <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
+                      <p className={`text-[10px] mt-0.5 ${k.muted}`}>Adds a "Browse Store 🛒" button — customer's identity is embedded so they're auto-logged in</p>
+                    </div>
+                    <button
+                      onClick={() => setTgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))}
+                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${tgWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
+                    >
+                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tgWelcome.storefrontLink ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button
+                disabled={welcomeSaving}
+                onClick={async () => {
+                  setWelcomeSaving(true);
+                  await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      telegram: {
+                        welcomeEnabled: tgWelcome.enabled,
+                        welcomeMessage: tgWelcome.message,
+                        welcomeStorefrontLink: tgWelcome.storefrontLink,
+                      },
+                    }),
+                  });
+                  setWelcomeSaving(false);
+                  setWelcomeSaved(true);
+                  setTimeout(() => setWelcomeSaved(false), 2000);
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                {welcomeSaved ? 'Saved!' : 'Save'}
+              </button>
+            </div>
+          )}
+
+          {/* ── Instagram welcome ── */}
+          {welcomeSection === 'instagram' && (
+            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm font-semibold ${k.text}`}>Instagram Welcome Message</p>
+                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">Instagram</span>
+                  </div>
+                  <p className={`text-xs mt-1 ${k.muted}`}>Sent the first time a customer DMs your Instagram account.</p>
+                </div>
+                <button
+                  onClick={() => setIgWelcome(w => ({ ...w, enabled: !w.enabled }))}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.enabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.enabled ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+              {igWelcome.enabled && (
+                <div className="space-y-4">
+                  <div>
+                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Message text</label>
+                    <textarea
+                      value={igWelcome.message}
+                      onChange={e => setIgWelcome(w => ({ ...w, message: e.target.value }))}
+                      placeholder={`Welcome! 🛍️ Browse our collection below.`}
+                      rows={3}
+                      className={`w-full rounded-lg px-3 py-2 text-sm border resize-none ${k.input}`}
+                    />
+                    <p className={`text-[10px] mt-1 ${k.muted}`}>Leave blank to use the default message.</p>
+                  </div>
+                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                    <div>
+                      <p className={`text-xs font-semibold ${k.text}`}>Include storefront link</p>
+                      <p className={`text-[10px] mt-0.5 ${k.muted}`}>Appends a clickable store URL — customer's identity is embedded so they're auto-logged in</p>
+                    </div>
+                    <button
+                      onClick={() => setIgWelcome(w => ({ ...w, storefrontLink: !w.storefrontLink }))}
+                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${igWelcome.storefrontLink ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}
+                    >
+                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${igWelcome.storefrontLink ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button
+                disabled={welcomeSaving}
+                onClick={async () => {
+                  setWelcomeSaving(true);
+                  await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      instagram: {
+                        welcomeEnabled: igWelcome.enabled,
+                        welcomeMessage: igWelcome.message,
+                        welcomeStorefrontLink: igWelcome.storefrontLink,
+                      },
+                    }),
+                  });
+                  setWelcomeSaving(false);
+                  setWelcomeSaved(true);
+                  setTimeout(() => setWelcomeSaved(false), 2000);
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                {welcomeSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                {welcomeSaved ? 'Saved!' : 'Save'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── LINE Tools ── */}
+      {section === 'line' && (
+        <div className="space-y-5">
+          {/* LINE status bar */}
+          <StatusBar status={lineStatus} onSync={syncing ? () => {} : handleSync} isDark={isDark} />
+
+          {/* LINE Exclusive header */}
+          <div className="flex items-center gap-2">
+            <p className={`text-sm font-semibold ${k.text}`}>LINE Tools</p>
+            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">LINE Exclusive</span>
+          </div>
+
+          {/* Sub-tabs */}
+          <div className={`flex gap-1 p-1 rounded-xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-slate-100'}`}>
+            {[
+              { id: 'auto-reply' as const, label: 'Auto-Reply', icon: <MessageSquare size={13} /> },
+              { id: 'rich-menu'  as const, label: 'Rich Menu',  icon: <LayoutGrid size={13} /> },
+            ].map(s => (
+              <button
+                key={s.id}
+                onClick={() => setLineSubSection(s.id)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                  lineSubSection === s.id
+                    ? 'text-white shadow-sm'
+                    : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                style={lineSubSection === s.id ? { background: 'var(--accent-gradient)' } : undefined}
+              >
+                {s.icon}{s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Auto-Reply content */}
+          {lineSubSection === 'auto-reply' && (
+            <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={`text-sm font-semibold ${k.text}`}>Auto-Reply Rules</p>
+                  <p className={`text-xs ${k.muted}`}>Keyword-triggered replies sent free via reply token. Checked in priority order.</p>
+                </div>
+                <button onClick={openNewRule} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-sm font-medium hover:opacity-90 transition-all" style={{ background: 'var(--accent-gradient)' }}>
+                  <Plus size={14} /> Add Rule
+                </button>
+              </div>
+              {lineStatus?.bot?.chatMode === 'chat' && (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <AlertTriangle size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-amber-400">Your LINE OA is in <strong>Chat mode</strong>. Auto-replies are suppressed while a human operator is responding. Switch to Bot mode in LINE OA Manager to enable them.</p>
+                </div>
+              )}
+              {rules.length === 0 ? (
+                <div className={`text-center py-12 ${k.muted}`}>
+                  <MessageSquare size={32} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No rules yet. Add your first keyword rule.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {rules.map(rule => (
+                    <div key={rule._id} className={`flex items-center gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                      <button onClick={() => handleToggleRule(rule)} className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rule.isActive ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rule.isActive ? 'left-4' : 'left-0.5'}`} />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-sm font-medium ${k.text}`}>{rule.matchType === 'default' ? '⚡ Default reply' : `"${rule.keyword}"`}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-slate-200 text-slate-400'}`}>{rule.matchType}</span>
+                          {rule.lastTriggeredAt && <span className={`text-[10px] ${k.muted}`}>Last triggered {new Date(rule.lastTriggeredAt).toLocaleDateString()}</span>}
+                        </div>
+                        <p className={`text-xs truncate mt-0.5 ${k.muted}`}>{rule.messages[0]?.text || rule.messages[0]?.type || '—'}</p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button onClick={() => openEditRule(rule)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}><Edit2 size={14} /></button>
+                        <button onClick={() => handleDeleteRule(rule._id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Rich Menu content */}
+          {lineSubSection === 'rich-menu' && (
+            <div className="space-y-6">
+              {/* Published menus */}
+              {richMenus.length > 0 && (
+                <div className={`rounded-2xl p-6 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+                  <p className={`text-sm font-semibold ${k.text}`}>Published Menus</p>
+                  {richMenus.map(menu => (
+                    <div key={menu.richMenuId} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                      <div>
+                        <p className={`text-sm font-medium ${k.text}`}>{menu.chatBarText || menu.name}</p>
+                        <p className={`text-xs ${k.muted}`}>{menu.richMenuId}{menu.richMenuId === defaultRichMenuId && <span className="text-emerald-400 ml-1"> · Default</span>}</p>
+                      </div>
+                      <button onClick={() => handleDeleteRichMenu(menu.richMenuId)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Create new — 2-col layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                {/* Left: configuration */}
+                <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+                  <p className={`text-sm font-semibold ${k.text}`}>Create Rich Menu</p>
+
+                  {/* Size */}
+                  <div>
+                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Menu Size</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([['large', 'Large', '2500 × 1686 px'], ['compact', 'Compact', '2500 × 843 px']] as const).map(([val, label, sub]) => (
+                        <button key={val}
+                          onClick={() => { setRmSize(val); setRmTemplate('3col'); setRmButtons(defaultRmButtons(3)); }}
+                          className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${rmSize === val ? 'text-white border-transparent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}
+                          style={rmSize === val ? { background: 'var(--accent-gradient)' } : undefined}>
+                          <p>{label}</p>
+                          <p className={`text-[10px] mt-0.5 ${rmSize === val ? 'text-white/70' : k.muted}`}>{sub}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Layout template gallery */}
+                  <div>
+                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Layout Template</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {RM_TEMPLATES[rmSize].map(tpl => (
+                        <button key={tpl.id}
+                          onClick={() => { setRmTemplate(tpl.id); setRmButtons(defaultRmButtons(tpl.count)); }}
+                          className={`py-2 px-2 rounded-xl text-[11px] font-medium border transition-colors flex flex-col items-center gap-2 ${rmTemplate === tpl.id ? 'border-accent bg-accent/10 text-accent' : isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#2d3555]' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                          <LayoutPreview template={tpl.id} size={rmSize} active={rmTemplate === tpl.id} isDark={isDark} accentColor={accentColor} />
+                          <span>{tpl.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Chat bar text */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className={`text-[11px] font-semibold uppercase tracking-widest ${k.muted}`}>Chat Bar Text</label>
+                      <button
+                        onClick={() => setRmShowChatBar(v => !v)}
+                        className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmShowChatBar ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rmShowChatBar ? 'left-4' : 'left-0.5'}`} />
+                      </button>
+                    </div>
+                    {rmShowChatBar && (
+                      <div className="relative">
+                        <input type="text" value={rmChatBarText} onChange={e => setRmChatBarText(e.target.value.slice(0, 14))} placeholder="Open Menu" className={`w-full rounded-lg px-3 py-2 text-sm border pr-14 ${k.input}`} />
+                        <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] tabular-nums ${rmChatBarText.length >= 14 ? 'text-red-400' : k.muted}`}>{rmChatBarText.length}/14</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Auto-open */}
+                  <div className={`flex items-center justify-between py-3 border-t ${k.border}`}>
+                    <div>
+                      <p className={`text-sm font-medium ${k.text}`}>Auto-open menu</p>
+                      <p className={`text-xs ${k.muted}`}>Menu expands when user opens chat</p>
+                    </div>
+                    <button
+                      onClick={() => setRmSelected(v => !v)}
+                      className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${rmSelected ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${rmSelected ? 'left-4' : 'left-0.5'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right: image + buttons + publish */}
+                <div className={`rounded-2xl p-6 space-y-5 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
+
+                  {/* Background image */}
+                  <div>
+                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-1 ${k.muted}`}>Background Image</label>
+                    <p className={`text-xs ${k.muted} mb-3`}>JPEG or PNG · max 1 MB · {rmSize === 'large' ? '2500×1686' : '2500×843'} px recommended</p>
+                    <UploadZone accept="image/jpeg,image/png" maxMB={UPLOAD_LIMITS.image} value={rmImageUrl} onUploaded={url => setRmImageUrl(url)} isDark={isDark} isLite={isLite} previewType="image" />
+                  </div>
+
+                  {/* Button action editors */}
+                  <div>
+                    <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-3 ${k.muted}`}>Button Actions · {rmButtons.length} area{rmButtons.length !== 1 ? 's' : ''}</label>
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                      {rmButtons.map((btn, i) => (
+                        <RmButtonEditor key={i} index={i} btn={btn} onChange={updated => setRmButtons(bs => bs.map((b, idx) => idx === i ? updated : b))} isDark={isDark} k={isDark ? DK : LK} />
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handlePublishRichMenu}
+                    disabled={rmSaving || !rmImageUrl}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: 'var(--accent-gradient)' }}>
+                    {rmSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                    {rmSaving ? 'Publishing…' : 'Publish Rich Menu'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
