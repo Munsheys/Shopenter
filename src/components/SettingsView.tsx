@@ -530,8 +530,39 @@ export default function SettingsView({
   return (
     <div className={`flex flex-1 min-h-0 ${K.bg}`}>
 
-      {/* ── Left sidebar ──────────────────────────────────────────────────── */}
-      <div className={`w-52 flex-shrink-0 flex flex-col py-5 px-3 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-slate-200'}`}>
+      {/* ── Mobile section nav (replaces sidebar on small screens) ────────── */}
+      <div className={`md:hidden flex items-center gap-2 px-3 py-2 border-b flex-shrink-0 ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-slate-200'}`}>
+        <div className="flex-1 overflow-x-auto flex gap-1" style={{ scrollbarWidth: 'none' }}>
+          {SECTIONS.map(s => (
+            <button
+              key={s.id}
+              onClick={() => scrollTo(s.id)}
+              aria-current={activeSection === s.id ? 'true' : undefined}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors border ${
+                activeSection === s.id
+                  ? 'text-white border-transparent'
+                  : isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-slate-200 text-slate-500'
+              }`}
+              style={activeSection === s.id ? { background: localAccentBg, color: accentTextColor, borderColor: 'transparent' } : undefined}
+            >
+              {s.icon}
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={isSaving || isSettingsLoading}
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-white transition-all disabled:opacity-50"
+          style={{ background: saved ? '#10b981' : localAccentBg, color: saved ? '#ffffff' : accentTextColor }}
+        >
+          {isSaving ? <Loader2 size={11} className="animate-spin" /> : saved ? <Check size={11} /> : <Save size={11} />}
+          {isSaving ? '…' : saved ? 'Saved!' : 'Save'}
+        </button>
+      </div>
+
+      {/* ── Left sidebar (desktop only) ───────────────────────────────────── */}
+      <div className={`hidden md:flex w-52 flex-shrink-0 flex-col py-5 px-3 border-r ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-slate-200'}`}>
         <p className={`text-[10px] font-bold uppercase tracking-widest px-3 mb-3 ${K.muted}`}>Settings</p>
 
         <nav className="flex-1 space-y-0.5">
@@ -590,7 +621,7 @@ export default function SettingsView({
       {/* ── Scrollable content ────────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-h-0">
         <div ref={containerRef} className="flex-1 overflow-y-auto">
-          <div className="px-6 pb-16 max-w-3xl mx-auto space-y-16 pt-6">
+          <div className="px-4 md:px-6 pb-24 md:pb-16 max-w-3xl mx-auto space-y-16 pt-6">
             {isSettingsLoading ? (
               <div role="status" aria-label="Loading settings" className="py-32 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
                 <div aria-hidden="true" className="w-10 h-10 border-4 border-t-transparent border-accent rounded-full animate-spin" />

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw, Tag, Zap, Bell, X, ShoppingBag, CheckCheck, AlertTriangle, TrendingDown, Radio } from 'lucide-react';
+import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw, Tag, Zap, Bell, X, ShoppingBag, CheckCheck, AlertTriangle, TrendingDown, Radio, MoreHorizontal, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ProductManagement from '@/components/ProductManagement';
 import SettingsView from '@/components/SettingsView';
@@ -36,15 +36,19 @@ const TIER_BADGE_COLORS: Record<string, string> = {
   enterprise: 'bg-amber-50 text-amber-600',
 };
 
-const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'customers',  label: 'Customers',  icon: <MessageCircle size={15} /> },
-  { id: 'orders',     label: 'Orders',     icon: <ShoppingCart size={15} /> },
-  { id: 'products',   label: 'Products',   icon: <Package size={15} /> },
-  { id: 'reports',    label: 'Reports',    icon: <BarChart3 size={15} /> },
-  { id: 'broadcasts', label: 'Messaging',  icon: <Radio size={15} /> },
-  { id: 'storefront', label: 'Storefront', icon: <Store size={15} /> },
-  { id: 'coupons',    label: 'Coupons',    icon: <Tag size={15} /> },
+const tabs: { id: Tab; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
+  { id: 'customers',  label: 'Customers',  Icon: MessageCircle },
+  { id: 'orders',     label: 'Orders',     Icon: ShoppingCart },
+  { id: 'products',   label: 'Products',   Icon: Package },
+  { id: 'reports',    label: 'Reports',    Icon: BarChart3 },
+  { id: 'broadcasts', label: 'Messaging',  Icon: Radio },
+  { id: 'storefront', label: 'Storefront', Icon: Store },
+  { id: 'coupons',    label: 'Coupons',    Icon: Tag },
 ];
+
+// Bottom nav: 4 primary + "More" button; secondary tabs live in the More drawer
+const PRIMARY_TAB_IDS: Tab[] = ['customers', 'orders', 'products', 'broadcasts'];
+const SECONDARY_TAB_IDS: Tab[] = ['reports', 'storefront', 'coupons'];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -70,6 +74,7 @@ export default function DashboardPage() {
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [autoDeliverToast, setAutoDeliverToast] = useState<string | null>(null);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const autoDeliverRan = useRef(false);
   const autoDeliverToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -300,6 +305,16 @@ export default function DashboardPage() {
     setPendingTab(null);
   }, []);
 
+  const handleTabSwitch = useCallback((tab: Tab) => {
+    setMobileMoreOpen(false);
+    if (activeTab === 'settings' && settingsDirty && tab !== 'settings') {
+      setPendingTab(tab);
+      setShowUnsavedModal(true);
+    } else {
+      setActiveTab(tab);
+    }
+  }, [activeTab, settingsDirty]);
+
   useEffect(() => {
     const updateTopNav = () => {
       if (!topNavContainerRef.current) return;
@@ -373,8 +388,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Tab navigation */}
-        <nav ref={topNavContainerRef} role="tablist" aria-label="Dashboard sections" className="flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
+        {/* Tab navigation — desktop only */}
+        <nav ref={topNavContainerRef} role="tablist" aria-label="Dashboard sections" className="hidden md:flex items-stretch h-full flex-1 overflow-x-auto relative" style={{ scrollbarWidth: 'none' }}>
           <div
             className={`absolute bottom-0 h-[2px] transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] z-10 ${
               topNavStyle.width ? 'opacity-100' : 'opacity-0'
@@ -391,14 +406,7 @@ export default function DashboardPage() {
               key={tab.id}
               role="tab"
               aria-selected={activeTab === tab.id}
-              onClick={() => {
-                if (activeTab === 'settings' && settingsDirty && tab.id !== 'settings') {
-                  setPendingTab(tab.id);
-                  setShowUnsavedModal(true);
-                } else {
-                  setActiveTab(tab.id);
-                }
-              }}
+              onClick={() => handleTabSwitch(tab.id)}
               className={`relative flex items-center gap-2 px-3 h-full text-[13px] font-bold transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? `${isDark ? 'text-white' : 'text-gray-900'}`
@@ -408,7 +416,7 @@ export default function DashboardPage() {
               {activeTab === tab.id && (
                 <span className={`absolute inset-0 rounded-none pointer-events-none ${isDark ? 'bg-accent/5' : 'bg-accent/5'}`} />
               )}
-              {tab.icon}
+              <tab.Icon size={15} />
               {tab.label}
             </button>
           ))}
@@ -457,7 +465,7 @@ export default function DashboardPage() {
               )}
             </button>
             {notifOpen && (
-              <div role="dialog" aria-label="Notifications" className={`absolute right-0 top-10 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-[#e2e5ef]'}`}>
+              <div role="dialog" aria-label="Notifications" className={`absolute right-0 top-10 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-[#e2e5ef]'}`}>
                 <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-[#e2e5ef]'}`}>
                   <span className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-[#3f4557]'}`}>Notifications</span>
                   <button onClick={() => setNotifOpen(false)} aria-label="Close notifications" className="text-[#8b92ad] hover:text-red-400 p-1"><X size={14} /></button>
@@ -537,15 +545,15 @@ export default function DashboardPage() {
           <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} jumpToOrderId={jumpToOrderId} onJumpOrderConsumed={() => setJumpToOrderId(null)} onOrderMutated={() => { setOrdersRefreshKey(k => k + 1); setReportsRefreshKey(k => k + 1); }} />
         </div>
 
-        <div key={`orders-${refreshKey}-${ordersRefreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
+        <div key={`orders-${refreshKey}-${ordersRefreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0' : 'hidden'}>
           <ShopOrdersView theme={theme} t={{}} localCurrency={settings?.localCurrency} onLimitHit={handleLimitHit} onViewCustomer={(userId, orderId) => { setJumpToUserId(userId); setJumpToOrderId(orderId ?? null); setActiveTab('customers'); }} />
         </div>
 
-        <div key={`products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto' : 'hidden'}>
+        <div key={`products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto pb-16 md:pb-0' : 'hidden'}>
           <ProductManagement theme={theme} t={{}} onLimitHit={handleLimitHit} />
         </div>
 
-        <div key={`reports-${refreshKey}-${reportsRefreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2' : 'hidden'}>
+        <div key={`reports-${refreshKey}-${reportsRefreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0' : 'hidden'}>
           <ReportsView theme={theme} t={{}} accentColor={accentColor} />
         </div>
 
@@ -562,11 +570,11 @@ export default function DashboardPage() {
           <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} onDirtyChange={setSettingsDirty} refreshTrigger={settingsRefreshKey} />
         </div>
 
-        <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6' : 'hidden'}>
+        <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6 pb-16 md:pb-0' : 'hidden'}>
           <CouponsView theme={theme} />
         </div>
 
-        <div key={`storefront-${refreshKey}`} className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6' : 'hidden'}>
+        <div key={`storefront-${refreshKey}`} className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6 pb-20 md:pb-6' : 'hidden'}>
 
           <div className="mb-6">
             <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Storefront customization</h2>
@@ -599,6 +607,94 @@ export default function DashboardPage() {
           />
         </div>
       </main>
+
+      {/* ── Mobile bottom navigation ── */}
+      <nav aria-label="Mobile navigation" className={`md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch border-t ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-gray-200'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {tabs.filter(t => PRIMARY_TAB_IDS.includes(t.id)).map(tab => (
+          <button
+            key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-label={tab.label}
+            onClick={() => handleTabSwitch(tab.id)}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-colors`}
+            style={activeTab === tab.id ? { color: accentColor } : undefined}
+          >
+            <tab.Icon size={20} />
+            <span className={`text-[10px] font-semibold leading-none ${activeTab === tab.id ? '' : isDark ? 'text-[#8b92ad]' : 'text-gray-400'}`}>{tab.label}</span>
+          </button>
+        ))}
+        <button
+          aria-label="More options"
+          onClick={() => setMobileMoreOpen(o => !o)}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-colors`}
+          style={mobileMoreOpen || SECONDARY_TAB_IDS.includes(activeTab as Tab) ? { color: accentColor } : undefined}
+        >
+          <MoreHorizontal size={20} className={!mobileMoreOpen && !SECONDARY_TAB_IDS.includes(activeTab as Tab) ? isDark ? 'text-[#8b92ad]' : 'text-gray-400' : ''} />
+          <span className={`text-[10px] font-semibold leading-none ${!mobileMoreOpen && !SECONDARY_TAB_IDS.includes(activeTab as Tab) ? isDark ? 'text-[#8b92ad]' : 'text-gray-400' : ''}`}>More</span>
+        </button>
+      </nav>
+
+      {/* ── Mobile "More" drawer ── */}
+      {mobileMoreOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileMoreOpen(false)} />
+          <div className={`relative rounded-t-3xl border-t p-4 pb-6 ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-gray-100'}`} style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
+            <div className={`mx-auto w-10 h-1 rounded-full mb-4 ${isDark ? 'bg-[#2d3555]' : 'bg-gray-200'}`} />
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${isDark ? 'text-[#8b92ad]' : 'text-gray-400'}`}>More</p>
+            <div className="space-y-1">
+              {tabs.filter(t => SECONDARY_TAB_IDS.includes(t.id)).map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabSwitch(tab.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-semibold ${
+                    activeTab === tab.id
+                      ? isDark ? 'bg-accent/10 text-white' : isLite ? 'bg-accent/10' : 'bg-accent/10'
+                      : isDark ? 'text-[#8b92ad] hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                  style={activeTab === tab.id ? { color: accentColor } : undefined}
+                >
+                  <tab.Icon size={18} />
+                  {tab.label}
+                  <ChevronRight size={14} className="ml-auto opacity-40" />
+                </button>
+              ))}
+              <div className={`my-2 border-t ${isDark ? 'border-[#1f2335]' : 'border-gray-100'}`} />
+              {merchant && (
+                <a
+                  href={merchant.slug ? `/shop/${merchant.slug}` : `/merchant/${merchant.merchantId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-semibold ${isDark ? 'text-[#8b92ad] hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <ExternalLink size={18} />
+                  View Store
+                  <ChevronRight size={14} className="ml-auto opacity-40" />
+                </a>
+              )}
+              <button
+                onClick={() => handleTabSwitch('feedback')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-semibold ${activeTab === 'feedback' ? isDark ? 'bg-accent/10 text-white' : 'bg-accent/10' : isDark ? 'text-[#8b92ad] hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                style={activeTab === 'feedback' ? { color: accentColor } : undefined}
+              >
+                <HeartHandshake size={18} />
+                Feedback
+                <ChevronRight size={14} className="ml-auto opacity-40" />
+              </button>
+              <button
+                onClick={() => handleTabSwitch('settings')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-semibold ${activeTab === 'settings' ? isDark ? 'bg-accent/10 text-white' : 'bg-accent/10' : isDark ? 'text-[#8b92ad] hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                style={activeTab === 'settings' ? { color: accentColor } : undefined}
+              >
+                <SettingsIcon size={18} />
+                Settings
+                <ChevronRight size={14} className="ml-auto opacity-40" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <FloatingGuide
         theme={theme}
