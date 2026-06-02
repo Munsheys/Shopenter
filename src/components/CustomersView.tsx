@@ -514,10 +514,58 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     } catch {}
   }
 
+  // Clear workspace and pre-load pending parcels when switching customers
+  useEffect(() => {
+    setProductsToFulfil([]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer?._id]);
+
+  useEffect(() => {
+    if (!selectedCustomer) return;
+    allOrders
+      .filter(o => o.userId === selectedCustomer.userId && ['pending', 'paid'].includes(o.status))
+      .forEach(o => fetchFulfilments(o._id));
+  // Runs on customer change or whenever order list is refreshed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer?._id, allOrders.length]);
+
   async function createTestOrder() {
     if (testOrderCreating || !selectedCustomer) return;
     setTestOrderCreating(true);
     try {
+      // Use real catalog products when available
+      let items: OrderItem[] = [];
+      try {
+        const prodRes = await fetch('/api/products');
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          const prods: Product[] = Array.isArray(prodData) ? prodData : (prodData.products || []);
+          const picked = prods.filter(p => p.price > 0).slice(0, 3);
+          items = picked.map((p, i) => {
+            const variant = p.variants?.[0];
+            const variantLabel = variant?.variantName
+              || (variant?.combination ? Object.values(variant.combination).join(' / ') : undefined);
+            const price = variant?.price ?? p.price ?? 299;
+            return {
+              productId: p._id,
+              name: p.name,
+              variantLabel: variantLabel || undefined,
+              qty: i === 0 ? 2 : 1,
+              price,
+            };
+          });
+        }
+      } catch {}
+
+      if (items.length === 0) {
+        items = [
+          { name: '[TEST] Product A', qty: 2, price: 499 },
+          { name: '[TEST] Product B', qty: 1, price: 299 },
+          { name: '[TEST] Product C', qty: 1, price: 199 },
+        ];
+      }
+
+      const soldTHB = items.reduce((s, i) => s + i.price * i.qty, 0);
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -525,17 +573,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
           userId: selectedCustomer.userId,
           displayName: selectedCustomer.displayName,
           platform: selectedCustomer.platform ?? 'line',
-          product: '[TEST] 3x Multi-item',
-          quantity: 6,
-          items: [
-            { name: '[TEST] Product A (Red / M)', qty: 2, price: 499 },
-            { name: '[TEST] Product B', qty: 1, price: 299 },
-            { name: '[TEST] Product C (Blue)', qty: 3, price: 199 },
-          ],
-          soldTHB: 1792,
-          costTHB: 0,
-          costKRW: 0,
-          shipCostTHB: 0,
+          product: '[TEST] Multi-item order',
+          quantity: items.reduce((s, i) => s + i.qty, 0),
+          items,
+          soldTHB,
+          costTHB: 0, costKRW: 0, shipCostTHB: 0,
           status: 'paid',
         }),
       });
@@ -854,6 +896,10 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setBatchEditTotal(String(selectedTotal)); }, [selectedTotal, selectedOrderIds.size]);
   const parcelOrders = customerOrders.filter(o => o.status === 'preparing');
+  // Pending fulfilments across all active orders — items moved to parcel but not yet shipped
+  const pendingFulfilments = activeOrders.flatMap(o =>
+    (fulfilmentsCache[o._id] || []).filter(f => f.status === 'pending')
+  );
   const inTransitOrders = customerOrders.filter(o => ['shipped', 'partially_fulfilled'].includes(o.status));
   // Group shipped orders by parcel: same tracking+courier = same parcel
   const inTransitGroups: Order[][] = (() => {
@@ -1235,111 +1281,91 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 {productsToFulfil.length > 0 && (
                   <section aria-label="Products to fulfil">
                     <SectionLabel>Products to Fulfil</SectionLabel>
-                    <div className={`mt-3 space-y-3`}>
-                      {/* Address selector for parcel */}
-                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-widest mb-3 ${k.muted}`}>Select delivery address</p>
-                        <div className="space-y-2">
-                          {(selectedCustomer?.addresses || []).length === 0 ? (
-                            <p className={`text-[10px] ${k.muted}`}>No saved addresses. Add one below.</p>
-                          ) : (
-                            (selectedCustomer?.addresses || []).map((addr, i) => (
-                              <label key={i} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                                selectedAddressIdx === i
-                                  ? (isDark ? 'bg-accent/10 border-accent/30' : 'bg-accent/5 border-accent/30')
-                                  : (isDark ? 'border-white/10 hover:border-accent/30' : 'border-slate-200 hover:border-accent/30')
-                              }`}>
-                                <input
-                                  type="radio"
-                                  checked={selectedAddressIdx === i}
-                                  onChange={() => setSelectedAddressIdx(i)}
-                                  className="mt-0.5 flex-shrink-0"
-                                />
-                                <span className={`text-xs flex-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{addr}</span>
-                              </label>
-                            ))
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Product cards */}
-                      <div className="space-y-2">
-                        {productsToFulfil.map((item) => (
-                          <ProductToFulfilCard
-                            key={item.id}
-                            item={item}
-                            isDark={isDark}
-                            k={k}
-                            onQtyChange={(newQty) => {
-                              setProductsToFulfil(prev => prev.map(p => p.id === item.id ? { ...p, qty: Math.max(1, Math.min(999, newQty)) } : p));
-                            }}
-                            onRemove={() => {
-                              setConfirm({
-                                open: true,
-                                title: 'Remove Item?',
-                                message: `Remove ${item.name} ×${item.qty} from parcel?`,
-                                onConfirm: () => {
-                                  setProductsToFulfil(prev => prev.filter(p => p.id !== item.id));
-                                },
-                                danger: true
+                    <div className={`mt-3 space-y-2`}>
+                      {productsToFulfil.map((item) => (
+                        <ProductToFulfilCard
+                          key={item.id}
+                          item={item}
+                          isDark={isDark}
+                          k={k}
+                          onQtyChange={(newQty) => {
+                            setProductsToFulfil(prev => prev.map(p => p.id === item.id ? { ...p, qty: Math.max(1, Math.min(999, newQty)) } : p));
+                          }}
+                          onRemove={() => {
+                            setConfirm({
+                              open: true,
+                              title: 'Remove Item?',
+                              message: `Remove ${item.name} ×${item.qty} from workspace?`,
+                              onConfirm: () => {
+                                setProductsToFulfil(prev => prev.filter(p => p.id !== item.id));
+                              },
+                              danger: true
+                            });
+                          }}
+                          onMoveToParcel={async () => {
+                            setActingOrderIds(prev => new Set(prev).add(item.orderId));
+                            try {
+                              const res = await fetch(`/api/orders/${item.orderId}/fulfilments`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  items: [{ productId: item.productId, name: item.name, qty: item.qty, price: item.price }],
+                                  address: selectedCustomer?.addresses[selectedAddressIdx] || '',
+                                  shipCostTHB: 0,
+                                  status: 'pending'
+                                }),
                               });
-                            }}
-                            onMoveToParcel={async () => {
-                              // Create a fulfilment with this item
-                              const address = selectedCustomer?.addresses[selectedAddressIdx] || '';
-                              if (!address) {
-                                setConfirm({
-                                  open: true,
-                                  title: 'No Address',
-                                  message: 'Please select or add a delivery address first.',
-                                  onConfirm: () => {}
-                                });
-                                return;
+                              if (res.ok) {
+                                setProductsToFulfil(prev => prev.filter(p => p.id !== item.id));
+                                await fetchFulfilments(item.orderId);
+                                onOrderMutated?.();
+                              } else {
+                                setConfirm({ open: true, title: 'Failed', message: 'Could not create parcel. Please try again.', onConfirm: () => {} });
                               }
+                            } catch {
+                              setConfirm({ open: true, title: 'Error', message: 'Something went wrong. Please try again.', onConfirm: () => {} });
+                            } finally {
+                              setActingOrderIds(prev => { const s = new Set(prev); s.delete(item.orderId); return s; });
+                            }
+                          }}
+                          merchantSettings={merchantSettings}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
 
-                              const order = allOrders.find(o => o._id === item.orderId);
-                              if (!order) return;
-
-                              setActingOrderIds(prev => new Set(prev).add(item.orderId));
-                              try {
-                                const res = await fetch(`/api/orders/${item.orderId}/fulfilments`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    items: [{ productId: item.productId, name: item.name, qty: item.qty, price: item.price }],
-                                    address: address,
-                                    shipCostTHB: 0,
-                                    status: 'pending'
-                                  }),
-                                });
-                                if (res.ok) {
-                                  setProductsToFulfil(prev => prev.filter(p => p.id !== item.id));
-                                  await fetchFulfilments(item.orderId);
-                                  onOrderMutated?.();
-                                } else {
-                                  setConfirm({
-                                    open: true,
-                                    title: 'Failed to Create Parcel',
-                                    message: 'Could not create fulfilment. Please try again.',
-                                    onConfirm: () => {}
-                                  });
-                                }
-                              } catch (err) {
-                                console.error(err);
-                                setConfirm({
-                                  open: true,
-                                  title: 'Error',
-                                  message: 'Something went wrong. Please try again.',
-                                  onConfirm: () => {}
-                                });
-                              } finally {
-                                setActingOrderIds(prev => { const s = new Set(prev); s.delete(item.orderId); return s; });
-                              }
-                            }}
-                            merchantSettings={merchantSettings}
-                          />
-                        ))}
-                      </div>
+                {/* PARCELS AWAITING SHIPMENT — pending fulfilments ready to be shipped */}
+                {pendingFulfilments.length > 0 && (
+                  <section aria-label="Parcels awaiting shipment">
+                    <SectionLabel>Parcels Awaiting Shipment</SectionLabel>
+                    <div className="mt-3 space-y-4">
+                      {pendingFulfilments.map((fulfilment) => (
+                        <PendingParcelCard
+                          key={fulfilment._id}
+                          fulfilment={fulfilment}
+                          selectedAddress={selectedCustomer?.addresses[selectedAddressIdx] || ''}
+                          isDark={isDark}
+                          k={k}
+                          merchantSettings={merchantSettings}
+                          onShip={async (courier, tracking) => {
+                            await patchFulfilment(fulfilment._id, fulfilment.orderId, {
+                              courier, tracking,
+                              address: selectedCustomer?.addresses[selectedAddressIdx] || '',
+                              status: 'shipped',
+                            });
+                          }}
+                          onCancel={async () => {
+                            setConfirm({
+                              open: true,
+                              title: 'Remove Parcel?',
+                              message: 'This will delete the parcel and return items to pending.',
+                              onConfirm: async () => { await deleteFulfilment(fulfilment._id, fulfilment.orderId); },
+                              danger: true,
+                            });
+                          }}
+                        />
+                      ))}
                     </div>
                   </section>
                 )}
@@ -3369,7 +3395,7 @@ function OrderBanner({
                       [{pendingQty} pending]
                     </span>
                     <button
-                      onClick={() => onAddProductItem(item)}
+                      onClick={() => onAddProductItem({ ...item, qty: pendingQty })}
                       disabled={isActing}
                       title={`Add ${pendingQty}x ${item.name} to fulfil`}
                       aria-label={`Add ${pendingQty}x ${item.name} to fulfil`}
@@ -3519,6 +3545,131 @@ function ProductToFulfilCard({
       >
         <Package size={12} /> Move to Parcel
       </button>
+    </article>
+  );
+}
+
+// ── Pending Parcel Card ────────────────────────────────────────────────────────
+// Shows a fulfilment created via "Move to Parcel" where merchant adds courier/tracking then ships
+function PendingParcelCard({
+  fulfilment,
+  selectedAddress,
+  isDark,
+  k,
+  merchantSettings,
+  onShip,
+  onCancel,
+}: {
+  fulfilment: Fulfilment;
+  selectedAddress: string;
+  isDark: boolean;
+  k: typeof DK;
+  merchantSettings?: any;
+  onShip: (courier: string, tracking: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [courier, setCourier] = useState(fulfilment.courier || '');
+  const [tracking, setTracking] = useState(fulfilment.tracking || '');
+  const [shipping, setShipping] = useState(false);
+  const [shipError, setShipError] = useState('');
+
+  const createdAt = fulfilment.createdAt
+    ? new Date(fulfilment.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : null;
+
+  async function handleShip() {
+    if (!courier || !tracking) { setShipError('Courier and tracking number are required'); return; }
+    setShipError('');
+    setShipping(true);
+    await onShip(courier, tracking);
+    setShipping(false);
+  }
+
+  return (
+    <article className={`rounded-[28px] border-2 border-dashed p-6 space-y-5 transition-all ${
+      isDark ? 'bg-[#161925] border-[#2a3050]' : 'bg-white border-slate-300 shadow-sm'
+    }`}>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+            <Package size={18} className="text-accent" />
+          </div>
+          <div>
+            <p className={`text-[9px] font-black uppercase tracking-widest ${k.muted}`}>Parcel</p>
+            <p className={`text-sm font-black ${k.text}`}>#{fulfilment._id.slice(-6).toUpperCase()}</p>
+            {createdAt && <p className={`text-[10px] ${k.muted}`}>{createdAt}</p>}
+          </div>
+        </div>
+        <button
+          onClick={onCancel}
+          aria-label="Remove parcel"
+          className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10 hover:text-red-400' : 'text-[#8b92ad] hover:bg-black/5 hover:text-red-500'}`}
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Items */}
+      <div className={`space-y-1.5 py-3 border-y border-dashed ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+        {(fulfilment.items || []).map((item, i) => (
+          <div key={i} className="flex items-center justify-between gap-2 text-xs">
+            <span className={isDark ? 'text-white' : 'text-[#1a1d2e]'}>
+              {item.name}{item.variantLabel ? ` — ${item.variantLabel}` : ''} ×{item.qty}
+            </span>
+            <span className={`font-bold ${k.muted}`}>฿{fmt(item.price * item.qty)}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Delivery address (from selected address in Delivery Addresses section) */}
+      {selectedAddress ? (
+        <div className="flex items-start gap-2">
+          <MapPin size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+          <p className={`text-xs ${isDark ? 'text-white/70' : 'text-slate-600'}`}>{selectedAddress}</p>
+        </div>
+      ) : (
+        <p className={`text-[10px] ${k.muted} italic`}>No address selected — set one in Delivery Addresses below</p>
+      )}
+
+      {/* Courier + Tracking */}
+      <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Courier</label>
+            <select
+              value={courier}
+              onChange={e => setCourier(e.target.value)}
+              className={`w-full text-xs rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`}
+            >
+              <option value="">Choose courier</option>
+              {(merchantSettings?.shippingCompanies || []).map((c: string) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Tracking No.</label>
+            <input
+              placeholder="e.g. TH12345678"
+              value={tracking}
+              onChange={e => setTracking(e.target.value)}
+              className={`w-full text-xs rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`}
+            />
+          </div>
+        </div>
+
+        {shipError && <p className="text-[10px] font-semibold text-red-500">{shipError}</p>}
+
+        <button
+          onClick={handleShip}
+          disabled={shipping}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-bold text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+          style={{ background: 'var(--accent-gradient)' }}
+        >
+          <Truck size={13} /> {shipping ? 'Shipping...' : 'Ship Parcel'}
+        </button>
+      </div>
     </article>
   );
 }
