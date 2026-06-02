@@ -511,22 +511,22 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   }
 
   async function createTestOrder() {
-    if (testOrderCreating) return;
+    if (testOrderCreating || !selectedCustomer) return;
     setTestOrderCreating(true);
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: 'test-user-dev',
-          displayName: '[TEST] Dev Order',
-          platform: 'line',
-          product: '3x Test Items',
-          quantity: 3,
+          userId: selectedCustomer.userId,
+          displayName: selectedCustomer.displayName,
+          platform: selectedCustomer.platform ?? 'line',
+          product: '[TEST] 3x Multi-item',
+          quantity: 6,
           items: [
-            { name: 'Test Product A (Red / M)', qty: 2, price: 499 },
-            { name: 'Test Product B', qty: 1, price: 299 },
-            { name: 'Test Product C (Blue)', qty: 3, price: 199 },
+            { name: '[TEST] Product A (Red / M)', qty: 2, price: 499 },
+            { name: '[TEST] Product B', qty: 1, price: 299 },
+            { name: '[TEST] Product C (Blue)', qty: 3, price: 199 },
           ],
           soldTHB: 1792,
           costTHB: 0,
@@ -1167,6 +1167,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 >
                   <ShoppingCart size={12} /> New Order
                 </button>
+                <button
+                  onClick={createTestOrder}
+                  disabled={testOrderCreating}
+                  title="Create a multi-item paid test order for partial-fulfilment testing"
+                  className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-40 ${isDark ? 'border-violet-500/30 text-violet-400 hover:bg-violet-500/10' : 'border-violet-300 text-violet-500 hover:bg-violet-50'}`}
+                >
+                  🧪 {testOrderCreating ? 'Creating…' : 'Test Order'}
+                </button>
               </div>
             </div>
 
@@ -1180,14 +1188,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     <div className="flex items-center justify-between">
                       <SectionLabel>Active Orders</SectionLabel>
                       <div className="flex items-center gap-2">
-                      <button
-                        onClick={createTestOrder}
-                        disabled={testOrderCreating}
-                        title="Create a multi-item test order (paid status) for testing partial fulfilment"
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-colors flex items-center gap-1 ${isDark ? 'border-violet-500/30 text-violet-400 hover:bg-violet-500/10' : 'border-violet-300 text-violet-500 hover:bg-violet-50'} disabled:opacity-40`}
-                      >
-                        🧪 {testOrderCreating ? 'Creating…' : 'Test Order'}
-                      </button>
                       {pendingOrders.length > 1 && (
                         <button
                           onClick={() => setSelectedOrderIds(allPendingSelected ? new Set() : new Set(pendingOrders.map(o => o._id)))}
