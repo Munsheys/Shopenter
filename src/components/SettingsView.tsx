@@ -207,7 +207,7 @@ const TG_SETUP_STEPS = [
   { n: 2, title: 'Copy the API Token', body: 'BotFather sends your token in a message. Copy the full token (everything including the colon and alphanumerics).', link: null as string | null, linkLabel: null as string | null },
   { n: 3, title: 'Paste into the field below', body: 'Paste the token in the "Bot Token" field below. Do NOT share this token with anyone.', link: null as string | null, linkLabel: null as string | null },
   { n: 4, title: 'Activate the Webhook', body: 'Click the "Activate Webhook" button below. Shopenter will register your bot to receive messages from your users.', link: null as string | null, linkLabel: null as string | null },
-  { n: 5, title: 'Done!', body: 'Your Telegram bot is now active. When customers message your bot, they\'ll get a storefront link with their identity embedded. Enable "Smart Product Search" above to have the bot suggest matching products.', link: null as string | null, linkLabel: null as string | null },
+  { n: 5, title: 'Done!', body: 'Your Telegram bot is now active. When customers message your bot, they\'ll get a storefront link with their identity embedded.', link: null as string | null, linkLabel: null as string | null },
 ];
 
 const IG_SETUP_STEPS = [
@@ -218,7 +218,7 @@ const IG_SETUP_STEPS = [
   { n: 5, title: 'Get Your Instagram Account ID', body: 'In the Graph API Explorer: Select your access token → Query GET /me/accounts → Find your page → Query GET /me/instagram_business_account → Copy the id (17-digit number).', link: null as string | null, linkLabel: null as string | null },
   { n: 6, title: 'Paste Credentials Below', body: 'Paste both the Page Access Token and Instagram Account ID into the fields below. Then click Save.', link: null as string | null, linkLabel: null as string | null },
   { n: 7, title: 'Set Up the Webhook', body: 'Back in your Meta App → Webhooks → Subscribe to instagram. Paste the Callback URL and Verify Token from below. Click Subscribe.', link: null as string | null, linkLabel: null as string | null },
-  { n: 8, title: 'Done!', body: 'Your Instagram bot is now active. When customers send DMs, they\'ll get a storefront link. Enable "Smart Product Search" to have the bot suggest matching products via carousel.', link: null as string | null, linkLabel: null as string | null },
+  { n: 8, title: 'Done!', body: 'Your Instagram bot is now active. When customers send DMs, they\'ll get a storefront link with their identity embedded.', link: null as string | null, linkLabel: null as string | null },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -1191,20 +1191,6 @@ export default function SettingsView({
                   </div>
                 </div>
 
-                {/* Smart Product Search */}
-                <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
-                  <div>
-                    <p className={`text-sm font-semibold ${K.text}`}>Smart Product Search</p>
-                    <p className={`text-xs mt-1 ${K.muted}`}>When a customer's message matches a product, reply with a Flex Message carousel of matching items they can tap to view and order.</p>
-                  </div>
-                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                    <div>
-                      <p className={`text-xs font-semibold ${K.text}`}>Enable Smart Product Search</p>
-                      <p className={`text-[10px] ${K.muted}`}>Runs when no auto-reply rule matches the message</p>
-                    </div>
-                    <Toggle enabled={settings.lineIntentSearch !== false} onChange={v => set('lineIntentSearch', v)} isDark={isDark} />
-                  </div>
-                </div>
               </div>
 
               {/* ══ TELEGRAM ════════════════════════════════════════════ */}
@@ -1342,24 +1328,6 @@ export default function SettingsView({
                   )}
                 </div>
 
-                {/* Smart Product Search */}
-                <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
-                  <div>
-                    <p className={`text-sm font-semibold ${K.text}`}>Smart Product Search</p>
-                    <p className={`text-xs mt-1 ${K.muted}`}>When a customer's message matches a product, reply with photo cards they can tap to view and order.</p>
-                  </div>
-                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                    <div>
-                      <p className={`text-xs font-semibold ${K.text}`}>Enable Smart Product Search</p>
-                      <p className={`text-[10px] ${K.muted}`}>Falls back to storefront link when no match found</p>
-                    </div>
-                    <Toggle
-                      enabled={settings.telegram?.intentSearch !== false}
-                      onChange={v => setSettings((s: any) => ({ ...s, telegram: { ...(s?.telegram || {}), intentSearch: v } }))}
-                      isDark={isDark}
-                    />
-                  </div>
-                </div>
               </div>
 
               {/* ══ INSTAGRAM ═══════════════════════════════════════════ */}
@@ -1472,24 +1440,6 @@ export default function SettingsView({
                   </div>
                 </div>
 
-                {/* Smart Product Search */}
-                <div className={`rounded-2xl p-5 space-y-3 ${K.surface}`}>
-                  <div>
-                    <p className={`text-sm font-semibold ${K.text}`}>Smart Product Search</p>
-                    <p className={`text-xs mt-1 ${K.muted}`}>When a customer's DM matches a product, reply with a Generic Template carousel of matching items.</p>
-                  </div>
-                  <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
-                    <div>
-                      <p className={`text-xs font-semibold ${K.text}`}>Enable Smart Product Search</p>
-                      <p className={`text-[10px] ${K.muted}`}>Falls back to a storefront link when no match found</p>
-                    </div>
-                    <Toggle
-                      enabled={settings.instagram?.intentSearch !== false}
-                      onChange={v => setSettings((s: any) => ({ ...s, instagram: { ...(s?.instagram || {}), intentSearch: v } }))}
-                      isDark={isDark}
-                    />
-                  </div>
-                </div>
               </div>
 
               {/* ══ PAYMENT ═════════════════════════════════════════════ */}

@@ -601,7 +601,7 @@ export default function DashboardPage() {
 
         <div key={`broadcasts-${refreshKey}`} className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col' : 'hidden'}>
           <ErrorBoundary>
-            <BroadcastsView theme={theme} t={{}} accentColor={accentColor} onLimitHit={handleLimitHit} />
+            <BroadcastsView theme={theme} t={{}} accentColor={accentColor} onLimitHit={handleLimitHit} onGoToSettings={(section) => { setActiveTab('settings'); setSettingsScroll({ section, id: Date.now() }); }} />
           </ErrorBoundary>
         </div>
 

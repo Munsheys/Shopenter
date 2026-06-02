@@ -16,6 +16,7 @@ interface BroadcastsViewProps {
   t: any;
   accentColor?: string;
   onLimitHit?: (feature: string, limit?: number, current?: number) => void;
+  onGoToSettings?: (section: string) => void;
 }
 
 interface LineBlock {
@@ -606,7 +607,7 @@ function RmButtonEditor({ index, btn, onChange, isDark, k }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function BroadcastsView({ theme, accentColor = '#00b900', onLimitHit }: BroadcastsViewProps) {
+export default function BroadcastsView({ theme, accentColor = '#00b900', onLimitHit, onGoToSettings }: BroadcastsViewProps) {
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
   const k = isDark ? DK : isLite ? LITK : LK;
@@ -1918,9 +1919,14 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
       {section === 'instagram' && (
         <div className="space-y-5">
           {!platformStatus.instagram && (
-            <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
-              <AlertTriangle size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-amber-400">Instagram not connected. Add your Page Access Token and Instagram Account ID in <strong>Settings → Channels</strong>.</p>
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+              <AlertTriangle size={14} className="text-amber-400 flex-shrink-0" />
+              <p className="text-xs text-amber-400 flex-1">Instagram not connected. Add your credentials to enable these features.</p>
+              {onGoToSettings && (
+                <button onClick={() => onGoToSettings('instagram')} className="text-xs font-bold text-amber-400 border border-amber-500/40 rounded-lg px-2.5 py-1 hover:bg-amber-500/10 transition-colors whitespace-nowrap flex-shrink-0">
+                  Set up →
+                </button>
+              )}
             </div>
           )}
           <div className="flex items-center gap-2">
@@ -1972,9 +1978,14 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
       {section === 'telegram' && (
         <div className="space-y-5">
           {!platformStatus.telegram && (
-            <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
-              <AlertTriangle size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-amber-400">Telegram not connected. Add your Bot Token in <strong>Settings → Channels</strong>.</p>
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+              <AlertTriangle size={14} className="text-amber-400 flex-shrink-0" />
+              <p className="text-xs text-amber-400 flex-1">Telegram not connected. Add your Bot Token to enable these features.</p>
+              {onGoToSettings && (
+                <button onClick={() => onGoToSettings('telegram')} className="text-xs font-bold text-amber-400 border border-amber-500/40 rounded-lg px-2.5 py-1 hover:bg-amber-500/10 transition-colors whitespace-nowrap flex-shrink-0">
+                  Set up →
+                </button>
+              )}
             </div>
           )}
           <div className="flex items-center gap-2">

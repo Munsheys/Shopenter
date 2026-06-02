@@ -183,6 +183,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     open: boolean; orderId: string; amount: number; productName: string;
   } | null>(null);
 
+  const [testOrderCreating, setTestOrderCreating] = useState(false);
+
   const [drawerWidth, setDrawerWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
   const [chatButtonY, setChatButtonY] = useState(200);
@@ -506,6 +508,38 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         onOrderMutated?.();
       }
     } catch {}
+  }
+
+  async function createTestOrder() {
+    if (testOrderCreating) return;
+    setTestOrderCreating(true);
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'test-user-dev',
+          displayName: '[TEST] Dev Order',
+          platform: 'line',
+          product: '3x Test Items',
+          quantity: 3,
+          items: [
+            { name: 'Test Product A (Red / M)', qty: 2, price: 499 },
+            { name: 'Test Product B', qty: 1, price: 299 },
+            { name: 'Test Product C (Blue)', qty: 3, price: 199 },
+          ],
+          soldTHB: 1792,
+          costTHB: 0,
+          costKRW: 0,
+          shipCostTHB: 0,
+          status: 'paid',
+        }),
+      });
+      if (res.ok) {
+        const order = await res.json();
+        setAllOrders(prev => [order, ...prev]);
+      }
+    } finally { setTestOrderCreating(false); }
   }
 
   function openFulfilmentModal(order: Order) {
@@ -1145,6 +1179,15 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <section aria-label="Active orders">
                     <div className="flex items-center justify-between">
                       <SectionLabel>Active Orders</SectionLabel>
+                      <div className="flex items-center gap-2">
+                      <button
+                        onClick={createTestOrder}
+                        disabled={testOrderCreating}
+                        title="Create a multi-item test order (paid status) for testing partial fulfilment"
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-colors flex items-center gap-1 ${isDark ? 'border-violet-500/30 text-violet-400 hover:bg-violet-500/10' : 'border-violet-300 text-violet-500 hover:bg-violet-50'} disabled:opacity-40`}
+                      >
+                        🧪 {testOrderCreating ? 'Creating…' : 'Test Order'}
+                      </button>
                       {pendingOrders.length > 1 && (
                         <button
                           onClick={() => setSelectedOrderIds(allPendingSelected ? new Set() : new Set(pendingOrders.map(o => o._id)))}
@@ -1157,6 +1200,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           {allPendingSelected ? 'Deselect All' : 'Select All'}
                         </button>
                       )}
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                       {activeOrders.map(order => (
@@ -1168,7 +1212,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             onSendQR={() => sendQR(order._id)}
                             onMarkPaid={() => markPaid(order._id)}
                             onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
-                            onShipItems={['paid', 'preparing', 'partially_fulfilled'].includes(order.status) && (order.items?.length ?? 0) > 0 ? () => openFulfilmentModal(order) : undefined}
                             onToggleFulfilments={['paid', 'preparing', 'partially_fulfilled', 'fulfilled'].includes(order.status) && ((order.fulfilmentSummary?.total ?? 0) > 0 || order.status === 'partially_fulfilled') ? () => toggleFulfilmentsExpanded(order._id) : undefined}
                             fulfilmentsExpanded={!!expandedFulfilments[order._id]}
                             fulfilments={fulfilmentsCache[order._id]}
@@ -1237,7 +1280,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                               onPatch={(patch) => patchOrder(o._id, patch)}
                               onDelete={() => confirmDeleteOrder(o._id)}
                               isHighlighted={isGroupHighlighted}
-                              onShipItems={o.status === 'partially_fulfilled' && (o.items?.length ?? 0) > 0 ? () => openFulfilmentModal(o) : undefined}
                               onToggleFulfilments={o.status === 'partially_fulfilled' && (o.fulfilmentSummary?.total ?? 0) > 0 ? () => toggleFulfilmentsExpanded(o._id) : undefined}
                               fulfilmentsExpanded={!!expandedFulfilments[o._id]}
                               fulfilments={fulfilmentsCache[o._id]}
@@ -2102,7 +2144,7 @@ const STATUS_LABEL: Record<string, string> = {
   shipped: 'Shipped', delivered: 'Delivered', fulfilled: 'Fulfilled', cancelled: 'Cancelled',
 };
 
-function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR, onMarkPaid, onMoveToParcel, onCancel, onShipItems, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment, selected, onToggleSelect, isActing }: {
+function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR, onMarkPaid, onMoveToParcel, onCancel, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment, selected, onToggleSelect, isActing }: {
   order: Order; isDark: boolean; k: typeof DK;
   onDelete: () => void;
   onPatch?: (patch: object) => void;
@@ -2111,7 +2153,6 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR
   onMarkPaid?: () => void;
   onMoveToParcel?: () => void;
   onCancel?: () => void;
-  onShipItems?: () => void;
   onToggleFulfilments?: () => void;
   fulfilmentsExpanded?: boolean;
   fulfilments?: Fulfilment[];
@@ -2231,16 +2272,6 @@ function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR
             <button onClick={onMoveToParcel} disabled={isActing}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-[#1a1d2e] text-white hover:bg-black transition-all active:scale-95 disabled:opacity-50">
               <Package size={12} /> {isActing ? 'Moving...' : 'Move to Parcel'}
-            </button>
-          )}
-          {onShipItems && (
-            <button onClick={onShipItems} disabled={isActing}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all active:scale-95 disabled:opacity-50 ${
-                isDark
-                  ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20'
-                  : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
-              }`}>
-              <Truck size={12} /> Ship Items
             </button>
           )}
           {onSendQR && order.status === 'pending' && (
@@ -2477,12 +2508,11 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
 }
 
 // ── History Row ───────────────────────────────────────────────────────────────
-function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted, onShipItems, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment }: {
+function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment }: {
   order: Order; isDark: boolean; k: typeof DK; isLast: boolean;
   onPatch: (patch: object) => void;
   onDelete: () => void;
   isHighlighted?: boolean;
-  onShipItems?: () => void;
   onToggleFulfilments?: () => void;
   fulfilmentsExpanded?: boolean;
   fulfilments?: Fulfilment[];
@@ -2633,12 +2663,6 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
               className="flex-1 py-3 rounded-xl text-xs font-black bg-[#1a1d2e] hover:bg-black text-white transition-all active:scale-95 disabled:opacity-40">
               {saving ? 'Saving...' : 'Update Prices'}
             </button>
-            {onShipItems && (
-              <button onClick={onShipItems}
-                className={`flex items-center gap-1.5 px-4 py-3 rounded-xl text-xs font-black transition-all active:scale-95 ${isDark ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
-                <Truck size={13} /> Ship Items
-              </button>
-            )}
             {['shipped', 'partially_fulfilled'].includes(order.status) && (
               <button onClick={() => onPatch({ status: order.status === 'partially_fulfilled' ? 'fulfilled' : 'delivered' })}
                 className="flex items-center gap-1.5 px-4 py-3 rounded-xl text-xs font-black bg-emerald-500 hover:bg-emerald-600 text-white transition-all active:scale-95">

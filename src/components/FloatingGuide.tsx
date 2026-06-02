@@ -60,6 +60,7 @@ export default function FloatingGuide({
   const [isDragging, setIsDragging] = useState(false);
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   const dragRef = useRef<{ startX: number, startY: number, initX: number, initY: number, moved: boolean } | null>(null);
+  const wasDragRef = useRef(false);
   const [lineOk, setLineOk]           = useState(false);
   const [hasProducts, setHasProducts] = useState(false);
   const [hasAutoReply, setHasAutoReply] = useState(false);
@@ -147,7 +148,7 @@ export default function FloatingGuide({
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (open && !isHeader) return;
-    if (target.closest('button') && !isHeader) return;
+    if (open && target.closest('button') && !isHeader) return;
 
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -190,6 +191,7 @@ export default function FloatingGuide({
         const c = `${isTop ? 't' : 'b'}${isLeft ? 'l' : 'r'}` as Corner;
         setCorner(c);
         localStorage.setItem('sg-corner', c);
+        wasDragRef.current = true;
       } else {
         if (!open) toggle();
       }
@@ -429,7 +431,10 @@ export default function FloatingGuide({
         <button
           type="button"
           onPointerDown={(e) => onPointerDown(e, false)}
-          onClick={() => { if (!isDragging) toggle(); }}
+          onClick={() => {
+            if (wasDragRef.current) { wasDragRef.current = false; return; }
+            if (!isDragging) toggle();
+          }}
           aria-label={`Open Getting Started guide, ${doneCount} of ${steps.length} steps complete`}
           aria-expanded={false}
           className={`relative flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-2xl transition-all pointer-events-auto ${bgCollapsed} active:scale-[0.98] cursor-pointer`}
