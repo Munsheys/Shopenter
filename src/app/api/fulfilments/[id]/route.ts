@@ -35,8 +35,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const updated = await Fulfilment.findByIdAndUpdate(id, update, { new: true });
 
-    // Recompute order status after any status change
-    if ('status' in body) {
+    // Recompute order status after status or items change (empty-item parcels need correction)
+    if ('status' in body || 'items' in body) {
       await recomputeOrderStatus(String(fulfilment.orderId));
     }
 

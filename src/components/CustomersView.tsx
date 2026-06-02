@@ -782,6 +782,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       const c = await res.json();
       setSelectedCustomer(c);
       setCustomers(prev => prev.map(x => x._id === c._id ? c : x));
+      // Keep selectedAddressIdx valid after deletion
+      setSelectedAddressIdx(prev => (idx <= prev ? Math.max(0, prev - 1) : prev));
     }
   }
 
@@ -1335,9 +1337,15 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                                   body: JSON.stringify({ items: newItems }),
                                 });
                                 ok = res.ok;
-                                if (ok) await fetchFulfilments(existingParcel.orderId);
+                                if (ok) {
+                                  // Refresh both caches: the parcel's order and (if different) the item's own order
+                                  await fetchFulfilments(existingParcel.orderId);
+                                  if (existingParcel.orderId !== item.orderId) {
+                                    await fetchFulfilments(item.orderId);
+                                  }
+                                }
                               } else {
-                                // Create a new pending parcel
+                                // Create a new pending parcel for this item's order
                                 const res = await fetch(`/api/orders/${item.orderId}/fulfilments`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
@@ -3643,6 +3651,13 @@ function ParcelFulfilmentContainer({
   onCancel: () => void;
 }) {
   const [items, setItems] = useState<FulfilmentItem[]>(fulfilment.items || []);
+
+  // Sync local items when external PATCH adds new items (e.g. "Move to Parcel" second click)
+  useEffect(() => {
+    setItems(fulfilment.items || []);
+  // Only resync on count change to avoid stomping in-progress inline edits
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(fulfilment.items || []).length]);
   const [courier, setCourier] = useState(fulfilment.courier || '');
   const [tracking, setTracking] = useState(fulfilment.tracking || '');
   const [shipping, setShipping] = useState(false);
@@ -3802,26 +3817,14 @@ function ParcelItemCard({
   const cost = price * qty;
   const localCurrency = merchantSettings?.localCurrency || 'THB';
 
+  // Single consolidated debounce — avoids 3 racing PATCHes that last-write-wins clobber each other
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (name !== item.name) onUpdate({ name });
-    }, 500);
+    const changed = name !== item.name || qty !== item.qty || price !== item.price;
+    if (!changed) return;
+    const timer = setTimeout(() => onUpdate({ name, qty, price }), 500);
     return () => clearTimeout(timer);
-  }, [name, item.name, onUpdate]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (qty !== item.qty) onUpdate({ qty });
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [qty, item.qty, onUpdate]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (price !== item.price) onUpdate({ price });
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [price, item.price, onUpdate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, qty, price]);
 
   return (
     <article className={`rounded-2xl border p-5 space-y-4 ${
