@@ -3,19 +3,22 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw, Tag, Zap, Bell, X, ShoppingBag, CheckCheck, AlertTriangle, TrendingDown, Radio, MoreHorizontal, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import ProductManagement from '@/components/ProductManagement';
-import SettingsView from '@/components/SettingsView';
-import ReportsView from '@/components/ReportsView';
-import ShopOrdersView from '@/components/ShopOrdersView';
-import StorefrontCustomizer from '@/components/StorefrontCustomizer';
-import CustomersView from '@/components/CustomersView';
-import BroadcastsView from '@/components/BroadcastsView';
+import dynamic from 'next/dynamic';
 import LoadingView from '@/components/LoadingView';
 import FloatingGuide from '@/components/FloatingGuide';
-import FeedbackView from '@/components/FeedbackView';
-import CouponsView from '@/components/CouponsView';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import UnsavedChangesModal from '@/components/UnsavedChangesModal';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
+const ProductManagement    = dynamic(() => import('@/components/ProductManagement'),    { ssr: false });
+const SettingsView         = dynamic(() => import('@/components/SettingsView'),         { ssr: false });
+const ReportsView          = dynamic(() => import('@/components/ReportsView'),          { ssr: false });
+const ShopOrdersView       = dynamic(() => import('@/components/ShopOrdersView'),       { ssr: false });
+const StorefrontCustomizer = dynamic(() => import('@/components/StorefrontCustomizer'), { ssr: false });
+const CustomersView        = dynamic(() => import('@/components/CustomersView'),        { ssr: false });
+const BroadcastsView       = dynamic(() => import('@/components/BroadcastsView'),       { ssr: false });
+const FeedbackView         = dynamic(() => import('@/components/FeedbackView'),         { ssr: false });
+const CouponsView          = dynamic(() => import('@/components/CouponsView'),          { ssr: false });
 import { type Tier, getTierLabel, checkBooleanFeature } from '@/lib/tiers';
 import { getAccentText } from '@/lib/accent';
 
@@ -542,36 +545,51 @@ export default function DashboardPage() {
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <div key={`customers-${refreshKey}`} className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-          <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} jumpToOrderId={jumpToOrderId} onJumpOrderConsumed={() => setJumpToOrderId(null)} onOrderMutated={() => { setOrdersRefreshKey(k => k + 1); setReportsRefreshKey(k => k + 1); }} />
+          <ErrorBoundary>
+            <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} jumpToOrderId={jumpToOrderId} onJumpOrderConsumed={() => setJumpToOrderId(null)} onOrderMutated={() => { setOrdersRefreshKey(k => k + 1); setReportsRefreshKey(k => k + 1); }} />
+          </ErrorBoundary>
         </div>
 
         <div key={`orders-${refreshKey}-${ordersRefreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0' : 'hidden'}>
-          <ShopOrdersView theme={theme} t={{}} localCurrency={settings?.localCurrency} onLimitHit={handleLimitHit} onViewCustomer={(userId, orderId) => { setJumpToUserId(userId); setJumpToOrderId(orderId ?? null); setActiveTab('customers'); }} />
+          <ErrorBoundary>
+            <ShopOrdersView theme={theme} t={{}} localCurrency={settings?.localCurrency} onLimitHit={handleLimitHit} onViewCustomer={(userId, orderId) => { setJumpToUserId(userId); setJumpToOrderId(orderId ?? null); setActiveTab('customers'); }} />
+          </ErrorBoundary>
         </div>
 
         <div key={`products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto pb-16 md:pb-0' : 'hidden'}>
-          <ProductManagement theme={theme} t={{}} onLimitHit={handleLimitHit} />
+          <ErrorBoundary>
+            <ProductManagement theme={theme} t={{}} onLimitHit={handleLimitHit} />
+          </ErrorBoundary>
         </div>
 
         <div key={`reports-${refreshKey}-${reportsRefreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0' : 'hidden'}>
-          <ReportsView theme={theme} t={{}} accentColor={accentColor} />
+          <ErrorBoundary>
+            <ReportsView theme={theme} t={{}} accentColor={accentColor} />
+          </ErrorBoundary>
         </div>
 
         <div key={`broadcasts-${refreshKey}`} className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col' : 'hidden'}>
-          <BroadcastsView theme={theme} t={{}} accentColor={accentColor} onLimitHit={handleLimitHit} />
+          <ErrorBoundary>
+            <BroadcastsView theme={theme} t={{}} accentColor={accentColor} onLimitHit={handleLimitHit} />
+          </ErrorBoundary>
         </div>
 
         <div key={`feedback-${refreshKey}`} className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-
-          <FeedbackView theme={theme} />
+          <ErrorBoundary>
+            <FeedbackView theme={theme} />
+          </ErrorBoundary>
         </div>
 
         <div key={`settings-${refreshKey}`} className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
-          <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} onDirtyChange={setSettingsDirty} refreshTrigger={settingsRefreshKey} />
+          <ErrorBoundary>
+            <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} onDirtyChange={setSettingsDirty} refreshTrigger={settingsRefreshKey} />
+          </ErrorBoundary>
         </div>
 
         <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6 pb-16 md:pb-0' : 'hidden'}>
-          <CouponsView theme={theme} />
+          <ErrorBoundary>
+            <CouponsView theme={theme} />
+          </ErrorBoundary>
         </div>
 
         <div key={`storefront-${refreshKey}`} className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6 pb-20 md:pb-6' : 'hidden'}>
@@ -590,21 +608,23 @@ export default function DashboardPage() {
               )}
             </p>
           </div>
-          <StorefrontCustomizer
-            shopName={settings?.shopName || 'My Shop'}
-            slug={merchant?.slug}
-            initial={{
-              shopName: settings?.shopName || '',
-              shopDescription: settings?.shopDescription || '',
-              shopLogoUrl: settings?.shopLogoUrl || '',
-              shopTimezone: settings?.shopTimezone || 'Asia/Bangkok',
-              ...settings?.storefront,
-            }}
-            theme={theme}
-            dashboardAccentColor={accentColor}
-            onSave={handleSaveStorefront}
-            onSaveSlug={handleSaveSlug}
-          />
+          <ErrorBoundary>
+            <StorefrontCustomizer
+              shopName={settings?.shopName || 'My Shop'}
+              slug={merchant?.slug}
+              initial={{
+                shopName: settings?.shopName || '',
+                shopDescription: settings?.shopDescription || '',
+                shopLogoUrl: settings?.shopLogoUrl || '',
+                shopTimezone: settings?.shopTimezone || 'Asia/Bangkok',
+                ...settings?.storefront,
+              }}
+              theme={theme}
+              dashboardAccentColor={accentColor}
+              onSave={handleSaveStorefront}
+              onSaveSlug={handleSaveSlug}
+            />
+          </ErrorBoundary>
         </div>
       </main>
 
