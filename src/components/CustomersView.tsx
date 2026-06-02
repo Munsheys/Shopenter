@@ -197,6 +197,10 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [expandedFulfilments, setExpandedFulfilments] = useState<Record<string, boolean>>({});
   const [fulfilmentsCache, setFulfilmentsCache] = useState<Record<string, Fulfilment[]>>({});
 
+  // Products to Fulfil state
+  type ProductToFulfil = { id: string; productId?: string; name: string; qty: number; price: number; orderId: string };
+  const [productsToFulfil, setProductsToFulfil] = useState<ProductToFulfil[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedRef = useRef<Customer | null>(null);
@@ -1182,46 +1186,160 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
             <div className="flex-1 overflow-y-auto relative">
               <div className="p-10 space-y-10 max-w-5xl mx-auto">
 
-                {/* Active Orders */}
+                {/* ORDER BANNERS — Top section showing active orders with [+] buttons */}
                 {activeOrders.length > 0 && (
-                  <section aria-label="Active orders">
-                    <div className="flex items-center justify-between">
-                      <SectionLabel>Active Orders</SectionLabel>
-                      <div className="flex items-center gap-2">
-                      {pendingOrders.length > 1 && (
-                        <button
-                          onClick={() => setSelectedOrderIds(allPendingSelected ? new Set() : new Set(pendingOrders.map(o => o._id)))}
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-lg transition-colors ${
-                            allPendingSelected
-                              ? 'text-accent bg-accent/10'
-                              : `${k.muted} hover:text-accent`
-                          }`}
-                        >
-                          {allPendingSelected ? 'Deselect All' : 'Select All'}
-                        </button>
-                      )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                      {activeOrders.map(order => (
-                        <div key={order._id} className={highlightedOrderId === order._id ? 'ring-2 ring-accent shadow-lg shadow-accent/20 rounded-2xl' : ''}>
-                          <ActiveOrderCard order={order} isDark={isDark} k={k}
-                            onDelete={() => confirmDeleteOrder(order._id)}
-                            onCancel={() => confirmCancelOrder(order._id)}
-                            onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, items: order.items?.length > 0 ? order.items.map(i => ({ name: i.name, variantLabel: i.variantLabel, qty: i.qty, price: i.price })) : [{ name: order.product, qty: order.quantity || 1, price: order.soldTHB || 0 }] })}
+                  <section aria-label="Active order banners">
+                    <SectionLabel>Orders</SectionLabel>
+                    <div className="space-y-3 mt-3">
+                      {activeOrders.map(order => {
+                        // Compute pending items from order items minus fulfilments
+                        const fulfilments = fulfilmentsCache[order._id] || [];
+                        const computePendingQty = (itemName: string): number => {
+                          const orderItem = order.items?.find(i => i.name === itemName);
+                          if (!orderItem) return 0;
+                          const shippedQty = fulfilments.reduce((s, f) =>
+                            s + (f.items?.find(fi => fi.name === itemName)?.qty || 0), 0);
+                          return Math.max(0, orderItem.qty - shippedQty);
+                        };
+
+                        return (
+                          <OrderBanner
+                            key={order._id}
+                            order={order}
+                            isDark={isDark}
+                            k={k}
+                            onAddProductItem={(item) => {
+                              const newItem: ProductToFulfil = {
+                                id: `${item.productId || 'unknown'}-${Date.now()}`,
+                                productId: item.productId,
+                                name: item.name,
+                                qty: item.qty,
+                                price: item.price,
+                                orderId: order._id
+                              };
+                              setProductsToFulfil(prev => [...prev, newItem]);
+                            }}
                             onSendQR={() => sendQR(order._id)}
                             onMarkPaid={() => markPaid(order._id)}
-                            onMoveToParcel={() => patchOrder(order._id, { status: 'preparing', statusBeforeParcel: order.status })}
-                            onToggleFulfilments={['paid', 'preparing', 'partially_fulfilled', 'fulfilled'].includes(order.status) && ((order.fulfilmentSummary?.total ?? 0) > 0 || order.status === 'partially_fulfilled') ? () => toggleFulfilmentsExpanded(order._id) : undefined}
-                            fulfilmentsExpanded={!!expandedFulfilments[order._id]}
-                            fulfilments={fulfilmentsCache[order._id]}
-                            onPatchFulfilment={(fid, patch) => patchFulfilment(fid, order._id, patch)}
-                            onDeleteFulfilment={(fid) => deleteFulfilment(fid, order._id)}
-                            selected={selectedOrderIds.has(order._id)}
-                            onToggleSelect={order.status === 'pending' ? () => toggleOrderSelect(order._id) : undefined}
-                            isActing={actingOrderIds.has(order._id)} />
+                            onCancel={() => confirmCancelOrder(order._id)}
+                            computePendingQty={computePendingQty}
+                            isActing={actingOrderIds.has(order._id)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+                {/* PRODUCTS TO FULFIL — Middle section with editable product cards */}
+                {productsToFulfil.length > 0 && (
+                  <section aria-label="Products to fulfil">
+                    <SectionLabel>Products to Fulfil</SectionLabel>
+                    <div className={`mt-3 space-y-3`}>
+                      {/* Address selector for parcel */}
+                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-widest mb-3 ${k.muted}`}>Select delivery address</p>
+                        <div className="space-y-2">
+                          {(selectedCustomer?.addresses || []).length === 0 ? (
+                            <p className={`text-[10px] ${k.muted}`}>No saved addresses. Add one below.</p>
+                          ) : (
+                            (selectedCustomer?.addresses || []).map((addr, i) => (
+                              <label key={i} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                                selectedAddressIdx === i
+                                  ? (isDark ? 'bg-accent/10 border-accent/30' : 'bg-accent/5 border-accent/30')
+                                  : (isDark ? 'border-white/10 hover:border-accent/30' : 'border-slate-200 hover:border-accent/30')
+                              }`}>
+                                <input
+                                  type="radio"
+                                  checked={selectedAddressIdx === i}
+                                  onChange={() => setSelectedAddressIdx(i)}
+                                  className="mt-0.5 flex-shrink-0"
+                                />
+                                <span className={`text-xs flex-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{addr}</span>
+                              </label>
+                            ))
+                          )}
                         </div>
-                      ))}
+                      </div>
+
+                      {/* Product cards */}
+                      <div className="space-y-2">
+                        {productsToFulfil.map((item) => (
+                          <ProductToFulfilCard
+                            key={item.id}
+                            item={item}
+                            isDark={isDark}
+                            k={k}
+                            onQtyChange={(newQty) => {
+                              setProductsToFulfil(prev => prev.map(p => p.id === item.id ? { ...p, qty: Math.max(1, Math.min(999, newQty)) } : p));
+                            }}
+                            onRemove={() => {
+                              setConfirm({
+                                open: true,
+                                title: 'Remove Item?',
+                                message: `Remove ${item.name} ×${item.qty} from parcel?`,
+                                onConfirm: () => {
+                                  setProductsToFulfil(prev => prev.filter(p => p.id !== item.id));
+                                },
+                                danger: true
+                              });
+                            }}
+                            onMoveToParcel={async () => {
+                              // Create a fulfilment with this item
+                              const address = selectedCustomer?.addresses[selectedAddressIdx] || '';
+                              if (!address) {
+                                setConfirm({
+                                  open: true,
+                                  title: 'No Address',
+                                  message: 'Please select or add a delivery address first.',
+                                  onConfirm: () => {}
+                                });
+                                return;
+                              }
+
+                              const order = allOrders.find(o => o._id === item.orderId);
+                              if (!order) return;
+
+                              setActingOrderIds(prev => new Set(prev).add(item.orderId));
+                              try {
+                                const res = await fetch(`/api/orders/${item.orderId}/fulfilments`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    items: [{ productId: item.productId, name: item.name, qty: item.qty, price: item.price }],
+                                    address: address,
+                                    shipCostTHB: 0,
+                                    status: 'pending'
+                                  }),
+                                });
+                                if (res.ok) {
+                                  setProductsToFulfil(prev => prev.filter(p => p.id !== item.id));
+                                  await fetchFulfilments(item.orderId);
+                                  onOrderMutated?.();
+                                } else {
+                                  setConfirm({
+                                    open: true,
+                                    title: 'Failed to Create Parcel',
+                                    message: 'Could not create fulfilment. Please try again.',
+                                    onConfirm: () => {}
+                                  });
+                                }
+                              } catch (err) {
+                                console.error(err);
+                                setConfirm({
+                                  open: true,
+                                  title: 'Error',
+                                  message: 'Something went wrong. Please try again.',
+                                  onConfirm: () => {}
+                                });
+                              } finally {
+                                setActingOrderIds(prev => { const s = new Set(prev); s.delete(item.orderId); return s; });
+                              }
+                            }}
+                            merchantSettings={merchantSettings}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </section>
                 )}
@@ -3162,6 +3280,246 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
         )}
       </div>
     </div>
+  );
+}
+
+// ── Order Banner ──────────────────────────────────────────────────────────────
+// Shows a single active order with product line items and [+] buttons to move items to fulfil section
+function OrderBanner({
+  order,
+  isDark,
+  k,
+  onAddProductItem,
+  onSendQR,
+  onMarkPaid,
+  onCancel,
+  computePendingQty,
+  isActing,
+}: {
+  order: Order;
+  isDark: boolean;
+  k: typeof DK;
+  onAddProductItem: (item: OrderItem) => void;
+  onSendQR: () => void;
+  onMarkPaid: () => void;
+  onCancel: () => void;
+  computePendingQty: (itemName: string) => number;
+  isActing: boolean;
+}) {
+  const status = STATUS_COLORS[order.status] || STATUS_COLORS.pending;
+  const label = STATUS_LABEL[order.status] || 'Order';
+
+  const orderItems = order.items || [];
+
+  return (
+    <article className={`rounded-2xl border p-5 space-y-4 ${
+      isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-sm'
+    }`}>
+      {/* Header: Order ID, Status, Total */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
+              isDark ? 'bg-white/5 text-white/70' : `${status.lightBg} ${status.text}`
+            }`}>
+              {label}
+            </span>
+            {order.paymentQrSent && order.status === 'pending' && (
+              <span className="text-[9px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-md border border-violet-100">QR SENT</span>
+            )}
+          </div>
+          <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            Order #{order._id.slice(-6).toUpperCase()}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            ฿{fmt(order.soldTHB)}
+          </p>
+          {order.address && (
+            <p className={`text-[10px] mt-1 ${k.muted} max-w-xs`}>{order.address}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Line Items with [+] buttons for pending items */}
+      <div className="space-y-2 py-2 border-y border-dashed border-white/10">
+        {orderItems.map((item, idx) => {
+          const pendingQty = computePendingQty(item.name);
+          const shippedQty = item.qty - pendingQty;
+
+          return (
+            <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+              <span className={isDark ? 'text-white' : 'text-[#1a1d2e]'}>
+                {item.name} ×{item.qty}
+              </span>
+              <div className="flex items-center gap-1.5">
+                {shippedQty > 0 && (
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                    isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
+                  }`}>
+                    [✓ {shippedQty} shipped]
+                  </span>
+                )}
+                {pendingQty > 0 && (
+                  <>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                      isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600'
+                    }`}>
+                      [{pendingQty} pending]
+                    </span>
+                    <button
+                      onClick={() => onAddProductItem(item)}
+                      disabled={isActing}
+                      title={`Add ${pendingQty}x ${item.name} to fulfil`}
+                      aria-label={`Add ${pendingQty}x ${item.name} to fulfil`}
+                      className={`text-[11px] font-bold px-2 py-1 rounded-lg transition-all ${
+                        isDark
+                          ? 'bg-accent/20 text-accent hover:bg-accent/30'
+                          : 'bg-accent/10 text-accent hover:bg-accent/20'
+                      } disabled:opacity-50`}
+                    >
+                      [+]
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Order Actions */}
+      <div className="flex flex-wrap gap-2">
+        {order.status === 'pending' && (
+          <>
+            <button
+              onClick={onSendQR}
+              disabled={isActing}
+              className={`flex-1 min-w-fit flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold border transition-all active:scale-95 disabled:opacity-50 ${
+                order.paymentQrSent
+                  ? `${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600'}`
+                  : `bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500`
+              }`}
+            >
+              <QrCode size={11} /> {order.paymentQrSent ? 'Resend QR' : 'Send QR'}
+            </button>
+            <button
+              onClick={onMarkPaid}
+              disabled={isActing}
+              className="flex-1 min-w-fit flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+              style={{ background: 'var(--accent-gradient)' }}
+            >
+              <CheckCircle size={11} /> Mark Paid
+            </button>
+          </>
+        )}
+        <button
+          onClick={onCancel}
+          disabled={isActing}
+          className={`flex-1 min-w-fit flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold border transition-all active:scale-95 disabled:opacity-50 ${
+            isDark
+              ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
+              : 'border-red-200 text-red-600 hover:bg-red-50'
+          }`}
+        >
+          <Ban size={11} /> Cancel
+        </button>
+      </div>
+    </article>
+  );
+}
+
+// ── Product to Fulfil Card ─────────────────────────────────────────────────────
+// Shows an item added to the Products to Fulfil section, editable qty, with Move to Parcel button
+function ProductToFulfilCard({
+  item,
+  isDark,
+  k,
+  onQtyChange,
+  onRemove,
+  onMoveToParcel,
+  merchantSettings,
+}: {
+  item: { id: string; productId?: string; name: string; qty: number; price: number; orderId: string };
+  isDark: boolean;
+  k: typeof DK;
+  onQtyChange: (qty: number) => void;
+  onRemove: () => void;
+  onMoveToParcel: () => void;
+  merchantSettings?: any;
+}) {
+  const lineTotal = item.qty * item.price;
+
+  return (
+    <article className={`rounded-2xl border p-4 space-y-3 ${
+      isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'
+    }`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            {item.name}
+          </p>
+          <p className={`text-[10px] ${k.muted}`}>
+            from order #{item.orderId.slice(-6).toUpperCase()}
+          </p>
+        </div>
+        <button
+          onClick={onRemove}
+          aria-label={`Remove ${item.name} from parcel`}
+          className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10 hover:text-red-500' : 'text-[#8b92ad] hover:bg-black/5 hover:text-red-500'}`}
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>
+            Unit Price ({merchantSettings?.localCurrency || 'THB'})
+          </label>
+          <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            ฿{fmt(item.price)}
+          </p>
+        </div>
+        <div className="flex-1">
+          <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Qty</label>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onQtyChange(Math.max(1, item.qty - 1))}
+              aria-label={`Decrease quantity of ${item.name}`}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+            >
+              <Minus size={12} />
+            </button>
+            <span className={`w-8 text-center text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+              {item.qty}
+            </span>
+            <button
+              onClick={() => onQtyChange(item.qty + 1)}
+              aria-label={`Increase quantity of ${item.name}`}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+            >
+              <Plus size={12} />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1">
+          <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Total</label>
+          <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            ฿{fmt(lineTotal)}
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={onMoveToParcel}
+        className="w-full flex items-center justify-center gap-1.5 px-4 py-3 rounded-lg text-xs font-bold text-white hover:opacity-90 transition-all active:scale-95"
+        style={{ background: 'var(--accent-gradient)' }}
+      >
+        <Package size={12} /> Move to Parcel
+      </button>
+    </article>
   );
 }
 
