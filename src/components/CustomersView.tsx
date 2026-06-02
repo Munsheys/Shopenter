@@ -197,9 +197,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [expandedFulfilments, setExpandedFulfilments] = useState<Record<string, boolean>>({});
   const [fulfilmentsCache, setFulfilmentsCache] = useState<Record<string, Fulfilment[]>>({});
 
-  // Products to Fulfil state
-  type ProductToFulfil = { id: string; productId?: string; name: string; qty: number; price: number; orderId: string };
-  const [productsToFulfil, setProductsToFulfil] = useState<ProductToFulfil[]>([]);
+  // Products to Fulfil state — removed; items box directly to parcel from order card
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -516,11 +514,59 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     } catch {}
   }
 
-  // Clear workspace and pre-load pending parcels when switching customers
-  useEffect(() => {
-    setProductsToFulfil([]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCustomer?._id]);
+  // Box items directly into the pending parcel (or create one). Called from OrderBanner.
+  async function boxItemsToParcel(
+    orderId: string,
+    items: Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>
+  ) {
+    if (!items.length) return;
+    setActingOrderIds(prev => new Set(prev).add(orderId));
+    try {
+      const activeOrdersList = allOrders.filter(o =>
+        o.userId === (selectedCustomer?.userId ?? '') && ['pending', 'paid'].includes(o.status)
+      );
+      let existingParcel: Fulfilment | undefined;
+      for (const o of activeOrdersList) {
+        const found = (fulfilmentsCache[o._id] || []).find(f => f.status === 'pending');
+        if (found) { existingParcel = found; break; }
+      }
+
+      let ok = false;
+      if (existingParcel) {
+        const newItems = [...(existingParcel.items || []), ...items];
+        const res = await fetch(`/api/fulfilments/${existingParcel._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: newItems }),
+        });
+        ok = res.ok;
+        if (ok) {
+          await fetchFulfilments(existingParcel.orderId);
+          if (existingParcel.orderId !== orderId) await fetchFulfilments(orderId);
+        }
+      } else {
+        const res = await fetch(`/api/orders/${orderId}/fulfilments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items,
+            address: selectedCustomer?.addresses[selectedAddressIdx] || '',
+            shipCostTHB: 0,
+            status: 'pending',
+          }),
+        });
+        ok = res.ok;
+        if (ok) await fetchFulfilments(orderId);
+      }
+
+      if (ok) onOrderMutated?.();
+      else setConfirm({ open: true, title: 'Failed', message: 'Could not add to parcel. Please try again.', onConfirm: () => {} });
+    } catch {
+      setConfirm({ open: true, title: 'Error', message: 'Something went wrong. Please try again.', onConfirm: () => {} });
+    } finally {
+      setActingOrderIds(prev => { const s = new Set(prev); s.delete(orderId); return s; });
+    }
+  }
 
   useEffect(() => {
     if (!selectedCustomer) return;
@@ -535,7 +581,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   useEffect(() => {
     const el = scrollPanelRef.current;
     if (!el) return;
-    const SECTIONS = ['section-orders', 'section-products', 'section-addresses', 'section-parcels', 'section-intransit', 'section-history'];
+    const SECTIONS = ['section-orders', 'section-addresses', 'section-parcels', 'section-intransit', 'section-history'];
     const handleScroll = () => {
       const containerTop = el.getBoundingClientRect().top;
       let current = SECTIONS[0];
@@ -1254,7 +1300,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
             {(() => {
               const TABS = [
                 { key: 'section-orders',    label: 'Orders',     count: activeOrders.length },
-                { key: 'section-products',  label: 'To Fulfil',  count: productsToFulfil.length },
                 { key: 'section-addresses', label: 'Addresses',  count: 0 },
                 { key: 'section-parcels',   label: 'Parcels',    count: pendingFulfilments.length },
                 { key: 'section-intransit', label: 'In Transit', count: inTransitGroups.length },
@@ -1324,21 +1369,10 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             customerAddresses={selectedCustomer?.addresses || []}
                             onAddAddress={async (addr) => {
                               await addAddress(addr);
-                              // Auto-select the newly added address
                               const newIdx = (selectedCustomer?.addresses || []).length;
                               setSelectedAddressIdx(newIdx);
                             }}
-                            onAddProductItem={(item) => {
-                              const newItem: ProductToFulfil = {
-                                id: `${item.productId || 'unknown'}-${Date.now()}`,
-                                productId: item.productId,
-                                name: item.name,
-                                qty: item.qty,
-                                price: item.price,
-                                orderId: order._id
-                              };
-                              setProductsToFulfil(prev => [...prev, newItem]);
-                            }}
+                            onBoxItems={(items) => boxItemsToParcel(order._id, items)}
                             onSendQR={() => sendQR(order._id)}
                             onMarkPaid={() => markPaid(order._id)}
                             onCancel={() => confirmCancelOrder(order._id)}
@@ -1348,97 +1382,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           />
                         );
                       })}
-                    </div>
-                  </section>
-                )}
-
-                {/* PRODUCTS TO FULFIL — Middle section with editable product cards */}
-                <div data-section="section-products" />
-                {productsToFulfil.length > 0 && (
-                  <section aria-label="Products to fulfil">
-                    <SectionLabel>Products to Fulfil</SectionLabel>
-                    <div className={`mt-3 space-y-2`}>
-                      {productsToFulfil.map((item) => (
-                        <ProductToFulfilCard
-                          key={item.id}
-                          item={item}
-                          isDark={isDark}
-                          k={k}
-                          onQtyChange={(newQty) => {
-                            setProductsToFulfil(prev => prev.map(p => p.id === item.id ? { ...p, qty: Math.max(1, Math.min(999, newQty)) } : p));
-                          }}
-                          onRemove={() => {
-                            setConfirm({
-                              open: true,
-                              title: 'Remove Item?',
-                              message: `Remove ${item.name} ×${item.qty} from workspace?`,
-                              onConfirm: () => {
-                                setProductsToFulfil(prev => prev.filter(p => p.id !== item.id));
-                              },
-                              danger: true
-                            });
-                          }}
-                          onMoveToParcel={async () => {
-                            setActingOrderIds(prev => new Set(prev).add(item.orderId));
-                            try {
-                              // Find existing pending parcel across ALL active orders (one parcel at a time)
-                              let existingParcel: Fulfilment | undefined;
-                              for (const o of activeOrders) {
-                                const found = (fulfilmentsCache[o._id] || []).find(f => f.status === 'pending');
-                                if (found) { existingParcel = found; break; }
-                              }
-
-                              let ok = false;
-                              if (existingParcel) {
-                                // Append to existing pending parcel
-                                const newItems = [
-                                  ...(existingParcel.items || []),
-                                  { productId: item.productId, name: item.name, qty: item.qty, price: item.price }
-                                ];
-                                const res = await fetch(`/api/fulfilments/${existingParcel._id}`, {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ items: newItems }),
-                                });
-                                ok = res.ok;
-                                if (ok) {
-                                  // Refresh both caches: the parcel's order and (if different) the item's own order
-                                  await fetchFulfilments(existingParcel.orderId);
-                                  if (existingParcel.orderId !== item.orderId) {
-                                    await fetchFulfilments(item.orderId);
-                                  }
-                                }
-                              } else {
-                                // Create a new pending parcel for this item's order
-                                const res = await fetch(`/api/orders/${item.orderId}/fulfilments`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    items: [{ productId: item.productId, name: item.name, qty: item.qty, price: item.price }],
-                                    address: selectedCustomer?.addresses[selectedAddressIdx] || '',
-                                    shipCostTHB: 0,
-                                    status: 'pending',
-                                  }),
-                                });
-                                ok = res.ok;
-                                if (ok) await fetchFulfilments(item.orderId);
-                              }
-
-                              if (ok) {
-                                setProductsToFulfil(prev => prev.filter(p => p.id !== item.id));
-                                onOrderMutated?.();
-                              } else {
-                                setConfirm({ open: true, title: 'Failed', message: 'Could not add to parcel. Please try again.', onConfirm: () => {} });
-                              }
-                            } catch {
-                              setConfirm({ open: true, title: 'Error', message: 'Something went wrong. Please try again.', onConfirm: () => {} });
-                            } finally {
-                              setActingOrderIds(prev => { const s = new Set(prev); s.delete(item.orderId); return s; });
-                            }
-                          }}
-                          merchantSettings={merchantSettings}
-                        />
-                      ))}
                     </div>
                   </section>
                 )}
@@ -3434,6 +3377,38 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
   );
 }
 
+// ── Box Control ───────────────────────────────────────────────────────────────
+// Inline qty stepper + Box button for a single pending item row
+function BoxControl({ max, isDark, k, isActing, onBox }: {
+  max: number; isDark: boolean; k: typeof DK; isActing: boolean;
+  onBox: (qty: number) => void;
+}) {
+  const [qty, setQty] = useState(max);
+  useEffect(() => setQty(max), [max]);
+  return (
+    <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+      <button
+        onClick={() => setQty(q => Math.max(1, q - 1))}
+        disabled={qty <= 1 || isActing}
+        className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all disabled:opacity-30 ${k.border} ${k.hover}`}
+      ><Minus size={9} /></button>
+      <span className={`w-6 text-center text-[11px] font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{qty}</span>
+      <button
+        onClick={() => setQty(q => Math.min(max, q + 1))}
+        disabled={qty >= max || isActing}
+        className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all disabled:opacity-30 ${k.border} ${k.hover}`}
+      ><Plus size={9} /></button>
+      <button
+        onClick={() => onBox(qty)}
+        disabled={isActing}
+        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:opacity-50 ${
+          isDark ? 'bg-accent/20 text-accent hover:bg-accent/30' : 'bg-accent/10 text-accent hover:bg-accent/20'
+        }`}
+      >Box</button>
+    </div>
+  );
+}
+
 // ── Order Banner ──────────────────────────────────────────────────────────────
 // Collapsible active-order card with progress bar, per-item thumbnails, and [+] buttons
 function OrderBanner({
@@ -3442,7 +3417,7 @@ function OrderBanner({
   k,
   customerAddresses,
   onAddAddress,
-  onAddProductItem,
+  onBoxItems,
   onSendQR,
   onMarkPaid,
   onCancel,
@@ -3456,7 +3431,7 @@ function OrderBanner({
   k: typeof DK;
   customerAddresses: string[];
   onAddAddress: (addr: string) => void;
-  onAddProductItem: (item: OrderItem) => void;
+  onBoxItems: (items: Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>) => Promise<void>;
   onSendQR: () => void;
   onMarkPaid: () => void;
   onCancel: () => void;
@@ -3594,52 +3569,57 @@ function OrderBanner({
                   <div className="flex-1 min-w-0">
                     <p className={`text-[12px] font-medium leading-snug truncate ${isDark ? 'text-white/90' : 'text-[#1a1d2e]'}`}>
                       {item.name}
-                      {item.variantLabel && <span className={`${k.muted}`}> — {item.variantLabel}</span>}
-                      <span className={`${k.muted}`}> ×{item.qty}</span>
+                      {item.variantLabel && <span className={k.muted}> — {item.variantLabel}</span>}
                     </p>
+                    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                      {shippedQty > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                          isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                        }`}>✓ {shippedQty} shipped</span>
+                      )}
+                      {inParcelQty > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                          isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600 border border-blue-200'
+                        }`}>Boxed ×{inParcelQty}</span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Status chips + add button */}
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {shippedQty > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                        isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                      }`}>
-                        ✓ {shippedQty} shipped
-                      </span>
-                    )}
-                    {inParcelQty > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                        isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600 border border-blue-200'
-                      }`}>
-                        Boxed ×{inParcelQty}
-                      </span>
-                    )}
-                    {pendingQty > 0 && (
-                      <>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                          isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600 border border-orange-200'
-                        }`}>
-                          {pendingQty} pending
-                        </span>
-                        <button
-                          onClick={e => { e.stopPropagation(); onAddProductItem({ ...item, qty: pendingQty }); }}
-                          disabled={isActing}
-                          title={`Add ${pendingQty}× ${item.name} to fulfil`}
-                          aria-label={`Add ${pendingQty}× ${item.name} to fulfil`}
-                          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
-                            isDark ? 'bg-accent/20 text-accent hover:bg-accent/30' : 'bg-accent/10 text-accent hover:bg-accent/20'
-                          }`}
-                        >
-                          <Plus size={12} />
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  {/* Pending qty stepper + Box button */}
+                  {pendingQty > 0 && (
+                    <BoxControl
+                      max={pendingQty}
+                      isDark={isDark}
+                      k={k}
+                      isActing={isActing}
+                      onBox={(qty) => {
+                        onBoxItems([{ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty, price: item.price }]);
+                      }}
+                    />
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {/* Box All Pending — shown when multiple items still need boxing */}
+          {(() => {
+            const allPending = orderItems
+              .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name) - computeInParcelQty(item.name)), price: item.price }))
+              .filter(i => i.qty > 0);
+            if (allPending.length < 2) return null;
+            return (
+              <button
+                onClick={() => onBoxItems(allPending)}
+                disabled={isActing}
+                className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+                  isDark ? 'border-accent/30 text-accent hover:bg-accent/10' : 'border-accent/30 text-accent hover:bg-accent/5'
+                }`}
+              >
+                <Package size={12} /> Box All {allPending.length} Pending Items
+              </button>
+            );
+          })()}
 
           {/* Order actions */}
           {order.status === 'pending' ? (
@@ -3679,103 +3659,6 @@ function OrderBanner({
           )}
         </div>
       )}
-    </article>
-  );
-}
-
-// ── Product to Fulfil Card ─────────────────────────────────────────────────────
-// Shows an item added to the Products to Fulfil section, editable qty, with Move to Parcel button
-function ProductToFulfilCard({
-  item,
-  isDark,
-  k,
-  onQtyChange,
-  onRemove,
-  onMoveToParcel,
-  merchantSettings,
-}: {
-  item: { id: string; productId?: string; name: string; qty: number; price: number; orderId: string };
-  isDark: boolean;
-  k: typeof DK;
-  onQtyChange: (qty: number) => void;
-  onRemove: () => void;
-  onMoveToParcel: () => void;
-  merchantSettings?: any;
-}) {
-  const lineTotal = item.qty * item.price;
-
-  return (
-    <article className={`rounded-2xl border p-5 space-y-4 ${
-      isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-sm'
-    }`}>
-      {/* Product header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-bold leading-snug ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-            {item.name}
-          </p>
-          <p className={`text-[11px] mt-0.5 ${k.muted}`}>
-            Order #{item.orderId.slice(-6).toUpperCase()}
-          </p>
-        </div>
-        <button
-          onClick={onRemove}
-          aria-label={`Remove ${item.name}`}
-          className={`p-1.5 rounded-lg transition-colors ${
-            isDark
-              ? 'text-red-500/40 hover:text-red-400 hover:bg-red-500/10'
-              : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
-          }`}
-        >
-          <X size={14} />
-        </button>
-      </div>
-
-      {/* Price / Qty / Total row */}
-      <div className="grid grid-cols-3 gap-3 items-center">
-        <div>
-          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Price</p>
-          <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-            ฿{fmt(item.price)}
-          </p>
-        </div>
-        <div>
-          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Qty</p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onQtyChange(Math.max(1, item.qty - 1))}
-              aria-label={`Decrease quantity of ${item.name}`}
-              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
-            >
-              <Minus size={11} />
-            </button>
-            <span className={`w-7 text-center text-sm font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-              {item.qty}
-            </span>
-            <button
-              onClick={() => onQtyChange(item.qty + 1)}
-              aria-label={`Increase quantity of ${item.name}`}
-              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
-            >
-              <Plus size={11} />
-            </button>
-          </div>
-        </div>
-        <div>
-          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Total</p>
-          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-            ฿{fmt(lineTotal)}
-          </p>
-        </div>
-      </div>
-
-      <button
-        onClick={onMoveToParcel}
-        className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-[12px] font-bold text-white hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-accent/20"
-        style={{ background: 'var(--accent-gradient)' }}
-      >
-        <Package size={13} /> Move to Parcel
-      </button>
     </article>
   );
 }
