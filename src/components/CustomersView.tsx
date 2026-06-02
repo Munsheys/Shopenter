@@ -568,6 +568,42 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     }
   }
 
+  // Remove an item from the pending parcel (undo "Add to Parcel")
+  async function unboxItemFromParcel(orderId: string, itemName: string) {
+    setActingOrderIds(prev => new Set(prev).add(orderId));
+    try {
+      const activeOrdersList = allOrders.filter(o =>
+        o.userId === (selectedCustomer?.userId ?? '') && ['pending', 'paid'].includes(o.status)
+      );
+      let targetFulfilment: Fulfilment | undefined;
+      for (const o of activeOrdersList) {
+        const found = (fulfilmentsCache[o._id] || []).find(
+          f => f.status === 'pending' && (f.items || []).some(i => i.name === itemName)
+        );
+        if (found) { targetFulfilment = found; break; }
+      }
+      if (!targetFulfilment) return;
+
+      const newItems = (targetFulfilment.items || []).filter(i => i.name !== itemName);
+      if (newItems.length === 0) {
+        await fetch(`/api/fulfilments/${targetFulfilment._id}`, { method: 'DELETE' });
+      } else {
+        await fetch(`/api/fulfilments/${targetFulfilment._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: newItems }),
+        });
+      }
+      await fetchFulfilments(targetFulfilment.orderId);
+      if (targetFulfilment.orderId !== orderId) await fetchFulfilments(orderId);
+      onOrderMutated?.();
+    } catch {
+      setConfirm({ open: true, title: 'Error', message: 'Something went wrong. Please try again.', onConfirm: () => {} });
+    } finally {
+      setActingOrderIds(prev => { const s = new Set(prev); s.delete(orderId); return s; });
+    }
+  }
+
   useEffect(() => {
     if (!selectedCustomer) return;
     allOrders
@@ -1373,9 +1409,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                               setSelectedAddressIdx(newIdx);
                             }}
                             onBoxItems={(items) => boxItemsToParcel(order._id, items)}
+                            onUnboxItem={(itemName) => unboxItemFromParcel(order._id, itemName)}
                             onSendQR={() => sendQR(order._id)}
                             onMarkPaid={() => markPaid(order._id)}
                             onCancel={() => confirmCancelOrder(order._id)}
+                            onDelete={() => confirmDeleteOrder(order._id)}
+                            onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
                             computeShippedQty={computeShippedQty}
                             computeInParcelQty={computeInParcelQty}
                             isActing={actingOrderIds.has(order._id)}
@@ -3404,7 +3443,7 @@ function BoxControl({ max, isDark, k, isActing, onBox }: {
         className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:opacity-50 ${
           isDark ? 'bg-accent/20 text-accent hover:bg-accent/30' : 'bg-accent/10 text-accent hover:bg-accent/20'
         }`}
-      >Box</button>
+      >Add to Parcel</button>
     </div>
   );
 }
@@ -3418,9 +3457,12 @@ function OrderBanner({
   customerAddresses,
   onAddAddress,
   onBoxItems,
+  onUnboxItem,
   onSendQR,
   onMarkPaid,
   onCancel,
+  onDelete,
+  onEdit,
   computeShippedQty,
   computeInParcelQty,
   isActing,
@@ -3432,9 +3474,12 @@ function OrderBanner({
   customerAddresses: string[];
   onAddAddress: (addr: string) => void;
   onBoxItems: (items: Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>) => Promise<void>;
+  onUnboxItem: (itemName: string) => Promise<void>;
   onSendQR: () => void;
   onMarkPaid: () => void;
   onCancel: () => void;
+  onDelete: () => void;
+  onEdit: () => void;
   computeShippedQty: (itemName: string) => number;
   computeInParcelQty: (itemName: string) => number;
   isActing: boolean;
@@ -3515,10 +3560,20 @@ function OrderBanner({
           </div>
         </div>
 
-        {/* Total */}
-        <p className={`text-sm font-black flex-shrink-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-          ฿{fmt(order.soldTHB)}
-        </p>
+        {/* Total + edit icon */}
+        <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            ฿{fmt(order.soldTHB)}
+          </p>
+          <button
+            onClick={onEdit}
+            title="Edit order items"
+            aria-label="Edit order items"
+            className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-accent hover:bg-white/10' : 'text-slate-400 hover:text-accent hover:bg-slate-100'}`}
+          >
+            <Pencil size={12} />
+          </button>
+        </div>
       </div>
 
       {/* ── Expanded body ───────────────────────────────────────────── */}
@@ -3585,8 +3640,8 @@ function OrderBanner({
                     </div>
                   </div>
 
-                  {/* Pending qty stepper + Box button */}
-                  {pendingQty > 0 && (
+                  {/* Pending → BoxControl; fully boxed → back arrow to unbox */}
+                  {pendingQty > 0 ? (
                     <BoxControl
                       max={pendingQty}
                       isDark={isDark}
@@ -3596,7 +3651,19 @@ function OrderBanner({
                         onBoxItems([{ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty, price: item.price }]);
                       }}
                     />
-                  )}
+                  ) : inParcelQty > 0 ? (
+                    <button
+                      onClick={e => { e.stopPropagation(); onUnboxItem(item.name); }}
+                      disabled={isActing}
+                      title="Remove from parcel"
+                      aria-label="Remove from parcel"
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
+                        isDark ? 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/20' : 'bg-orange-50 text-orange-500 hover:bg-orange-100 border border-orange-200'
+                      }`}
+                    >
+                      <CornerUpLeft size={12} />
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
@@ -3644,19 +3711,36 @@ function OrderBanner({
                 <CheckCircle size={12} /> Mark Paid
               </button>
             </div>
-          ) : (
+          ) : null}
+          {/* Cancel + Delete row — always visible */}
+          <div className="flex gap-2">
+            {order.status !== 'cancelled' && (
+              <button
+                onClick={onCancel}
+                disabled={isActing}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+                  isDark
+                    ? 'border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
+                    : 'border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600'
+                }`}
+              >
+                <Ban size={12} /> Cancel Order
+              </button>
+            )}
             <button
-              onClick={onCancel}
+              onClick={onDelete}
               disabled={isActing}
-              className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+              title="Permanently delete order"
+              aria-label="Permanently delete order"
+              className={`flex items-center justify-center px-3 py-2 rounded-xl text-[11px] border transition-all active:scale-95 disabled:opacity-50 ${
                 isDark
-                  ? 'border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
-                  : 'border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600'
+                  ? 'border-red-500/20 text-red-500/50 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
+                  : 'border-red-200 text-red-300 hover:bg-red-50 hover:text-red-600'
               }`}
             >
-              <Ban size={12} /> Cancel Order
+              <Trash2 size={13} />
             </button>
-          )}
+          </div>
         </div>
       )}
     </article>
