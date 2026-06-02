@@ -1339,15 +1339,18 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 {pendingFulfilments.length > 0 && (
                   <section aria-label="Parcels awaiting shipment">
                     <SectionLabel>Parcels Awaiting Shipment</SectionLabel>
-                    <div className="mt-3 space-y-4">
+                    <div className="mt-3 space-y-6">
                       {pendingFulfilments.map((fulfilment) => (
-                        <PendingParcelCard
+                        <ParcelFulfilmentContainer
                           key={fulfilment._id}
                           fulfilment={fulfilment}
                           selectedAddress={selectedCustomer?.addresses[selectedAddressIdx] || ''}
                           isDark={isDark}
                           k={k}
                           merchantSettings={merchantSettings}
+                          onUpdateItems={async (items) => {
+                            await patchFulfilment(fulfilment._id, fulfilment.orderId, { items });
+                          }}
                           onShip={async (courier, tracking) => {
                             await patchFulfilment(fulfilment._id, fulfilment.orderId, {
                               courier, tracking,
@@ -3549,14 +3552,15 @@ function ProductToFulfilCard({
   );
 }
 
-// ── Pending Parcel Card ────────────────────────────────────────────────────────
-// Shows a fulfilment created via "Move to Parcel" where merchant adds courier/tracking then ships
-function PendingParcelCard({
+// ── Parcel Fulfilment Container ────────────────────────────────────────────────
+// Shows a pending fulfilment with editable items, ready to be shipped
+function ParcelFulfilmentContainer({
   fulfilment,
   selectedAddress,
   isDark,
   k,
   merchantSettings,
+  onUpdateItems,
   onShip,
   onCancel,
 }: {
@@ -3565,17 +3569,35 @@ function PendingParcelCard({
   isDark: boolean;
   k: typeof DK;
   merchantSettings?: any;
+  onUpdateItems: (items: FulfilmentItem[]) => Promise<void>;
   onShip: (courier: string, tracking: string) => Promise<void>;
   onCancel: () => void;
 }) {
+  const [items, setItems] = useState<FulfilmentItem[]>(fulfilment.items || []);
   const [courier, setCourier] = useState(fulfilment.courier || '');
   const [tracking, setTracking] = useState(fulfilment.tracking || '');
   const [shipping, setShipping] = useState(false);
   const [shipError, setShipError] = useState('');
 
+  const parcelId = fulfilment._id || 'NEW';
+  const parcelShortId = fulfilment._id.slice(-4).toUpperCase() || 'NEW';
   const createdAt = fulfilment.createdAt
-    ? new Date(fulfilment.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    ? new Date(fulfilment.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
+
+  const totalPrice = items.reduce((s, i) => s + (i.price * i.qty), 0);
+
+  function updateItem(idx: number, updates: Partial<FulfilmentItem>) {
+    const updated = items.map((item, i) => i === idx ? { ...item, ...updates } : item);
+    setItems(updated);
+    onUpdateItems(updated).catch(() => setItems(fulfilment.items || []));
+  }
+
+  function removeItem(idx: number) {
+    const updated = items.filter((_, i) => i !== idx);
+    setItems(updated);
+    onUpdateItems(updated).catch(() => setItems(fulfilment.items || []));
+  }
 
   async function handleShip() {
     if (!courier || !tracking) { setShipError('Courier and tracking number are required'); return; }
@@ -3586,61 +3608,62 @@ function PendingParcelCard({
   }
 
   return (
-    <article className={`rounded-[28px] border-2 border-dashed p-6 space-y-5 transition-all ${
-      isDark ? 'bg-[#161925] border-[#2a3050]' : 'bg-white border-slate-300 shadow-sm'
+    <article className={`rounded-[32px] border-2 border-dashed p-8 space-y-6 transition-all ${
+      isDark ? 'bg-[#161925] border-[#2a3050]' : 'bg-white border-slate-300 shadow-lg'
     }`}>
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-            <Package size={18} className="text-accent" />
+          <div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+            <Package size={20} className="text-accent" />
           </div>
           <div>
-            <p className={`text-[9px] font-black uppercase tracking-widest ${k.muted}`}>Parcel</p>
-            <p className={`text-sm font-black ${k.text}`}>#{fulfilment._id.slice(-6).toUpperCase()}</p>
-            {createdAt && <p className={`text-[10px] ${k.muted}`}>{createdAt}</p>}
+            <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Parcel Identity</p>
+            <p className={`text-sm font-black ${k.text}`} title={parcelId}>#{parcelShortId}</p>
+            {createdAt && <p className={`text-[10px] ${k.muted} mt-0.5`}>{createdAt}</p>}
           </div>
         </div>
         <button
           onClick={onCancel}
           aria-label="Remove parcel"
-          className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10 hover:text-red-400' : 'text-[#8b92ad] hover:bg-black/5 hover:text-red-500'}`}
+          className={`p-2 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10 hover:text-red-400' : 'text-[#8b92ad] hover:bg-black/5 hover:text-red-500'}`}
         >
-          <X size={14} />
+          <X size={18} />
         </button>
       </div>
 
-      {/* Items */}
-      <div className={`space-y-1.5 py-3 border-y border-dashed ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-        {(fulfilment.items || []).map((item, i) => (
-          <div key={i} className="flex items-center justify-between gap-2 text-xs">
-            <span className={isDark ? 'text-white' : 'text-[#1a1d2e]'}>
-              {item.name}{item.variantLabel ? ` — ${item.variantLabel}` : ''} ×{item.qty}
-            </span>
-            <span className={`font-bold ${k.muted}`}>฿{fmt(item.price * item.qty)}</span>
-          </div>
+      {/* Items — editable cards */}
+      <div className="space-y-3">
+        {items.map((item, idx) => (
+          <ParcelItemCard
+            key={idx}
+            item={item}
+            isDark={isDark}
+            k={k}
+            merchantSettings={merchantSettings}
+            onUpdate={(updates) => updateItem(idx, updates)}
+            onRemove={() => removeItem(idx)}
+          />
         ))}
       </div>
 
-      {/* Delivery address (from selected address in Delivery Addresses section) */}
-      {selectedAddress ? (
-        <div className="flex items-start gap-2">
-          <MapPin size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
-          <p className={`text-xs ${isDark ? 'text-white/70' : 'text-slate-600'}`}>{selectedAddress}</p>
+      {/* Delivery address */}
+      {selectedAddress && (
+        <div className={`flex items-start gap-2 p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+          <MapPin size={14} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+          <p className={`text-xs ${isDark ? 'text-white/70' : 'text-slate-700'}`}>{selectedAddress}</p>
         </div>
-      ) : (
-        <p className={`text-[10px] ${k.muted} italic`}>No address selected — set one in Delivery Addresses below</p>
       )}
 
-      {/* Courier + Tracking */}
-      <div className={`rounded-2xl p-5 space-y-4 ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
-        <div className="grid grid-cols-2 gap-4">
+      {/* Courier + Tracking + Ship */}
+      <div className={`rounded-[24px] p-8 space-y-6 border ${isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-slate-50 border-slate-200'}`}>
+        <div className="grid grid-cols-2 gap-6">
           <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Courier</label>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Courier Service</label>
             <select
               value={courier}
               onChange={e => setCourier(e.target.value)}
-              className={`w-full text-xs rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`}
+              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-accent transition-all ${k.input}`}
             >
               <option value="">Choose courier</option>
               {(merchantSettings?.shippingCompanies || []).map((c: string) => (
@@ -3649,26 +3672,137 @@ function PendingParcelCard({
             </select>
           </div>
           <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Tracking No.</label>
+            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Tracking Reference</label>
             <input
               placeholder="e.g. TH12345678"
               value={tracking}
               onChange={e => setTracking(e.target.value)}
-              className={`w-full text-xs rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`}
+              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-accent transition-all ${k.input}`}
             />
           </div>
         </div>
 
-        {shipError && <p className="text-[10px] font-semibold text-red-500">{shipError}</p>}
+        {shipError && <p className="text-xs font-semibold text-red-500">{shipError}</p>}
 
         <button
           onClick={handleShip}
-          disabled={shipping}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-bold text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+          disabled={shipping || items.length === 0}
+          className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-[20px] text-sm font-black text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
           style={{ background: 'var(--accent-gradient)' }}
         >
-          <Truck size={13} /> {shipping ? 'Shipping...' : 'Ship Parcel'}
+          <Truck size={16} /> {shipping ? 'Shipping...' : 'Ship Parcel'}
         </button>
+      </div>
+    </article>
+  );
+}
+
+// ── Parcel Item Card ───────────────────────────────────────────────────────────
+// Editable card for an item within a parcel
+function ParcelItemCard({
+  item,
+  isDark,
+  k,
+  merchantSettings,
+  onUpdate,
+  onRemove,
+}: {
+  item: FulfilmentItem;
+  isDark: boolean;
+  k: typeof DK;
+  merchantSettings?: any;
+  onUpdate: (updates: Partial<FulfilmentItem>) => void;
+  onRemove: () => void;
+}) {
+  const [name, setName] = useState(item.name);
+  const [qty, setQty] = useState(item.qty);
+  const [price, setPrice] = useState(item.price);
+
+  const cost = price * qty;
+  const localCurrency = merchantSettings?.localCurrency || 'THB';
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (name !== item.name) onUpdate({ name });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [name, item.name, onUpdate]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (qty !== item.qty) onUpdate({ qty });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [qty, item.qty, onUpdate]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (price !== item.price) onUpdate({ price });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [price, item.price, onUpdate]);
+
+  return (
+    <article className={`rounded-2xl border p-5 space-y-4 ${
+      isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-white border-slate-200'
+    }`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Product Name</label>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+          />
+          {item.variantLabel && (
+            <p className={`text-[9px] ${k.muted} mt-1 italic`}>{item.variantLabel}</p>
+          )}
+        </div>
+        <button
+          onClick={onRemove}
+          aria-label={`Remove ${name}`}
+          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${isDark ? 'text-[#8b92ad] hover:bg-white/10 hover:text-red-400' : 'text-[#8b92ad] hover:bg-black/5 hover:text-red-500'}`}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Qty</label>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setQty(Math.max(1, qty - 1))}
+              aria-label="Decrease qty"
+              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+            >
+              <Minus size={12} />
+            </button>
+            <span className={`w-8 text-center text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{qty}</span>
+            <button
+              onClick={() => setQty(qty + 1)}
+              aria-label="Increase qty"
+              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+            >
+              <Plus size={12} />
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Price ({localCurrency})</label>
+          <input
+            type="number"
+            value={price}
+            onChange={e => setPrice(Math.max(0, parseFloat(e.target.value) || 0))}
+            className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+          />
+        </div>
+        <div>
+          <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Total</label>
+          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            ฿{fmt(cost)}
+          </p>
+        </div>
       </div>
     </article>
   );
