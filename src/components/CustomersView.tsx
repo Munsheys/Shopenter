@@ -1320,6 +1320,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             order={order}
                             isDark={isDark}
                             k={k}
+                            products={products}
                             customerAddresses={selectedCustomer?.addresses || []}
                             onAddAddress={async (addr) => {
                               await addAddress(addr);
@@ -1470,6 +1471,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           isDark={isDark}
                           k={k}
                           merchantSettings={merchantSettings}
+                          products={products}
                           onUpdateItems={async (items) => {
                             await patchFulfilment(fulfilment._id, fulfilment.orderId, { items });
                           }}
@@ -3433,7 +3435,7 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
 }
 
 // ── Order Banner ──────────────────────────────────────────────────────────────
-// Shows a single active order with product line items and [+] buttons to move items to fulfil section
+// Collapsible active-order card with progress bar, per-item thumbnails, and [+] buttons
 function OrderBanner({
   order,
   isDark,
@@ -3447,6 +3449,7 @@ function OrderBanner({
   computeShippedQty,
   computeInParcelQty,
   isActing,
+  products,
 }: {
   order: Order;
   isDark: boolean;
@@ -3460,24 +3463,49 @@ function OrderBanner({
   computeShippedQty: (itemName: string) => number;
   computeInParcelQty: (itemName: string) => number;
   isActing: boolean;
+  products?: Product[];
 }) {
+  const [expanded, setExpanded] = useState(true);
+
   const status = STATUS_COLORS[order.status] || STATUS_COLORS.pending;
   const label = STATUS_LABEL[order.status] || 'Order';
   const darkStatusClass = DARK_STATUS[order.status] || DARK_STATUS.pending;
 
   const orderItems = order.items || [];
 
+  // Fulfillment progress: items shipped OR boxed / total
+  const totalQty = orderItems.reduce((s, i) => s + i.qty, 0);
+  const processedQty = orderItems.reduce((s, i) => s + computeShippedQty(i.name) + computeInParcelQty(i.name), 0);
+  const progress = totalQty > 0 ? Math.round((processedQty / totalQty) * 100) : 0;
+
   const orderAddr = order.address?.trim();
   const addrInList = !orderAddr || customerAddresses.some(a => a.trim() === orderAddr);
 
+  const divider = isDark ? 'border-[#1f2335]' : 'border-slate-200';
+
   return (
-    <article className={`rounded-2xl border p-4 space-y-3 ${
+    <article className={`rounded-2xl border overflow-hidden ${
       isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-sm'
     }`}>
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+      {/* ── Clickable header row ─────────────────────────────────────── */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onClick={() => setExpanded(p => !p)}
+        onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && setExpanded(p => !p)}
+        className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none transition-colors ${
+          isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
+        }`}
+      >
+        <ChevronRight
+          size={14}
+          className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${expanded ? 'rotate-90' : ''}`}
+        />
+
+        {/* ID + status */}
+        <div className="min-w-0 flex-shrink-0">
+          <p className={`text-sm font-black leading-none mb-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             #{order._id.slice(-6).toUpperCase()}
           </p>
           <div className="flex items-center gap-1.5">
@@ -3487,125 +3515,169 @@ function OrderBanner({
               {label}
             </span>
             {order.paymentQrSent && order.status === 'pending' && (
-              <span className="text-[9px] font-medium text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-md border border-violet-500/20">QR SENT</span>
+              <span className="text-[9px] font-medium text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-md border border-violet-500/20">QR</span>
             )}
           </div>
         </div>
-        <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+
+        {/* Products count badge */}
+        <span className={`text-[10px] font-medium px-2 py-1 rounded-lg border flex-shrink-0 ${
+          isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
+        }`}>
+          {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
+        </span>
+
+        {/* Progress bar + % */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1">
+            <span className={`text-[10px] font-medium ${k.muted}`}>Fulfilment progress: {progress}%</span>
+          </div>
+          <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${progress}%`, background: progress === 100 ? '#22c55e' : 'var(--accent)' }}
+            />
+          </div>
+        </div>
+
+        {/* Total */}
+        <p className={`text-sm font-black flex-shrink-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
           ฿{fmt(order.soldTHB)}
         </p>
       </div>
 
-      {/* Order address */}
-      {orderAddr && (
-        <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
-          addrInList
-            ? (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
-            : (isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200')
-        }`}>
-          <MapPin size={12} className={`flex-shrink-0 mt-0.5 ${addrInList ? k.muted : 'text-amber-500'}`} />
-          <p className={`text-[11px] flex-1 leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-600'}`}>{orderAddr}</p>
-          {!addrInList && (
+      {/* ── Expanded body ───────────────────────────────────────────── */}
+      {expanded && (
+        <div className={`border-t ${divider} px-4 pt-3 pb-4 space-y-3`}>
+          {/* Order address */}
+          {orderAddr && (
+            <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
+              addrInList
+                ? (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
+                : (isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200')
+            }`}>
+              <MapPin size={11} className={`flex-shrink-0 mt-0.5 ${addrInList ? k.muted : 'text-amber-500'}`} />
+              <p className={`text-[11px] flex-1 leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-600'}`}>{orderAddr}</p>
+              {!addrInList && (
+                <button
+                  onClick={e => { e.stopPropagation(); onAddAddress(orderAddr); }}
+                  className="text-[10px] font-medium px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex-shrink-0 whitespace-nowrap"
+                >
+                  + Add to list
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Item rows */}
+          <div className={`rounded-xl overflow-hidden border ${divider}`}>
+            {orderItems.map((item, idx) => {
+              const shippedQty = computeShippedQty(item.name);
+              const inParcelQty = computeInParcelQty(item.name);
+              const pendingQty = Math.max(0, item.qty - shippedQty - inParcelQty);
+              const product = products?.find(p => p._id === item.productId);
+              const isLast = idx === orderItems.length - 1;
+
+              return (
+                <div key={idx} className={`flex items-center gap-3 px-3 py-2.5 ${
+                  !isLast ? `border-b ${divider}` : ''
+                } ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50/50'} transition-colors`}>
+                  {/* Thumbnail */}
+                  <div className={`w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                    {product?.imageUrl
+                      ? <img src={product.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center"><Package size={14} className={k.muted} /></div>
+                    }
+                  </div>
+
+                  {/* Name + variant */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[12px] font-medium leading-snug truncate ${isDark ? 'text-white/90' : 'text-[#1a1d2e]'}`}>
+                      {item.name}
+                      {item.variantLabel && <span className={`${k.muted}`}> — {item.variantLabel}</span>}
+                      <span className={`${k.muted}`}> ×{item.qty}</span>
+                    </p>
+                  </div>
+
+                  {/* Status chips + add button */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {shippedQty > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                        isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                      }`}>
+                        ✓ {shippedQty} shipped
+                      </span>
+                    )}
+                    {inParcelQty > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                        isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600 border border-blue-200'
+                      }`}>
+                        Boxed ×{inParcelQty}
+                      </span>
+                    )}
+                    {pendingQty > 0 && (
+                      <>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                          isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600 border border-orange-200'
+                        }`}>
+                          {pendingQty} pending
+                        </span>
+                        <button
+                          onClick={e => { e.stopPropagation(); onAddProductItem({ ...item, qty: pendingQty }); }}
+                          disabled={isActing}
+                          title={`Add ${pendingQty}× ${item.name} to fulfil`}
+                          aria-label={`Add ${pendingQty}× ${item.name} to fulfil`}
+                          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
+                            isDark ? 'bg-accent/20 text-accent hover:bg-accent/30' : 'bg-accent/10 text-accent hover:bg-accent/20'
+                          }`}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Order actions */}
+          {order.status === 'pending' ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={onSendQR}
+                disabled={isActing}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+                  order.paymentQrSent
+                    ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
+                    : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
+                }`}
+              >
+                <QrCode size={12} /> {order.paymentQrSent ? 'Resend QR' : 'Send QR'}
+              </button>
+              <button
+                onClick={onMarkPaid}
+                disabled={isActing}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                <CheckCircle size={12} /> Mark Paid
+              </button>
+            </div>
+          ) : (
             <button
-              onClick={() => onAddAddress(orderAddr)}
-              className="text-[10px] font-medium px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex-shrink-0 whitespace-nowrap"
+              onClick={onCancel}
+              disabled={isActing}
+              className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+                isDark
+                  ? 'border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
+                  : 'border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600'
+              }`}
             >
-              + Add to list
+              <Ban size={12} /> Cancel Order
             </button>
           )}
         </div>
-      )}
-
-      {/* Line Items */}
-      <div className={`space-y-1.5 py-2 border-y border-dashed ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-        {orderItems.map((item, idx) => {
-          const shippedQty = computeShippedQty(item.name);
-          const inParcelQty = computeInParcelQty(item.name);
-          const pendingQty = Math.max(0, item.qty - shippedQty - inParcelQty);
-
-          return (
-            <div key={idx} className="flex items-center gap-2">
-              <span className={`text-[12px] flex-1 min-w-0 truncate ${isDark ? 'text-white/80' : 'text-slate-700'}`}>
-                {item.name} <span className={`${k.muted}`}>×{item.qty}</span>
-              </span>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {shippedQty > 0 && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                    isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
-                  }`}>
-                    ✓{shippedQty}
-                  </span>
-                )}
-                {inParcelQty > 0 && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                    isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
-                  }`}>
-                    Boxed ×{inParcelQty}
-                  </span>
-                )}
-                {pendingQty > 0 && (
-                  <>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                      isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600'
-                    }`}>
-                      {pendingQty} pending
-                    </span>
-                    <button
-                      onClick={() => onAddProductItem({ ...item, qty: pendingQty })}
-                      disabled={isActing}
-                      title={`Add ${pendingQty}× ${item.name} to fulfil`}
-                      aria-label={`Add ${pendingQty}× ${item.name} to fulfil`}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
-                        isDark
-                          ? 'bg-accent/20 text-accent hover:bg-accent/30'
-                          : 'bg-accent/10 text-accent hover:bg-accent/20'
-                      }`}
-                    >
-                      <Plus size={12} />
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Order Actions */}
-      {order.status === 'pending' ? (
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={onSendQR}
-            disabled={isActing}
-            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
-              order.paymentQrSent
-                ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
-                : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
-            }`}
-          >
-            <QrCode size={12} /> {order.paymentQrSent ? 'Resend QR' : 'Send QR'}
-          </button>
-          <button
-            onClick={onMarkPaid}
-            disabled={isActing}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
-            style={{ background: 'var(--accent-gradient)' }}
-          >
-            <CheckCircle size={12} /> Mark Paid
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={onCancel}
-          disabled={isActing}
-          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
-            isDark
-              ? 'border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
-              : 'border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600'
-          }`}
-        >
-          <Ban size={12} /> Cancel Order
-        </button>
       )}
     </article>
   );
@@ -3716,6 +3788,7 @@ function ParcelFulfilmentContainer({
   isDark,
   k,
   merchantSettings,
+  products,
   onUpdateItems,
   onShip,
   onCancel,
@@ -3725,6 +3798,7 @@ function ParcelFulfilmentContainer({
   isDark: boolean;
   k: typeof DK;
   merchantSettings?: any;
+  products?: Product[];
   onUpdateItems: (items: FulfilmentItem[]) => Promise<void>;
   onShip: (courier: string, tracking: string) => Promise<void>;
   onCancel: () => void;
@@ -3820,6 +3894,7 @@ function ParcelFulfilmentContainer({
                 item={item}
                 isDark={isDark}
                 k={k}
+                products={products}
                 onUpdate={(updates) => updateItem(idx, updates)}
                 onRemove={() => removeItem(idx)}
               />
@@ -3893,19 +3968,21 @@ function ParcelFulfilmentContainer({
 }
 
 // ── Parcel Item Row ────────────────────────────────────────────────────────────
-// Editable table row for an item within a parcel
+// Editable table row for an item within a parcel; name is locked when productId is set
 function ParcelItemRow({
   item,
   isDark,
   k,
   onUpdate,
   onRemove,
+  products,
 }: {
   item: FulfilmentItem;
   isDark: boolean;
   k: typeof DK;
   onUpdate: (updates: Partial<FulfilmentItem>) => void;
   onRemove: () => void;
+  products?: Product[];
 }) {
   const [name, setName] = useState(item.name);
   const [qty, setQty] = useState(item.qty);
@@ -3920,20 +3997,38 @@ function ParcelItemRow({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, qty, price]);
 
+  const product = products?.find(p => p._id === item.productId);
+  const isLocked = !!item.productId; // catalog product — name is not free-editable
   const rowBorder = isDark ? 'border-[#2a3050]' : 'border-slate-200';
 
   return (
     <tr className={`border-b last:border-0 ${rowBorder} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50/60'} transition-colors`}>
-      {/* Name */}
+      {/* Thumbnail + Name */}
       <td className="py-2 px-3">
-        <input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          className={`w-full text-[12px] font-medium rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
-        />
-        {item.variantLabel && (
-          <p className={`text-[10px] ${k.muted} mt-0.5 italic`}>{item.variantLabel}</p>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Thumbnail */}
+          <div className={`w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+            {product?.imageUrl
+              ? <img src={product.imageUrl} alt={name} className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center"><Package size={12} className={k.muted} /></div>
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            {isLocked ? (
+              // Catalog product — name is read-only to prevent renaming real items
+              <p className={`text-[12px] font-medium truncate ${isDark ? 'text-white/90' : 'text-[#1a1d2e]'}`}>{name}</p>
+            ) : (
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className={`w-full text-[12px] font-medium rounded-lg px-2 py-1 border outline-none focus:border-accent transition-all ${k.input}`}
+              />
+            )}
+            {item.variantLabel && (
+              <p className={`text-[10px] ${k.muted} mt-0.5`}>{item.variantLabel}</p>
+            )}
+          </div>
+        </div>
       </td>
       {/* Qty stepper */}
       <td className="py-2 px-3">
