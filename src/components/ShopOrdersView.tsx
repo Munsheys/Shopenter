@@ -929,13 +929,23 @@ export default function ShopOrdersView({
           </div>
         )}
 
-        {!isLoading && selectedStatuses.length > 0 && paginatedOrders?.length === 0 && (
+        {!isLoading && selectedStatuses.length > 0 && paginatedOrders?.length === 0 && (allOrders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-4 py-20 text-center px-6">
+            <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-slate-100")}>
+              <ShoppingCart size={28} className="text-[#8b92ad]" />
+            </div>
+            <div>
+              <p className={cn("text-sm font-semibold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>No orders yet</p>
+              <p className="text-xs mt-1 text-[#8b92ad]">Orders placed through your storefront will appear here.</p>
+            </div>
+          </div>
+        ) : (
           <div className="p-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
             <div className={cn("w-16 h-16 rounded-3xl flex items-center justify-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}>
               <Search size={32} className="opacity-20" />
             </div>
             <div className="text-center">
-              <p className={cn("text-sm font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>No results found</p>
+              <p className={cn("text-sm font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>No orders match your filter</p>
               <p className="text-xs mt-1">Try adjusting your filters or search terms</p>
             </div>
             <button
@@ -945,7 +955,7 @@ export default function ShopOrdersView({
               Clear all filters
             </button>
           </div>
-        )}
+        ))}
 
         {/* Pagination Footer - Redesigned */}
         {!isLoading && selectedStatuses.length > 0 && filteredOrders.length > 0 && (

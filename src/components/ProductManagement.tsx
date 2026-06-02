@@ -1960,15 +1960,21 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
               onSelect={() => toggleSelect(p._id)}
             />
           ))}
-          {filteredProducts.length === 0 && products.length === 0 && (
-            <div className="col-span-full py-20 flex flex-col items-center justify-center gap-4 text-[#8b92ad]">
-              <div className={cn("w-16 h-16 rounded-3xl flex items-center justify-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}><Package size={32} className="opacity-20" /></div>
-              <div className="text-center">
-                <p className={cn("text-sm font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>No products yet</p>
-                <p className="text-xs mt-1">Add your first product to get started</p>
+          {products.length === 0 && !isLoading && (
+            <div className="col-span-full flex flex-col items-center justify-center flex-1 gap-4 py-20 text-center px-6">
+              <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-slate-100")}>
+                <Package size={28} className="text-[#8b92ad]" />
               </div>
-              <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="text-white text-xs font-bold px-4 py-2 rounded-xl" style={{ background: 'var(--accent-gradient)' }}>
-                Add Product
+              <div>
+                <p className={cn("text-sm font-semibold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>No products yet</p>
+                <p className="text-xs mt-1 text-[#8b92ad]">Add your first product to start selling.</p>
+              </div>
+              <button
+                onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                <Plus size={14} /> Add first product
               </button>
             </div>
           )}
@@ -1982,6 +1988,7 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
               <button onClick={() => { setSearchTerm(''); setBrandFilter(''); setCategoryFilter(''); setStatusFilter('all'); setSortOrder('newest'); }} className="text-accent text-xs font-bold hover:underline">Clear filters</button>
             </div>
           )}
+
         </div>
 
         {/* Pagination controls */}

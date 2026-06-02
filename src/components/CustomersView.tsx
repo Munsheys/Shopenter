@@ -923,18 +923,25 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <span className="text-[10px] font-bold uppercase tracking-wider">Syncing customers...</span>
                 </div>
               ) : customers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full px-4 gap-3 py-8">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'}`}>
-                    <MessageCircle size={22} className={`${k.muted} opacity-40`} />
+                <div className="flex flex-col items-center justify-center gap-3 py-16 text-center px-4">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'}`}>
+                    <MessageCircle size={24} className="text-[#8b92ad]" />
                   </div>
-                  <div className="text-center">
-                    <p className={`text-xs font-semibold ${k.text}`}>No customers yet</p>
-                    <p className={`text-[10px] mt-0.5 ${k.muted}`}>They appear when they message your LINE OA</p>
+                  <div>
+                    <p className={`text-sm font-semibold ${k.text}`}>No customers yet</p>
+                    <p className={`text-xs mt-1 ${k.muted}`}>Customers appear here after they message your LINE, Telegram, or Instagram bot.</p>
                   </div>
-                  <SeedButton isDark={isDark} k={k} onDone={refreshOrders} />
                 </div>
               ) : visibleCustomers.length === 0 ? (
-                <div className={`text-center px-4 py-8 text-xs ${k.muted}`}>No results for "{customerSearch}"</div>
+                <div className="flex flex-col items-center justify-center gap-3 py-16 text-center px-4">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'}`}>
+                    <Search size={24} className="text-[#8b92ad]" />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${k.text}`}>No customers match your search.</p>
+                    <p className={`text-xs mt-1 ${k.muted}`}>Try a different name or clear the search.</p>
+                  </div>
+                </div>
               ) : (
                 visibleCustomers.map(c => {
                   const isSelected = selectedCustomer?._id === c._id;
