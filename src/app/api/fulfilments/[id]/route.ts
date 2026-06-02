@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!fulfilment) return NextResponse.json({ error: 'Fulfilment not found' }, { status: 404 });
 
     const body = await req.json();
-    const ALLOWED = ['tracking', 'courier', 'address', 'status', 'shipCostTHB'];
+    const ALLOWED = ['tracking', 'courier', 'address', 'status', 'shipCostTHB', 'items'];
     const update: Record<string, any> = {};
     for (const key of ALLOWED) {
       if (key in body) update[key] = body[key];
@@ -35,8 +35,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const updated = await Fulfilment.findByIdAndUpdate(id, update, { new: true });
 
-    // Recompute order status after any status change
-    if ('status' in body) {
+    // Recompute order status after status or items change (empty-item parcels need correction)
+    if ('status' in body || 'items' in body) {
       await recomputeOrderStatus(String(fulfilment.orderId));
     }
 
