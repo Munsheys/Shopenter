@@ -2335,6 +2335,17 @@ const STATUS_LABEL: Record<string, string> = {
   shipped: 'Shipped', delivered: 'Delivered', fulfilled: 'Fulfilled', cancelled: 'Cancelled',
 };
 
+const DARK_STATUS: Record<string, string> = {
+  pending:             'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  paid:                'bg-sky-500/15 text-sky-400 border-sky-500/30',
+  preparing:           'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+  partially_fulfilled: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  shipped:             'bg-violet-500/15 text-violet-400 border-violet-500/30',
+  delivered:           'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  fulfilled:           'bg-green-500/15 text-green-400 border-green-500/30',
+  cancelled:           'bg-rose-500/15 text-rose-400 border-rose-500/30',
+};
+
 function ActiveOrderCard({ order, isDark, k, onDelete, onPatch, onEdit, onSendQR, onMarkPaid, onMoveToParcel, onCancel, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment, selected, onToggleSelect, isActing }: {
   order: Order; isDark: boolean; k: typeof DK;
   onDelete: () => void;
@@ -3387,40 +3398,40 @@ function OrderBanner({
 }) {
   const status = STATUS_COLORS[order.status] || STATUS_COLORS.pending;
   const label = STATUS_LABEL[order.status] || 'Order';
+  const darkStatusClass = DARK_STATUS[order.status] || DARK_STATUS.pending;
 
   const orderItems = order.items || [];
 
-  // Detect if order's address is missing from the customer's saved list
   const orderAddr = order.address?.trim();
   const addrInList = !orderAddr || customerAddresses.some(a => a.trim() === orderAddr);
 
   return (
-    <article className={`rounded-2xl border p-5 space-y-4 ${
+    <article className={`rounded-2xl border p-4 space-y-3 ${
       isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-sm'
     }`}>
-      {/* Header: Order ID, Status, Total */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
-              isDark ? 'bg-white/5 text-white/70' : `${status.lightBg} ${status.text}`
+        <div className="space-y-1">
+          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            #{order._id.slice(-6).toUpperCase()}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
+              isDark ? darkStatusClass : `${status.lightBg} ${status.text} ${status.border}`
             }`}>
               {label}
             </span>
             {order.paymentQrSent && order.status === 'pending' && (
-              <span className="text-[9px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-md border border-violet-100">QR SENT</span>
+              <span className="text-[9px] font-medium text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-md border border-violet-500/20">QR SENT</span>
             )}
           </div>
-          <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-            Order #{order._id.slice(-6).toUpperCase()}
-          </p>
         </div>
         <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
           ฿{fmt(order.soldTHB)}
         </p>
       </div>
 
-      {/* Order address — show if present; warn + Add button if not in saved list */}
+      {/* Order address */}
       {orderAddr && (
         <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
           addrInList
@@ -3428,11 +3439,11 @@ function OrderBanner({
             : (isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200')
         }`}>
           <MapPin size={12} className={`flex-shrink-0 mt-0.5 ${addrInList ? k.muted : 'text-amber-500'}`} />
-          <p className={`text-[10px] flex-1 leading-relaxed ${isDark ? 'text-white/70' : 'text-slate-700'}`}>{orderAddr}</p>
+          <p className={`text-[11px] flex-1 leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-600'}`}>{orderAddr}</p>
           {!addrInList && (
             <button
               onClick={() => onAddAddress(orderAddr)}
-              className="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex-shrink-0"
+              className="text-[10px] font-medium px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex-shrink-0 whitespace-nowrap"
             >
               + Add to list
             </button>
@@ -3440,36 +3451,36 @@ function OrderBanner({
         </div>
       )}
 
-      {/* Line Items with [+] buttons for pending items */}
-      <div className="space-y-2 py-2 border-y border-dashed border-white/10">
+      {/* Line Items */}
+      <div className={`space-y-1.5 py-2 border-y border-dashed ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
         {orderItems.map((item, idx) => {
           const shippedQty = computeShippedQty(item.name);
           const inParcelQty = computeInParcelQty(item.name);
           const pendingQty = Math.max(0, item.qty - shippedQty - inParcelQty);
 
           return (
-            <div key={idx} className="flex items-center justify-between gap-2 text-xs">
-              <span className={isDark ? 'text-white' : 'text-[#1a1d2e]'}>
-                {item.name} ×{item.qty}
+            <div key={idx} className="flex items-center gap-2">
+              <span className={`text-[12px] flex-1 min-w-0 truncate ${isDark ? 'text-white/80' : 'text-slate-700'}`}>
+                {item.name} <span className={`${k.muted}`}>×{item.qty}</span>
               </span>
-              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 {shippedQty > 0 && (
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                     isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
                   }`}>
-                    ✓ {shippedQty} shipped
+                    ✓{shippedQty}
                   </span>
                 )}
                 {inParcelQty > 0 && (
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                     isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
                   }`}>
-                    📦 {inParcelQty} in parcel
+                    📦{inParcelQty}
                   </span>
                 )}
                 {pendingQty > 0 && (
                   <>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                       isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600'
                     }`}>
                       {pendingQty} pending
@@ -3477,15 +3488,15 @@ function OrderBanner({
                     <button
                       onClick={() => onAddProductItem({ ...item, qty: pendingQty })}
                       disabled={isActing}
-                      title={`Add ${pendingQty}x ${item.name} to fulfil`}
-                      aria-label={`Add ${pendingQty}x ${item.name} to fulfil`}
-                      className={`text-[11px] font-bold px-2 py-1 rounded-lg transition-all ${
+                      title={`Add ${pendingQty}× ${item.name} to fulfil`}
+                      aria-label={`Add ${pendingQty}× ${item.name} to fulfil`}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
                         isDark
                           ? 'bg-accent/20 text-accent hover:bg-accent/30'
                           : 'bg-accent/10 text-accent hover:bg-accent/20'
-                      } disabled:opacity-50`}
+                      }`}
                     >
-                      [+]
+                      <Plus size={12} />
                     </button>
                   </>
                 )}
@@ -3496,42 +3507,41 @@ function OrderBanner({
       </div>
 
       {/* Order Actions */}
-      <div className="flex flex-wrap gap-2">
-        {order.status === 'pending' && (
-          <>
-            <button
-              onClick={onSendQR}
-              disabled={isActing}
-              className={`flex-1 min-w-fit flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold border transition-all active:scale-95 disabled:opacity-50 ${
-                order.paymentQrSent
-                  ? `${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600'}`
-                  : `bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500`
-              }`}
-            >
-              <QrCode size={11} /> {order.paymentQrSent ? 'Resend QR' : 'Send QR'}
-            </button>
-            <button
-              onClick={onMarkPaid}
-              disabled={isActing}
-              className="flex-1 min-w-fit flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
-              style={{ background: 'var(--accent-gradient)' }}
-            >
-              <CheckCircle size={11} /> Mark Paid
-            </button>
-          </>
-        )}
+      {order.status === 'pending' ? (
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={onSendQR}
+            disabled={isActing}
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+              order.paymentQrSent
+                ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
+                : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
+            }`}
+          >
+            <QrCode size={12} /> {order.paymentQrSent ? 'Resend QR' : 'Send QR'}
+          </button>
+          <button
+            onClick={onMarkPaid}
+            disabled={isActing}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+            style={{ background: 'var(--accent-gradient)' }}
+          >
+            <CheckCircle size={12} /> Mark Paid
+          </button>
+        </div>
+      ) : (
         <button
           onClick={onCancel}
           disabled={isActing}
-          className={`flex-1 min-w-fit flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold border transition-all active:scale-95 disabled:opacity-50 ${
+          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
             isDark
-              ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
-              : 'border-red-200 text-red-600 hover:bg-red-50'
+              ? 'border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
+              : 'border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600'
           }`}
         >
-          <Ban size={11} /> Cancel
+          <Ban size={12} /> Cancel Order
         </button>
-      </div>
+      )}
     </article>
   );
 }
@@ -3558,61 +3568,65 @@ function ProductToFulfilCard({
   const lineTotal = item.qty * item.price;
 
   return (
-    <article className={`rounded-2xl border p-4 space-y-3 ${
-      isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'
+    <article className={`rounded-2xl border p-5 space-y-4 ${
+      isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-sm'
     }`}>
+      {/* Product header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+          <p className={`text-sm font-bold leading-snug ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             {item.name}
           </p>
-          <p className={`text-[10px] ${k.muted}`}>
-            from order #{item.orderId.slice(-6).toUpperCase()}
+          <p className={`text-[11px] mt-0.5 ${k.muted}`}>
+            Order #{item.orderId.slice(-6).toUpperCase()}
           </p>
         </div>
         <button
           onClick={onRemove}
-          aria-label={`Remove ${item.name} from parcel`}
-          className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10 hover:text-red-500' : 'text-[#8b92ad] hover:bg-black/5 hover:text-red-500'}`}
+          aria-label={`Remove ${item.name}`}
+          className={`p-1.5 rounded-lg transition-colors ${
+            isDark
+              ? 'text-red-500/40 hover:text-red-400 hover:bg-red-500/10'
+              : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
+          }`}
         >
           <X size={14} />
         </button>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>
-            Unit Price ({merchantSettings?.localCurrency || 'THB'})
-          </label>
-          <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+      {/* Price / Qty / Total row */}
+      <div className="grid grid-cols-3 gap-3 items-center">
+        <div>
+          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Price</p>
+          <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             ฿{fmt(item.price)}
           </p>
         </div>
-        <div className="flex-1">
-          <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Qty</label>
+        <div>
+          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Qty</p>
           <div className="flex items-center gap-1">
             <button
               onClick={() => onQtyChange(Math.max(1, item.qty - 1))}
               aria-label={`Decrease quantity of ${item.name}`}
-              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
             >
-              <Minus size={12} />
+              <Minus size={11} />
             </button>
-            <span className={`w-8 text-center text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            <span className={`w-7 text-center text-sm font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
               {item.qty}
             </span>
             <button
               onClick={() => onQtyChange(item.qty + 1)}
               aria-label={`Increase quantity of ${item.name}`}
-              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
             >
-              <Plus size={12} />
+              <Plus size={11} />
             </button>
           </div>
         </div>
-        <div className="flex-1">
-          <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Total</label>
-          <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+        <div>
+          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Total</p>
+          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             ฿{fmt(lineTotal)}
           </p>
         </div>
@@ -3620,10 +3634,10 @@ function ProductToFulfilCard({
 
       <button
         onClick={onMoveToParcel}
-        className="w-full flex items-center justify-center gap-1.5 px-4 py-3 rounded-lg text-xs font-bold text-white hover:opacity-90 transition-all active:scale-95"
+        className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-[12px] font-bold text-white hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-accent/20"
         style={{ background: 'var(--accent-gradient)' }}
       >
-        <Package size={12} /> Move to Parcel
+        <Package size={13} /> Move to Parcel
       </button>
     </article>
   );
@@ -3692,32 +3706,35 @@ function ParcelFulfilmentContainer({
   }
 
   return (
-    <article className={`rounded-[32px] border-2 border-dashed p-8 space-y-6 transition-all ${
-      isDark ? 'bg-[#161925] border-[#2a3050]' : 'bg-white border-slate-300 shadow-lg'
+    <article className={`rounded-2xl border p-5 space-y-4 transition-all ${
+      isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-md'
     }`}>
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-            <Package size={20} className="text-accent" />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+            <Package size={16} className="text-accent" />
           </div>
           <div>
-            <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Parcel Identity</p>
             <p className={`text-sm font-black ${k.text}`} title={parcelId}>#{parcelShortId}</p>
-            {createdAt && <p className={`text-[10px] ${k.muted} mt-0.5`}>{createdAt}</p>}
+            {createdAt && <p className={`text-[11px] ${k.muted}`}>{createdAt}</p>}
           </div>
         </div>
         <button
           onClick={onCancel}
           aria-label="Remove parcel"
-          className={`p-2 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10 hover:text-red-400' : 'text-[#8b92ad] hover:bg-black/5 hover:text-red-500'}`}
+          className={`p-1.5 rounded-lg transition-colors ${
+            isDark
+              ? 'text-red-500/40 hover:text-red-400 hover:bg-red-500/10'
+              : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
+          }`}
         >
-          <X size={18} />
+          <X size={16} />
         </button>
       </div>
 
       {/* Items — editable cards */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {items.map((item, idx) => (
           <ParcelItemCard
             key={idx}
@@ -3729,25 +3746,28 @@ function ParcelFulfilmentContainer({
             onRemove={() => removeItem(idx)}
           />
         ))}
+        {items.length === 0 && (
+          <p className={`text-[11px] ${k.muted} text-center py-3`}>No items in this parcel</p>
+        )}
       </div>
 
       {/* Delivery address */}
       {selectedAddress && (
-        <div className={`flex items-start gap-2 p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-          <MapPin size={14} className={`${k.muted} mt-0.5 flex-shrink-0`} />
-          <p className={`text-xs ${isDark ? 'text-white/70' : 'text-slate-700'}`}>{selectedAddress}</p>
+        <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+          <MapPin size={12} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+          <p className={`text-[11px] ${isDark ? 'text-white/60' : 'text-slate-600'}`}>{selectedAddress}</p>
         </div>
       )}
 
       {/* Courier + Tracking + Ship */}
-      <div className={`rounded-[24px] p-8 space-y-6 border ${isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-slate-50 border-slate-200'}`}>
-        <div className="grid grid-cols-2 gap-6">
+      <div className={`rounded-xl p-4 space-y-3 border ${isDark ? 'bg-[#1a1d2e] border-[#2a3050]' : 'bg-slate-50 border-slate-200'}`}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Courier Service</label>
+            <label className={`block text-[10px] font-medium mb-1.5 ${k.muted}`}>Courier</label>
             <select
               value={courier}
               onChange={e => setCourier(e.target.value)}
-              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-accent transition-all ${k.input}`}
+              className={`w-full text-[12px] rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`}
             >
               <option value="">Choose courier</option>
               {(merchantSettings?.shippingCompanies || []).map((c: string) => (
@@ -3756,36 +3776,36 @@ function ParcelFulfilmentContainer({
             </select>
           </div>
           <div>
-            <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Tracking Reference</label>
+            <label className={`block text-[10px] font-medium mb-1.5 ${k.muted}`}>Tracking</label>
             <input
               placeholder="e.g. TH12345678"
               value={tracking}
               onChange={e => setTracking(e.target.value)}
-              className={`w-full text-sm rounded-2xl px-4 py-3.5 border outline-none focus:border-accent transition-all ${k.input}`}
+              className={`w-full text-[12px] rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`}
             />
           </div>
         </div>
 
-        {shipError && <p className="text-xs font-semibold text-red-500">{shipError}</p>}
+        {shipError && <p className="text-[11px] font-medium text-red-500">{shipError}</p>}
 
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             onClick={handleShip}
             disabled={shipping || items.length === 0}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-[20px] text-sm font-black text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[12px] font-bold text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 shadow-lg shadow-accent/20"
             style={{ background: 'var(--accent-gradient)' }}
           >
-            <Truck size={16} /> {shipping ? 'Shipping...' : 'Ship Parcel'}
+            <Truck size={14} /> {shipping ? 'Shipping...' : 'Ship Parcel'}
           </button>
           <button
             onClick={() => window.print()}
             title="Print shipping label"
             aria-label="Print shipping label"
-            className={`flex items-center justify-center gap-2 px-5 py-4 rounded-[20px] text-sm font-black border transition-all active:scale-95 ${
+            className={`flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-[12px] font-medium border transition-all active:scale-95 ${
               isDark ? 'border-[#2a3050] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-slate-300 text-slate-600 hover:border-accent hover:text-accent'
             }`}
           >
-            <Printer size={16} />
+            <Printer size={14} /> Print
           </button>
         </div>
       </div>
@@ -3827,63 +3847,71 @@ function ParcelItemCard({
   }, [name, qty, price]);
 
   return (
-    <article className={`rounded-2xl border p-5 space-y-4 ${
-      isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-white border-slate-200'
+    <article className={`rounded-xl border p-3 space-y-3 ${
+      isDark ? 'bg-[#1a1d2e] border-[#2a3050]' : 'bg-slate-50 border-slate-200'
     }`}>
-      <div className="flex items-start justify-between gap-3">
+      {/* Name row */}
+      <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
-          <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Product Name</label>
           <input
             value={name}
             onChange={e => setName(e.target.value)}
-            className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+            className={`w-full text-[12px] font-medium rounded-lg px-2.5 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
           />
           {item.variantLabel && (
-            <p className={`text-[9px] ${k.muted} mt-1 italic`}>{item.variantLabel}</p>
+            <p className={`text-[10px] ${k.muted} mt-0.5 italic`}>{item.variantLabel}</p>
           )}
         </div>
         <button
           onClick={onRemove}
           aria-label={`Remove ${name}`}
-          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${isDark ? 'text-[#8b92ad] hover:bg-white/10 hover:text-red-400' : 'text-[#8b92ad] hover:bg-black/5 hover:text-red-500'}`}
+          className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+            isDark
+              ? 'text-red-500/40 hover:text-red-400 hover:bg-red-500/10'
+              : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
+          }`}
         >
-          <Trash2 size={14} />
+          <Trash2 size={13} />
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Qty</label>
+      {/* Qty / Price / Total */}
+      <div className="flex items-center gap-2">
+        {/* Qty stepper — fixed width */}
+        <div className="w-28 flex-shrink-0">
+          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Qty</p>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setQty(Math.max(1, qty - 1))}
               aria-label="Decrease qty"
-              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+              className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
             >
-              <Minus size={12} />
+              <Minus size={10} />
             </button>
-            <span className={`w-8 text-center text-xs font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{qty}</span>
+            <span className={`w-7 text-center text-[12px] font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{qty}</span>
             <button
               onClick={() => setQty(qty + 1)}
               aria-label="Increase qty"
-              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+              className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
             >
-              <Plus size={12} />
+              <Plus size={10} />
             </button>
           </div>
         </div>
-        <div>
-          <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Price ({localCurrency})</label>
+        {/* Price — flexible */}
+        <div className="flex-1 min-w-0">
+          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Price ({localCurrency})</p>
           <input
             type="number"
             value={price}
             onChange={e => setPrice(Math.max(0, parseFloat(e.target.value) || 0))}
-            className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+            className={`w-full text-[12px] rounded-lg px-2.5 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
           />
         </div>
-        <div>
-          <label className={`block text-[9px] font-black uppercase tracking-widest mb-2 ${k.muted}`}>Total</label>
-          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+        {/* Total — fixed width */}
+        <div className="w-20 flex-shrink-0 text-right">
+          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Total</p>
+          <p className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             ฿{fmt(cost)}
           </p>
         </div>
