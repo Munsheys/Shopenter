@@ -210,6 +210,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const containerRef = useRef<HTMLDivElement>(null);
   const evsRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [evsReconnecting, setEvsReconnecting] = useState(false);
+  const scrollPanelRef = useRef<HTMLDivElement>(null);
+  const [activeSection, setActiveSection] = useState('section-orders');
 
   useEffect(() => {
     function connect() {
@@ -528,6 +530,24 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   // Runs on customer change or whenever order list is refreshed
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomer?._id, allOrders.length]);
+
+  // Track which section is in view for active tab highlight
+  useEffect(() => {
+    const el = scrollPanelRef.current;
+    if (!el) return;
+    const SECTIONS = ['section-orders', 'section-products', 'section-addresses', 'section-parcels', 'section-intransit', 'section-history'];
+    const handleScroll = () => {
+      const containerTop = el.getBoundingClientRect().top;
+      let current = SECTIONS[0];
+      for (const id of SECTIONS) {
+        const node = el.querySelector(`[data-section="${id}"]`);
+        if (node && node.getBoundingClientRect().top <= containerTop + 100) current = id;
+      }
+      setActiveSection(current);
+    };
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [selectedCustomer?._id]);
 
   async function createTestOrder() {
     if (testOrderCreating || !selectedCustomer) return;
@@ -1230,11 +1250,53 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               </div>
             </div>
 
+            {/* Section tab bar */}
+            {(() => {
+              const TABS = [
+                { key: 'section-orders',    label: 'Orders',     count: activeOrders.length },
+                { key: 'section-products',  label: 'To Fulfil',  count: productsToFulfil.length },
+                { key: 'section-addresses', label: 'Addresses',  count: 0 },
+                { key: 'section-parcels',   label: 'Parcels',    count: pendingFulfilments.length },
+                { key: 'section-intransit', label: 'In Transit', count: inTransitGroups.length },
+                { key: 'section-history',   label: 'History',    count: historyOrders.length },
+              ];
+              return (
+                <div className={`flex items-center gap-0.5 px-4 py-2 border-b flex-shrink-0 overflow-x-auto ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-white/80 border-slate-200 backdrop-blur-sm'}`}>
+                  {TABS.map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => {
+                        const node = scrollPanelRef.current?.querySelector(`[data-section="${tab.key}"]`);
+                        node?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
+                        activeSection === tab.key
+                          ? isDark ? 'bg-accent/20 text-accent' : 'bg-accent/10 text-accent'
+                          : isDark ? 'text-[#8b92ad] hover:text-white/80' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      {tab.label}
+                      {tab.count > 0 && (
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
+                          activeSection === tab.key
+                            ? isDark ? 'bg-accent/30 text-accent' : 'bg-accent/20 text-accent'
+                            : isDark ? 'bg-white/10 text-white/50' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto relative">
+            <div ref={scrollPanelRef} className="flex-1 overflow-y-auto relative">
               <div className="p-10 space-y-10 max-w-5xl mx-auto">
 
                 {/* ORDER BANNERS — Top section showing active orders with [+] buttons */}
+                <div data-section="section-orders" />
                 {activeOrders.length > 0 && (
                   <section aria-label="Active order banners">
                     <SectionLabel>Orders</SectionLabel>
@@ -1290,6 +1352,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 )}
 
                 {/* PRODUCTS TO FULFIL — Middle section with editable product cards */}
+                <div data-section="section-products" />
                 {productsToFulfil.length > 0 && (
                   <section aria-label="Products to fulfil">
                     <SectionLabel>Products to Fulfil</SectionLabel>
@@ -1380,7 +1443,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 )}
 
                 {/* Delivery Addresses */}
-                <section aria-label="Delivery addresses">
+                <section data-section="section-addresses" aria-label="Delivery addresses">
                   <SectionLabel>Delivery Addresses</SectionLabel>
                   <AddressSection
                     customer={selectedCustomer}
@@ -1394,6 +1457,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 </section>
 
                 {/* PARCELS AWAITING SHIPMENT — pending fulfilments ready to be shipped */}
+                <div data-section="section-parcels" />
                 {pendingFulfilments.length > 0 && (
                   <section aria-label="Parcels awaiting shipment">
                     <SectionLabel>Parcels Awaiting Shipment</SectionLabel>
@@ -1456,6 +1520,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 )}
 
                 {/* In Transit */}
+                <div data-section="section-intransit" />
                 {inTransitGroups.length > 0 && (
                   <section aria-label="Orders in transit">
                     <SectionLabel>In Transit</SectionLabel>
@@ -1497,7 +1562,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 )}
 
                 {/* Order History */}
-                <section aria-label="Order history">
+                <section data-section="section-history" aria-label="Order history">
                   <div className="flex items-center justify-between mb-3">
                     <SectionLabel>Order History</SectionLabel>
                     {historyOrders.length > 0 && totalProfit > 0 && (
@@ -3475,7 +3540,7 @@ function OrderBanner({
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                     isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
                   }`}>
-                    📦{inParcelQty}
+                    Boxed ×{inParcelQty}
                   </span>
                 )}
                 {pendingQty > 0 && (
@@ -3697,13 +3762,16 @@ function ParcelFulfilmentContainer({
     onUpdateItems(updated).catch(() => setItems(fulfilment.items || []));
   }
 
-  async function handleShip() {
+  async function handleShipAndPrint() {
     if (!courier || !tracking) { setShipError('Courier and tracking number are required'); return; }
     setShipError('');
     setShipping(true);
     await onShip(courier, tracking);
     setShipping(false);
+    window.print();
   }
+
+  const tableBorder = isDark ? 'border-[#2a3050]' : 'border-slate-200';
 
   return (
     <article className={`rounded-2xl border p-5 space-y-4 transition-all ${
@@ -3733,22 +3801,45 @@ function ParcelFulfilmentContainer({
         </button>
       </div>
 
-      {/* Items — editable cards */}
-      <div className="space-y-2">
-        {items.map((item, idx) => (
-          <ParcelItemCard
-            key={idx}
-            item={item}
-            isDark={isDark}
-            k={k}
-            merchantSettings={merchantSettings}
-            onUpdate={(updates) => updateItem(idx, updates)}
-            onRemove={() => removeItem(idx)}
-          />
-        ))}
-        {items.length === 0 && (
-          <p className={`text-[11px] ${k.muted} text-center py-3`}>No items in this parcel</p>
-        )}
+      {/* Items — compact table */}
+      <div className={`rounded-xl overflow-hidden border ${tableBorder}`}>
+        <table className="w-full">
+          <thead>
+            <tr className={`text-left border-b ${tableBorder} ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+              <th className={`py-2 px-3 text-[10px] font-medium ${k.muted}`}>Product</th>
+              <th className={`py-2 px-3 text-[10px] font-medium text-center w-24 ${k.muted}`}>Qty</th>
+              <th className={`py-2 px-3 text-[10px] font-medium text-right w-24 ${k.muted}`}>Price</th>
+              <th className={`py-2 px-3 text-[10px] font-medium text-right w-20 ${k.muted}`}>Total</th>
+              <th className="w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, idx) => (
+              <ParcelItemRow
+                key={idx}
+                item={item}
+                isDark={isDark}
+                k={k}
+                onUpdate={(updates) => updateItem(idx, updates)}
+                onRemove={() => removeItem(idx)}
+              />
+            ))}
+            {items.length === 0 && (
+              <tr>
+                <td colSpan={5} className={`py-4 text-center text-[11px] ${k.muted}`}>No items yet</td>
+              </tr>
+            )}
+          </tbody>
+          <tfoot>
+            <tr className={`border-t ${tableBorder} ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+              <td colSpan={3} className={`py-2.5 px-3 text-right text-[11px] font-medium ${k.muted}`}>Grand Total</td>
+              <td className={`py-2.5 px-3 text-right text-[13px] font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+                ฿{fmt(totalPrice)}
+              </td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
       </div>
 
       {/* Delivery address */}
@@ -3788,45 +3879,31 @@ function ParcelFulfilmentContainer({
 
         {shipError && <p className="text-[11px] font-medium text-red-500">{shipError}</p>}
 
-        <div className="flex gap-2">
-          <button
-            onClick={handleShip}
-            disabled={shipping || items.length === 0}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[12px] font-bold text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 shadow-lg shadow-accent/20"
-            style={{ background: 'var(--accent-gradient)' }}
-          >
-            <Truck size={14} /> {shipping ? 'Shipping...' : 'Ship Parcel'}
-          </button>
-          <button
-            onClick={() => window.print()}
-            title="Print shipping label"
-            aria-label="Print shipping label"
-            className={`flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-[12px] font-medium border transition-all active:scale-95 ${
-              isDark ? 'border-[#2a3050] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-slate-300 text-slate-600 hover:border-accent hover:text-accent'
-            }`}
-          >
-            <Printer size={14} /> Print
-          </button>
-        </div>
+        <button
+          onClick={handleShipAndPrint}
+          disabled={shipping || items.length === 0}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[12px] font-bold text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 shadow-lg shadow-accent/20"
+          style={{ background: 'var(--accent-gradient)' }}
+        >
+          <Truck size={14} /> {shipping ? 'Shipping...' : 'Ship Parcel & Print Label'}
+        </button>
       </div>
     </article>
   );
 }
 
-// ── Parcel Item Card ───────────────────────────────────────────────────────────
-// Editable card for an item within a parcel
-function ParcelItemCard({
+// ── Parcel Item Row ────────────────────────────────────────────────────────────
+// Editable table row for an item within a parcel
+function ParcelItemRow({
   item,
   isDark,
   k,
-  merchantSettings,
   onUpdate,
   onRemove,
 }: {
   item: FulfilmentItem;
   isDark: boolean;
   k: typeof DK;
-  merchantSettings?: any;
   onUpdate: (updates: Partial<FulfilmentItem>) => void;
   onRemove: () => void;
 }) {
@@ -3834,10 +3911,7 @@ function ParcelItemCard({
   const [qty, setQty] = useState(item.qty);
   const [price, setPrice] = useState(item.price);
 
-  const cost = price * qty;
-  const localCurrency = merchantSettings?.localCurrency || 'THB';
-
-  // Single consolidated debounce — avoids 3 racing PATCHes that last-write-wins clobber each other
+  // Single consolidated debounce — avoids racing PATCHes that last-write-wins clobber each other
   useEffect(() => {
     const changed = name !== item.name || qty !== item.qty || price !== item.price;
     if (!changed) return;
@@ -3846,77 +3920,69 @@ function ParcelItemCard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, qty, price]);
 
+  const rowBorder = isDark ? 'border-[#2a3050]' : 'border-slate-200';
+
   return (
-    <article className={`rounded-xl border p-3 space-y-3 ${
-      isDark ? 'bg-[#1a1d2e] border-[#2a3050]' : 'bg-slate-50 border-slate-200'
-    }`}>
-      {/* Name row */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            className={`w-full text-[12px] font-medium rounded-lg px-2.5 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
-          />
-          {item.variantLabel && (
-            <p className={`text-[10px] ${k.muted} mt-0.5 italic`}>{item.variantLabel}</p>
-          )}
+    <tr className={`border-b last:border-0 ${rowBorder} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50/60'} transition-colors`}>
+      {/* Name */}
+      <td className="py-2 px-3">
+        <input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          className={`w-full text-[12px] font-medium rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
+        />
+        {item.variantLabel && (
+          <p className={`text-[10px] ${k.muted} mt-0.5 italic`}>{item.variantLabel}</p>
+        )}
+      </td>
+      {/* Qty stepper */}
+      <td className="py-2 px-3">
+        <div className="flex items-center justify-center gap-1">
+          <button
+            onClick={() => setQty(Math.max(1, qty - 1))}
+            aria-label="Decrease qty"
+            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+          >
+            <Minus size={9} />
+          </button>
+          <span className={`w-6 text-center text-[12px] font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{qty}</span>
+          <button
+            onClick={() => setQty(qty + 1)}
+            aria-label="Increase qty"
+            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
+          >
+            <Plus size={9} />
+          </button>
         </div>
+      </td>
+      {/* Unit price */}
+      <td className="py-2 px-3">
+        <input
+          type="number"
+          value={price}
+          onChange={e => setPrice(Math.max(0, parseFloat(e.target.value) || 0))}
+          className={`w-full text-[12px] text-right rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
+        />
+      </td>
+      {/* Line total */}
+      <td className={`py-2 px-3 text-right text-[12px] font-bold whitespace-nowrap ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+        ฿{fmt(price * qty)}
+      </td>
+      {/* Remove */}
+      <td className="py-2 px-2">
         <button
           onClick={onRemove}
           aria-label={`Remove ${name}`}
-          className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+          className={`p-1 rounded-lg transition-colors ${
             isDark
               ? 'text-red-500/40 hover:text-red-400 hover:bg-red-500/10'
               : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
           }`}
         >
-          <Trash2 size={13} />
+          <Trash2 size={12} />
         </button>
-      </div>
-
-      {/* Qty / Price / Total */}
-      <div className="flex items-center gap-2">
-        {/* Qty stepper — fixed width */}
-        <div className="w-28 flex-shrink-0">
-          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Qty</p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setQty(Math.max(1, qty - 1))}
-              aria-label="Decrease qty"
-              className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
-            >
-              <Minus size={10} />
-            </button>
-            <span className={`w-7 text-center text-[12px] font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{qty}</span>
-            <button
-              onClick={() => setQty(qty + 1)}
-              aria-label="Increase qty"
-              className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
-            >
-              <Plus size={10} />
-            </button>
-          </div>
-        </div>
-        {/* Price — flexible */}
-        <div className="flex-1 min-w-0">
-          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Price ({localCurrency})</p>
-          <input
-            type="number"
-            value={price}
-            onChange={e => setPrice(Math.max(0, parseFloat(e.target.value) || 0))}
-            className={`w-full text-[12px] rounded-lg px-2.5 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
-          />
-        </div>
-        {/* Total — fixed width */}
-        <div className="w-20 flex-shrink-0 text-right">
-          <p className={`text-[10px] font-medium mb-1 ${k.muted}`}>Total</p>
-          <p className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-            ฿{fmt(cost)}
-          </p>
-        </div>
-      </div>
-    </article>
+      </td>
+    </tr>
   );
 }
 
