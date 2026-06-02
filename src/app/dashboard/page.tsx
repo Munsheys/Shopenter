@@ -71,6 +71,10 @@ export default function DashboardPage() {
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const [settingsDirty, setSettingsDirty] = useState(false);
+  const [productsDirty, setProductsDirty] = useState(false);
+  const productsSaveRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const productsDiscardRef = useRef<(() => void) | undefined>(undefined);
+  const [unsavedContext, setUnsavedContext] = useState<'settings' | 'products'>('settings');
   const [jumpToUserId, setJumpToUserId] = useState<string | null>(null);
   const [jumpToOrderId, setJumpToOrderId] = useState<string | null>(null);
   const [pendingTab, setPendingTab] = useState<Tab | null>(null);
@@ -308,15 +312,42 @@ export default function DashboardPage() {
     setPendingTab(null);
   }, []);
 
+  const handleSaveProductsPending = useCallback(async () => {
+    if (!productsSaveRef.current) return;
+    setIsSavingSettings(true);
+    try {
+      await productsSaveRef.current();
+      setProductsDirty(false);
+      if (pendingTab) { setActiveTab(pendingTab); setPendingTab(null); }
+      setShowUnsavedModal(false);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  }, [pendingTab]);
+
+  const handleDiscardProducts = useCallback(() => {
+    productsDiscardRef.current?.();
+    setProductsDirty(false);
+    if (pendingTab) { setActiveTab(pendingTab); setPendingTab(null); }
+    setShowUnsavedModal(false);
+  }, [pendingTab]);
+
+  const handleProductsDirtyChange = useCallback((dirty: boolean, save: () => Promise<void>, discard: () => void) => {
+    setProductsDirty(dirty);
+    productsSaveRef.current = save;
+    productsDiscardRef.current = discard;
+  }, []);
+
   const handleTabSwitch = useCallback((tab: Tab) => {
     setMobileMoreOpen(false);
     if (activeTab === 'settings' && settingsDirty && tab !== 'settings') {
-      setPendingTab(tab);
-      setShowUnsavedModal(true);
+      setPendingTab(tab); setUnsavedContext('settings'); setShowUnsavedModal(true);
+    } else if (activeTab === 'products' && productsDirty && tab !== 'products') {
+      setPendingTab(tab); setUnsavedContext('products'); setShowUnsavedModal(true);
     } else {
       setActiveTab(tab);
     }
-  }, [activeTab, settingsDirty]);
+  }, [activeTab, settingsDirty, productsDirty]);
 
   useEffect(() => {
     const updateTopNav = () => {
@@ -558,7 +589,7 @@ export default function DashboardPage() {
 
         <div key={`products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto pb-16 md:pb-0' : 'hidden'}>
           <ErrorBoundary>
-            <ProductManagement theme={theme} t={{}} onLimitHit={handleLimitHit} />
+            <ProductManagement theme={theme} t={{}} onLimitHit={handleLimitHit} onDirtyChange={handleProductsDirtyChange} />
           </ErrorBoundary>
         </div>
 
@@ -739,8 +770,8 @@ export default function DashboardPage() {
       <UnsavedChangesModal
         isOpen={showUnsavedModal}
         theme={theme}
-        onSave={handleSaveSettings}
-        onDiscard={handleDiscardSettings}
+        onSave={unsavedContext === 'products' ? handleSaveProductsPending : handleSaveSettings}
+        onDiscard={unsavedContext === 'products' ? handleDiscardProducts : handleDiscardSettings}
         onCancel={handleCancelNavigation}
         isSaving={isSavingSettings}
       />

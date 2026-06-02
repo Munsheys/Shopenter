@@ -648,6 +648,7 @@ export function ProductModal({
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const [imagePickerRow, setImagePickerRow] = useState<number | null>(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const prevIdRef = useRef<string | null>(null);
   const prevOptionsRef = useRef<string>('');
 
@@ -657,12 +658,14 @@ export function ProductModal({
         const initOpts = suggestedOptions ?? [];
         const initVariants = cartesian(initOpts).map(combo => ({ combination: combo, imageUrl: '', price: '', cost: '', stock: '0' }));
         setForm({ ...EMPTY_FORM, trackStock: defaultTrackStock, soldCurrency: defaultSoldCurrency, costCurrency: defaultCostCurrency, options: initOpts, variants: initVariants });
+        setTouched({});
         prevOptionsRef.current = JSON.stringify(initOpts);
         prevIdRef.current = null;
       } else {
         const currentId = (initialData as any)?._id;
         if (currentId !== prevIdRef.current) {
           setForm(initialData);
+          setTouched({});
           prevOptionsRef.current = JSON.stringify(initialData.options || []);
           prevIdRef.current = currentId;
         }
@@ -733,7 +736,7 @@ export function ProductModal({
             <h3 id="product-modal-title" className={cn("text-xl font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
             <p className="text-xs text-[#8b92ad]">{quickOrderMode ? 'Fill what you need now — manage stock and photos later' : 'Options auto-generate variant combinations'}</p>
           </div>
-          <button onClick={onClose} className={cn("w-8 h-8 flex items-center justify-center rounded-full", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
+          <button onClick={onClose} aria-label="Close" className={cn("w-8 h-8 flex items-center justify-center rounded-full", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
         </div>
 
         <div className="px-8 py-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -753,7 +756,9 @@ export function ProductModal({
             <div>
               <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Display Name <span className="text-red-500">*</span></label>
               <input type="text" value={form.name} onChange={e => updateForm({ name: e.target.value })} placeholder="e.g. Classic Tee"
-                className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                onBlur={() => setTouched(t => ({ ...t, name: true }))}
+                className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]", touched.name && !form.name.trim() && "!border-red-500")} />
+              {touched.name && !form.name.trim() && <p role="alert" className="text-xs text-red-500 mt-1">Display name is required</p>}
             </div>
 
             {/* Base Price + Base Cost with Currencies */}
@@ -869,6 +874,7 @@ export function ProductModal({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    aria-label="Decrease stock"
                     onClick={() => updateForm({ simpleStock: String(Math.max(0, (parseInt(form.simpleStock) || 0) - 1)) })}
                     className={cn("w-9 h-9 rounded-xl border text-lg font-bold flex items-center justify-center transition-colors active:scale-95",
                       theme === 'dark' ? "border-[#1f2335] text-white hover:bg-[#2d324d]" : "border-[#e2e5ef] text-[#1a1d2e] hover:bg-[#f4f6f9]")}
@@ -882,6 +888,7 @@ export function ProductModal({
                   />
                   <button
                     type="button"
+                    aria-label="Increase stock"
                     onClick={() => updateForm({ simpleStock: String((parseInt(form.simpleStock) || 0) + 1) })}
                     className={cn("w-9 h-9 rounded-xl border text-lg font-bold flex items-center justify-center transition-colors active:scale-95",
                       theme === 'dark' ? "border-[#1f2335] text-white hover:bg-[#2d324d]" : "border-[#e2e5ef] text-[#1a1d2e] hover:bg-[#f4f6f9]")}
@@ -1105,7 +1112,7 @@ function StockModal({ product, onClose, onSave, isSaving, theme, stockError = ''
             <h3 id="stock-modal-title" className={cn("text-lg font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Manage Stock</h3>
             <p className="text-xs text-[#8b92ad] truncate max-w-[220px]">{product.name}</p>
           </div>
-          <button onClick={onClose} className={cn("w-8 h-8 flex items-center justify-center rounded-full", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
+          <button onClick={onClose} aria-label="Close" className={cn("w-8 h-8 flex items-center justify-center rounded-full", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
         </div>
 
         <div className="px-8 py-6 space-y-3 max-h-[60vh] overflow-y-auto">
@@ -1166,7 +1173,7 @@ function StockModal({ product, onClose, onSave, isSaving, theme, stockError = ''
 
 // --- Main ProductManagement Hub ---
 
-const ProductManagement = React.memo(function ProductManagement({ theme, t, onLimitHit }: { theme?: 'light' | 'dark', t: any, onLimitHit?: (feature: string, limit?: number, current?: number) => void }) {
+const ProductManagement = React.memo(function ProductManagement({ theme, t, onLimitHit, onDirtyChange }: { theme?: 'light' | 'dark', t: any, onLimitHit?: (feature: string, limit?: number, current?: number) => void, onDirtyChange?: (dirty: boolean, save: () => Promise<void>, discard: () => void) => void }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1446,6 +1453,14 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
     setPendingEdits({});
     loadProducts();
   };
+
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
+  useEffect(() => {
+    const hasPending = Object.keys(pendingEdits).length > 0;
+    onDirtyChangeRef.current?.(hasPending, handleSaveAllPending, handleDiscardPending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingEdits]);
 
   const handleStockSave = async (updatedVariants: any[]) => {
     if (!stockProduct) return;
