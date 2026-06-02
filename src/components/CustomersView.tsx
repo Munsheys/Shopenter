@@ -1238,15 +1238,17 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     <SectionLabel>Orders</SectionLabel>
                     <div className="space-y-3 mt-3">
                       {activeOrders.map(order => {
-                        // Compute pending items from order items minus fulfilments
                         const fulfilments = fulfilmentsCache[order._id] || [];
-                        const computePendingQty = (itemName: string): number => {
-                          const orderItem = order.items?.find(i => i.name === itemName);
-                          if (!orderItem) return 0;
-                          const shippedQty = fulfilments.reduce((s, f) =>
-                            s + (f.items?.find(fi => fi.name === itemName)?.qty || 0), 0);
-                          return Math.max(0, orderItem.qty - shippedQty);
-                        };
+                        // Only count shipped/delivered fulfilments as "shipped" — pending parcels are not shipped yet
+                        const computeShippedQty = (itemName: string): number =>
+                          fulfilments
+                            .filter(f => ['shipped', 'delivered'].includes(f.status))
+                            .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName)?.qty || 0), 0);
+                        // Items sitting in a pending parcel (not yet shipped)
+                        const computeInParcelQty = (itemName: string): number =>
+                          fulfilments
+                            .filter(f => f.status === 'pending')
+                            .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName)?.qty || 0), 0);
 
                         return (
                           <OrderBanner
@@ -1254,6 +1256,13 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             order={order}
                             isDark={isDark}
                             k={k}
+                            customerAddresses={selectedCustomer?.addresses || []}
+                            onAddAddress={async (addr) => {
+                              await addAddress(addr);
+                              // Auto-select the newly added address
+                              const newIdx = (selectedCustomer?.addresses || []).length;
+                              setSelectedAddressIdx(newIdx);
+                            }}
                             onAddProductItem={(item) => {
                               const newItem: ProductToFulfil = {
                                 id: `${item.productId || 'unknown'}-${Date.now()}`,
@@ -1268,7 +1277,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             onSendQR={() => sendQR(order._id)}
                             onMarkPaid={() => markPaid(order._id)}
                             onCancel={() => confirmCancelOrder(order._id)}
-                            computePendingQty={computePendingQty}
+                            computeShippedQty={computeShippedQty}
+                            computeInParcelQty={computeInParcelQty}
                             isActing={actingOrderIds.has(order._id)}
                           />
                         );
@@ -1305,22 +1315,48 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           onMoveToParcel={async () => {
                             setActingOrderIds(prev => new Set(prev).add(item.orderId));
                             try {
-                              const res = await fetch(`/api/orders/${item.orderId}/fulfilments`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  items: [{ productId: item.productId, name: item.name, qty: item.qty, price: item.price }],
-                                  address: selectedCustomer?.addresses[selectedAddressIdx] || '',
-                                  shipCostTHB: 0,
-                                  status: 'pending'
-                                }),
-                              });
-                              if (res.ok) {
+                              // Find existing pending parcel across ALL active orders (one parcel at a time)
+                              let existingParcel: Fulfilment | undefined;
+                              for (const o of activeOrders) {
+                                const found = (fulfilmentsCache[o._id] || []).find(f => f.status === 'pending');
+                                if (found) { existingParcel = found; break; }
+                              }
+
+                              let ok = false;
+                              if (existingParcel) {
+                                // Append to existing pending parcel
+                                const newItems = [
+                                  ...(existingParcel.items || []),
+                                  { productId: item.productId, name: item.name, qty: item.qty, price: item.price }
+                                ];
+                                const res = await fetch(`/api/fulfilments/${existingParcel._id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ items: newItems }),
+                                });
+                                ok = res.ok;
+                                if (ok) await fetchFulfilments(existingParcel.orderId);
+                              } else {
+                                // Create a new pending parcel
+                                const res = await fetch(`/api/orders/${item.orderId}/fulfilments`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    items: [{ productId: item.productId, name: item.name, qty: item.qty, price: item.price }],
+                                    address: selectedCustomer?.addresses[selectedAddressIdx] || '',
+                                    shipCostTHB: 0,
+                                    status: 'pending',
+                                  }),
+                                });
+                                ok = res.ok;
+                                if (ok) await fetchFulfilments(item.orderId);
+                              }
+
+                              if (ok) {
                                 setProductsToFulfil(prev => prev.filter(p => p.id !== item.id));
-                                await fetchFulfilments(item.orderId);
                                 onOrderMutated?.();
                               } else {
-                                setConfirm({ open: true, title: 'Failed', message: 'Could not create parcel. Please try again.', onConfirm: () => {} });
+                                setConfirm({ open: true, title: 'Failed', message: 'Could not add to parcel. Please try again.', onConfirm: () => {} });
                               }
                             } catch {
                               setConfirm({ open: true, title: 'Error', message: 'Something went wrong. Please try again.', onConfirm: () => {} });
@@ -1334,6 +1370,20 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     </div>
                   </section>
                 )}
+
+                {/* Delivery Addresses */}
+                <section aria-label="Delivery addresses">
+                  <SectionLabel>Delivery Addresses</SectionLabel>
+                  <AddressSection
+                    customer={selectedCustomer}
+                    isDark={isDark}
+                    k={k}
+                    selectedIdx={selectedAddressIdx}
+                    onSelect={setSelectedAddressIdx}
+                    onAdd={addAddress}
+                    onRemove={confirmDeleteAddress}
+                  />
+                </section>
 
                 {/* PARCELS AWAITING SHIPMENT — pending fulfilments ready to be shipped */}
                 {pendingFulfilments.length > 0 && (
@@ -1372,20 +1422,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     </div>
                   </section>
                 )}
-
-                {/* Delivery Addresses — shown between active orders and parcel so address is visible before packing */}
-                <section aria-label="Delivery addresses">
-                  <SectionLabel>Delivery Addresses</SectionLabel>
-                  <AddressSection
-                    customer={selectedCustomer}
-                    isDark={isDark}
-                    k={k}
-                    selectedIdx={selectedAddressIdx}
-                    onSelect={setSelectedAddressIdx}
-                    onAdd={addAddress}
-                    onRemove={confirmDeleteAddress}
-                  />
-                </section>
 
                 {/* Parcel Fulfillment */}
                 {parcelOrders.length > 0 && (
@@ -3318,27 +3354,37 @@ function OrderBanner({
   order,
   isDark,
   k,
+  customerAddresses,
+  onAddAddress,
   onAddProductItem,
   onSendQR,
   onMarkPaid,
   onCancel,
-  computePendingQty,
+  computeShippedQty,
+  computeInParcelQty,
   isActing,
 }: {
   order: Order;
   isDark: boolean;
   k: typeof DK;
+  customerAddresses: string[];
+  onAddAddress: (addr: string) => void;
   onAddProductItem: (item: OrderItem) => void;
   onSendQR: () => void;
   onMarkPaid: () => void;
   onCancel: () => void;
-  computePendingQty: (itemName: string) => number;
+  computeShippedQty: (itemName: string) => number;
+  computeInParcelQty: (itemName: string) => number;
   isActing: boolean;
 }) {
   const status = STATUS_COLORS[order.status] || STATUS_COLORS.pending;
   const label = STATUS_LABEL[order.status] || 'Order';
 
   const orderItems = order.items || [];
+
+  // Detect if order's address is missing from the customer's saved list
+  const orderAddr = order.address?.trim();
+  const addrInList = !orderAddr || customerAddresses.some(a => a.trim() === orderAddr);
 
   return (
     <article className={`rounded-2xl border p-5 space-y-4 ${
@@ -3361,33 +3407,56 @@ function OrderBanner({
             Order #{order._id.slice(-6).toUpperCase()}
           </p>
         </div>
-        <div className="text-right">
-          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-            ฿{fmt(order.soldTHB)}
-          </p>
-          {order.address && (
-            <p className={`text-[10px] mt-1 ${k.muted} max-w-xs`}>{order.address}</p>
+        <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+          ฿{fmt(order.soldTHB)}
+        </p>
+      </div>
+
+      {/* Order address — show if present; warn + Add button if not in saved list */}
+      {orderAddr && (
+        <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
+          addrInList
+            ? (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
+            : (isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200')
+        }`}>
+          <MapPin size={12} className={`flex-shrink-0 mt-0.5 ${addrInList ? k.muted : 'text-amber-500'}`} />
+          <p className={`text-[10px] flex-1 leading-relaxed ${isDark ? 'text-white/70' : 'text-slate-700'}`}>{orderAddr}</p>
+          {!addrInList && (
+            <button
+              onClick={() => onAddAddress(orderAddr)}
+              className="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex-shrink-0"
+            >
+              + Add to list
+            </button>
           )}
         </div>
-      </div>
+      )}
 
       {/* Line Items with [+] buttons for pending items */}
       <div className="space-y-2 py-2 border-y border-dashed border-white/10">
         {orderItems.map((item, idx) => {
-          const pendingQty = computePendingQty(item.name);
-          const shippedQty = item.qty - pendingQty;
+          const shippedQty = computeShippedQty(item.name);
+          const inParcelQty = computeInParcelQty(item.name);
+          const pendingQty = Math.max(0, item.qty - shippedQty - inParcelQty);
 
           return (
             <div key={idx} className="flex items-center justify-between gap-2 text-xs">
               <span className={isDark ? 'text-white' : 'text-[#1a1d2e]'}>
                 {item.name} ×{item.qty}
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
                 {shippedQty > 0 && (
                   <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                     isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
                   }`}>
-                    [✓ {shippedQty} shipped]
+                    ✓ {shippedQty} shipped
+                  </span>
+                )}
+                {inParcelQty > 0 && (
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                    isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
+                  }`}>
+                    📦 {inParcelQty} in parcel
                   </span>
                 )}
                 {pendingQty > 0 && (
@@ -3395,7 +3464,7 @@ function OrderBanner({
                     <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                       isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600'
                     }`}>
-                      [{pendingQty} pending]
+                      {pendingQty} pending
                     </span>
                     <button
                       onClick={() => onAddProductItem({ ...item, qty: pendingQty })}
@@ -3684,14 +3753,26 @@ function ParcelFulfilmentContainer({
 
         {shipError && <p className="text-xs font-semibold text-red-500">{shipError}</p>}
 
-        <button
-          onClick={handleShip}
-          disabled={shipping || items.length === 0}
-          className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-[20px] text-sm font-black text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
-          style={{ background: 'var(--accent-gradient)' }}
-        >
-          <Truck size={16} /> {shipping ? 'Shipping...' : 'Ship Parcel'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleShip}
+            disabled={shipping || items.length === 0}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-[20px] text-sm font-black text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
+            style={{ background: 'var(--accent-gradient)' }}
+          >
+            <Truck size={16} /> {shipping ? 'Shipping...' : 'Ship Parcel'}
+          </button>
+          <button
+            onClick={() => window.print()}
+            title="Print shipping label"
+            aria-label="Print shipping label"
+            className={`flex items-center justify-center gap-2 px-5 py-4 rounded-[20px] text-sm font-black border transition-all active:scale-95 ${
+              isDark ? 'border-[#2a3050] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-slate-300 text-slate-600 hover:border-accent hover:text-accent'
+            }`}
+          >
+            <Printer size={16} />
+          </button>
+        </div>
       </div>
     </article>
   );
