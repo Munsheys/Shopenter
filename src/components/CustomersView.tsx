@@ -1329,7 +1329,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
             {/* Scrollable content */}
             <div ref={scrollPanelRef} className="flex-1 overflow-y-auto relative">
-              <div className="p-10 space-y-10 max-w-5xl mx-auto">
+              <div className="p-4 sm:p-6 lg:p-10 space-y-6 sm:space-y-8 lg:space-y-10 max-w-5xl mx-auto">
 
                 {/* ORDER BANNERS — Top section showing active orders with [+] buttons */}
                 <div data-section="section-orders" />
@@ -3648,10 +3648,9 @@ function BoxControl({ max, isDark, k, isActing, onBox }: {
       <button
         onClick={() => onBox(qty)}
         disabled={isActing}
-        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:opacity-50 ${
-          isDark ? 'bg-accent/20 text-accent hover:bg-accent/30' : 'bg-accent/10 text-accent hover:bg-accent/20'
-        }`}
-      >Add to Parcel</button>
+        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+        style={{ background: 'var(--accent-gradient)' }}
+      ><Package size={10} />Parcel</button>
     </div>
   );
 }
@@ -3727,7 +3726,7 @@ function OrderBanner({
         aria-expanded={isExpanded}
         onClick={() => onToggle()}
         onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && onToggle()}
-        className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none transition-colors ${
+        className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5 cursor-pointer select-none transition-colors ${
           isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
         }`}
       >
@@ -3757,14 +3756,14 @@ function OrderBanner({
         </div>
 
         {/* Products count badge */}
-        <span className={`text-[10px] font-medium px-2 py-1 rounded-lg border flex-shrink-0 ${
+        <span className={`text-[10px] font-medium px-2 py-1 rounded-lg border flex-shrink-0 hidden sm:inline-flex ${
           isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
         }`}>
           {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
         </span>
 
-        {/* Progress bar — narrow */}
-        <div className="w-32 flex-shrink-0">
+        {/* Progress bar — narrow, hidden on very small screens */}
+        <div className="w-24 sm:w-32 flex-shrink-0 hidden xs:block">
           <div className="flex items-center justify-between mb-1">
             <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
           </div>
@@ -3777,7 +3776,7 @@ function OrderBanner({
         </div>
 
         {/* Inline quick actions */}
-        <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-1 flex-shrink-0 ml-auto" onClick={e => e.stopPropagation()}>
           {order.status === 'pending' && (
             <>
               <button
@@ -3811,7 +3810,8 @@ function OrderBanner({
               <button
                 onClick={() => onBoxItems(pendingItems)}
                 disabled={isActing}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${isDark ? 'border-accent/30 text-accent hover:bg-accent/10' : 'border-accent/30 text-accent hover:bg-accent/5'}`}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                style={{ background: 'var(--accent-gradient)' }}
               >
                 <Package size={10} /> Parcel
               </button>
