@@ -595,12 +595,15 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       if (!targetFulfilment) return;
 
       const newItems = (targetFulfilment.items || []).filter(i => i.name !== itemName);
-      // Always PATCH (even to empty) so the parcel card stays visible — merchant can cancel it manually
-      await fetch(`/api/fulfilments/${targetFulfilment._id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: newItems }),
-      });
+      if (newItems.length === 0) {
+        await fetch(`/api/fulfilments/${targetFulfilment._id}`, { method: 'DELETE' });
+      } else {
+        await fetch(`/api/fulfilments/${targetFulfilment._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: newItems }),
+        });
+      }
       await fetchFulfilments(targetFulfilment.orderId);
       if (targetFulfilment.orderId !== orderId) await fetchFulfilments(orderId);
       onOrderMutated?.();
