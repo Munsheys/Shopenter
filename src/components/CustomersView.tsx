@@ -143,7 +143,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [actingOrderIds, setActingOrderIds] = useState<Set<string>>(new Set());
   const [batchActing, setBatchActing] = useState(false);
   const [batchEditTotal, setBatchEditTotal] = useState('');
-  type EditingOrderState = { id: string; items: EditLineItem[]; costTHB: number; shipCostTHB: number };
+  type EditingOrderState = { id: string; items: EditLineItem[]; costTHB: number; shipCostTHB: number; discount: number };
   const [editingOrder, setEditingOrder] = useState<EditingOrderState | null>(null);
   const [listWidth, setListWidth] = useState(300);
   const [chatWidth, setChatWidth] = useState(280);
@@ -189,6 +189,18 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [chatButtonY, setChatButtonY] = useState(200);
   const [isDraggingButton, setIsDraggingButton] = useState(false);
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  // Auto-expand oldest active order when customer changes
+  useEffect(() => {
+    const active = selectedCustomer
+      ? allOrders.filter(o => o.userId === selectedCustomer.userId && ['pending', 'paid'].includes(o.status))
+      : [];
+    if (active.length === 0) { setExpandedOrderId(null); return; }
+    const oldest = active.reduce((a, b) => new Date(a.createdAt) < new Date(b.createdAt) ? a : b);
+    setExpandedOrderId(oldest._id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer?._id]);
 
   // Fulfilment state
   const [fulfilmentModalOrderId, setFulfilmentModalOrderId] = useState<string | null>(null);
@@ -208,7 +220,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const evsRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [evsReconnecting, setEvsReconnecting] = useState(false);
   const scrollPanelRef = useRef<HTMLDivElement>(null);
-  const [activeSection, setActiveSection] = useState('section-orders');
 
   useEffect(() => {
     function connect() {
@@ -612,23 +623,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomer?._id, allOrders.length]);
 
-  // Track which section is in view for active tab highlight
-  useEffect(() => {
-    const el = scrollPanelRef.current;
-    if (!el) return;
-    const SECTIONS = ['section-orders', 'section-addresses', 'section-parcels', 'section-intransit', 'section-history'];
-    const handleScroll = () => {
-      const containerTop = el.getBoundingClientRect().top;
-      let current = SECTIONS[0];
-      for (const id of SECTIONS) {
-        const node = el.querySelector(`[data-section="${id}"]`);
-        if (node && node.getBoundingClientRect().top <= containerTop + 100) current = id;
-      }
-      setActiveSection(current);
-    };
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [selectedCustomer?._id]);
 
   async function createTestOrder() {
     if (testOrderCreating || !selectedCustomer) return;
@@ -993,6 +987,13 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     : [];
   const activeOrders = customerOrders.filter(o => ['pending', 'paid'].includes(o.status));
   const pendingOrders = activeOrders.filter(o => o.status === 'pending');
+
+  useEffect(() => {
+    if (activeOrders.length === 0) { setExpandedOrderId(null); return; }
+    const oldest = activeOrders.reduce((o, c) => new Date(c.createdAt) < new Date(o.createdAt) ? c : o, activeOrders[0]);
+    setExpandedOrderId(oldest._id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer?._id]);
   const selectedTotal = activeOrders.filter(o => selectedOrderIds.has(o._id)).reduce((s, o) => s + (o.soldTHB || 0), 0);
   const allPendingSelected = pendingOrders.length > 0 && pendingOrders.every(o => selectedOrderIds.has(o._id));
   // Sync editable total whenever selection changes
@@ -1331,45 +1332,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               </div>
             </div>
 
-            {/* Section tab bar */}
-            {(() => {
-              const TABS = [
-                { key: 'section-orders',    label: 'Orders',     count: activeOrders.length },
-                { key: 'section-addresses', label: 'Addresses',  count: 0 },
-                { key: 'section-parcels',   label: 'Parcels',    count: pendingFulfilments.length },
-                { key: 'section-intransit', label: 'In Transit', count: inTransitGroups.length },
-                { key: 'section-history',   label: 'History',    count: historyOrders.length },
-              ];
-              return (
-                <div className={`flex items-center gap-0.5 px-4 py-2 border-b flex-shrink-0 overflow-x-auto ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-white/80 border-slate-200 backdrop-blur-sm'}`}>
-                  {TABS.map(tab => (
-                    <button
-                      key={tab.key}
-                      onClick={() => {
-                        const node = scrollPanelRef.current?.querySelector(`[data-section="${tab.key}"]`);
-                        node?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
-                        activeSection === tab.key
-                          ? isDark ? 'bg-accent/20 text-accent' : 'bg-accent/10 text-accent'
-                          : isDark ? 'text-[#8b92ad] hover:text-white/80' : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      {tab.label}
-                      {tab.count > 0 && (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
-                          activeSection === tab.key
-                            ? isDark ? 'bg-accent/30 text-accent' : 'bg-accent/20 text-accent'
-                            : isDark ? 'bg-white/10 text-white/50' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {tab.count}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
 
             {/* Scrollable content */}
             <div ref={scrollPanelRef} className="flex-1 overflow-y-auto relative">
@@ -1381,14 +1343,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <section aria-label="Active order banners">
                     <SectionLabel>Orders</SectionLabel>
                     <div className="space-y-3 mt-3">
-                      {(() => {
-                        const oldestActiveOrderId = activeOrders.length > 0
-                          ? activeOrders.reduce((oldest, o) =>
-                              new Date(o.createdAt) < new Date(oldest.createdAt) ? o : oldest,
-                              activeOrders[0]
-                            )._id
-                          : null;
-                        return activeOrders.map(order => {
+                      {activeOrders.map(order => {
                         const fulfilments = fulfilmentsCache[order._id] || [];
                         // Only count shipped/delivered fulfilments as "shipped" — pending parcels are not shipped yet
                         const computeShippedQty = (itemName: string): number =>
@@ -1420,15 +1375,15 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             onMarkPaid={() => markPaid(order._id)}
                             onCancel={() => confirmCancelOrder(order._id)}
                             onDelete={() => confirmDeleteOrder(order._id)}
-                            onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
+                            onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
                             computeShippedQty={computeShippedQty}
                             computeInParcelQty={computeInParcelQty}
                             isActing={actingOrderIds.has(order._id)}
-                            defaultExpanded={order._id === oldestActiveOrderId}
+                            isExpanded={expandedOrderId === order._id}
+                            onToggle={() => setExpandedOrderId(id => id === order._id ? null : order._id)}
                           />
                         );
-                        });
-                      })()}
+                      })}
                     </div>
                   </section>
                 )}
@@ -1505,7 +1460,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           }
                         }}
                         onAddItem={() => setShowModal(true)}
-                        onEditOrder={(order) => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, items: order.items?.length > 0 ? order.items.map((i: any) => ({ name: i.name, variantLabel: i.variantLabel, qty: i.qty, price: i.price })) : [{ name: order.product, qty: order.quantity || 1, price: order.soldTHB || 0 }] })}
+                        onEditOrder={(order) => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: order.items?.length > 0 ? order.items.map((i: any) => ({ name: i.name, variantLabel: i.variantLabel, qty: i.qty, price: i.price })) : [{ name: order.product, qty: order.quantity || 1, price: order.soldTHB || 0 }] })}
                       />
                     </div>
                   </section>
@@ -2113,7 +2068,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       {/* ── Item-level order edit modal ── */}
       {editingOrder && (() => {
         const lineTotal = (item: EditLineItem) => item.qty * item.price;
-        const orderTotal = editingOrder.items.reduce((s, i) => s + lineTotal(i), 0);
+        const orderSubtotal = editingOrder.items.reduce((s, i) => s + lineTotal(i), 0);
+        const orderTotal = Math.max(0, orderSubtotal - (editingOrder.discount || 0));
         const orderProfit = orderTotal - editingOrder.costTHB - editingOrder.shipCostTHB;
         const updateItem = (idx: number, patch: Partial<EditLineItem>) =>
           setEditingOrder(v => v && { ...v, items: v.items.map((it, i) => i === idx ? { ...it, ...patch } : it) });
@@ -2121,73 +2077,147 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
           setEditingOrder(v => v && { ...v, items: v.items.filter((_, i) => i !== idx) });
         const addItem = () =>
           setEditingOrder(v => v && { ...v, items: [...v.items, { name: '', variantLabel: '', qty: 1, price: 0 }] });
+        const addFromCatalog = (p: Product) =>
+          setEditingOrder(v => v && { ...v, items: [...v.items, { productId: p._id, name: p.name, variantLabel: '', qty: 1, price: p.price }] });
         return (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
             onClick={e => { if (e.target === e.currentTarget) setEditingOrder(null); }}>
-            <div className={`w-full max-w-md rounded-2xl border shadow-2xl flex flex-col max-h-[90vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
+            <div className={`w-full max-w-4xl rounded-2xl border shadow-2xl flex flex-col max-h-[92vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
               {/* Header */}
-              <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
-                <p className="text-xs font-black uppercase tracking-widest text-[#8b92ad]">Edit Order</p>
-                <button onClick={() => setEditingOrder(null)} className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10' : 'text-[#8b92ad] hover:bg-black/5'}`}><X size={14} /></button>
-              </div>
-
-              {/* Item list */}
-              <div className="overflow-y-auto flex-1 px-5 space-y-3">
-                {editingOrder.items.map((item, idx) => (
-                  <EditOrderItemCard
-                    key={idx}
-                    item={item}
-                    idx={idx}
-                    products={products}
-                    isDark={isDark}
-                    k={k}
-                    merchantSettings={merchantSettings}
-                    onUpdate={patch => updateItem(idx, patch)}
-                    onRemove={() => removeItem(idx)}
-                    canRemove={editingOrder.items.length > 1}
-                  />
-                ))}
-                <button
-                  onClick={addItem}
-                  className={`w-full py-2 rounded-xl text-xs font-bold border-dashed border-2 transition-all ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-[#e2e5ef] text-[#8b92ad] hover:border-accent hover:text-accent'}`}
-                >
-                  + Add item
-                </button>
-              </div>
-
-              {/* Footer summary + save */}
-              <div className={`px-5 pt-3 pb-5 flex-shrink-0 border-t space-y-3 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#8b92ad] font-medium">Total</span>
-                  <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{orderTotal.toLocaleString()}</span>
+              <div className="flex items-center justify-between px-6 pt-5 pb-4 flex-shrink-0 border-b" style={{ borderColor: isDark ? '#1f2335' : '#e2e5ef' }}>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-[#8b92ad]">Edit Order</p>
+                  <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>#{editingOrder.id.slice(-6).toUpperCase()}</p>
                 </div>
-                {editingOrder.costTHB > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-[#8b92ad] font-medium">Profit</span>
-                    <span className={`text-xs font-black ${orderProfit >= 0 ? 'text-accent' : 'text-rose-500'}`}>
-                      {orderProfit >= 0 ? '+' : ''}฿{orderProfit.toLocaleString()}
-                    </span>
+                <button onClick={() => setEditingOrder(null)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10' : 'text-[#8b92ad] hover:bg-black/5'}`}><X size={15} /></button>
+              </div>
+
+              {/* Two-panel body */}
+              <div className="flex flex-1 min-h-0">
+                {/* ── Left panel: catalog browser ── */}
+                <div className={`w-72 flex-shrink-0 flex flex-col border-r ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                  <div className={`px-4 py-3 border-b ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#8b92ad] mb-2">Product Catalog</p>
+                    <div className="relative">
+                      <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8b92ad]" />
+                      <input
+                        placeholder="Search products…"
+                        onChange={e => {
+                          const q = e.target.value.toLowerCase();
+                          const list = e.currentTarget.closest('[data-catalog-panel]')?.querySelector('[data-catalog-list]');
+                          if (list) {
+                            (list as HTMLElement).querySelectorAll('[data-product-name]').forEach(el => {
+                              const name = el.getAttribute('data-product-name') || '';
+                              (el as HTMLElement).style.display = name.toLowerCase().includes(q) ? '' : 'none';
+                            });
+                          }
+                        }}
+                        className={`w-full pl-7 pr-3 py-1.5 text-[11px] rounded-lg border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad]' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] placeholder-[#9ca3af]'}`}
+                      />
+                    </div>
                   </div>
-                )}
-                <button
-                  onClick={() => {
-                    const newSold = orderTotal;
-                    const totalQty = editingOrder.items.reduce((s, i) => s + i.qty, 0);
-                    const primaryName = editingOrder.items[0]?.name || '';
-                    patchOrder(editingOrder.id, {
-                      items: editingOrder.items,
-                      soldTHB: newSold,
-                      quantity: totalQty,
-                      product: primaryName,
-                      profit: newSold - editingOrder.costTHB - editingOrder.shipCostTHB,
-                    });
-                    setEditingOrder(null);
-                  }}
-                  className="w-full py-2.5 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95"
-                  style={{ background: 'var(--accent-gradient)' }}
-                >
-                  Save Changes
-                </button>
+                  <div className="flex-1 overflow-y-auto" data-catalog-panel="">
+                    <div data-catalog-list="">
+                      {products.map(p => (
+                        <button
+                          key={p._id}
+                          data-product-name={p.name}
+                          type="button"
+                          onClick={() => addFromCatalog(p)}
+                          className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors border-b ${isDark ? 'border-[#1f2335] hover:bg-white/5' : 'border-[#f0f0f0] hover:bg-slate-50'}`}
+                        >
+                          {p.imageUrl
+                            ? <img src={p.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                            : <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}><Package size={13} className="text-[#8b92ad]" /></div>
+                          }
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-[11px] font-semibold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{p.name}</p>
+                            <p className="text-[10px] text-[#8b92ad] font-medium">฿{p.price.toLocaleString()}</p>
+                          </div>
+                          <Plus size={12} className="text-accent flex-shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Right panel: order items ── */}
+                <div className="flex-1 flex flex-col min-w-0">
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                    {editingOrder.items.map((item, idx) => (
+                      <EditOrderItemCard
+                        key={idx}
+                        item={item}
+                        idx={idx}
+                        products={products}
+                        isDark={isDark}
+                        k={k}
+                        merchantSettings={merchantSettings}
+                        onUpdate={patch => updateItem(idx, patch)}
+                        onRemove={() => removeItem(idx)}
+                        canRemove={editingOrder.items.length > 1}
+                      />
+                    ))}
+                    <button
+                      onClick={addItem}
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold border-dashed border-2 transition-all ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-[#e2e5ef] text-[#8b92ad] hover:border-accent hover:text-accent'}`}
+                    >
+                      + Add custom item
+                    </button>
+                  </div>
+
+                  {/* Footer summary + save */}
+                  <div className={`px-5 pt-3 pb-5 flex-shrink-0 border-t space-y-3 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#8b92ad] font-medium">Subtotal</span>
+                      <span className={`text-xs font-bold ${isDark ? 'text-white/70' : 'text-[#1a1d2e]/70'}`}>฿{orderSubtotal.toLocaleString()}</span>
+                    </div>
+                    {/* Discount row */}
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs text-[#8b92ad] font-medium flex-shrink-0">Discount</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-semibold ${k.muted}`}>-฿</span>
+                        <input
+                          type="number" min={0} max={orderSubtotal}
+                          value={editingOrder.discount || 0}
+                          onChange={e => setEditingOrder(v => v && { ...v, discount: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          placeholder="0"
+                          className={`w-24 text-xs font-bold rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1a1d2e] border-[#2a3050] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]'}`}
+                        />
+                      </div>
+                    </div>
+                    <div className={`flex items-center justify-between pt-2 border-t ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                      <span className="text-sm text-[#8b92ad] font-semibold">Total</span>
+                      <span className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{orderTotal.toLocaleString()}</span>
+                    </div>
+                    {editingOrder.costTHB > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[#8b92ad] font-medium">Profit</span>
+                        <span className={`text-xs font-black ${orderProfit >= 0 ? 'text-accent' : 'text-rose-500'}`}>
+                          {orderProfit >= 0 ? '+' : ''}฿{orderProfit.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        const totalQty = editingOrder.items.reduce((s, i) => s + i.qty, 0);
+                        const primaryName = editingOrder.items[0]?.name || '';
+                        patchOrder(editingOrder.id, {
+                          items: editingOrder.items,
+                          soldTHB: orderTotal,
+                          quantity: totalQty,
+                          product: primaryName,
+                          profit: orderTotal - editingOrder.costTHB - editingOrder.shipCostTHB,
+                        });
+                        setEditingOrder(null);
+                      }}
+                      className="w-full py-2.5 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95"
+                      style={{ background: 'var(--accent-gradient)' }}
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -3651,7 +3681,8 @@ function OrderBanner({
   computeInParcelQty,
   isActing,
   products,
-  defaultExpanded,
+  isExpanded,
+  onToggle,
 }: {
   order: Order;
   isDark: boolean;
@@ -3669,9 +3700,9 @@ function OrderBanner({
   computeInParcelQty: (itemName: string) => number;
   isActing: boolean;
   products?: Product[];
-  defaultExpanded?: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded ?? false);
 
   const status = STATUS_COLORS[order.status] || STATUS_COLORS.pending;
   const label = STATUS_LABEL[order.status] || 'Order';
@@ -3690,31 +3721,33 @@ function OrderBanner({
   const divider = isDark ? 'border-[#1f2335]' : 'border-slate-200';
 
   return (
-    <article className={`rounded-2xl border overflow-hidden ${
-      isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-sm'
+    <article className={`rounded-2xl border overflow-hidden transition-shadow duration-300 ${
+      isDark
+        ? isExpanded ? 'bg-[#161925] border-accent/40 shadow-[0_0_0_1px_var(--accent),0_0_24px_rgba(99,102,241,0.12)]' : 'bg-[#161925] border-[#1f2335]'
+        : isExpanded ? 'bg-white border-accent/40 shadow-[0_0_0_1px_var(--accent),0_4px_20px_rgba(99,102,241,0.10)] shadow-sm' : 'bg-white border-slate-200 shadow-sm'
     }`}>
       {/* ── Clickable header row ─────────────────────────────────────── */}
       <div
         role="button"
         tabIndex={0}
-        aria-expanded={expanded}
-        onClick={() => setExpanded(p => !p)}
-        onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && setExpanded(p => !p)}
+        aria-expanded={isExpanded}
+        onClick={() => onToggle()}
+        onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && onToggle()}
         className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none transition-colors ${
           isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
         }`}
       >
         <ChevronRight
           size={14}
-          className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${expanded ? 'rotate-90' : ''}`}
+          className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${isExpanded ? 'rotate-90' : ''}`}
         />
 
-        {/* ID + status */}
+        {/* ID + status + timestamp */}
         <div className="min-w-0 flex-shrink-0">
           <p className={`text-sm font-black leading-none mb-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             #{order._id.slice(-6).toUpperCase()}
           </p>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
               isDark ? darkStatusClass : `${status.lightBg} ${status.text} ${status.border}`
             }`}>
@@ -3724,6 +3757,9 @@ function OrderBanner({
               <span className="text-[9px] font-medium text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-md border border-violet-500/20">QR</span>
             )}
           </div>
+          <p className={`text-[9px] mt-0.5 tabular-nums ${k.muted}`}>
+            {new Date(order.createdAt).toLocaleDateString('en', { day: 'numeric', month: 'short' })} · {timeAgo(order.createdAt)}
+          </p>
         </div>
 
         {/* Products count badge */}
@@ -3733,17 +3769,60 @@ function OrderBanner({
           {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
         </span>
 
-        {/* Progress bar + % */}
-        <div className="flex-1 min-w-0">
+        {/* Progress bar — narrow */}
+        <div className="w-32 flex-shrink-0">
           <div className="flex items-center justify-between mb-1">
-            <span className={`text-[10px] font-medium ${k.muted}`}>Fulfilment progress: {progress}%</span>
+            <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
           </div>
-          <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
+          <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
             <div
               className="h-full rounded-full transition-all"
               style={{ width: `${progress}%`, background: progress === 100 ? '#22c55e' : 'var(--accent)' }}
             />
           </div>
+        </div>
+
+        {/* Inline quick actions */}
+        <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          {order.status === 'pending' && (
+            <>
+              <button
+                onClick={onSendQR}
+                disabled={isActing}
+                title={order.paymentQrSent ? 'Resend QR' : 'Send QR'}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+                  order.paymentQrSent
+                    ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
+                    : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
+                }`}
+              >
+                <QrCode size={10} /> {order.paymentQrSent ? 'Resend' : 'QR'}
+              </button>
+              <button
+                onClick={onMarkPaid}
+                disabled={isActing}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                <CheckCircle size={10} /> Paid
+              </button>
+            </>
+          )}
+          {order.status !== 'pending' && (() => {
+            const pendingItems = orderItems
+              .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name) - computeInParcelQty(item.name)), price: item.price }))
+              .filter(i => i.qty > 0);
+            if (pendingItems.length === 0) return null;
+            return (
+              <button
+                onClick={() => onBoxItems(pendingItems)}
+                disabled={isActing}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${isDark ? 'border-accent/30 text-accent hover:bg-accent/10' : 'border-accent/30 text-accent hover:bg-accent/5'}`}
+              >
+                <Package size={10} /> Parcel
+              </button>
+            );
+          })()}
         </div>
 
         {/* Total + edit icon */}
@@ -3763,7 +3842,7 @@ function OrderBanner({
       </div>
 
       {/* ── Expanded body ───────────────────────────────────────────── */}
-      {expanded && (
+      {isExpanded && (
         <div className={`border-t ${divider} px-4 pt-3 pb-4 space-y-3`}>
           {/* Order address */}
           {orderAddr && (
@@ -3874,30 +3953,6 @@ function OrderBanner({
             );
           })()}
 
-          {/* Order actions */}
-          {order.status === 'pending' ? (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={onSendQR}
-                disabled={isActing}
-                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
-                  order.paymentQrSent
-                    ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
-                    : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
-                }`}
-              >
-                <QrCode size={12} /> {order.paymentQrSent ? 'Resend QR' : 'Send QR'}
-              </button>
-              <button
-                onClick={onMarkPaid}
-                disabled={isActing}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                <CheckCircle size={12} /> Mark Paid
-              </button>
-            </div>
-          ) : null}
           {/* Cancel + Delete row — always visible */}
           <div className="flex gap-2">
             {order.status !== 'cancelled' && (
