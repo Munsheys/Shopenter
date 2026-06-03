@@ -1189,7 +1189,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         ) : (
           <div className="flex flex-col items-center py-2 gap-2 flex-1 overflow-y-auto">
             <button
-              onClick={() => setListOpen(true)}
+              onClick={() => { setListOpen(true); setChatDrawerOpen(false); }}
               aria-label="Expand customer list"
               title="Expand customer list"
               className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 transition-all hover:scale-105 active:scale-95 shadow-md`}
@@ -1701,7 +1701,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   startPos: chatButtonY
                 };
               }}
-              onClick={() => setChatDrawerOpen(true)}
+              onClick={() => { setChatDrawerOpen(true); setListOpen(false); }}
               className="absolute right-0 w-12 h-12 rounded-l-2xl flex items-center justify-center transition-all hover:opacity-90 active:scale-95 shadow-lg cursor-grab active:cursor-grabbing"
               style={{
                 background: 'var(--accent-gradient)',
@@ -2142,14 +2142,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       <EditOrderItemCard
                         key={idx}
                         item={item}
-                        idx={idx}
                         products={products}
                         isDark={isDark}
                         k={k}
-                        merchantSettings={merchantSettings}
                         onUpdate={patch => updateItem(idx, patch)}
                         onRemove={() => removeItem(idx)}
-                        canRemove={editingOrder.items.length > 1}
                       />
                     ))}
                     <button
@@ -3448,23 +3445,19 @@ function colorForSwatch(v: string): string {
 }
 
 // ── Edit Order Item Card ──────────────────────────────────────────────────────
-// Searchable product picker with option/variant selectors for the Edit Order modal
+// Right-panel item card: shows product name (locked), option/variant pickers, qty stepper
+// Product selection happens via the left catalog panel — no search input here
 type EditLineItem = { productId?: string; name: string; variantLabel?: string; qty: number; price: number };
 function EditOrderItemCard({
-  item, idx, products, isDark, k, merchantSettings, onUpdate, onRemove, canRemove,
+  item, products, isDark, k, onUpdate, onRemove,
 }: {
-  item: EditLineItem; idx: number; products: Product[]; isDark: boolean; k: typeof DK;
-  merchantSettings: any; onUpdate: (patch: Partial<EditLineItem>) => void;
-  onRemove: () => void; canRemove: boolean;
+  item: EditLineItem; products: Product[]; isDark: boolean; k: typeof DK;
+  onUpdate: (patch: Partial<EditLineItem>) => void;
+  onRemove: () => void;
 }) {
-  const [search, setSearch] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
   const [variantSel, setVariantSel] = useState<Record<string, string>>({});
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
   const linkedProduct = item.productId ? products.find(p => p._id === item.productId) ?? null : null;
 
-  // Initialise variantSel from existing variantLabel when product is linked
   useEffect(() => {
     if (!linkedProduct || !item.variantLabel) { setVariantSel({}); return; }
     const parts = item.variantLabel.split(' · ');
@@ -3474,102 +3467,55 @@ function EditOrderItemCard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.productId]);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowDropdown(false);
-    }
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, []);
-
-  const filteredProducts = search
-    ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
-    : products;
-
-  const handleProductSelect = (p: Product) => {
-    onUpdate({ productId: p._id, name: p.name, price: p.price, variantLabel: '' });
-    setVariantSel({});
-    setSearch('');
-    setShowDropdown(false);
-  };
-
-  const handleUnlink = () => {
-    onUpdate({ productId: undefined });
-    setVariantSel({});
-  };
-
   const handleOptionSelect = (optName: string, value: string) => {
     const newSel = { ...variantSel, [optName]: value };
     setVariantSel(newSel);
-    const label = linkedProduct?.options
-      ?.map(o => newSel[o.name])
-      .filter(Boolean)
-      .join(' · ') ?? '';
+    const label = linkedProduct?.options?.map(o => newSel[o.name]).filter(Boolean).join(' · ') ?? '';
     const match = linkedProduct?.variants?.find(vr =>
       Object.entries(newSel).every(([k2, val]) => vr.combination?.[k2] === val)
     );
     onUpdate({ variantLabel: label, ...(match?.price != null ? { price: match.price } : {}) });
   };
 
-  const inputCls = `w-full text-xs font-semibold rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white placeholder-[#8b92ad]' : 'bg-white border-[#e2e5ef] text-[#1a1d2e] placeholder-[#9ca3af]'}`;
+  const divider = isDark ? '#1f2335' : '#e2e5ef';
 
   return (
-    <div className={`rounded-2xl border p-3 space-y-2.5 ${isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-[#f8f9fc] border-[#e2e5ef]'}`}>
-      {/* Product name / search row */}
-      <div className="flex items-start gap-2">
-        {linkedProduct ? (
-          <div className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl border ${isDark ? 'bg-[#161925] border-[#2a3050]' : 'bg-white border-[#e2e5ef]'}`}>
-            {linkedProduct.imageUrl && (
-              <img src={linkedProduct.imageUrl} alt="" className="w-7 h-7 rounded-lg object-cover flex-shrink-0" />
-            )}
-            <span className={`flex-1 text-xs font-semibold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{linkedProduct.name}</span>
-            <button onClick={handleUnlink} className="p-0.5 rounded text-[#8b92ad] hover:text-rose-400 transition-colors flex-shrink-0"><X size={11} /></button>
-          </div>
-        ) : (
-          <div className="relative flex-1" ref={dropdownRef}>
-            <input
-              value={search || item.name}
-              onChange={e => { setSearch(e.target.value); onUpdate({ name: e.target.value, productId: undefined }); setShowDropdown(true); }}
-              onFocus={() => setShowDropdown(true)}
-              placeholder="Search catalog or type name…"
-              className={inputCls}
-            />
-            {showDropdown && filteredProducts.length > 0 && (
-              <div className={`absolute top-full left-0 right-0 z-50 mt-1 border rounded-xl shadow-xl overflow-hidden max-h-44 overflow-y-auto ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
-                {filteredProducts.slice(0, 20).map(p => (
-                  <button key={p._id} type="button"
-                    onMouseDown={e => { e.preventDefault(); handleProductSelect(p); }}
-                    className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-white/5 text-white' : 'hover:bg-slate-50 text-[#1a1d2e]'}`}>
-                    {p.imageUrl && <img src={p.imageUrl} alt="" className="w-5 h-5 rounded object-cover flex-shrink-0" />}
-                    <span className="flex-1 truncate">{p.name}</span>
-                    <span className="flex-shrink-0 font-bold text-[#8b92ad]">฿{p.price.toLocaleString()}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {canRemove && (
-          <button onClick={onRemove} className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0 mt-0.5"><X size={13} /></button>
-        )}
+    <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-[#f8f9fc] border-[#e2e5ef]'}`}>
+      {/* Header: thumbnail + name + qty + remove */}
+      <div className="flex items-center gap-2.5 p-3">
+        <div className={`w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+          {linkedProduct?.imageUrl
+            ? <img src={linkedProduct.imageUrl} alt="" className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center"><Package size={14} className="text-[#8b92ad]" /></div>
+          }
+        </div>
+        <p className={`flex-1 text-[12px] font-semibold leading-snug line-clamp-2 min-w-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{item.name}</p>
+        {/* Qty stepper inline */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button onClick={() => onUpdate({ qty: Math.max(1, item.qty - 1) })}
+            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all disabled:opacity-30 ${k.border} ${k.hover}`}><Minus size={9} /></button>
+          <span className={`w-8 text-center text-[12px] font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{item.qty}</span>
+          <button onClick={() => onUpdate({ qty: item.qty + 1 })}
+            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}><Plus size={9} /></button>
+        </div>
+        <button onClick={onRemove} className="p-1 rounded-lg text-rose-400/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0"><X size={13} /></button>
       </div>
 
-      {/* Variant option pickers (when product is linked) */}
-      {linkedProduct && linkedProduct.options && linkedProduct.options.length > 0 && (
-        <div className="space-y-2">
+      {/* Option pickers (product with variants) */}
+      {linkedProduct?.options && linkedProduct.options.length > 0 && (
+        <div className="px-3 pb-3 pt-2 space-y-2 border-t" style={{ borderColor: divider }}>
           {linkedProduct.options.map(opt => {
             const isColor = opt.name.toLowerCase() === 'color';
             return (
               <div key={opt.name}>
-                <p className="text-[9px] font-black uppercase tracking-widest text-[#8b92ad] mb-1">{opt.name}</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-[#8b92ad] mb-1.5">{opt.name}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {opt.values.map(v => {
                     const sel = variantSel[opt.name] === v;
                     if (isColor) {
                       return (
                         <button key={v} type="button" onClick={() => handleOptionSelect(opt.name, v)}
-                          className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'border-accent bg-accent/10 text-accent' : `${k.border} ${k.muted} ${k.hover}`}`}>
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all active:scale-95 ${sel ? 'border-accent bg-accent/10 text-accent' : `${k.border} ${k.muted} ${k.hover}`}`}>
                           <span className="w-3.5 h-3.5 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: colorForSwatch(v) }} />
                           {v}
                         </button>
@@ -3577,7 +3523,7 @@ function EditOrderItemCard({
                     }
                     return (
                       <button key={v} type="button" onClick={() => handleOptionSelect(opt.name, v)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'text-white border-transparent' : `${k.border} ${k.muted} ${k.hover}`}`}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all active:scale-95 ${sel ? 'text-white border-transparent' : `${k.border} ${k.muted} ${k.hover}`}`}
                         style={sel ? { background: 'var(--accent-gradient)' } : undefined}>
                         {v}
                       </button>
@@ -3590,36 +3536,17 @@ function EditOrderItemCard({
         </div>
       )}
 
-      {/* Free-text variant when no product linked */}
+      {/* Free-text variant for unlinked / custom items */}
       {!linkedProduct && (
-        <input
-          value={item.variantLabel ?? ''}
-          placeholder="Variant (optional, e.g. Blue · Size M)"
-          onChange={e => onUpdate({ variantLabel: e.target.value })}
-          className={`w-full text-[11px] rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-[#8b92ad] placeholder-[#8b92ad]' : 'bg-white border-[#e2e5ef] text-[#8b92ad]'}`}
-        />
-      )}
-
-      {/* Price + Qty + Line total */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Unit Price ({merchantSettings?.localCurrency || 'THB'})</label>
+        <div className="px-3 pb-3 border-t" style={{ borderColor: divider }}>
           <input
-            type="number" min={0}
-            value={item.price}
-            onChange={e => onUpdate({ price: parseFloat(e.target.value) || 0 })}
-            className={`w-full text-xs font-bold rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]'}`}
+            value={item.variantLabel ?? ''}
+            placeholder="Variant (optional)"
+            onChange={e => onUpdate({ variantLabel: e.target.value })}
+            className={`w-full text-[11px] rounded-xl px-3 py-1.5 mt-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-[#8b92ad] placeholder-[#8b92ad]' : 'bg-white border-[#e2e5ef] text-[#8b92ad]'}`}
           />
         </div>
-        <div className="w-28 flex-shrink-0">
-          <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Qty</label>
-          <NumberStepper value={item.qty} onChange={v => onUpdate({ qty: v })} min={1} step={1} isDark={isDark} size="sm" />
-        </div>
-        <div className="flex-shrink-0 text-right">
-          <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Line</label>
-          <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{(item.qty * item.price).toLocaleString()}</p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -3881,10 +3808,26 @@ function OrderBanner({
 
                   {/* Name + variant */}
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[12px] font-medium leading-snug truncate ${isDark ? 'text-white/90' : 'text-[#1a1d2e]'}`}>
-                      {item.name}
-                      {item.variantLabel && <span className={k.muted}> — {item.variantLabel}</span>}
-                    </p>
+                    <p className={`text-[12px] font-medium leading-snug truncate ${isDark ? 'text-white/90' : 'text-[#1a1d2e]'}`}>{item.name}</p>
+                    {item.variantLabel && (() => {
+                      const parts = item.variantLabel.split(' · ');
+                      const optionNames = product?.options?.map(o => o.name) ?? [];
+                      return (
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          {parts.map((part, pi) => {
+                            const optName = optionNames[pi]?.toLowerCase();
+                            const isColor = optName === 'color';
+                            const hex = isColor ? colorForSwatch(part) : null;
+                            return (
+                              <span key={pi} className={`flex items-center gap-1 text-[10px] font-medium ${k.muted}`}>
+                                {hex && <span className="w-2.5 h-2.5 rounded-full border border-black/10 flex-shrink-0 inline-block" style={{ backgroundColor: hex }} />}
+                                {part}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                     <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                       {shippedQty > 0 && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
