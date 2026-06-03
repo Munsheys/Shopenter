@@ -595,15 +595,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       if (!targetFulfilment) return;
 
       const newItems = (targetFulfilment.items || []).filter(i => i.name !== itemName);
-      if (newItems.length === 0) {
-        await fetch(`/api/fulfilments/${targetFulfilment._id}`, { method: 'DELETE' });
-      } else {
-        await fetch(`/api/fulfilments/${targetFulfilment._id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: newItems }),
-        });
-      }
+      // Always PATCH (even to empty) so the parcel card stays visible — merchant can cancel it manually
+      await fetch(`/api/fulfilments/${targetFulfilment._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: newItems }),
+      });
       await fetchFulfilments(targetFulfilment.orderId);
       if (targetFulfilment.orderId !== orderId) await fetchFulfilments(orderId);
       onOrderMutated?.();
@@ -985,7 +982,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const customerOrders = selectedCustomer
     ? allOrders.filter(o => o.userId === selectedCustomer.userId)
     : [];
-  const activeOrders = customerOrders.filter(o => ['pending', 'paid'].includes(o.status));
+  const activeOrders = customerOrders
+    .filter(o => ['pending', 'paid'].includes(o.status))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   const pendingOrders = activeOrders.filter(o => o.status === 'pending');
 
   const selectedTotal = activeOrders.filter(o => selectedOrderIds.has(o._id)).reduce((s, o) => s + (o.soldTHB || 0), 0);
@@ -4027,7 +4026,7 @@ function ParcelFulfilmentContainer({
             <tr className={`text-left border-b ${tableBorder} ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
               <th className={`py-2 px-3 text-[10px] font-medium ${k.muted}`}>Product</th>
               <th className={`py-2 px-3 text-[10px] font-medium text-center w-24 ${k.muted}`}>Qty</th>
-              <th className={`py-2 px-3 text-[10px] font-medium text-right w-24 ${k.muted}`}>Price</th>
+              <th className={`py-2 px-3 text-[10px] font-medium text-right w-24 ${k.muted}`}>Unit</th>
               <th className={`py-2 px-3 text-[10px] font-medium text-right w-20 ${k.muted}`}>Total</th>
               <th className="w-8" />
             </tr>
@@ -4129,21 +4128,16 @@ function ParcelItemRow({
   onRemove: () => void;
   products?: Product[];
 }) {
-  const [name, setName] = useState(item.name);
   const [qty, setQty] = useState(item.qty);
-  const [price, setPrice] = useState(item.price);
 
-  // Single consolidated debounce — avoids racing PATCHes that last-write-wins clobber each other
   useEffect(() => {
-    const changed = name !== item.name || qty !== item.qty || price !== item.price;
-    if (!changed) return;
-    const timer = setTimeout(() => onUpdate({ name, qty, price }), 500);
+    if (qty === item.qty) return;
+    const timer = setTimeout(() => onUpdate({ qty }), 500);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, qty, price]);
+  }, [qty]);
 
   const product = products?.find(p => p._id === item.productId);
-  const isLocked = !!item.productId; // catalog product — name is not free-editable
   const rowBorder = isDark ? 'border-[#2a3050]' : 'border-slate-200';
 
   return (
@@ -4151,24 +4145,14 @@ function ParcelItemRow({
       {/* Thumbnail + Name */}
       <td className="py-2 px-3">
         <div className="flex items-center gap-2">
-          {/* Thumbnail */}
           <div className={`w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
             {product?.imageUrl
-              ? <img src={product.imageUrl} alt={name} className="w-full h-full object-cover" />
+              ? <img src={product.imageUrl} alt={item.name} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center"><Package size={12} className={k.muted} /></div>
             }
           </div>
           <div className="flex-1 min-w-0">
-            {isLocked ? (
-              // Catalog product — name is read-only to prevent renaming real items
-              <p className={`text-[12px] font-medium truncate ${isDark ? 'text-white/90' : 'text-[#1a1d2e]'}`}>{name}</p>
-            ) : (
-              <input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className={`w-full text-[12px] font-medium rounded-lg px-2 py-1 border outline-none focus:border-accent transition-all ${k.input}`}
-              />
-            )}
+            <p className={`text-[12px] font-medium truncate ${isDark ? 'text-white/90' : 'text-[#1a1d2e]'}`}>{item.name}</p>
             {item.variantLabel && (
               <p className={`text-[10px] ${k.muted} mt-0.5`}>{item.variantLabel}</p>
             )}
@@ -4178,47 +4162,29 @@ function ParcelItemRow({
       {/* Qty stepper */}
       <td className="py-2 px-3">
         <div className="flex items-center justify-center gap-1">
-          <button
-            onClick={() => setQty(Math.max(1, qty - 1))}
-            aria-label="Decrease qty"
-            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
-          >
+          <button onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Decrease qty"
+            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}>
             <Minus size={9} />
           </button>
           <span className={`w-6 text-center text-[12px] font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{qty}</span>
-          <button
-            onClick={() => setQty(qty + 1)}
-            aria-label="Increase qty"
-            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}
-          >
+          <button onClick={() => setQty(qty + 1)} aria-label="Increase qty"
+            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}>
             <Plus size={9} />
           </button>
         </div>
       </td>
-      {/* Unit price */}
-      <td className="py-2 px-3">
-        <input
-          type="number"
-          value={price}
-          onChange={e => setPrice(Math.max(0, parseFloat(e.target.value) || 0))}
-          className={`w-full text-[12px] text-right rounded-lg px-2 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
-        />
+      {/* Unit price — read-only */}
+      <td className={`py-2 px-3 text-right text-[12px] ${k.muted}`}>
+        ฿{fmt(item.price)}
       </td>
       {/* Line total */}
       <td className={`py-2 px-3 text-right text-[12px] font-bold whitespace-nowrap ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-        ฿{fmt(price * qty)}
+        ฿{fmt(item.price * qty)}
       </td>
       {/* Remove */}
       <td className="py-2 px-2">
-        <button
-          onClick={onRemove}
-          aria-label={`Remove ${name}`}
-          className={`p-1 rounded-lg transition-colors ${
-            isDark
-              ? 'text-red-500/40 hover:text-red-400 hover:bg-red-500/10'
-              : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
-          }`}
-        >
+        <button onClick={onRemove} aria-label={`Remove ${item.name}`}
+          className={`p-1 rounded-lg transition-colors ${isDark ? 'text-red-500/40 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`}>
           <Trash2 size={12} />
         </button>
       </td>
