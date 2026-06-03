@@ -998,7 +998,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const parcelOrders = customerOrders.filter(o => o.status === 'preparing');
   // Pending fulfilments across all active orders — items moved to parcel but not yet shipped
   const pendingFulfilments = activeOrders.flatMap(o =>
-    (fulfilmentsCache[o._id] || []).filter(f => f.status === 'pending')
+    (fulfilmentsCache[o._id] || []).filter(f => f.status === 'pending' && (f.items?.length ?? 0) > 0)
   );
   const inTransitOrders = customerOrders.filter(o => ['shipped', 'partially_fulfilled'].includes(o.status));
   // Group shipped orders by parcel: same tracking+courier = same parcel
@@ -3691,8 +3691,8 @@ function OrderBanner({
           {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
         </span>
 
-        {/* Progress bar — narrow, hidden on very small screens */}
-        <div className="w-24 sm:w-32 flex-shrink-0 hidden xs:block">
+        {/* Progress bar */}
+        <div className="w-24 sm:w-32 flex-shrink-0">
           <div className="flex items-center justify-between mb-1">
             <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
           </div>
