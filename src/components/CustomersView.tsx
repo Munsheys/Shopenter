@@ -988,12 +988,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const activeOrders = customerOrders.filter(o => ['pending', 'paid'].includes(o.status));
   const pendingOrders = activeOrders.filter(o => o.status === 'pending');
 
-  useEffect(() => {
-    if (activeOrders.length === 0) { setExpandedOrderId(null); return; }
-    const oldest = activeOrders.reduce((o, c) => new Date(c.createdAt) < new Date(o.createdAt) ? c : o, activeOrders[0]);
-    setExpandedOrderId(oldest._id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCustomer?._id]);
   const selectedTotal = activeOrders.filter(o => selectedOrderIds.has(o._id)).reduce((s, o) => s + (o.soldTHB || 0), 0);
   const allPendingSelected = pendingOrders.length > 0 && pendingOrders.every(o => selectedOrderIds.has(o._id));
   // Sync editable total whenever selection changes
