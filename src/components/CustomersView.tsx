@@ -143,8 +143,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [actingOrderIds, setActingOrderIds] = useState<Set<string>>(new Set());
   const [batchActing, setBatchActing] = useState(false);
   const [batchEditTotal, setBatchEditTotal] = useState('');
-  type EditLineItem = { name: string; variantLabel?: string; qty: number; price: number };
-  type EditingOrderState = { id: string; items: EditLineItem[]; costTHB: number; shipCostTHB: number };
+  type EditingOrderState = { id: string; items: EditLineItem[]; costTHB: number; shipCostTHB: number; discount: number };
   const [editingOrder, setEditingOrder] = useState<EditingOrderState | null>(null);
   const [listWidth, setListWidth] = useState(300);
   const [chatWidth, setChatWidth] = useState(280);
@@ -190,6 +189,18 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [chatButtonY, setChatButtonY] = useState(200);
   const [isDraggingButton, setIsDraggingButton] = useState(false);
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  // Auto-expand oldest active order when customer changes
+  useEffect(() => {
+    const active = selectedCustomer
+      ? allOrders.filter(o => o.userId === selectedCustomer.userId && ['pending', 'paid'].includes(o.status))
+      : [];
+    if (active.length === 0) { setExpandedOrderId(null); return; }
+    const oldest = active.reduce((a, b) => new Date(a.createdAt) < new Date(b.createdAt) ? a : b);
+    setExpandedOrderId(oldest._id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer?._id]);
 
   // Fulfilment state
   const [fulfilmentModalOrderId, setFulfilmentModalOrderId] = useState<string | null>(null);
@@ -209,7 +220,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const evsRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [evsReconnecting, setEvsReconnecting] = useState(false);
   const scrollPanelRef = useRef<HTMLDivElement>(null);
-  const [activeSection, setActiveSection] = useState('section-orders');
 
   useEffect(() => {
     function connect() {
@@ -613,23 +623,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomer?._id, allOrders.length]);
 
-  // Track which section is in view for active tab highlight
-  useEffect(() => {
-    const el = scrollPanelRef.current;
-    if (!el) return;
-    const SECTIONS = ['section-orders', 'section-addresses', 'section-parcels', 'section-intransit', 'section-history'];
-    const handleScroll = () => {
-      const containerTop = el.getBoundingClientRect().top;
-      let current = SECTIONS[0];
-      for (const id of SECTIONS) {
-        const node = el.querySelector(`[data-section="${id}"]`);
-        if (node && node.getBoundingClientRect().top <= containerTop + 100) current = id;
-      }
-      setActiveSection(current);
-    };
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [selectedCustomer?._id]);
 
   async function createTestOrder() {
     if (testOrderCreating || !selectedCustomer) return;
@@ -994,6 +987,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     : [];
   const activeOrders = customerOrders.filter(o => ['pending', 'paid'].includes(o.status));
   const pendingOrders = activeOrders.filter(o => o.status === 'pending');
+
   const selectedTotal = activeOrders.filter(o => selectedOrderIds.has(o._id)).reduce((s, o) => s + (o.soldTHB || 0), 0);
   const allPendingSelected = pendingOrders.length > 0 && pendingOrders.every(o => selectedOrderIds.has(o._id));
   // Sync editable total whenever selection changes
@@ -1332,49 +1326,10 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               </div>
             </div>
 
-            {/* Section tab bar */}
-            {(() => {
-              const TABS = [
-                { key: 'section-orders',    label: 'Orders',     count: activeOrders.length },
-                { key: 'section-addresses', label: 'Addresses',  count: 0 },
-                { key: 'section-parcels',   label: 'Parcels',    count: pendingFulfilments.length },
-                { key: 'section-intransit', label: 'In Transit', count: inTransitGroups.length },
-                { key: 'section-history',   label: 'History',    count: historyOrders.length },
-              ];
-              return (
-                <div className={`flex items-center gap-0.5 px-4 py-2 border-b flex-shrink-0 overflow-x-auto ${isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-white/80 border-slate-200 backdrop-blur-sm'}`}>
-                  {TABS.map(tab => (
-                    <button
-                      key={tab.key}
-                      onClick={() => {
-                        const node = scrollPanelRef.current?.querySelector(`[data-section="${tab.key}"]`);
-                        node?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
-                        activeSection === tab.key
-                          ? isDark ? 'bg-accent/20 text-accent' : 'bg-accent/10 text-accent'
-                          : isDark ? 'text-[#8b92ad] hover:text-white/80' : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      {tab.label}
-                      {tab.count > 0 && (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
-                          activeSection === tab.key
-                            ? isDark ? 'bg-accent/30 text-accent' : 'bg-accent/20 text-accent'
-                            : isDark ? 'bg-white/10 text-white/50' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {tab.count}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
 
             {/* Scrollable content */}
             <div ref={scrollPanelRef} className="flex-1 overflow-y-auto relative">
-              <div className="p-10 space-y-10 max-w-5xl mx-auto">
+              <div className="p-4 sm:p-6 lg:p-10 space-y-6 sm:space-y-8 lg:space-y-10 max-w-5xl mx-auto">
 
                 {/* ORDER BANNERS — Top section showing active orders with [+] buttons */}
                 <div data-section="section-orders" />
@@ -1414,10 +1369,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             onMarkPaid={() => markPaid(order._id)}
                             onCancel={() => confirmCancelOrder(order._id)}
                             onDelete={() => confirmDeleteOrder(order._id)}
-                            onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
+                            onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
                             computeShippedQty={computeShippedQty}
                             computeInParcelQty={computeInParcelQty}
                             isActing={actingOrderIds.has(order._id)}
+                            isExpanded={expandedOrderId === order._id}
+                            onToggle={() => setExpandedOrderId(id => id === order._id ? null : order._id)}
                           />
                         );
                       })}
@@ -1497,7 +1454,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           }
                         }}
                         onAddItem={() => setShowModal(true)}
-                        onEditOrder={(order) => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, items: order.items?.length > 0 ? order.items.map((i: any) => ({ name: i.name, variantLabel: i.variantLabel, qty: i.qty, price: i.price })) : [{ name: order.product, qty: order.quantity || 1, price: order.soldTHB || 0 }] })}
+                        onEditOrder={(order) => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: order.items?.length > 0 ? order.items.map((i: any) => ({ name: i.name, variantLabel: i.variantLabel, qty: i.qty, price: i.price })) : [{ name: order.product, qty: order.quantity || 1, price: order.soldTHB || 0 }] })}
                       />
                     </div>
                   </section>
@@ -1821,23 +1778,34 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   {qoSelected && qoSelected.options && qoSelected.options.length > 0 && (
                     <div className={`rounded-xl border p-3 space-y-2 ${k.border} ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
                       <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Variant</p>
-                      {qoSelected.options.map(opt => (
+                      {qoSelected.options.map(opt => {
+                        const isColorOpt = opt.name.toLowerCase() === 'color';
+                        return (
                         <div key={opt.name} className="space-y-1">
                           <p className={`text-[10px] font-semibold ${k.muted}`}>{opt.name}</p>
                           <div className="flex flex-wrap gap-1.5">
                             {opt.values.map(v => {
                               const sel = qoVariantSel[opt.name] === v;
+                              const handleSelect = () => {
+                                const newSel = { ...qoVariantSel, [opt.name]: v };
+                                setQoVariantSel(newSel);
+                                const match = qoSelected.variants?.find(vr =>
+                                  Object.entries(newSel).every(([k2, val]) => vr.combination?.[k2] === val)
+                                );
+                                if (match?.price != null) { setQoUnitPrice(match.price); setQoPrice(String(match.price * qoQty)); }
+                                if (match?.cost != null) setQoCostPrice(String(match.cost));
+                              };
+                              if (isColorOpt) {
+                                return (
+                                  <button key={v} type="button" onClick={handleSelect}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'border-accent bg-accent/10 text-accent' : `${k.border} ${k.muted} ${k.hover}`}`}>
+                                    <span className="w-3.5 h-3.5 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: colorForSwatch(v) }} />
+                                    {v}
+                                  </button>
+                                );
+                              }
                               return (
-                                <button key={v} type="button" onClick={() => {
-                                  const newSel = { ...qoVariantSel, [opt.name]: v };
-                                  setQoVariantSel(newSel);
-                                  // Update price/cost from matching variant
-                                  const match = qoSelected.variants?.find(vr =>
-                                    Object.entries(newSel).every(([k2, val]) => vr.combination?.[k2] === val)
-                                  );
-                                  if (match?.price != null) { setQoUnitPrice(match.price); setQoPrice(String(match.price * qoQty)); }
-                                  if (match?.cost != null) setQoCostPrice(String(match.cost));
-                                }}
+                                <button key={v} type="button" onClick={handleSelect}
                                   className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'text-white border-transparent' : `${k.border} ${k.muted} ${k.hover}`}`}
                                   style={sel ? { background: 'var(--accent-gradient)' } : undefined}
                                 >{v}</button>
@@ -1845,7 +1813,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             })}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -2093,7 +2062,8 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       {/* ── Item-level order edit modal ── */}
       {editingOrder && (() => {
         const lineTotal = (item: EditLineItem) => item.qty * item.price;
-        const orderTotal = editingOrder.items.reduce((s, i) => s + lineTotal(i), 0);
+        const orderSubtotal = editingOrder.items.reduce((s, i) => s + lineTotal(i), 0);
+        const orderTotal = Math.max(0, orderSubtotal - (editingOrder.discount || 0));
         const orderProfit = orderTotal - editingOrder.costTHB - editingOrder.shipCostTHB;
         const updateItem = (idx: number, patch: Partial<EditLineItem>) =>
           setEditingOrder(v => v && { ...v, items: v.items.map((it, i) => i === idx ? { ...it, ...patch } : it) });
@@ -2101,101 +2071,147 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
           setEditingOrder(v => v && { ...v, items: v.items.filter((_, i) => i !== idx) });
         const addItem = () =>
           setEditingOrder(v => v && { ...v, items: [...v.items, { name: '', variantLabel: '', qty: 1, price: 0 }] });
+        const addFromCatalog = (p: Product) =>
+          setEditingOrder(v => v && { ...v, items: [...v.items, { productId: p._id, name: p.name, variantLabel: '', qty: 1, price: p.price }] });
         return (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
             onClick={e => { if (e.target === e.currentTarget) setEditingOrder(null); }}>
-            <div className={`w-full max-w-md rounded-2xl border shadow-2xl flex flex-col max-h-[90vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
+            <div className={`w-full max-w-4xl rounded-2xl border shadow-2xl flex flex-col max-h-[92vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
               {/* Header */}
-              <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
-                <p className="text-xs font-black uppercase tracking-widest text-[#8b92ad]">Edit Order</p>
-                <button onClick={() => setEditingOrder(null)} className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10' : 'text-[#8b92ad] hover:bg-black/5'}`}><X size={14} /></button>
+              <div className="flex items-center justify-between px-6 pt-5 pb-4 flex-shrink-0 border-b" style={{ borderColor: isDark ? '#1f2335' : '#e2e5ef' }}>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-[#8b92ad]">Edit Order</p>
+                  <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>#{editingOrder.id.slice(-6).toUpperCase()}</p>
+                </div>
+                <button onClick={() => setEditingOrder(null)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10' : 'text-[#8b92ad] hover:bg-black/5'}`}><X size={15} /></button>
               </div>
 
-              {/* Item list */}
-              <div className="overflow-y-auto flex-1 px-5 space-y-3">
-                {editingOrder.items.map((item, idx) => (
-                  <div key={idx} className={`rounded-2xl border p-3 space-y-2 ${isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-[#f8f9fc] border-[#e2e5ef]'}`}>
-                    <div className="flex items-center gap-2">
+              {/* Two-panel body */}
+              <div className="flex flex-1 min-h-0">
+                {/* ── Left panel: catalog browser ── */}
+                <div className={`w-72 flex-shrink-0 flex flex-col border-r ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                  <div className={`px-4 py-3 border-b ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#8b92ad] mb-2">Product Catalog</p>
+                    <div className="relative">
+                      <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8b92ad]" />
                       <input
-                        value={item.name}
-                        onChange={e => updateItem(idx, { name: e.target.value })}
-                        placeholder="Item name"
-                        className={`flex-1 text-xs font-semibold rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]'}`}
+                        placeholder="Search products…"
+                        onChange={e => {
+                          const q = e.target.value.toLowerCase();
+                          const list = e.currentTarget.closest('[data-catalog-panel]')?.querySelector('[data-catalog-list]');
+                          if (list) {
+                            (list as HTMLElement).querySelectorAll('[data-product-name]').forEach(el => {
+                              const name = el.getAttribute('data-product-name') || '';
+                              (el as HTMLElement).style.display = name.toLowerCase().includes(q) ? '' : 'none';
+                            });
+                          }
+                        }}
+                        className={`w-full pl-7 pr-3 py-1.5 text-[11px] rounded-lg border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white placeholder-[#8b92ad]' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e] placeholder-[#9ca3af]'}`}
                       />
-                      {editingOrder.items.length > 1 && (
-                        <button onClick={() => removeItem(idx)} className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0"><X size={13} /></button>
-                      )}
                     </div>
-                    {(item.variantLabel !== undefined) && (
-                      <input
-                        value={item.variantLabel ?? ''}
-                        placeholder="Variant (e.g. Blue · Size M)"
-                        onChange={e => updateItem(idx, { variantLabel: e.target.value })}
-                        className={`w-full text-[11px] rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-[#8b92ad]' : 'bg-white border-[#e2e5ef] text-[#8b92ad]'}`}
+                  </div>
+                  <div className="flex-1 overflow-y-auto" data-catalog-panel="">
+                    <div data-catalog-list="">
+                      {products.map(p => (
+                        <button
+                          key={p._id}
+                          data-product-name={p.name}
+                          type="button"
+                          onClick={() => addFromCatalog(p)}
+                          className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors border-b ${isDark ? 'border-[#1f2335] hover:bg-white/5' : 'border-[#f0f0f0] hover:bg-slate-50'}`}
+                        >
+                          {p.imageUrl
+                            ? <img src={p.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                            : <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}><Package size={13} className="text-[#8b92ad]" /></div>
+                          }
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-[11px] font-semibold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{p.name}</p>
+                            <p className="text-[10px] text-[#8b92ad] font-medium">฿{p.price.toLocaleString()}</p>
+                          </div>
+                          <Plus size={12} className="text-accent flex-shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Right panel: order items ── */}
+                <div className="flex-1 flex flex-col min-w-0">
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                    {editingOrder.items.map((item, idx) => (
+                      <EditOrderItemCard
+                        key={idx}
+                        item={item}
+                        idx={idx}
+                        products={products}
+                        isDark={isDark}
+                        k={k}
+                        merchantSettings={merchantSettings}
+                        onUpdate={patch => updateItem(idx, patch)}
+                        onRemove={() => removeItem(idx)}
+                        canRemove={editingOrder.items.length > 1}
                       />
-                    )}
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Unit Price ({merchantSettings?.localCurrency || 'THB'})</label>
+                    ))}
+                    <button
+                      onClick={addItem}
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold border-dashed border-2 transition-all ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-[#e2e5ef] text-[#8b92ad] hover:border-accent hover:text-accent'}`}
+                    >
+                      + Add custom item
+                    </button>
+                  </div>
+
+                  {/* Footer summary + save */}
+                  <div className={`px-5 pt-3 pb-5 flex-shrink-0 border-t space-y-3 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#8b92ad] font-medium">Subtotal</span>
+                      <span className={`text-xs font-bold ${isDark ? 'text-white/70' : 'text-[#1a1d2e]/70'}`}>฿{orderSubtotal.toLocaleString()}</span>
+                    </div>
+                    {/* Discount row */}
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs text-[#8b92ad] font-medium flex-shrink-0">Discount</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-semibold ${k.muted}`}>-฿</span>
                         <input
-                          type="number" min={0}
-                          value={item.price}
-                          onChange={e => updateItem(idx, { price: parseFloat(e.target.value) || 0 })}
-                          className={`w-full text-xs font-bold rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]'}`}
+                          type="number" min={0} max={orderSubtotal}
+                          value={editingOrder.discount || 0}
+                          onChange={e => setEditingOrder(v => v && { ...v, discount: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          placeholder="0"
+                          className={`w-24 text-xs font-bold rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1a1d2e] border-[#2a3050] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]'}`}
                         />
                       </div>
-                      <div className="w-28 flex-shrink-0">
-                        <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Qty</label>
-                        <NumberStepper value={item.qty} onChange={v => updateItem(idx, { qty: v })} min={1} step={1} isDark={isDark} size="sm" />
-                      </div>
-                      <div className="flex-shrink-0 text-right">
-                        <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Line</label>
-                        <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{lineTotal(item).toLocaleString()}</p>
-                      </div>
                     </div>
+                    <div className={`flex items-center justify-between pt-2 border-t ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
+                      <span className="text-sm text-[#8b92ad] font-semibold">Total</span>
+                      <span className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{orderTotal.toLocaleString()}</span>
+                    </div>
+                    {editingOrder.costTHB > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[#8b92ad] font-medium">Profit</span>
+                        <span className={`text-xs font-black ${orderProfit >= 0 ? 'text-accent' : 'text-rose-500'}`}>
+                          {orderProfit >= 0 ? '+' : ''}฿{orderProfit.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        const totalQty = editingOrder.items.reduce((s, i) => s + i.qty, 0);
+                        const primaryName = editingOrder.items[0]?.name || '';
+                        patchOrder(editingOrder.id, {
+                          items: editingOrder.items,
+                          soldTHB: orderTotal,
+                          quantity: totalQty,
+                          product: primaryName,
+                          profit: orderTotal - editingOrder.costTHB - editingOrder.shipCostTHB,
+                        });
+                        setEditingOrder(null);
+                      }}
+                      className="w-full py-2.5 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95"
+                      style={{ background: 'var(--accent-gradient)' }}
+                    >
+                      Save Changes
+                    </button>
                   </div>
-                ))}
-                <button
-                  onClick={addItem}
-                  className={`w-full py-2 rounded-xl text-xs font-bold border-dashed border-2 transition-all ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-accent hover:text-accent' : 'border-[#e2e5ef] text-[#8b92ad] hover:border-accent hover:text-accent'}`}
-                >
-                  + Add item
-                </button>
-              </div>
-
-              {/* Footer summary + save */}
-              <div className={`px-5 pt-3 pb-5 flex-shrink-0 border-t space-y-3 ${isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]'}`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#8b92ad] font-medium">Total</span>
-                  <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{orderTotal.toLocaleString()}</span>
                 </div>
-                {editingOrder.costTHB > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-[#8b92ad] font-medium">Profit</span>
-                    <span className={`text-xs font-black ${orderProfit >= 0 ? 'text-accent' : 'text-rose-500'}`}>
-                      {orderProfit >= 0 ? '+' : ''}฿{orderProfit.toLocaleString()}
-                    </span>
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    const newSold = orderTotal;
-                    const totalQty = editingOrder.items.reduce((s, i) => s + i.qty, 0);
-                    const primaryName = editingOrder.items[0]?.name || '';
-                    patchOrder(editingOrder.id, {
-                      items: editingOrder.items,
-                      soldTHB: newSold,
-                      quantity: totalQty,
-                      product: primaryName,
-                      profit: newSold - editingOrder.costTHB - editingOrder.shipCostTHB,
-                    });
-                    setEditingOrder(null);
-                  }}
-                  className="w-full py-2.5 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95"
-                  style={{ background: 'var(--accent-gradient)' }}
-                >
-                  Save Changes
-                </button>
               </div>
             </div>
           </div>
@@ -3416,6 +3432,198 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
   );
 }
 
+// ── Color preset map for swatch rendering ────────────────────────────────────
+const COLOR_HEX_MAP: Record<string, string> = {
+  black: '#111111', white: '#FFFFFF', cream: '#FFFDD0', beige: '#F5F0E8',
+  grey: '#9CA3AF', gray: '#9CA3AF', silver: '#D1D5DB', brown: '#92400E',
+  camel: '#C19A6B', navy: '#1E3A5F', blue: '#3B82F6', 'sky blue': '#7DD3FC',
+  red: '#EF4444', pink: '#F472B6', maroon: '#7F1D1D', orange: '#F97316',
+  yellow: '#FBBF24', olive: '#65A30D', green: '#16A34A', sage: '#87AE73',
+  purple: '#7C3AED', lavender: '#A78BFA', gold: '#D97706', 'rose gold': '#B76E79',
+  burgundy: '#800020',
+};
+function colorForSwatch(v: string): string {
+  if (/^#[0-9A-F]{6}$/i.test(v)) return v;
+  return COLOR_HEX_MAP[v.toLowerCase()] ?? '#9CA3AF';
+}
+
+// ── Edit Order Item Card ──────────────────────────────────────────────────────
+// Searchable product picker with option/variant selectors for the Edit Order modal
+type EditLineItem = { productId?: string; name: string; variantLabel?: string; qty: number; price: number };
+function EditOrderItemCard({
+  item, idx, products, isDark, k, merchantSettings, onUpdate, onRemove, canRemove,
+}: {
+  item: EditLineItem; idx: number; products: Product[]; isDark: boolean; k: typeof DK;
+  merchantSettings: any; onUpdate: (patch: Partial<EditLineItem>) => void;
+  onRemove: () => void; canRemove: boolean;
+}) {
+  const [search, setSearch] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [variantSel, setVariantSel] = useState<Record<string, string>>({});
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const linkedProduct = item.productId ? products.find(p => p._id === item.productId) ?? null : null;
+
+  // Initialise variantSel from existing variantLabel when product is linked
+  useEffect(() => {
+    if (!linkedProduct || !item.variantLabel) { setVariantSel({}); return; }
+    const parts = item.variantLabel.split(' · ');
+    const sel: Record<string, string> = {};
+    linkedProduct.options?.forEach((opt, i) => { if (parts[i]) sel[opt.name] = parts[i]; });
+    setVariantSel(sel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.productId]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowDropdown(false);
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
+
+  const filteredProducts = search
+    ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    : products;
+
+  const handleProductSelect = (p: Product) => {
+    onUpdate({ productId: p._id, name: p.name, price: p.price, variantLabel: '' });
+    setVariantSel({});
+    setSearch('');
+    setShowDropdown(false);
+  };
+
+  const handleUnlink = () => {
+    onUpdate({ productId: undefined });
+    setVariantSel({});
+  };
+
+  const handleOptionSelect = (optName: string, value: string) => {
+    const newSel = { ...variantSel, [optName]: value };
+    setVariantSel(newSel);
+    const label = linkedProduct?.options
+      ?.map(o => newSel[o.name])
+      .filter(Boolean)
+      .join(' · ') ?? '';
+    const match = linkedProduct?.variants?.find(vr =>
+      Object.entries(newSel).every(([k2, val]) => vr.combination?.[k2] === val)
+    );
+    onUpdate({ variantLabel: label, ...(match?.price != null ? { price: match.price } : {}) });
+  };
+
+  const inputCls = `w-full text-xs font-semibold rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white placeholder-[#8b92ad]' : 'bg-white border-[#e2e5ef] text-[#1a1d2e] placeholder-[#9ca3af]'}`;
+
+  return (
+    <div className={`rounded-2xl border p-3 space-y-2.5 ${isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-[#f8f9fc] border-[#e2e5ef]'}`}>
+      {/* Product name / search row */}
+      <div className="flex items-start gap-2">
+        {linkedProduct ? (
+          <div className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl border ${isDark ? 'bg-[#161925] border-[#2a3050]' : 'bg-white border-[#e2e5ef]'}`}>
+            {linkedProduct.imageUrl && (
+              <img src={linkedProduct.imageUrl} alt="" className="w-7 h-7 rounded-lg object-cover flex-shrink-0" />
+            )}
+            <span className={`flex-1 text-xs font-semibold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{linkedProduct.name}</span>
+            <button onClick={handleUnlink} className="p-0.5 rounded text-[#8b92ad] hover:text-rose-400 transition-colors flex-shrink-0"><X size={11} /></button>
+          </div>
+        ) : (
+          <div className="relative flex-1" ref={dropdownRef}>
+            <input
+              value={search || item.name}
+              onChange={e => { setSearch(e.target.value); onUpdate({ name: e.target.value, productId: undefined }); setShowDropdown(true); }}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="Search catalog or type name…"
+              className={inputCls}
+            />
+            {showDropdown && filteredProducts.length > 0 && (
+              <div className={`absolute top-full left-0 right-0 z-50 mt-1 border rounded-xl shadow-xl overflow-hidden max-h-44 overflow-y-auto ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
+                {filteredProducts.slice(0, 20).map(p => (
+                  <button key={p._id} type="button"
+                    onMouseDown={e => { e.preventDefault(); handleProductSelect(p); }}
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${isDark ? 'hover:bg-white/5 text-white' : 'hover:bg-slate-50 text-[#1a1d2e]'}`}>
+                    {p.imageUrl && <img src={p.imageUrl} alt="" className="w-5 h-5 rounded object-cover flex-shrink-0" />}
+                    <span className="flex-1 truncate">{p.name}</span>
+                    <span className="flex-shrink-0 font-bold text-[#8b92ad]">฿{p.price.toLocaleString()}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {canRemove && (
+          <button onClick={onRemove} className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0 mt-0.5"><X size={13} /></button>
+        )}
+      </div>
+
+      {/* Variant option pickers (when product is linked) */}
+      {linkedProduct && linkedProduct.options && linkedProduct.options.length > 0 && (
+        <div className="space-y-2">
+          {linkedProduct.options.map(opt => {
+            const isColor = opt.name.toLowerCase() === 'color';
+            return (
+              <div key={opt.name}>
+                <p className="text-[9px] font-black uppercase tracking-widest text-[#8b92ad] mb-1">{opt.name}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {opt.values.map(v => {
+                    const sel = variantSel[opt.name] === v;
+                    if (isColor) {
+                      return (
+                        <button key={v} type="button" onClick={() => handleOptionSelect(opt.name, v)}
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'border-accent bg-accent/10 text-accent' : `${k.border} ${k.muted} ${k.hover}`}`}>
+                          <span className="w-3.5 h-3.5 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: colorForSwatch(v) }} />
+                          {v}
+                        </button>
+                      );
+                    }
+                    return (
+                      <button key={v} type="button" onClick={() => handleOptionSelect(opt.name, v)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'text-white border-transparent' : `${k.border} ${k.muted} ${k.hover}`}`}
+                        style={sel ? { background: 'var(--accent-gradient)' } : undefined}>
+                        {v}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Free-text variant when no product linked */}
+      {!linkedProduct && (
+        <input
+          value={item.variantLabel ?? ''}
+          placeholder="Variant (optional, e.g. Blue · Size M)"
+          onChange={e => onUpdate({ variantLabel: e.target.value })}
+          className={`w-full text-[11px] rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-[#8b92ad] placeholder-[#8b92ad]' : 'bg-white border-[#e2e5ef] text-[#8b92ad]'}`}
+        />
+      )}
+
+      {/* Price + Qty + Line total */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Unit Price ({merchantSettings?.localCurrency || 'THB'})</label>
+          <input
+            type="number" min={0}
+            value={item.price}
+            onChange={e => onUpdate({ price: parseFloat(e.target.value) || 0 })}
+            className={`w-full text-xs font-bold rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#161925] border-[#2a3050] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]'}`}
+          />
+        </div>
+        <div className="w-28 flex-shrink-0">
+          <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Qty</label>
+          <NumberStepper value={item.qty} onChange={v => onUpdate({ qty: v })} min={1} step={1} isDark={isDark} size="sm" />
+        </div>
+        <div className="flex-shrink-0 text-right">
+          <label className="block text-[9px] font-black uppercase tracking-widest mb-1 text-[#8b92ad]">Line</label>
+          <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{(item.qty * item.price).toLocaleString()}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Box Control ───────────────────────────────────────────────────────────────
 // Inline qty stepper + Box button for a single pending item row
 function BoxControl({ max, isDark, k, isActing, onBox }: {
@@ -3440,10 +3648,9 @@ function BoxControl({ max, isDark, k, isActing, onBox }: {
       <button
         onClick={() => onBox(qty)}
         disabled={isActing}
-        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:opacity-50 ${
-          isDark ? 'bg-accent/20 text-accent hover:bg-accent/30' : 'bg-accent/10 text-accent hover:bg-accent/20'
-        }`}
-      >Add to Parcel</button>
+        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+        style={{ background: 'var(--accent-gradient)' }}
+      ><Package size={10} />Parcel</button>
     </div>
   );
 }
@@ -3467,6 +3674,8 @@ function OrderBanner({
   computeInParcelQty,
   isActing,
   products,
+  isExpanded,
+  onToggle,
 }: {
   order: Order;
   isDark: boolean;
@@ -3484,8 +3693,9 @@ function OrderBanner({
   computeInParcelQty: (itemName: string) => number;
   isActing: boolean;
   products?: Product[];
+  isExpanded: boolean;
+  onToggle: () => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
 
   const status = STATUS_COLORS[order.status] || STATUS_COLORS.pending;
   const label = STATUS_LABEL[order.status] || 'Order';
@@ -3504,31 +3714,33 @@ function OrderBanner({
   const divider = isDark ? 'border-[#1f2335]' : 'border-slate-200';
 
   return (
-    <article className={`rounded-2xl border overflow-hidden ${
-      isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-sm'
+    <article className={`rounded-2xl border overflow-hidden transition-shadow duration-300 ${
+      isDark
+        ? isExpanded ? 'bg-[#161925] border-accent/40 shadow-[0_0_0_1px_var(--accent),0_0_24px_rgba(99,102,241,0.12)]' : 'bg-[#161925] border-[#1f2335]'
+        : isExpanded ? 'bg-white border-accent/40 shadow-[0_0_0_1px_var(--accent),0_4px_20px_rgba(99,102,241,0.10)] shadow-sm' : 'bg-white border-slate-200 shadow-sm'
     }`}>
       {/* ── Clickable header row ─────────────────────────────────────── */}
       <div
         role="button"
         tabIndex={0}
-        aria-expanded={expanded}
-        onClick={() => setExpanded(p => !p)}
-        onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && setExpanded(p => !p)}
-        className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none transition-colors ${
+        aria-expanded={isExpanded}
+        onClick={() => onToggle()}
+        onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && onToggle()}
+        className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5 cursor-pointer select-none transition-colors ${
           isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
         }`}
       >
         <ChevronRight
           size={14}
-          className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${expanded ? 'rotate-90' : ''}`}
+          className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${isExpanded ? 'rotate-90' : ''}`}
         />
 
-        {/* ID + status */}
+        {/* ID + status + timestamp */}
         <div className="min-w-0 flex-shrink-0">
           <p className={`text-sm font-black leading-none mb-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             #{order._id.slice(-6).toUpperCase()}
           </p>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
               isDark ? darkStatusClass : `${status.lightBg} ${status.text} ${status.border}`
             }`}>
@@ -3538,26 +3750,73 @@ function OrderBanner({
               <span className="text-[9px] font-medium text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-md border border-violet-500/20">QR</span>
             )}
           </div>
+          <p className={`text-[9px] mt-0.5 tabular-nums ${k.muted}`}>
+            {new Date(order.createdAt).toLocaleDateString('en', { day: 'numeric', month: 'short' })} · {timeAgo(order.createdAt)}
+          </p>
         </div>
 
         {/* Products count badge */}
-        <span className={`text-[10px] font-medium px-2 py-1 rounded-lg border flex-shrink-0 ${
+        <span className={`text-[10px] font-medium px-2 py-1 rounded-lg border flex-shrink-0 hidden sm:inline-flex ${
           isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
         }`}>
           {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
         </span>
 
-        {/* Progress bar + % */}
-        <div className="flex-1 min-w-0">
+        {/* Progress bar — narrow, hidden on very small screens */}
+        <div className="w-24 sm:w-32 flex-shrink-0 hidden xs:block">
           <div className="flex items-center justify-between mb-1">
-            <span className={`text-[10px] font-medium ${k.muted}`}>Fulfilment progress: {progress}%</span>
+            <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
           </div>
-          <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
+          <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
             <div
               className="h-full rounded-full transition-all"
               style={{ width: `${progress}%`, background: progress === 100 ? '#22c55e' : 'var(--accent)' }}
             />
           </div>
+        </div>
+
+        {/* Inline quick actions */}
+        <div className="flex items-center gap-1 flex-shrink-0 ml-auto" onClick={e => e.stopPropagation()}>
+          {order.status === 'pending' && (
+            <>
+              <button
+                onClick={onSendQR}
+                disabled={isActing}
+                title={order.paymentQrSent ? 'Resend QR' : 'Send QR'}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+                  order.paymentQrSent
+                    ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
+                    : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
+                }`}
+              >
+                <QrCode size={10} /> {order.paymentQrSent ? 'Resend' : 'QR'}
+              </button>
+              <button
+                onClick={onMarkPaid}
+                disabled={isActing}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                <CheckCircle size={10} /> Paid
+              </button>
+            </>
+          )}
+          {order.status !== 'pending' && (() => {
+            const pendingItems = orderItems
+              .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name) - computeInParcelQty(item.name)), price: item.price }))
+              .filter(i => i.qty > 0);
+            if (pendingItems.length === 0) return null;
+            return (
+              <button
+                onClick={() => onBoxItems(pendingItems)}
+                disabled={isActing}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                <Package size={10} /> Parcel
+              </button>
+            );
+          })()}
         </div>
 
         {/* Total + edit icon */}
@@ -3577,7 +3836,7 @@ function OrderBanner({
       </div>
 
       {/* ── Expanded body ───────────────────────────────────────────── */}
-      {expanded && (
+      {isExpanded && (
         <div className={`border-t ${divider} px-4 pt-3 pb-4 space-y-3`}>
           {/* Order address */}
           {orderAddr && (
@@ -3688,30 +3947,6 @@ function OrderBanner({
             );
           })()}
 
-          {/* Order actions */}
-          {order.status === 'pending' ? (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={onSendQR}
-                disabled={isActing}
-                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
-                  order.paymentQrSent
-                    ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
-                    : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
-                }`}
-              >
-                <QrCode size={12} /> {order.paymentQrSent ? 'Resend QR' : 'Send QR'}
-              </button>
-              <button
-                onClick={onMarkPaid}
-                disabled={isActing}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                <CheckCircle size={12} /> Mark Paid
-              </button>
-            </div>
-          ) : null}
           {/* Cancel + Delete row — always visible */}
           <div className="flex gap-2">
             {order.status !== 'cancelled' && (
