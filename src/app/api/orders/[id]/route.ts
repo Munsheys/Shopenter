@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Settings, Customer, LoyaltyTransaction, Message } from '@/models';
+import { Order, Settings, Customer, LoyaltyTransaction, Message, Fulfilment } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { sendLineMessage, sendFlexMessage, buildOrderStatusFlex, interpolateTemplate } from '@/lib/platforms/line';
 
@@ -29,7 +29,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Whitelist updatable fields to prevent arbitrary field injection
     const ALLOWED_FIELDS = ['status', 'tracking', 'courier', 'shipCostTHB', 'costKRW', 'costTHB',
       'soldTHB', 'profit', 'rateUsed', 'paymentQrSent', 'trackingSent', 'statusBeforeParcel',
-      'address', 'displayName', 'product', 'quantity', 'items', 'userId', 'platform'];
+      'address', 'displayName', 'product', 'quantity', 'items', 'userId', 'platform',
+      'discount', 'discountAmount', 'redeemedPoints'];
     const safeUpdate: Record<string, any> = {};
     for (const key of ALLOWED_FIELDS) {
       if (key in body) safeUpdate[key] = body[key];
@@ -134,6 +135,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await dbConnect();
     const order = await Order.findOneAndDelete({ _id: id, merchantId: merchant.merchantId });
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    await Fulfilment.deleteMany({ orderId: id });
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: 'Failed to delete order' }, { status: 500 });

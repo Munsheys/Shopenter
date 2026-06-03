@@ -259,6 +259,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     setSelectedCustomer(c);
     setSelectedAddressIdx(0);
     setSelectedOrderIds(new Set());
+    setFulfilmentsCache({});
     if (c.unreadCount > 0) {
       fetch(`/api/customers/${c.userId}/read`, { method: 'POST' }).catch(() => {});
     }
@@ -530,17 +531,43 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     items: Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>
   ) {
     if (!items.length) return;
-    setActingOrderIds(prev => new Set(prev).add(orderId));
-    try {
-      const activeOrdersList = allOrders.filter(o =>
-        o.userId === (selectedCustomer?.userId ?? '') && ['pending', 'paid'].includes(o.status)
-      );
-      let existingParcel: Fulfilment | undefined;
-      for (const o of activeOrdersList) {
-        const found = (fulfilmentsCache[o._id] || []).find(f => f.status === 'pending');
-        if (found) { existingParcel = found; break; }
-      }
 
+    const activeOrdersList = allOrders.filter(o =>
+      o.userId === (selectedCustomer?.userId ?? '') && ['pending', 'paid'].includes(o.status)
+    );
+    let existingParcel: Fulfilment | undefined;
+    for (const o of activeOrdersList) {
+      const found = (fulfilmentsCache[o._id] || []).find(f => f.status === 'pending');
+      if (found) { existingParcel = found; break; }
+    }
+
+    // Optimistic update — patch cache immediately before the network call
+    const prevCache = fulfilmentsCache;
+    if (existingParcel) {
+      const mergedItems = [...(existingParcel.items || []), ...items];
+      const parcelOid = existingParcel.orderId;
+      setFulfilmentsCache(prev => ({
+        ...prev,
+        [parcelOid]: (prev[parcelOid] || []).map(f =>
+          f._id === existingParcel!._id ? { ...f, items: mergedItems } : f
+        ),
+      }));
+    } else {
+      const optimisticParcel: Fulfilment = {
+        _id: `optimistic-${Date.now()}`,
+        orderId,
+        items,
+        shipCostTHB: 0,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+      setFulfilmentsCache(prev => ({
+        ...prev,
+        [orderId]: [...(prev[orderId] || []), optimisticParcel],
+      }));
+    }
+
+    try {
       let ok = false;
       if (existingParcel) {
         const newItems = [...(existingParcel.items || []), ...items];
@@ -570,31 +597,50 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       }
 
       if (ok) onOrderMutated?.();
-      else setConfirm({ open: true, title: 'Failed', message: 'Could not add to parcel. Please try again.', onConfirm: () => {} });
+      else {
+        setFulfilmentsCache(prevCache);
+        setConfirm({ open: true, title: 'Failed', message: 'Could not add to parcel. Please try again.', onConfirm: () => {} });
+      }
     } catch {
+      setFulfilmentsCache(prevCache);
       setConfirm({ open: true, title: 'Error', message: 'Something went wrong. Please try again.', onConfirm: () => {} });
-    } finally {
-      setActingOrderIds(prev => { const s = new Set(prev); s.delete(orderId); return s; });
     }
   }
 
   // Remove an item from the pending parcel (undo "Add to Parcel")
   async function unboxItemFromParcel(orderId: string, itemName: string) {
-    setActingOrderIds(prev => new Set(prev).add(orderId));
-    try {
-      const activeOrdersList = allOrders.filter(o =>
-        o.userId === (selectedCustomer?.userId ?? '') && ['pending', 'paid'].includes(o.status)
+    const activeOrdersList = allOrders.filter(o =>
+      o.userId === (selectedCustomer?.userId ?? '') && ['pending', 'paid'].includes(o.status)
+    );
+    let targetFulfilment: Fulfilment | undefined;
+    for (const o of activeOrdersList) {
+      const found = (fulfilmentsCache[o._id] || []).find(
+        f => f.status === 'pending' && (f.items || []).some(i => i.name === itemName)
       );
-      let targetFulfilment: Fulfilment | undefined;
-      for (const o of activeOrdersList) {
-        const found = (fulfilmentsCache[o._id] || []).find(
-          f => f.status === 'pending' && (f.items || []).some(i => i.name === itemName)
-        );
-        if (found) { targetFulfilment = found; break; }
-      }
-      if (!targetFulfilment) return;
+      if (found) { targetFulfilment = found; break; }
+    }
+    if (!targetFulfilment) return;
 
-      const newItems = (targetFulfilment.items || []).filter(i => i.name !== itemName);
+    const newItems = (targetFulfilment.items || []).filter(i => i.name !== itemName);
+    const parcelOid = targetFulfilment.orderId;
+    const prevCache = fulfilmentsCache;
+
+    // Optimistic update — reflect removal immediately
+    if (newItems.length === 0) {
+      setFulfilmentsCache(prev => ({
+        ...prev,
+        [parcelOid]: (prev[parcelOid] || []).filter(f => f._id !== targetFulfilment!._id),
+      }));
+    } else {
+      setFulfilmentsCache(prev => ({
+        ...prev,
+        [parcelOid]: (prev[parcelOid] || []).map(f =>
+          f._id === targetFulfilment!._id ? { ...f, items: newItems } : f
+        ),
+      }));
+    }
+
+    try {
       if (newItems.length === 0) {
         await fetch(`/api/fulfilments/${targetFulfilment._id}`, { method: 'DELETE' });
       } else {
@@ -604,13 +650,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
           body: JSON.stringify({ items: newItems }),
         });
       }
-      await fetchFulfilments(targetFulfilment.orderId);
-      if (targetFulfilment.orderId !== orderId) await fetchFulfilments(orderId);
+      await fetchFulfilments(parcelOid);
+      if (parcelOid !== orderId) await fetchFulfilments(orderId);
       onOrderMutated?.();
     } catch {
+      setFulfilmentsCache(prevCache);
       setConfirm({ open: true, title: 'Error', message: 'Something went wrong. Please try again.', onConfirm: () => {} });
-    } finally {
-      setActingOrderIds(prev => { const s = new Set(prev); s.delete(orderId); return s; });
     }
   }
 
@@ -2200,6 +2245,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           soldTHB: orderTotal,
                           quantity: totalQty,
                           product: primaryName,
+                          discount: editingOrder.discount || 0,
                           profit: orderTotal - editingOrder.costTHB - editingOrder.shipCostTHB,
                         });
                         setEditingOrder(null);

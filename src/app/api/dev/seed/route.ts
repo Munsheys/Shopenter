@@ -9,6 +9,9 @@ export const runtime = 'nodejs';
 // Creates a full set of mock data covering every visible UI state.
 // Safe to run multiple times — customers and products are upserted, orders/messages/loyalty wiped and recreated.
 export async function POST(req: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
