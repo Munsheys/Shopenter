@@ -3730,44 +3730,39 @@ function OrderBanner({
           className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${isExpanded ? 'rotate-90' : ''}`}
         />
 
-        {/* Left group: fixed width so status badge width never shifts the progress bar */}
-        <div className="w-[160px] flex-shrink-0 overflow-hidden">
-          <p className={`text-sm font-black leading-none mb-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-            #{order._id.slice(-6).toUpperCase()}
-          </p>
+        {/* Left group: ID · status · products · date — all together, fixed width to anchor the progress bar */}
+        <div className="w-[220px] flex-shrink-0 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
+            <p className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+              #{order._id.slice(-6).toUpperCase()}
+            </p>
             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
               isDark ? darkStatusClass : `${status.lightBg} ${status.text} ${status.border}`
             }`}>
               {label}
             </span>
-            {order.paymentQrSent && order.status === 'pending' && (
-              <span className="text-[9px] font-medium text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-md border border-violet-500/20">QR</span>
-            )}
+            <div className="hidden sm:flex items-center gap-1" onClick={e => e.stopPropagation()}>
+              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
+                isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
+              }`}>
+                {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
+              </span>
+              <button
+                onClick={onEdit}
+                title="Edit order items"
+                aria-label="Edit order items"
+                className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-accent hover:bg-white/10' : 'text-slate-400 hover:text-accent hover:bg-slate-100'}`}
+              >
+                <Pencil size={11} />
+              </button>
+            </div>
           </div>
           <p className={`text-[9px] mt-0.5 tabular-nums ${k.muted}`}>
             {new Date(order.createdAt).toLocaleDateString('en', { day: 'numeric', month: 'short' })} · {timeAgo(order.createdAt)}
           </p>
         </div>
 
-        {/* Products badge + pencil — fixed width column */}
-        <div className="hidden sm:flex items-center gap-1 w-[108px] flex-shrink-0" onClick={e => e.stopPropagation()}>
-          <span className={`text-[10px] font-medium px-2 py-1 rounded-lg border ${
-            isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
-          }`}>
-            {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
-          </span>
-          <button
-            onClick={onEdit}
-            title="Edit order items"
-            aria-label="Edit order items"
-            className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-accent hover:bg-white/10' : 'text-slate-400 hover:text-accent hover:bg-slate-100'}`}
-          >
-            <Pencil size={11} />
-          </button>
-        </div>
-
-        {/* Progress bar — flex-1; left edge is now consistent because all columns before it are fixed width */}
+        {/* Progress bar — flex-1; left edge is locked because all content before it is fixed width */}
         <div className="hidden sm:flex flex-col gap-0.5 flex-1 min-w-[60px]">
           <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
           <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
@@ -3778,28 +3773,27 @@ function OrderBanner({
           </div>
         </div>
 
-        {/* Quick actions + price — sits at right edge */}
+        {/* Fixed-width action column — QR icon-only + Paid, or Parcel, always at the same X */}
         <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
-          {/* Fixed-width action column — Parcel/QR/Paid always land at the same X */}
-          <div className="flex items-center gap-1 w-[90px] justify-end flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-1 w-[88px] justify-end flex-shrink-0" onClick={e => e.stopPropagation()}>
             {order.status === 'pending' && (
               <>
                 <button
                   onClick={onSendQR}
                   disabled={isActing}
                   title={order.paymentQrSent ? 'Resend QR' : 'Send QR'}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+                  className={`flex items-center justify-center w-7 h-7 rounded-lg border transition-all active:scale-95 disabled:opacity-50 ${
                     order.paymentQrSent
                       ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
                       : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
                   }`}
                 >
-                  <QrCode size={10} /> {order.paymentQrSent ? 'Resend' : 'QR'}
+                  <QrCode size={12} />
                 </button>
                 <button
                   onClick={onMarkPaid}
                   disabled={isActing}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
                   style={{ background: 'var(--accent-gradient)' }}
                 >
                   <CheckCircle size={10} /> Paid
@@ -3815,7 +3809,7 @@ function OrderBanner({
                 <button
                   onClick={() => onBoxItems(pendingItems)}
                   disabled={isActing}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
                   style={{ background: 'var(--accent-gradient)' }}
                 >
                   <Package size={10} /> Parcel
@@ -3824,7 +3818,7 @@ function OrderBanner({
             })()}
           </div>
 
-          {/* Fixed-width price column — amounts always right-aligned at the same X */}
+          {/* Price — fixed width, right-aligned */}
           <p className={`text-sm font-black w-[72px] text-right flex-shrink-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             ฿{fmt(order.soldTHB)}
           </p>
