@@ -1400,20 +1400,23 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <section aria-label="Active order banners">
                     <SectionLabel>Orders</SectionLabel>
                     <div className="space-y-3 mt-3">
-                      {activeOrders.map(order => {
-                        const fulfilments = fulfilmentsCache[order._id] || [];
-                        // Only count shipped/delivered fulfilments as "shipped" — pending parcels are not shipped yet
-                        const computeShippedQty = (itemName: string): number =>
-                          fulfilments
+                      {(() => {
+                        // Collect ALL fulfilments across every active order once,
+                        // so items boxed into a different order's parcel are still
+                        // counted toward the originating order's progress bar.
+                        const allActiveFulfilments = activeOrders.flatMap(o => fulfilmentsCache[o._id] || []);
+
+                        const computeShippedQtyGlobal = (itemName: string): number =>
+                          allActiveFulfilments
                             .filter(f => ['shipped', 'delivered'].includes(f.status))
                             .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName)?.qty || 0), 0);
-                        // Items sitting in a pending parcel (not yet shipped)
-                        const computeInParcelQty = (itemName: string): number =>
-                          fulfilments
+
+                        const computeInParcelQtyGlobal = (itemName: string): number =>
+                          allActiveFulfilments
                             .filter(f => f.status === 'pending')
                             .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName)?.qty || 0), 0);
 
-                        return (
+                        return activeOrders.map(order => (
                           <OrderBanner
                             key={order._id}
                             order={order}
@@ -1433,14 +1436,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             onCancel={() => confirmCancelOrder(order._id)}
                             onDelete={() => confirmDeleteOrder(order._id)}
                             onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
-                            computeShippedQty={computeShippedQty}
-                            computeInParcelQty={computeInParcelQty}
+                            computeShippedQty={computeShippedQtyGlobal}
+                            computeInParcelQty={computeInParcelQtyGlobal}
                             isActing={actingOrderIds.has(order._id)}
                             isExpanded={expandedOrderId === order._id}
                             onToggle={() => setExpandedOrderId(id => id === order._id ? null : order._id)}
                           />
-                        );
-                      })}
+                        ));
+                      })()}
                     </div>
                   </section>
                 )}
