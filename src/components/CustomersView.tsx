@@ -3730,8 +3730,8 @@ function OrderBanner({
           className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${isExpanded ? 'rotate-90' : ''}`}
         />
 
-        {/* Left group: ID + status + timestamp */}
-        <div className="min-w-0 flex-shrink-0">
+        {/* Left group: fixed width so status badge width never shifts the progress bar */}
+        <div className="w-[160px] flex-shrink-0 overflow-hidden">
           <p className={`text-sm font-black leading-none mb-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             #{order._id.slice(-6).toUpperCase()}
           </p>
@@ -3750,8 +3750,8 @@ function OrderBanner({
           </p>
         </div>
 
-        {/* Products badge + pencil (right of badge) */}
-        <div className="hidden sm:flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+        {/* Products badge + pencil — fixed width column */}
+        <div className="hidden sm:flex items-center gap-1 w-[108px] flex-shrink-0" onClick={e => e.stopPropagation()}>
           <span className={`text-[10px] font-medium px-2 py-1 rounded-lg border ${
             isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
           }`}>
@@ -3767,8 +3767,8 @@ function OrderBanner({
           </button>
         </div>
 
-        {/* Progress bar — flex-1 fills the space so every card aligns consistently */}
-        <div className="hidden sm:flex flex-col gap-0.5 flex-1 min-w-[60px] mx-2">
+        {/* Progress bar — flex-1; left edge is now consistent because all columns before it are fixed width */}
+        <div className="hidden sm:flex flex-col gap-0.5 flex-1 min-w-[60px]">
           <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
           <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
             <div
@@ -3780,7 +3780,8 @@ function OrderBanner({
 
         {/* Quick actions + price — sits at right edge */}
         <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
-          <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          {/* Fixed-width action column — Parcel/QR/Paid always land at the same X */}
+          <div className="flex items-center gap-1 w-[90px] justify-end flex-shrink-0" onClick={e => e.stopPropagation()}>
             {order.status === 'pending' && (
               <>
                 <button
@@ -3823,7 +3824,8 @@ function OrderBanner({
             })()}
           </div>
 
-          <p className={`text-sm font-black flex-shrink-0 min-w-[56px] text-right ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+          {/* Fixed-width price column — amounts always right-aligned at the same X */}
+          <p className={`text-sm font-black w-[72px] text-right flex-shrink-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             ฿{fmt(order.soldTHB)}
           </p>
         </div>
