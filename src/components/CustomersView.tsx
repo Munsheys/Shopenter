@@ -3751,7 +3751,7 @@ function OrderBanner({
         aria-expanded={isExpanded}
         onClick={() => onToggle()}
         onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && onToggle()}
-        className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5 cursor-pointer select-none transition-colors ${
+        className={`flex items-center gap-2 sm:gap-3 px-4 py-3.5 cursor-pointer select-none transition-colors ${
           isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
         }`}
       >
@@ -3760,7 +3760,7 @@ function OrderBanner({
           className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${isExpanded ? 'rotate-90' : ''}`}
         />
 
-        {/* ID + status + timestamp */}
+        {/* Left group: ID + status + timestamp */}
         <div className="min-w-0 flex-shrink-0">
           <p className={`text-sm font-black leading-none mb-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             #{order._id.slice(-6).toUpperCase()}
@@ -3780,83 +3780,86 @@ function OrderBanner({
           </p>
         </div>
 
-        {/* Products count badge */}
-        <span className={`text-[10px] font-medium px-2 py-1 rounded-lg border flex-shrink-0 hidden sm:inline-flex ${
-          isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
-        }`}>
-          {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
-        </span>
-
-        {/* Progress bar */}
-        <div className="w-24 sm:w-32 flex-shrink-0">
-          <div className="flex items-center justify-between mb-1">
-            <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
-          </div>
-          <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${progress}%`, background: progress === 100 ? '#22c55e' : 'var(--accent)' }}
-            />
-          </div>
-        </div>
-
-        {/* Inline quick actions */}
-        <div className="flex items-center gap-1 flex-shrink-0 ml-auto" onClick={e => e.stopPropagation()}>
-          {order.status === 'pending' && (
-            <>
-              <button
-                onClick={onSendQR}
-                disabled={isActing}
-                title={order.paymentQrSent ? 'Resend QR' : 'Send QR'}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
-                  order.paymentQrSent
-                    ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
-                    : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
-                }`}
-              >
-                <QrCode size={10} /> {order.paymentQrSent ? 'Resend' : 'QR'}
-              </button>
-              <button
-                onClick={onMarkPaid}
-                disabled={isActing}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                <CheckCircle size={10} /> Paid
-              </button>
-            </>
-          )}
-          {order.status !== 'pending' && (() => {
-            const pendingItems = orderItems
-              .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name) - computeInParcelQty(item.name)), price: item.price }))
-              .filter(i => i.qty > 0);
-            if (pendingItems.length === 0) return null;
-            return (
-              <button
-                onClick={() => onBoxItems(pendingItems)}
-                disabled={isActing}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                <Package size={10} /> Parcel
-              </button>
-            );
-          })()}
-        </div>
-
-        {/* Total + edit icon */}
-        <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
-          <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
-            ฿{fmt(order.soldTHB)}
-          </p>
+        {/* Products badge + pencil (right of badge) */}
+        <div className="hidden sm:flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <span className={`text-[10px] font-medium px-2 py-1 rounded-lg border ${
+            isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
+          }`}>
+            {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
+          </span>
           <button
             onClick={onEdit}
             title="Edit order items"
             aria-label="Edit order items"
             className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-accent hover:bg-white/10' : 'text-slate-400 hover:text-accent hover:bg-slate-100'}`}
           >
-            <Pencil size={12} />
+            <Pencil size={11} />
           </button>
+        </div>
+
+        {/* Right group: progress + quick actions + price */}
+        <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+          {/* Progress bar */}
+          <div className="w-20 sm:w-28 hidden sm:block">
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
+            </div>
+            <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${progress}%`, background: progress === 100 ? '#22c55e' : 'var(--accent)' }}
+              />
+            </div>
+          </div>
+
+          {/* Inline quick actions */}
+          <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            {order.status === 'pending' && (
+              <>
+                <button
+                  onClick={onSendQR}
+                  disabled={isActing}
+                  title={order.paymentQrSent ? 'Resend QR' : 'Send QR'}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
+                    order.paymentQrSent
+                      ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
+                      : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
+                  }`}
+                >
+                  <QrCode size={10} /> {order.paymentQrSent ? 'Resend' : 'QR'}
+                </button>
+                <button
+                  onClick={onMarkPaid}
+                  disabled={isActing}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                  style={{ background: 'var(--accent-gradient)' }}
+                >
+                  <CheckCircle size={10} /> Paid
+                </button>
+              </>
+            )}
+            {order.status !== 'pending' && (() => {
+              const pendingItems = orderItems
+                .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name) - computeInParcelQty(item.name)), price: item.price }))
+                .filter(i => i.qty > 0);
+              if (pendingItems.length === 0) return null;
+              return (
+                <button
+                  onClick={() => onBoxItems(pendingItems)}
+                  disabled={isActing}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                  style={{ background: 'var(--accent-gradient)' }}
+                >
+                  <Package size={10} /> Parcel
+                </button>
+              );
+            })()}
+          </div>
+
+          {/* Price */}
+          <p className={`text-sm font-black flex-shrink-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+            ฿{fmt(order.soldTHB)}
+          </p>
         </div>
       </div>
 
