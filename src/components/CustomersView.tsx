@@ -1406,15 +1406,15 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         // counted toward the originating order's progress bar.
                         const allActiveFulfilments = activeOrders.flatMap(o => fulfilmentsCache[o._id] || []);
 
-                        const computeShippedQtyGlobal = (itemName: string): number =>
+                        const computeShippedQtyGlobal = (itemName: string, variantLabel?: string): number =>
                           allActiveFulfilments
                             .filter(f => ['shipped', 'delivered'].includes(f.status))
-                            .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName)?.qty || 0), 0);
+                            .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName && (fi.variantLabel || '') === (variantLabel || ''))?.qty || 0), 0);
 
-                        const computeInParcelQtyGlobal = (itemName: string): number =>
+                        const computeInParcelQtyGlobal = (itemName: string, variantLabel?: string): number =>
                           allActiveFulfilments
                             .filter(f => f.status === 'pending')
-                            .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName)?.qty || 0), 0);
+                            .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName && (fi.variantLabel || '') === (variantLabel || ''))?.qty || 0), 0);
 
                         return activeOrders.map(order => (
                           <OrderBanner
@@ -3717,8 +3717,8 @@ function OrderBanner({
   onCancel: () => void;
   onDelete: () => void;
   onEdit: () => void;
-  computeShippedQty: (itemName: string) => number;
-  computeInParcelQty: (itemName: string) => number;
+  computeShippedQty: (itemName: string, variantLabel?: string) => number;
+  computeInParcelQty: (itemName: string, variantLabel?: string) => number;
   isActing: boolean;
   products?: Product[];
   isExpanded: boolean;
@@ -3733,7 +3733,7 @@ function OrderBanner({
 
   // Fulfillment progress: items shipped OR boxed / total
   const totalQty = orderItems.reduce((s, i) => s + i.qty, 0);
-  const processedQty = orderItems.reduce((s, i) => s + computeShippedQty(i.name) + computeInParcelQty(i.name), 0);
+  const processedQty = orderItems.reduce((s, i) => s + computeShippedQty(i.name, i.variantLabel) + computeInParcelQty(i.name, i.variantLabel), 0);
   const progress = totalQty > 0 ? Math.round((processedQty / totalQty) * 100) : 0;
 
   const orderAddr = order.address?.trim();
@@ -3843,7 +3843,7 @@ function OrderBanner({
             )}
             {order.status !== 'pending' && (() => {
               const pendingItems = orderItems
-                .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name) - computeInParcelQty(item.name)), price: item.price }))
+                .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name, item.variantLabel) - computeInParcelQty(item.name, item.variantLabel)), price: item.price }))
                 .filter(i => i.qty > 0);
               if (pendingItems.length === 0) return null;
               return (
@@ -3892,8 +3892,8 @@ function OrderBanner({
           {/* Item rows */}
           <div className={`rounded-xl overflow-hidden border ${divider}`}>
             {orderItems.map((item, idx) => {
-              const shippedQty = computeShippedQty(item.name);
-              const inParcelQty = computeInParcelQty(item.name);
+              const shippedQty = computeShippedQty(item.name, item.variantLabel);
+              const inParcelQty = computeInParcelQty(item.name, item.variantLabel);
               const pendingQty = Math.max(0, item.qty - shippedQty - inParcelQty);
               const product = products?.find(p => p._id === item.productId);
               const isLast = idx === orderItems.length - 1;
@@ -3978,7 +3978,7 @@ function OrderBanner({
           {/* Box All Pending — shown when multiple items still need boxing */}
           {(() => {
             const allPending = orderItems
-              .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name) - computeInParcelQty(item.name)), price: item.price }))
+              .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name, item.variantLabel) - computeInParcelQty(item.name, item.variantLabel)), price: item.price }))
               .filter(i => i.qty > 0);
             if (allPending.length < 2) return null;
             return (
