@@ -3909,8 +3909,8 @@ function OrderBanner({
                     </div>
                   </div>
 
-                  {/* Pending → BoxControl; fully boxed → back arrow to unbox */}
-                  {pendingQty > 0 ? (
+                  {/* Pending → BoxControl (paid orders only); fully boxed → back arrow to unbox */}
+                  {pendingQty > 0 && order.status !== 'pending' ? (
                     <BoxControl
                       max={pendingQty}
                       isDark={isDark}
