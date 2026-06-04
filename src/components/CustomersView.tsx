@@ -186,6 +186,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [isDraggingButton, setIsDraggingButton] = useState(false);
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
 
   // Auto-expand oldest active order when customer changes
   useEffect(() => {
@@ -197,6 +198,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     setExpandedOrderId(oldest._id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomer?._id]);
+
+  function showToast(message: string, type: 'success' | 'error' | 'info' = 'success') {
+    const id = Math.random().toString(36).slice(2);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+  }
 
   // Fulfilment state
   const [fulfilmentModalOrderId, setFulfilmentModalOrderId] = useState<string | null>(null);
@@ -449,7 +456,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     } finally { setSending(false); }
   }
 
-  async function patchOrder(id: string, patch: object) {
+  async function patchOrder(id: string, patch: object, toastMsg?: string) {
     setAllOrders(prev => prev.map(o => o._id === id ? { ...o, ...patch } : o));
     setActingOrderIds(prev => new Set(prev).add(id));
     try {
@@ -462,6 +469,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         const updated = await res.json();
         setAllOrders(prev => prev.map(o => o._id === id ? updated : o));
         onOrderMutated?.();
+        if (toastMsg) showToast(toastMsg);
       } else {
         refreshOrders();
       }
@@ -475,6 +483,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   async function deleteOrder(id: string) {
     setAllOrders(prev => prev.filter(o => o._id !== id));
     onOrderMutated?.();
+    showToast('Order deleted');
     fetch(`/api/orders/${id}`, { method: 'DELETE' }).catch(() => refreshOrders());
   }
 
@@ -598,7 +607,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         if (ok) await fetchFulfilments(orderId);
       }
 
-      if (ok) onOrderMutated?.();
+      if (ok) { onOrderMutated?.(); showToast(`${items.length === 1 ? items[0].name : `${items.length} items`} moved to parcel`); }
       else {
         setFulfilmentsCache(prevCache);
         setConfirm({ open: true, title: 'Failed', message: 'Could not add to parcel. Please try again.', onConfirm: () => {} });
@@ -655,6 +664,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       await fetchFulfilments(parcelOid);
       if (parcelOid !== orderId) await fetchFulfilments(orderId);
       onOrderMutated?.();
+      showToast(`${itemName} removed from parcel`);
     } catch {
       setFulfilmentsCache(prevCache);
       setConfirm({ open: true, title: 'Error', message: 'Something went wrong. Please try again.', onConfirm: () => {} });
@@ -750,6 +760,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       await fetch(`/api/orders/${id}/send-qr`, { method: 'POST' });
       setAllOrders(prev => prev.map(o => o._id === id ? { ...o, paymentQrSent: true } : o));
       if (selectedCustomer) loadMessages(selectedCustomer.userId);
+      showToast('QR code sent');
     } finally {
       setActingOrderIds(prev => { const s = new Set(prev); s.delete(id); return s; });
     }
@@ -761,6 +772,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     try {
       await fetch(`/api/orders/${id}/mark-paid`, { method: 'POST' });
       if (selectedCustomer) loadMessages(selectedCustomer.userId);
+      showToast('Order marked as paid');
     } catch {
       refreshOrders();
     } finally {
@@ -852,6 +864,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         setAllOrders(prev => [order, ...prev]);
         closeQuickOrder();
         setQoCostCurrency(merchantSettings?.importCurrency || 'KRW');
+        showToast('New order created');
       }
     } finally { setQoSubmitting(false); }
   }
@@ -893,6 +906,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         setQoNewProdPrice('');
         setQoNewProdOpts(defaultOptNames);
         setQoNewProdOpen(false);
+        showToast(`"${qoNewProdName.trim()}" created & added to order`);
       }
     } finally { setQoNewProdSaving(false); }
   }
@@ -965,12 +979,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       title: 'Cancel Order?',
       message: 'The order will be marked as cancelled and kept in your records.',
       danger: true,
-      onConfirm: () => patchOrder(id, { status: 'cancelled' })
+      onConfirm: () => patchOrder(id, { status: 'cancelled' }, 'Order cancelled')
     });
   }
 
   async function issueCreditsAndCancel(orderId: string, amount: number) {
-    await patchOrder(orderId, { status: 'cancelled' });
+    await patchOrder(orderId, { status: 'cancelled' }, 'Order cancelled');
     if (!selectedCustomer) { setCancelCreditModal(null); return; }
     try {
       const res = await fetch(`/api/customers/${selectedCustomer.userId}`, {
@@ -1499,7 +1513,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         onShip={async (tracking, courier) => {
                           const addr = selectedCustomer?.addresses[selectedAddressIdx] || '';
                           for (const o of parcelOrders) {
-                            await patchOrder(o._id, { tracking, courier, address: addr, status: 'shipped' });
+                            await patchOrder(o._id, { tracking, courier, address: addr, status: 'shipped' }, 'Order shipped');
                           }
                         }}
                         onAddItem={() => setShowModal(true)}
@@ -2266,7 +2280,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           product: primaryName,
                           discount: editingOrder.discount || 0,
                           profit: orderTotal - editingOrder.costTHB - editingOrder.shipCostTHB,
-                        });
+                        }, 'Order updated');
                         setEditingOrder(null);
                       }}
                       className="w-full py-2.5 rounded-xl text-xs font-black text-white hover:opacity-90 transition-all active:scale-95"
@@ -2281,6 +2295,23 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
           </div>
         );
       })()}
+
+      {/* ── Toast notifications ── */}
+      {toasts.length > 0 && (
+        <div className="fixed bottom-20 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+          {toasts.map(t => (
+            <div
+              key={t.id}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-xl text-[12px] font-bold text-white transition-all ${
+                t.type === 'error' ? 'bg-red-500' : t.type === 'info' ? 'bg-blue-500' : 'bg-[#22c55e]'
+              }`}
+            >
+              {t.type === 'error' ? <X size={13} /> : t.type === 'info' ? <AlertTriangle size={13} /> : <Check size={13} />}
+              {t.message}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Floating batch selection toolbar ── */}
       {selectedOrderIds.size > 0 && (
@@ -3813,30 +3844,25 @@ function OrderBanner({
           })()}
         </div>
 
-        {/* Total */}
-        <div className="flex items-center flex-shrink-0">
+        {/* Total + edit icon */}
+        <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
           <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             ฿{fmt(order.soldTHB)}
           </p>
+          <button
+            onClick={onEdit}
+            title="Edit order items"
+            aria-label="Edit order items"
+            className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-accent hover:bg-white/10' : 'text-slate-400 hover:text-accent hover:bg-slate-100'}`}
+          >
+            <Pencil size={12} />
+          </button>
         </div>
       </div>
 
       {/* ── Expanded body ───────────────────────────────────────────── */}
       {isExpanded && (
         <div className={`border-t ${divider} px-4 pt-3 pb-4 space-y-3`}>
-          {/* Edit button — only visible when expanded */}
-          <div className="flex justify-end" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={onEdit}
-              title="Edit order items"
-              aria-label="Edit order items"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors border ${
-                isDark ? 'text-[#8b92ad] border-[#1f2335] hover:text-accent hover:border-accent/40 hover:bg-white/5' : 'text-slate-400 border-slate-200 hover:text-accent hover:border-accent/40 hover:bg-slate-50'
-              }`}
-            >
-              <Pencil size={10} /> Edit items
-            </button>
-          </div>
           {/* Order address */}
           {orderAddr && (
             <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
@@ -3953,26 +3979,21 @@ function OrderBanner({
               <button
                 onClick={() => onBoxItems(allPending)}
                 disabled={isActing}
-                className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
-                  isDark ? 'border-accent/30 text-accent hover:bg-accent/10' : 'border-accent/30 text-accent hover:bg-accent/5'
-                }`}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white transition-all active:scale-95 disabled:opacity-50 hover:opacity-90"
+                style={{ background: 'var(--accent-gradient)' }}
               >
                 <Package size={12} /> Box All {allPending.length} Pending Items
               </button>
             );
           })()}
 
-          {/* Cancel + Delete row — always visible */}
+          {/* Cancel + Delete row */}
           <div className="flex gap-2">
             {order.status !== 'cancelled' && (
               <button
                 onClick={onCancel}
                 disabled={isActing}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium border transition-all active:scale-95 disabled:opacity-50 ${
-                  isDark
-                    ? 'border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
-                    : 'border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600'
-                }`}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 transition-all active:scale-95 disabled:opacity-50"
               >
                 <Ban size={12} /> Cancel Order
               </button>
@@ -3982,7 +4003,7 @@ function OrderBanner({
               disabled={isActing}
               title="Permanently delete order"
               aria-label="Permanently delete order"
-              className={`flex items-center justify-center px-3 py-2 rounded-xl text-[11px] border transition-all active:scale-95 disabled:opacity-50 ${
+              className={`flex items-center justify-center px-3 py-2.5 rounded-xl text-[11px] border transition-all active:scale-95 disabled:opacity-50 ${
                 isDark
                   ? 'border-red-500/20 text-red-500/50 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
                   : 'border-red-200 text-red-300 hover:bg-red-50 hover:text-red-600'
