@@ -536,31 +536,24 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     } catch {}
   }
 
-  // Box items directly into the pending parcel (or create one). Called from OrderBanner.
+  // Box items directly into this order's pending parcel (or create one). Each order owns its own parcels.
   async function boxItemsToParcel(
     orderId: string,
     items: Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>
   ) {
     if (!items.length) return;
 
-    const activeOrdersList = allOrders.filter(o =>
-      o.userId === (selectedCustomer?.userId ?? '') && ['pending', 'paid'].includes(o.status)
-    );
-    let existingParcel: Fulfilment | undefined;
-    for (const o of activeOrdersList) {
-      const found = (fulfilmentsCache[o._id] || []).find(f => f.status === 'pending');
-      if (found) { existingParcel = found; break; }
-    }
+    // Only look at this order's own parcels — never merge into another order's parcel.
+    // This keeps progress tracking accurate even when two orders share the same item+variant.
+    const existingParcel = (fulfilmentsCache[orderId] || []).find(f => f.status === 'pending');
 
-    // Optimistic update — patch cache immediately before the network call
     const prevCache = fulfilmentsCache;
     if (existingParcel) {
       const mergedItems = [...(existingParcel.items || []), ...items];
-      const parcelOid = existingParcel.orderId;
       setFulfilmentsCache(prev => ({
         ...prev,
-        [parcelOid]: (prev[parcelOid] || []).map(f =>
-          f._id === existingParcel!._id ? { ...f, items: mergedItems } : f
+        [orderId]: (prev[orderId] || []).map(f =>
+          f._id === existingParcel._id ? { ...f, items: mergedItems } : f
         ),
       }));
     } else {
@@ -588,10 +581,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
           body: JSON.stringify({ items: newItems }),
         });
         ok = res.ok;
-        if (ok) {
-          await fetchFulfilments(existingParcel.orderId);
-          if (existingParcel.orderId !== orderId) await fetchFulfilments(orderId);
-        }
+        if (ok) await fetchFulfilments(orderId);
       } else {
         const res = await fetch(`/api/orders/${orderId}/fulfilments`, {
           method: 'POST',
@@ -618,35 +608,26 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     }
   }
 
-  // Remove an item from the pending parcel (undo "Add to Parcel")
+  // Remove an item from this order's pending parcel (undo "Add to Parcel")
   async function unboxItemFromParcel(orderId: string, itemName: string) {
-    const activeOrdersList = allOrders.filter(o =>
-      o.userId === (selectedCustomer?.userId ?? '') && ['pending', 'paid'].includes(o.status)
+    const targetFulfilment = (fulfilmentsCache[orderId] || []).find(
+      f => f.status === 'pending' && (f.items || []).some(i => i.name === itemName)
     );
-    let targetFulfilment: Fulfilment | undefined;
-    for (const o of activeOrdersList) {
-      const found = (fulfilmentsCache[o._id] || []).find(
-        f => f.status === 'pending' && (f.items || []).some(i => i.name === itemName)
-      );
-      if (found) { targetFulfilment = found; break; }
-    }
     if (!targetFulfilment) return;
 
     const newItems = (targetFulfilment.items || []).filter(i => i.name !== itemName);
-    const parcelOid = targetFulfilment.orderId;
     const prevCache = fulfilmentsCache;
 
-    // Optimistic update — reflect removal immediately
     if (newItems.length === 0) {
       setFulfilmentsCache(prev => ({
         ...prev,
-        [parcelOid]: (prev[parcelOid] || []).filter(f => f._id !== targetFulfilment!._id),
+        [orderId]: (prev[orderId] || []).filter(f => f._id !== targetFulfilment._id),
       }));
     } else {
       setFulfilmentsCache(prev => ({
         ...prev,
-        [parcelOid]: (prev[parcelOid] || []).map(f =>
-          f._id === targetFulfilment!._id ? { ...f, items: newItems } : f
+        [orderId]: (prev[orderId] || []).map(f =>
+          f._id === targetFulfilment._id ? { ...f, items: newItems } : f
         ),
       }));
     }
@@ -661,8 +642,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
           body: JSON.stringify({ items: newItems }),
         });
       }
-      await fetchFulfilments(parcelOid);
-      if (parcelOid !== orderId) await fetchFulfilments(orderId);
+      await fetchFulfilments(orderId);
       onOrderMutated?.();
       showToast(`${itemName} removed from parcel`);
     } catch {
@@ -1400,23 +1380,20 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <section aria-label="Active order banners">
                     <SectionLabel>Orders</SectionLabel>
                     <div className="space-y-3 mt-3">
-                      {(() => {
-                        // Collect ALL fulfilments across every active order once,
-                        // so items boxed into a different order's parcel are still
-                        // counted toward the originating order's progress bar.
-                        const allActiveFulfilments = activeOrders.flatMap(o => fulfilmentsCache[o._id] || []);
+                      {activeOrders.map(order => {
+                        const orderFulfilments = fulfilmentsCache[order._id] || [];
 
-                        const computeShippedQtyGlobal = (itemName: string, variantLabel?: string): number =>
-                          allActiveFulfilments
+                        const computeShippedQty = (itemName: string, variantLabel?: string): number =>
+                          orderFulfilments
                             .filter(f => ['shipped', 'delivered'].includes(f.status))
                             .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName && (fi.variantLabel || '') === (variantLabel || ''))?.qty || 0), 0);
 
-                        const computeInParcelQtyGlobal = (itemName: string, variantLabel?: string): number =>
-                          allActiveFulfilments
+                        const computeInParcelQty = (itemName: string, variantLabel?: string): number =>
+                          orderFulfilments
                             .filter(f => f.status === 'pending')
                             .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName && (fi.variantLabel || '') === (variantLabel || ''))?.qty || 0), 0);
 
-                        return activeOrders.map(order => (
+                        return (
                           <OrderBanner
                             key={order._id}
                             order={order}
@@ -1436,14 +1413,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             onCancel={() => confirmCancelOrder(order._id)}
                             onDelete={() => confirmDeleteOrder(order._id)}
                             onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
-                            computeShippedQty={computeShippedQtyGlobal}
-                            computeInParcelQty={computeInParcelQtyGlobal}
+                            computeShippedQty={computeShippedQty}
+                            computeInParcelQty={computeInParcelQty}
                             isActing={actingOrderIds.has(order._id)}
                             isExpanded={expandedOrderId === order._id}
                             onToggle={() => setExpandedOrderId(id => id === order._id ? null : order._id)}
                           />
-                        ));
-                      })()}
+                        );
+                      })}
                     </div>
                   </section>
                 )}
