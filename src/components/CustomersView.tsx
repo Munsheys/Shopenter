@@ -3630,28 +3630,18 @@ function EditOrderItemCard({
 }
 
 // ── Box Control ───────────────────────────────────────────────────────────────
-// Inline qty stepper + Box button for a single pending item row
+// Read-only qty + Parcel button for a single pending item row
 function BoxControl({ max, isDark, k, isActing, onBox }: {
   max: number; isDark: boolean; k: typeof DK; isActing: boolean;
   onBox: (qty: number) => void;
 }) {
-  const [qty, setQty] = useState(max);
-  useEffect(() => setQty(max), [max]);
   return (
-    <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+    <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+      {max > 1 && (
+        <span className={`text-[11px] font-bold tabular-nums ${isDark ? 'text-white/50' : 'text-slate-400'}`}>×{max}</span>
+      )}
       <button
-        onClick={() => setQty(q => Math.max(1, q - 1))}
-        disabled={qty <= 1 || isActing}
-        className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all disabled:opacity-30 ${k.border} ${k.hover}`}
-      ><Minus size={9} /></button>
-      <span className={`w-6 text-center text-[11px] font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{qty}</span>
-      <button
-        onClick={() => setQty(q => Math.min(max, q + 1))}
-        disabled={qty >= max || isActing}
-        className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all disabled:opacity-30 ${k.border} ${k.hover}`}
-      ><Plus size={9} /></button>
-      <button
-        onClick={() => onBox(qty)}
+        onClick={() => onBox(max)}
         disabled={isActing}
         className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
         style={{ background: 'var(--accent-gradient)' }}
@@ -3777,22 +3767,19 @@ function OrderBanner({
           </button>
         </div>
 
-        {/* Right group: progress + quick actions + price */}
-        <div className="flex items-center gap-2 ml-auto flex-shrink-0">
-          {/* Progress bar */}
-          <div className="w-20 sm:w-28 hidden sm:block">
-            <div className="flex items-center justify-between mb-1">
-              <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
-            </div>
-            <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
-              <div
-                className="h-full rounded-full transition-all"
-                style={{ width: `${progress}%`, background: progress === 100 ? '#22c55e' : 'var(--accent)' }}
-              />
-            </div>
+        {/* Progress bar — flex-1 fills the space so every card aligns consistently */}
+        <div className="hidden sm:flex flex-col gap-0.5 flex-1 min-w-[60px] mx-2">
+          <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
+          <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${progress}%`, background: progress === 100 ? '#22c55e' : 'var(--accent)' }}
+            />
           </div>
+        </div>
 
-          {/* Inline quick actions */}
+        {/* Quick actions + price — sits at right edge */}
+        <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
           <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
             {order.status === 'pending' && (
               <>
@@ -3836,8 +3823,7 @@ function OrderBanner({
             })()}
           </div>
 
-          {/* Price */}
-          <p className={`text-sm font-black flex-shrink-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+          <p className={`text-sm font-black flex-shrink-0 min-w-[56px] text-right ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             ฿{fmt(order.soldTHB)}
           </p>
         </div>
@@ -3952,49 +3938,48 @@ function OrderBanner({
             })}
           </div>
 
-          {/* Box All Pending — shown when multiple items still need boxing */}
+          {/* Bottom action row: Box All + Cancel + Delete in one line */}
           {(() => {
             const allPending = orderItems
               .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name, item.variantLabel) - computeInParcelQty(item.name, item.variantLabel)), price: item.price }))
               .filter(i => i.qty > 0);
-            if (allPending.length < 2) return null;
             return (
-              <button
-                onClick={() => onBoxItems(allPending)}
-                disabled={isActing}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white transition-all active:scale-95 disabled:opacity-50 hover:opacity-90"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                <Package size={12} /> Box All {allPending.length} Pending Items
-              </button>
+              <div className="flex gap-2">
+                {order.status !== 'pending' && order.status !== 'cancelled' && allPending.length > 0 && (
+                  <button
+                    onClick={() => onBoxItems(allPending)}
+                    disabled={isActing}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white transition-all active:scale-95 disabled:opacity-50 hover:opacity-90"
+                    style={{ background: 'var(--accent-gradient)' }}
+                  >
+                    <Package size={12} /> Box {allPending.length} Pending
+                  </button>
+                )}
+                {order.status !== 'cancelled' && (
+                  <button
+                    onClick={onCancel}
+                    disabled={isActing}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <Ban size={12} /> Cancel Order
+                  </button>
+                )}
+                <button
+                  onClick={onDelete}
+                  disabled={isActing}
+                  title="Permanently delete order"
+                  aria-label="Permanently delete order"
+                  className={`flex items-center justify-center px-3 py-2.5 rounded-xl text-[11px] border transition-all active:scale-95 disabled:opacity-50 ${
+                    isDark
+                      ? 'border-red-500/20 text-red-500/50 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
+                      : 'border-red-200 text-red-300 hover:bg-red-50 hover:text-red-600'
+                  }`}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             );
           })()}
-
-          {/* Cancel + Delete row */}
-          <div className="flex gap-2">
-            {order.status !== 'cancelled' && (
-              <button
-                onClick={onCancel}
-                disabled={isActing}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 transition-all active:scale-95 disabled:opacity-50"
-              >
-                <Ban size={12} /> Cancel Order
-              </button>
-            )}
-            <button
-              onClick={onDelete}
-              disabled={isActing}
-              title="Permanently delete order"
-              aria-label="Permanently delete order"
-              className={`flex items-center justify-center px-3 py-2.5 rounded-xl text-[11px] border transition-all active:scale-95 disabled:opacity-50 ${
-                isDark
-                  ? 'border-red-500/20 text-red-500/50 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40'
-                  : 'border-red-200 text-red-300 hover:bg-red-50 hover:text-red-600'
-              }`}
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
         </div>
       )}
     </article>
