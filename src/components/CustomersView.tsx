@@ -150,21 +150,17 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [platformFilter, setPlatformFilter] = useState<'all' | 'line' | 'instagram' | 'telegram'>('all');
   const [findPlatformFilter, setFindPlatformFilter] = useState<'all' | 'line' | 'instagram' | 'telegram'>('all');
 
-  const [qoMode, setQoMode] = useState<'existing' | 'new'>('existing');
   const [qoSearch, setQoSearch] = useState('');
-  const [qoSelected, setQoSelected] = useState<Product | null>(null);
-  const [qoVariantSel, setQoVariantSel] = useState<Record<string, string>>({});
-  const [qoNewProduct, setQoNewProduct] = useState<Product | null>(null);
-  const [qoQuickName, setQoQuickName] = useState('');
-  const [qoQuickPrice, setQoQuickPrice] = useState('');
-  const [qoQuickOpts, setQoQuickOpts] = useState<{ name: string; value: string }[]>([]);
-  const [qoQuickSaving, setQoQuickSaving] = useState(false);
-  const [qoPrice, setQoPrice] = useState('');
-  const [qoUnitPrice, setQoUnitPrice] = useState(0);
+  const [qoDraftItems, setQoDraftItems] = useState<Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>>([]);
+  const [qoDiscount, setQoDiscount] = useState(0);
   const [qoCostPrice, setQoCostPrice] = useState('');
   const [qoCostCurrency, setQoCostCurrency] = useState('KRW');
-  const [qoQty, setQoQty] = useState(1);
   const [qoSubmitting, setQoSubmitting] = useState(false);
+  const [qoNewProdOpen, setQoNewProdOpen] = useState(false);
+  const [qoNewProdName, setQoNewProdName] = useState('');
+  const [qoNewProdPrice, setQoNewProdPrice] = useState('');
+  const [qoNewProdOpts, setQoNewProdOpts] = useState<{ name: string; value: string }[]>([]);
+  const [qoNewProdSaving, setQoNewProdSaving] = useState(false);
 
   const [selectedAddressIdx, setSelectedAddressIdx] = useState(0);
   const [showFindCustomerModal, setShowFindCustomerModal] = useState(false);
@@ -418,9 +414,15 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
   const closeQuickOrder = useCallback(() => {
     setShowModal(false);
-    setQoMode('existing'); setQoNewProduct(null); setQoSelected(null); setQoSearch(''); setQoVariantSel({});
-    setQoPrice(''); setQoUnitPrice(0); setQoCostPrice(''); setQoQty(1);
-    setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts(defaultOptNames);
+    setQoSearch('');
+    setQoDraftItems([]);
+    setQoDiscount(0);
+    setQoCostPrice('');
+    setQoNewProdOpen(false);
+    setQoNewProdName('');
+    setQoNewProdPrice('');
+    setQoNewProdOpts(defaultOptNames);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -819,20 +821,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   }
 
   async function submitQuickOrder() {
-    if (!selectedCustomer || qoSubmitting) return;
-    const product = qoMode === 'existing' ? qoSelected : qoNewProduct;
-    if (!product) return;
-    const total = parseFloat(qoPrice) || product.price * qoQty;
-    const pricePerUnit = qoQty > 0 ? total / qoQty : total;
+    if (!selectedCustomer || qoSubmitting || qoDraftItems.length === 0) return;
     const costAmount = parseFloat(qoCostPrice) || 0;
-
-    // Build variant label for order name
-    const variantLabel = qoMode === 'existing' && Object.keys(qoVariantSel).length > 0
-      ? Object.values(qoVariantSel).filter(Boolean).join(' · ')
-      : qoMode === 'new' && qoQuickOpts.some(o => o.value.trim())
-        ? qoQuickOpts.filter(o => o.value.trim()).map(o => o.value.trim()).join(' · ')
-        : '';
-    const productLabel = variantLabel ? `${product.name} (${variantLabel})` : product.name;
+    const subtotal = qoDraftItems.reduce((s, i) => s + i.qty * i.price, 0);
+    const total = Math.max(0, subtotal - qoDiscount);
+    const totalQty = qoDraftItems.reduce((s, i) => s + i.qty, 0);
+    const primaryName = qoDraftItems[0]?.name || '';
 
     setQoSubmitting(true);
     try {
@@ -842,33 +836,31 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         body: JSON.stringify({
           userId: selectedCustomer.userId,
           displayName: selectedCustomer.displayName,
-          product: `${qoQty > 1 ? `${qoQty}x ` : ''}${productLabel}`,
-          quantity: qoQty,
-          items: [{ productId: product._id, name: productLabel, qty: qoQty, price: pricePerUnit }],
+          platform: selectedCustomer.platform,
+          product: primaryName,
+          quantity: totalQty,
+          items: qoDraftItems,
           soldTHB: total,
           costKRW: costAmount,
           costCurrency: qoCostCurrency,
+          discount: qoDiscount || 0,
           status: 'pending',
         }),
       });
       if (res.ok) {
         const order = await res.json();
         setAllOrders(prev => [order, ...prev]);
-        setShowModal(false);
-        setQoPrice(''); setQoUnitPrice(0); setQoCostPrice('');
-        setQoQty(1); setQoSelected(null); setQoSearch(''); setQoVariantSel({});
-        setQoNewProduct(null); setQoMode('existing');
-        setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts(defaultOptNames);
+        closeQuickOrder();
         setQoCostCurrency(merchantSettings?.importCurrency || 'KRW');
       }
     } finally { setQoSubmitting(false); }
   }
 
-  async function handleQuickAdd() {
-    if (!qoQuickName.trim() || qoQuickSaving) return;
-    setQoQuickSaving(true);
-    const filledOpts = qoQuickOpts.filter(o => o.name.trim() && o.value.trim());
-    const price = parseFloat(qoQuickPrice) || 0;
+  async function handleQoNewProd() {
+    if (!qoNewProdName.trim() || qoNewProdSaving) return;
+    setQoNewProdSaving(true);
+    const filledOpts = qoNewProdOpts.filter(o => o.name.trim() && o.value.trim());
+    const price = parseFloat(qoNewProdPrice) || 0;
     const combination: Record<string, string> = {};
     filledOpts.forEach(o => { combination[o.name] = o.value; });
     try {
@@ -876,7 +868,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: qoQuickName.trim(),
+          name: qoNewProdName.trim(),
           price,
           isActive: true,
           isQuickAdd: true,
@@ -889,10 +881,20 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       if (res.ok) {
         const created = await res.json();
         setProducts(prev => [created, ...prev]);
-        setQoNewProduct(created);
-        setQoPrice(String(price || 0));
+        const variantLabel = filledOpts.map(o => o.value).join(' · ');
+        setQoDraftItems(prev => [...prev, {
+          productId: created._id,
+          name: created.name,
+          variantLabel,
+          qty: 1,
+          price,
+        }]);
+        setQoNewProdName('');
+        setQoNewProdPrice('');
+        setQoNewProdOpts(defaultOptNames);
+        setQoNewProdOpen(false);
       }
-    } finally { setQoQuickSaving(false); }
+    } finally { setQoNewProdSaving(false); }
   }
 
   async function addAddress(addr: string) {
@@ -1765,200 +1767,217 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         </>
       )}
 
-      {/* ── Quick Order Modal ── */}
+      {/* ── New Order Modal (2-panel) ── */}
       {showModal && selectedCustomer && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Quick order"
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4"
+          role="dialog" aria-modal="true" aria-label="New order"
           onClick={(e) => { if (e.target === e.currentTarget) closeQuickOrder(); }}
         >
-          <div className={`${k.surface} rounded-3xl shadow-2xl w-full max-w-md border ${k.border}`}>
-            <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border}`}>
+          <div className={`${isDark ? 'bg-[#0f1117]' : 'bg-white'} rounded-3xl shadow-2xl w-full max-w-4xl border ${k.border} flex flex-col`} style={{ maxHeight: '92vh' }}>
+            {/* Header */}
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border} flex-shrink-0`}>
               <div>
-                <h3 className={`font-black text-sm ${k.text}`}>Quick Chat Order</h3>
-                <p className={`text-[10px] mt-0.5 ${k.muted}`}>{selectedCustomer.displayName}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-0.5 text-accent">NEW ORDER</p>
+                <p className={`text-sm font-black ${k.text}`}>{selectedCustomer.displayName}</p>
               </div>
-              <button onClick={closeQuickOrder} aria-label="Close" className={`p-1.5 rounded-xl ${k.muted} ${k.hover} transition-colors`}>
+              <button onClick={closeQuickOrder} aria-label="Close"
+                className={`p-1.5 rounded-xl ${k.muted} ${k.hover} transition-colors`}>
                 <X size={16} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex gap-2">
-                {(['existing', 'new'] as const).map(m => (
-                  <button key={m} onClick={() => setQoMode(m)}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${qoMode === m ? 'text-white shadow-sm' : isDark ? 'bg-white/5 text-[#8b92ad] hover:bg-white/10' : 'bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#f0f1f5]'}`}
-                    style={qoMode === m ? { background: 'var(--accent-gradient)' } : undefined}>
-                    {m === 'existing' ? 'Existing Product' : 'New Product'}
-                  </button>
-                ))}
-              </div>
 
-              {qoMode === 'existing' ? (
-                <div className="space-y-2">
+            {/* Body — 2 panels */}
+            <div className="flex flex-1 min-h-0 overflow-hidden">
+
+              {/* ── Left panel: product catalog ── */}
+              <div className={`w-64 sm:w-72 flex-shrink-0 border-r ${k.border} flex flex-col`}>
+                {/* Search */}
+                <div className="p-3 flex-shrink-0">
                   <div className="relative">
-                    <Search size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 ${k.muted}`} />
-                    <input value={qoSearch} onChange={e => setQoSearch(e.target.value)} placeholder="Search products..."
-                      className={`w-full text-sm rounded-xl pl-8 pr-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`} />
+                    <Search size={12} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${k.muted}`} />
+                    <input
+                      value={qoSearch}
+                      onChange={e => setQoSearch(e.target.value)}
+                      placeholder="Search products..."
+                      className={`w-full text-xs rounded-xl pl-7 pr-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+                    />
                   </div>
-                  <div className={`max-h-40 overflow-y-auto rounded-2xl border ${k.border} overflow-hidden`}>
-                    {filteredProducts.slice(0, 15).map(p => (
-                      <button key={p._id} onClick={() => {
-                        setQoSelected(p);
-                        setQoVariantSel({});
-                        setQoUnitPrice(p.price);
-                        setQoPrice(String(p.price * qoQty));
-                        // Auto-fill cost from phantom/first variant
-                        const baseCost = p.variants?.find(v => !v.combination || Object.keys(v.combination).length === 0)?.cost ?? p.variants?.[0]?.cost;
-                        if (baseCost != null) setQoCostPrice(String(baseCost));
-                      }}
-                        className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
-                          qoSelected?._id === p._id ? 'text-white' : `${k.hover} ${k.text}`
-                        }`}
-                        style={qoSelected?._id === p._id ? { background: 'var(--accent-gradient)' } : undefined}>
-                        <span className="truncate">{p.name}</span>
-                        <span className="ml-2 flex-shrink-0 font-bold">฿{p.price.toLocaleString()}</span>
-                      </button>
-                    ))}
-                    {filteredProducts.length === 0 && <p className={`text-xs text-center py-4 ${k.muted}`}>No products found</p>}
-                  </div>
+                </div>
 
-                  {/* Variant picker for selected product */}
-                  {qoSelected && qoSelected.options && qoSelected.options.length > 0 && (
-                    <div className={`rounded-xl border p-3 space-y-2 ${k.border} ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
-                      <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Variant</p>
-                      {qoSelected.options.map(opt => {
-                        const isColorOpt = opt.name.toLowerCase() === 'color';
-                        return (
-                        <div key={opt.name} className="space-y-1">
-                          <p className={`text-[10px] font-semibold ${k.muted}`}>{opt.name}</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {opt.values.map(v => {
-                              const sel = qoVariantSel[opt.name] === v;
-                              const handleSelect = () => {
-                                const newSel = { ...qoVariantSel, [opt.name]: v };
-                                setQoVariantSel(newSel);
-                                const match = qoSelected.variants?.find(vr =>
-                                  Object.entries(newSel).every(([k2, val]) => vr.combination?.[k2] === val)
-                                );
-                                if (match?.price != null) { setQoUnitPrice(match.price); setQoPrice(String(match.price * qoQty)); }
-                                if (match?.cost != null) setQoCostPrice(String(match.cost));
-                              };
-                              if (isColorOpt) {
-                                return (
-                                  <button key={v} type="button" onClick={handleSelect}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'border-accent bg-accent/10 text-accent' : `${k.border} ${k.muted} ${k.hover}`}`}>
-                                    <span className="w-3.5 h-3.5 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: colorForSwatch(v) }} />
-                                    {v}
-                                  </button>
-                                );
-                              }
-                              return (
-                                <button key={v} type="button" onClick={handleSelect}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${sel ? 'text-white border-transparent' : `${k.border} ${k.muted} ${k.hover}`}`}
-                                  style={sel ? { background: 'var(--accent-gradient)' } : undefined}
-                                >{v}</button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        );
-                      })}
-                    </div>
+                {/* Product list */}
+                <div className="flex-1 overflow-y-auto">
+                  {filteredProducts.map(p => (
+                    <button
+                      key={p._id}
+                      onClick={() => setQoDraftItems(prev => [...prev, { productId: p._id, name: p.name, variantLabel: '', qty: 1, price: p.price }])}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b ${k.border} ${k.hover}`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        {p.imageUrl
+                          ? <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center"><Package size={10} className={k.muted} /></div>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[11px] font-semibold truncate ${k.text}`}>{p.name}</p>
+                        <p className={`text-[10px] ${k.muted}`}>฿{p.price.toLocaleString()}</p>
+                      </div>
+                      <Plus size={13} className="text-accent flex-shrink-0" />
+                    </button>
+                  ))}
+                  {filteredProducts.length === 0 && (
+                    <p className={`text-[11px] text-center py-6 ${k.muted}`}>No products found</p>
                   )}
                 </div>
-              ) : (
-                /* ── Inline quick-add form ── */
-                <div className="space-y-3">
-                  {!qoNewProduct ? (
-                    <div className={`rounded-xl border p-3 space-y-3 ${k.border}`}>
-                      <p className={`text-[10px] font-black uppercase tracking-widest ${k.muted}`}>Quick-add product</p>
 
-                      <input value={qoQuickName} onChange={e => setQoQuickName(e.target.value)}
+                {/* New product section */}
+                <div className={`border-t ${k.border} p-3 flex-shrink-0 space-y-2`}>
+                  <button
+                    onClick={() => setQoNewProdOpen(!qoNewProdOpen)}
+                    className="flex items-center gap-1.5 text-[11px] font-bold text-accent hover:underline"
+                  >
+                    <Plus size={11} />
+                    {qoNewProdOpen ? 'Cancel' : 'Not in catalog? Add new product'}
+                  </button>
+                  {qoNewProdOpen && (
+                    <div className="space-y-2">
+                      <input
+                        value={qoNewProdName}
+                        onChange={e => setQoNewProdName(e.target.value)}
                         placeholder="Product name *"
-                        className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all font-semibold ${k.input}`} />
-
-                      <input type="number" value={qoQuickPrice} onChange={e => setQoQuickPrice(e.target.value)}
-                        placeholder="Price (optional — fill below if negotiating)"
-                        className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`} />
-
-                      <div className="space-y-2">
-                        <p className={`text-[10px] font-semibold ${k.muted}`}>Variant options for this order</p>
-                        {qoQuickOpts.map((opt, i) => (
-                          <div key={i} className="flex gap-2">
-                            <input value={opt.name} onChange={e => { const n = [...qoQuickOpts]; n[i] = { ...n[i], name: e.target.value }; setQoQuickOpts(n); }}
-                              placeholder="Option (e.g. Color)"
-                              className={`w-24 text-xs rounded-lg px-2 py-2 border outline-none focus:border-accent ${k.input}`} />
-                            <input value={opt.value} onChange={e => { const n = [...qoQuickOpts]; n[i] = { ...n[i], value: e.target.value }; setQoQuickOpts(n); }}
-                              placeholder="Value (e.g. Red)"
-                              className={`flex-1 text-xs rounded-lg px-2 py-2 border outline-none focus:border-accent ${k.input}`} />
-                            <button type="button" onClick={() => setQoQuickOpts(qoQuickOpts.filter((_, j) => j !== i))}
-                              className={`px-2 rounded-lg text-red-400 hover:bg-red-500/10 ${k.border} border transition-colors`}>
-                              <X size={12} />
-                            </button>
-                          </div>
-                        ))}
-                        <button type="button" onClick={() => setQoQuickOpts([...qoQuickOpts, { name: '', value: '' }])}
-                          className={`text-[10px] font-bold text-accent hover:underline flex items-center gap-1`}>
-                          <Plus size={10} /> Add option
-                        </button>
-                      </div>
-
+                        className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all font-semibold ${k.input}`}
+                      />
+                      <input
+                        type="number"
+                        value={qoNewProdPrice}
+                        onChange={e => setQoNewProdPrice(e.target.value)}
+                        placeholder="Price (฿) for this variant"
+                        className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
+                      />
+                      <p className={`text-[10px] font-semibold ${k.muted}`}>Options ordered (only what customer wants):</p>
+                      {qoNewProdOpts.map((opt, i) => (
+                        <div key={i} className="flex gap-1.5">
+                          <input
+                            value={opt.name}
+                            onChange={e => { const n = [...qoNewProdOpts]; n[i] = { ...n[i], name: e.target.value }; setQoNewProdOpts(n); }}
+                            placeholder="e.g. Color"
+                            className={`w-20 text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input}`}
+                          />
+                          <input
+                            value={opt.value}
+                            onChange={e => { const n = [...qoNewProdOpts]; n[i] = { ...n[i], value: e.target.value }; setQoNewProdOpts(n); }}
+                            placeholder="e.g. Red"
+                            className={`flex-1 text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input}`}
+                          />
+                          <button type="button"
+                            onClick={() => setQoNewProdOpts(qoNewProdOpts.filter((_, j) => j !== i))}
+                            className={`px-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 border ${k.border} transition-colors`}
+                          ><X size={11} /></button>
+                        </div>
+                      ))}
+                      <button type="button"
+                        onClick={() => setQoNewProdOpts([...qoNewProdOpts, { name: '', value: '' }])}
+                        className="text-[10px] font-bold text-accent hover:underline flex items-center gap-1"
+                      ><Plus size={10} /> Add option</button>
                       <button
-                        disabled={!qoQuickName.trim() || qoQuickSaving}
-                        onClick={handleQuickAdd}
-                        className="w-full py-2 rounded-xl text-xs font-black text-white disabled:opacity-40 transition-all active:scale-95"
+                        disabled={!qoNewProdName.trim() || qoNewProdSaving}
+                        onClick={handleQoNewProd}
+                        className="w-full py-1.5 rounded-xl text-[11px] font-black text-white disabled:opacity-40 transition-all active:scale-95"
                         style={{ background: 'var(--accent-gradient)' }}
                       >
-                        {qoQuickSaving ? 'Adding...' : 'Quick Add Product →'}
+                        {qoNewProdSaving ? 'Creating...' : 'Create & Add to Order →'}
                       </button>
-                      <p className={`text-[9px] ${k.muted} text-center`}>Product will be flagged as incomplete — add full details later in the catalog.</p>
-                    </div>
-                  ) : (
-                    <div className={`flex items-center gap-3 p-3 rounded-xl border ${k.border} ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-bold truncate ${k.text}`}>{qoNewProduct.name}</p>
-                        {qoQuickOpts.filter(o => o.value.trim()).length > 0 && (
-                          <p className={`text-[10px] ${k.muted}`}>{qoQuickOpts.filter(o => o.value.trim()).map(o => `${o.name}: ${o.value}`).join(', ')}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => { setQoNewProduct(null); setQoQuickName(''); setQoQuickPrice(''); setQoQuickOpts(defaultOptNames); }}
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${k.border} ${k.muted} ${k.hover} transition-colors`}
-                      >
-                        Change
-                      </button>
+                      <p className={`text-[9px] ${k.muted} text-center leading-relaxed`}>
+                        Saved to catalog as incomplete — fill in remaining variants later in Products.
+                      </p>
                     </div>
                   )}
                 </div>
-              )}
-
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>
-                    Total ({merchantSettings?.localCurrency || 'THB'})
-                  </label>
-                  <input type="number" value={qoPrice} onChange={e => setQoPrice(e.target.value)} placeholder="0"
-                    className={`w-full text-sm rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`} />
-                </div>
-                <div>
-                  <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${k.muted}`}>Qty</label>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => { const n = Math.max(1, qoQty - 1); setQoQty(n); if (qoUnitPrice) setQoPrice(String(qoUnitPrice * n)); }}
-                      className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${k.border} ${k.hover} ${k.text}`}><Minus size={12} /></button>
-                    <span className={`w-8 text-center text-sm font-black ${k.text}`}>{qoQty}</span>
-                    <button onClick={() => { const n = qoQty + 1; setQoQty(n); if (qoUnitPrice) setQoPrice(String(qoUnitPrice * n)); }}
-                      className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${k.border} ${k.hover} ${k.text}`}><Plus size={12} /></button>
-                  </div>
-                </div>
               </div>
 
-              <button
-                disabled={qoSubmitting || (qoMode === 'existing' ? !qoSelected : !qoNewProduct)}
-                onClick={submitQuickOrder}
-                className="w-full hover:opacity-90 disabled:opacity-40 text-white rounded-2xl py-3 font-black text-sm shadow-sm transition-all active:scale-95"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                {qoSubmitting ? 'Creating...' : 'Add Order'}
-              </button>
+              {/* ── Right panel: draft items ── */}
+              <div className="flex-1 flex flex-col min-w-0">
+                {/* Items list */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {qoDraftItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-2 py-12">
+                      <ShoppingCart size={28} className={k.muted} />
+                      <p className={`text-xs font-medium ${k.muted}`}>Add products from the left panel</p>
+                    </div>
+                  ) : (
+                    qoDraftItems.map((item, idx) => (
+                      <EditOrderItemCard
+                        key={`${item.productId ?? 'custom'}-${idx}`}
+                        item={item}
+                        products={products}
+                        isDark={isDark}
+                        k={k}
+                        onUpdate={patch => setQoDraftItems(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it))}
+                        onRemove={() => setQoDraftItems(prev => prev.filter((_, i) => i !== idx))}
+                      />
+                    ))
+                  )}
+                </div>
+
+                {/* Footer */}
+                {(() => {
+                  const subtotal = qoDraftItems.reduce((s, i) => s + i.qty * i.price, 0);
+                  const total = Math.max(0, subtotal - qoDiscount);
+                  return (
+                    <div className={`border-t ${k.border} px-4 py-4 space-y-3 flex-shrink-0`}>
+                      {/* Cost input */}
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={qoCostCurrency}
+                          onChange={e => setQoCostCurrency(e.target.value)}
+                          className={`text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input} w-16`}
+                        >
+                          {COST_CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                        <input
+                          type="number"
+                          value={qoCostPrice}
+                          onChange={e => setQoCostPrice(e.target.value)}
+                          placeholder="Cost (optional)"
+                          className={`flex-1 text-xs rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs ${k.muted}`}>Subtotal</span>
+                          <span className={`text-xs font-bold ${k.text}`}>฿{fmt(subtotal)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs ${k.muted}`}>Discount</span>
+                          <div className="flex items-center gap-1">
+                            <span className={`text-xs ${k.muted}`}>-฿</span>
+                            <input
+                              type="number"
+                              value={qoDiscount || ''}
+                              onChange={e => setQoDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                              placeholder="0"
+                              className={`w-20 text-xs text-right rounded-lg px-2 py-1 border outline-none focus:border-accent transition-all ${k.input}`}
+                            />
+                          </div>
+                        </div>
+                        <div className={`flex items-center justify-between pt-1.5 border-t ${k.border}`}>
+                          <span className={`text-sm font-black ${k.text}`}>Total</span>
+                          <span className="text-sm font-black text-accent">฿{fmt(total)}</span>
+                        </div>
+                      </div>
+                      <button
+                        disabled={qoSubmitting || qoDraftItems.length === 0}
+                        onClick={submitQuickOrder}
+                        className="w-full py-3 rounded-2xl text-sm font-black text-white hover:opacity-90 disabled:opacity-40 transition-all active:scale-95"
+                        style={{ background: 'var(--accent-gradient)' }}
+                      >
+                        {qoSubmitting ? 'Creating...' : 'Create Order'}
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </div>
@@ -3794,25 +3813,30 @@ function OrderBanner({
           })()}
         </div>
 
-        {/* Total + edit icon */}
-        <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+        {/* Total */}
+        <div className="flex items-center flex-shrink-0">
           <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             ฿{fmt(order.soldTHB)}
           </p>
-          <button
-            onClick={onEdit}
-            title="Edit order items"
-            aria-label="Edit order items"
-            className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-accent hover:bg-white/10' : 'text-slate-400 hover:text-accent hover:bg-slate-100'}`}
-          >
-            <Pencil size={12} />
-          </button>
         </div>
       </div>
 
       {/* ── Expanded body ───────────────────────────────────────────── */}
       {isExpanded && (
         <div className={`border-t ${divider} px-4 pt-3 pb-4 space-y-3`}>
+          {/* Edit button — only visible when expanded */}
+          <div className="flex justify-end" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={onEdit}
+              title="Edit order items"
+              aria-label="Edit order items"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors border ${
+                isDark ? 'text-[#8b92ad] border-[#1f2335] hover:text-accent hover:border-accent/40 hover:bg-white/5' : 'text-slate-400 border-slate-200 hover:text-accent hover:border-accent/40 hover:bg-slate-50'
+              }`}
+            >
+              <Pencil size={10} /> Edit items
+            </button>
+          </div>
           {/* Order address */}
           {orderAddr && (
             <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
