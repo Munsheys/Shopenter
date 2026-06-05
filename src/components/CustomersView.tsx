@@ -3819,7 +3819,7 @@ function OrderBanner({
           className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${isExpanded ? 'rotate-90' : ''}`}
         />
 
-        {/* Left group: ID + status + products — no-wrap, wide enough for longest badge ("New Order") */}
+        {/* Left group: ID + status on line 1; date + products on line 2 */}
         <div className="w-[250px] flex-shrink-0 overflow-hidden">
           <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden">
             <p className={`text-sm font-black leading-none flex-shrink-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
@@ -3830,17 +3830,17 @@ function OrderBanner({
             }`}>
               {label}
             </span>
-            <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
-              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
-                isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
-              }`}>
-                {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
-              </span>
-            </div>
           </div>
-          <p className={`text-[9px] mt-0.5 tabular-nums ${k.muted}`}>
-            {new Date(order.createdAt).toLocaleDateString('en', { day: 'numeric', month: 'short' })} · {timeAgo(order.createdAt)}
-          </p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <p className={`text-[9px] tabular-nums flex-shrink-0 ${k.muted}`}>
+              {new Date(order.createdAt).toLocaleDateString('en', { day: 'numeric', month: 'short' })} · {timeAgo(order.createdAt)}
+            </p>
+            <span className={`hidden sm:inline text-[9px] font-medium px-1.5 py-0.5 rounded border flex-shrink-0 ${
+              isDark ? 'bg-white/5 border-white/10 text-white/40' : 'bg-slate-50 border-slate-200 text-slate-400'
+            }`}>
+              {orderItems.length} {orderItems.length !== 1 ? 'Products' : 'Product'}
+            </span>
+          </div>
         </div>
 
         {/* Progress bar — flex-1 with right margin for breathing room before action buttons */}
