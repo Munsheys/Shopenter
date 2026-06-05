@@ -15,10 +15,10 @@ import {
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 import {
-  TrendingUp, DollarSign, Package, ShoppingCart,
+  TrendingUp, DollarSign, ShoppingCart,
   ArrowUpRight, ArrowDownRight, Download, Tag,
   Truck, Users, BarChart2, Minus, Calendar, X,
-  ChevronDown, ChevronUp, AlertTriangle,
+  ChevronLeft, ChevronRight, AlertTriangle,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -160,16 +160,16 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   const startRef = useRef<HTMLInputElement>(null);
   const endRef   = useRef<HTMLInputElement>(null);
 
-  // UI expansion state
-  const [productsExpanded, setProductsExpanded] = useState(false);
-  const [customersExpanded, setCustomersExpanded] = useState(false);
+  // UI pagination state
+  const [productsPage, setProductsPage] = useState(0);
+  const [customersPage, setCustomersPage] = useState(0);
   const [dowMode, setDowMode] = useState<'orders' | 'revenue'>('orders');
   const [topProductsSort, setTopProductsSort] = useState<'revenue' | 'units'>('revenue');
   const [stalledThreshold, setStalledThreshold] = useState(3); // days
   const [exportLoading, setExportLoading] = useState(false);
   const todayISO = new Date().toISOString().split('T')[0];
 
-  const LIST_DEFAULT = 5;
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     (async () => {
@@ -492,6 +492,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     return sorted.map(c => ({ ...c, pct: (c.revenue / maxRev) * 100, aov: c.orders > 0 ? c.revenue / c.orders : 0 }));
   }, [confirmedOrders]);
 
+  // Reset pagination when underlying list changes (date range, sort, or data refresh)
+  useEffect(() => { setProductsPage(0); }, [allTopProducts]);
+  useEffect(() => { setCustomersPage(0); }, [allTopCustomers]);
+
   // ── Day-of-week pattern ─────────────────────────────────────────────────────
 
   const dowRaw = useMemo(() => {
@@ -642,8 +646,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
     );
   }, [dateRange, customStart, customEnd]);
 
-  const topProducts  = productsExpanded  ? allTopProducts  : allTopProducts.slice(0, LIST_DEFAULT);
-  const topCustomers = customersExpanded ? allTopCustomers : allTopCustomers.slice(0, LIST_DEFAULT);
+  const topProductsTotalPages  = Math.max(1, Math.ceil(allTopProducts.length  / PAGE_SIZE));
+  const topCustomersTotalPages = Math.max(1, Math.ceil(allTopCustomers.length / PAGE_SIZE));
+  const topProducts  = allTopProducts.slice(productsPage  * PAGE_SIZE, (productsPage  + 1) * PAGE_SIZE);
+  const topCustomers = allTopCustomers.slice(customersPage * PAGE_SIZE, (customersPage + 1) * PAGE_SIZE);
 
   return (
     <div className="max-w-7xl mx-auto px-4 pb-20">
@@ -917,14 +923,18 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         <SectionCard
           theme={theme}
           title="Top Products"
-          sub={`${topProductsSort === 'revenue' ? 'By confirmed revenue' : 'By units sold'} · ${allTopProducts.length > LIST_DEFAULT ? `showing ${productsExpanded ? allTopProducts.length : LIST_DEFAULT} of ${allTopProducts.length}` : `${allTopProducts.length} products`}`}
+          sub={`${topProductsSort === 'revenue' ? 'By confirmed revenue' : 'By units sold'} · ${
+            allTopProducts.length === 0 ? '0 products' :
+            allTopProducts.length <= PAGE_SIZE ? `${allTopProducts.length} product${allTopProducts.length !== 1 ? 's' : ''}` :
+            `Showing ${productsPage * PAGE_SIZE + 1}–${Math.min((productsPage + 1) * PAGE_SIZE, allTopProducts.length)} of ${allTopProducts.length}`
+          }`}
         >
           {/* Sort toggle */}
           <div className={cn('flex p-0.5 rounded-xl border mb-4 w-fit', isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : 'bg-[#f4f6f9] border-[#e2e5ef]')}>
             {(['revenue', 'units'] as const).map(s => (
               <button
                 key={s}
-                onClick={() => setTopProductsSort(s)}
+                onClick={() => { setTopProductsSort(s); setProductsPage(0); }}
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-[10px] font-black transition-all',
                   topProductsSort === s ? 'text-white shadow-sm' : `${muted} hover:text-accent`,
@@ -971,19 +981,32 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
                   </div>
                 ))}
               </div>
-              {allTopProducts.length > LIST_DEFAULT && (
-                <button
-                  onClick={() => setProductsExpanded(e => !e)}
-                  className={cn(
-                    'mt-4 w-full py-2.5 rounded-2xl text-[10px] font-black flex items-center justify-center gap-1.5 border transition-all active:scale-95',
-                    isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]' : 'border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]',
-                  )}
-                >
-                  {productsExpanded
-                    ? <><ChevronUp size={12} /> Show less</>
-                    : <><ChevronDown size={12} /> Show all {allTopProducts.length} products</>
-                  }
-                </button>
+              {allTopProducts.length > PAGE_SIZE && (
+                <div className="mt-4 flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => setProductsPage(p => Math.max(0, p - 1))}
+                    disabled={productsPage === 0}
+                    className={cn(
+                      'flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black border transition-all active:scale-95 disabled:opacity-30',
+                      isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]' : 'border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]',
+                    )}
+                  >
+                    <ChevronLeft size={12} /> Prev
+                  </button>
+                  <span className={cn('text-[10px] font-bold', muted)}>
+                    Page {productsPage + 1} of {topProductsTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setProductsPage(p => Math.min(topProductsTotalPages - 1, p + 1))}
+                    disabled={productsPage >= topProductsTotalPages - 1}
+                    className={cn(
+                      'flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black border transition-all active:scale-95 disabled:opacity-30',
+                      isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]' : 'border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]',
+                    )}
+                  >
+                    Next <ChevronRight size={12} />
+                  </button>
+                </div>
               )}
             </>
           )}
@@ -993,7 +1016,11 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
         <SectionCard
           theme={theme}
           title="Top Customers"
-          sub={`By confirmed spend · ${allTopCustomers.length > LIST_DEFAULT ? `showing ${customersExpanded ? allTopCustomers.length : LIST_DEFAULT} of ${allTopCustomers.length}` : `${allTopCustomers.length} customers`}`}
+          sub={`By confirmed spend · ${
+            allTopCustomers.length === 0 ? '0 customers' :
+            allTopCustomers.length <= PAGE_SIZE ? `${allTopCustomers.length} customer${allTopCustomers.length !== 1 ? 's' : ''}` :
+            `Showing ${customersPage * PAGE_SIZE + 1}–${Math.min((customersPage + 1) * PAGE_SIZE, allTopCustomers.length)} of ${allTopCustomers.length}`
+          }`}
         >
           {isLoading ? (
             <div className="py-8 flex items-center justify-center">
@@ -1031,19 +1058,32 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
                   </div>
                 ))}
               </div>
-              {allTopCustomers.length > LIST_DEFAULT && (
-                <button
-                  onClick={() => setCustomersExpanded(e => !e)}
-                  className={cn(
-                    'mt-4 w-full py-2.5 rounded-2xl text-[10px] font-black flex items-center justify-center gap-1.5 border transition-all active:scale-95',
-                    isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]' : 'border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]',
-                  )}
-                >
-                  {customersExpanded
-                    ? <><ChevronUp size={12} /> Show less</>
-                    : <><ChevronDown size={12} /> Show all {allTopCustomers.length} customers</>
-                  }
-                </button>
+              {allTopCustomers.length > PAGE_SIZE && (
+                <div className="mt-4 flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => setCustomersPage(p => Math.max(0, p - 1))}
+                    disabled={customersPage === 0}
+                    className={cn(
+                      'flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black border transition-all active:scale-95 disabled:opacity-30',
+                      isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]' : 'border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]',
+                    )}
+                  >
+                    <ChevronLeft size={12} /> Prev
+                  </button>
+                  <span className={cn('text-[10px] font-bold', muted)}>
+                    Page {customersPage + 1} of {topCustomersTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setCustomersPage(p => Math.min(topCustomersTotalPages - 1, p + 1))}
+                    disabled={customersPage >= topCustomersTotalPages - 1}
+                    className={cn(
+                      'flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black border transition-all active:scale-95 disabled:opacity-30',
+                      isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#1a1d2e]' : 'border-[#e2e5ef] text-[#8b92ad] hover:text-[#1a1d2e] hover:bg-[#f4f6f9]',
+                    )}
+                  >
+                    Next <ChevronRight size={12} />
+                  </button>
+                </div>
               )}
             </>
           )}
