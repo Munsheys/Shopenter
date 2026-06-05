@@ -3830,20 +3830,12 @@ function OrderBanner({
             }`}>
               {label}
             </span>
-            <div className="hidden sm:flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
               <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
                 isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
               }`}>
                 {orderItems.length} Product{orderItems.length !== 1 ? 's' : ''}
               </span>
-              <button
-                onClick={onEdit}
-                title="Edit order items"
-                aria-label="Edit order items"
-                className={`p-1 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-accent hover:bg-white/10' : 'text-slate-400 hover:text-accent hover:bg-slate-100'}`}
-              >
-                <Pencil size={11} />
-              </button>
             </div>
           </div>
           <p className={`text-[9px] mt-0.5 tabular-nums ${k.muted}`}>
@@ -3920,6 +3912,16 @@ function OrderBanner({
           <p className={`text-sm font-black w-[72px] text-right flex-shrink-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
             ฿{fmt(order.soldTHB)}
           </p>
+
+          {/* Pencil — rightmost, stops propagation so it doesn't toggle expand */}
+          <button
+            onClick={e => { e.stopPropagation(); onEdit(); }}
+            title="Edit order items"
+            aria-label="Edit order items"
+            className={`p-1.5 rounded-lg flex-shrink-0 transition-colors ${isDark ? 'text-[#8b92ad] hover:text-accent hover:bg-white/10' : 'text-slate-400 hover:text-accent hover:bg-slate-100'}`}
+          >
+            <Pencil size={13} />
+          </button>
         </div>
       </div>
 
