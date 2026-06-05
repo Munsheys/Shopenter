@@ -1198,7 +1198,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               ) : customers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-center px-4">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'}`}>
-                    <MessageCircle size={24} className="text-[#8b92ad]" />
+                    <MessageCircle size={24} className="text-[#8b92ad] animate-pulse" />
                   </div>
                   <div>
                     <p className={`text-sm font-semibold ${k.text}`}>No customers yet</p>
@@ -1216,7 +1216,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   </div>
                 </div>
               ) : (
-                visibleCustomers.map(c => {
+                visibleCustomers.map((c, index) => {
                   const isSelected = selectedCustomer?._id === c._id;
                   const ac = avatarColor(c.displayName);
                   const isBlocked = c.status === 'blocked';
@@ -1226,11 +1226,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       onClick={() => selectCustomer(c)}
                       aria-pressed={isSelected}
                       aria-label={`Customer ${c.displayName}${isBlocked ? ', blocked' : ''}${c.unreadCount > 0 ? `, ${c.unreadCount} unread` : ''}`}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 transition-all border-l-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 transition-all border-l-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 animate-slide-left hover-lift ${
                         isSelected
                           ? isDark ? 'bg-accent/10 border-l-accent' : 'bg-accent/5 border-l-accent'
                           : `border-l-transparent ${k.hover}`
                       } ${isBlocked ? 'opacity-50' : ''}`}
+                      style={{ animationDelay: `${index * 35}ms` }}
                     >
                       <div className="relative flex-shrink-0">
                         {c.pictureUrl ? (
@@ -1339,7 +1340,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className={`w-16 h-16 rounded-3xl mx-auto mb-4 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'}`}>
-              <MessageCircle size={28} className={`${k.muted} opacity-30`} />
+              <MessageCircle size={28} className={`${k.muted} opacity-30 animate-pulse`} />
             </div>
             <p className={`text-sm font-semibold ${k.text}`}>Select a customer</p>
             <p className={`text-xs mt-1 ${k.muted}`}>View orders, parcels, and chat history</p>
@@ -1428,7 +1429,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <section aria-label="Active order banners">
                     <SectionLabel>Orders</SectionLabel>
                     <div className="space-y-3 mt-3">
-                      {activeOrders.map(order => {
+                      {activeOrders.map((order, idx) => {
                         const orderFulfilments = fulfilmentsCache[order._id] || [];
 
                         const computeShippedQty = (itemName: string, variantLabel?: string): number =>
@@ -1442,37 +1443,38 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             .reduce((s, f) => s + (f.items?.find(fi => fi.name === itemName && (fi.variantLabel || '') === (variantLabel || ''))?.qty || 0), 0);
 
                         return (
-                          <OrderBanner
-                            key={order._id}
-                            order={order}
-                            isDark={isDark}
-                            k={k}
-                            products={products}
-                            customerAddresses={selectedCustomer?.addresses || []}
-                            selectedAddress={selectedCustomer?.addresses[selectedAddressIdx] || ''}
-                            onAddAddress={async (addr) => {
-                              await addAddress(addr);
-                              const newIdx = (selectedCustomer?.addresses || []).length;
-                              setSelectedAddressIdx(newIdx);
-                            }}
-                            onSelectOrderAddress={(addr) => {
-                              const idx = (selectedCustomer?.addresses || []).findIndex(a => a.trim() === addr.trim());
-                              if (idx >= 0) setSelectedAddressIdx(idx);
-                            }}
-                            onBoxItems={(items) => boxItemsToParcel(order._id, items)}
-                            onUnboxItem={(itemName) => unboxItemFromParcel(order._id, itemName)}
-                            onSendQR={() => sendQR(order._id)}
-                            onMarkPaid={() => markPaid(order._id)}
-                            onMarkDelivered={() => patchOrder(order._id, { status: 'delivered' }, 'Order delivered')}
-                            onCancel={() => confirmCancelOrder(order._id)}
-                            onDelete={() => confirmDeleteOrder(order._id)}
-                            onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
-                            computeShippedQty={computeShippedQty}
-                            computeInParcelQty={computeInParcelQty}
-                            isActing={actingOrderIds.has(order._id)}
-                            isExpanded={expandedOrderId === order._id}
-                            onToggle={() => setExpandedOrderId(id => id === order._id ? null : order._id)}
-                          />
+                          <div key={order._id} className="animate-scale-in" style={{ animationDelay: `${idx * 55}ms` }}>
+                            <OrderBanner
+                              order={order}
+                              isDark={isDark}
+                              k={k}
+                              products={products}
+                              customerAddresses={selectedCustomer?.addresses || []}
+                              selectedAddress={selectedCustomer?.addresses[selectedAddressIdx] || ''}
+                              onAddAddress={async (addr) => {
+                                await addAddress(addr);
+                                const newIdx = (selectedCustomer?.addresses || []).length;
+                                setSelectedAddressIdx(newIdx);
+                              }}
+                              onSelectOrderAddress={(addr) => {
+                                const idx = (selectedCustomer?.addresses || []).findIndex(a => a.trim() === addr.trim());
+                                if (idx >= 0) setSelectedAddressIdx(idx);
+                              }}
+                              onBoxItems={(items) => boxItemsToParcel(order._id, items)}
+                              onUnboxItem={(itemName) => unboxItemFromParcel(order._id, itemName)}
+                              onSendQR={() => sendQR(order._id)}
+                              onMarkPaid={() => markPaid(order._id)}
+                              onMarkDelivered={() => patchOrder(order._id, { status: 'delivered' }, 'Order delivered')}
+                              onCancel={() => confirmCancelOrder(order._id)}
+                              onDelete={() => confirmDeleteOrder(order._id)}
+                              onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
+                              computeShippedQty={computeShippedQty}
+                              computeInParcelQty={computeInParcelQty}
+                              isActing={actingOrderIds.has(order._id)}
+                              isExpanded={expandedOrderId === order._id}
+                              onToggle={() => setExpandedOrderId(id => id === order._id ? null : order._id)}
+                            />
+                          </div>
                         );
                       })}
                     </div>
@@ -1596,25 +1598,27 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   {historyOrders.length === 0 ? (
                     <div className={`${k.surface} border ${k.border} rounded-3xl p-8 text-center`}>
                       <div className={`w-10 h-10 rounded-2xl mx-auto mb-3 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'}`}>
-                        <History size={18} className={`${k.muted} opacity-40`} />
+                        <History size={18} className={`${k.muted} opacity-40 animate-pulse`} />
                       </div>
                       <p className={`text-xs font-semibold ${k.text}`}>No completed orders yet</p>
                       <p className={`text-[10px] mt-0.5 ${k.muted}`}>Delivered and cancelled orders will appear here</p>
                     </div>
                   ) : (
                     <div className={`${k.surface} border ${k.border} rounded-3xl overflow-hidden`}>
-                      {historyOrders.map((order, i) => (
-                        <HistoryRow key={order._id} order={order} isDark={isDark} k={k}
-                          isLast={i === historyOrders.length - 1}
-                          onPatch={(patch) => patchOrder(order._id, patch)}
-                          onDelete={() => confirmDeleteOrder(order._id)}
-                          onToggleFulfilments={['fulfilled'].includes(order.status) && (order.fulfilmentSummary?.total ?? 0) > 0 ? () => toggleFulfilmentsExpanded(order._id) : undefined}
-                          fulfilmentsExpanded={!!expandedFulfilments[order._id]}
-                          fulfilments={fulfilmentsCache[order._id]}
-                          onPatchFulfilment={(fid, patch) => patchFulfilment(fid, order._id, patch)}
-                          onDeleteFulfilment={(fid) => deleteFulfilment(fid, order._id)}
-                          products={products}
-                        />
+                      {historyOrders.map((order, idx) => (
+                        <div key={order._id} className="animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
+                          <HistoryRow order={order} isDark={isDark} k={k}
+                            isLast={idx === historyOrders.length - 1}
+                            onPatch={(patch) => patchOrder(order._id, patch)}
+                            onDelete={() => confirmDeleteOrder(order._id)}
+                            onToggleFulfilments={['fulfilled'].includes(order.status) && (order.fulfilmentSummary?.total ?? 0) > 0 ? () => toggleFulfilmentsExpanded(order._id) : undefined}
+                            fulfilmentsExpanded={!!expandedFulfilments[order._id]}
+                            fulfilments={fulfilmentsCache[order._id]}
+                            onPatchFulfilment={(fid, patch) => patchFulfilment(fid, order._id, patch)}
+                            onDeleteFulfilment={(fid) => deleteFulfilment(fid, order._id)}
+                            products={products}
+                          />
+                        </div>
                       ))}
                     </div>
                   )}
@@ -1675,7 +1679,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               </div>
             )}
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-              {messages.map(msg => {
+              {messages.map((msg, idx) => {
                     const timeStr = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     if (msg.sender === 'system') {
                       const t = msg.text;
@@ -1703,7 +1707,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       : null;
 
                     return (
-                      <div key={msg._id} className={`flex items-end gap-1.5 ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                      <div key={msg._id} className={`flex items-end gap-1.5 ${isAdmin ? 'justify-end animate-slide-right' : 'justify-start animate-slide-left'}`} style={{ animationDelay: `${idx * 20}ms` }}>
                         {!isAdmin && (
                           <div className={`w-5 h-5 rounded-full flex-shrink-0 mb-1 flex items-center justify-center text-[8px] font-bold text-white ${avatarColor(selectedCustomer.displayName)}`}>
                             {(selectedCustomer.displayName || '?')[0].toUpperCase()}
@@ -2125,7 +2129,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               ) : findCustomerResults.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full px-4 gap-3 py-8">
                   <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-[#f8f9fc]'}`}>
-                    <MessageCircle size={20} className={`${k.muted} opacity-40`} />
+                    <MessageCircle size={20} className={`${k.muted} opacity-40 animate-pulse`} />
                   </div>
                   <p className={`text-xs font-semibold ${k.text}`}>No customers yet</p>
                 </div>
