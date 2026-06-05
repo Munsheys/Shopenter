@@ -21,7 +21,7 @@ function CopyButton({ value, 'aria-label': ariaLabel }: { value: string; 'aria-l
       onClick={() => { navigator.clipboard.writeText(value).then(() => setCopied(true)).catch(() => {}); setTimeout(() => setCopied(false), 2000); }}
       className="flex items-center gap-1 text-[10px] font-medium text-accent hover:text-accent flex-shrink-0 transition-colors min-h-[44px] min-w-[44px]"
     >
-      {copied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy</>}
+      {copied ? <><Check size={11} className="animate-check-pop" /> Copied</> : <><Copy size={11} /> Copy</>}
     </button>
   );
 }
@@ -36,7 +36,7 @@ function Toggle({ enabled, onChange, isDark, label }: { enabled: boolean; onChan
       onClick={() => onChange(!enabled)}
       className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${enabled ? 'bg-accent' : isDark ? 'bg-[#2a2f45]' : 'bg-slate-300'}`}
     >
-      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : ''}`} />
+      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow toggle-spring ${enabled ? 'translate-x-5' : ''}`} />
     </button>
   );
 }
@@ -507,7 +507,7 @@ export default function SettingsView({
   const localAccentBg = settings?.dashboardAccentGradient || 'var(--accent)';
   const accentTextColor = getAccentText(settings?.dashboardAccent || '#00b900');
 
-  const inputCls  = `w-full rounded-xl px-4 py-3 text-sm border transition-colors ${K.inp}`;
+  const inputCls  = `w-full rounded-xl px-4 py-3 text-sm border transition-colors focus-glow ${K.inp}`;
   const inputMono = `${inputCls} font-mono text-xs pr-12`;
   const lbl       = `block text-xs font-bold uppercase tracking-widest mb-2 ${K.muted}`;
   const hint      = `text-[10px] mt-1 ml-1 ${K.muted}`;
@@ -553,7 +553,7 @@ export default function SettingsView({
         <button
           onClick={handleSave}
           disabled={isSaving || isSettingsLoading}
-          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-white transition-all disabled:opacity-50"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-white transition-all disabled:opacity-50 active:scale-95"
           style={{ background: saved ? '#10b981' : localAccentBg, color: saved ? '#ffffff' : accentTextColor }}
         >
           {isSaving ? <Loader2 size={11} className="animate-spin" /> : saved ? <Check size={11} /> : <Save size={11} />}
@@ -609,7 +609,7 @@ export default function SettingsView({
           <button
             onClick={handleSave}
             disabled={isSaving || isSettingsLoading}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
             style={{ background: saved ? '#10b981' : localAccentBg, color: saved ? '#ffffff' : accentTextColor }}
           >
             {isSaving ? <Loader2 size={13} className="animate-spin" /> : saved ? <Check size={13} /> : <Save size={13} />}
@@ -631,7 +631,7 @@ export default function SettingsView({
               <>
 
               {/* ══ GENERAL ════════════════════════════════════════════════ */}
-              <div id="general" className="space-y-6 pt-2">
+              <div id="general" className="space-y-6 pt-2 animate-scale-in">
                 <div className={`flex items-center gap-2 ${hlCls('general')}`}>
                   <SettingsIcon size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>General</h2>
@@ -654,7 +654,7 @@ export default function SettingsView({
                         const active = (settings.theme || 'light') === t.id;
                         return (
                           <button key={t.id} onClick={() => handleThemeChange(t.id)}
-                            className={`px-5 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                            className={`px-5 py-1.5 rounded-lg text-xs font-bold transition-all border active:scale-90 ${
                               active
                                 ? 'text-white border-transparent shadow-sm'
                                 : isDark
@@ -698,7 +698,7 @@ export default function SettingsView({
                               return (
                                 <button key={color} onClick={() => handleAccentChange(color, null)} title={color}
                                   style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '2px' } : {}) }}
-                                  className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                                  className={`w-8 h-8 rounded-full transition-all flex-shrink-0 active:scale-90 ${isActive ? 'scale-110' : 'hover:scale-105'}`}
                                 />
                               );
                             })}
@@ -768,7 +768,7 @@ export default function SettingsView({
                               return (
                                 <button key={g.name} onClick={() => handleAccentChange(g.primary, g.gradient)} title={g.name}
                                   style={{ background: g.gradient, ...(isActive ? { outline: `2.5px solid ${g.primary}`, outlineOffset: '2px' } : {}) }}
-                                  className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                                  className={`w-8 h-8 rounded-full transition-all flex-shrink-0 active:scale-90 ${isActive ? 'scale-110' : 'hover:scale-105'}`}
                                 />
                               );
                             })}
@@ -1044,7 +1044,7 @@ export default function SettingsView({
               </div>
 
               {/* ══ LINE ══════════════════════════════════════════════════ */}
-              <div id="line" className="space-y-6">
+              <div id="line" className="space-y-6 animate-scale-in">
                 <div className={`flex items-center gap-2 ${hlCls('line')}`}>
                   <MessageSquare size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>LINE Integration</h2>
@@ -1194,7 +1194,7 @@ export default function SettingsView({
               </div>
 
               {/* ══ TELEGRAM ════════════════════════════════════════════ */}
-              <div id="telegram" className="space-y-6">
+              <div id="telegram" className="space-y-6 animate-scale-in">
                 <div className={`flex items-center gap-2 ${hlCls('telegram')}`}>
                   <Send size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>Telegram Bot</h2>
@@ -1331,7 +1331,7 @@ export default function SettingsView({
               </div>
 
               {/* ══ INSTAGRAM ═══════════════════════════════════════════ */}
-              <div id="instagram" className="space-y-6">
+              <div id="instagram" className="space-y-6 animate-scale-in">
                 <div className={`flex items-center gap-2 ${hlCls('instagram')}`}>
                   <Camera size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>Instagram DM Bot</h2>
@@ -1443,7 +1443,7 @@ export default function SettingsView({
               </div>
 
               {/* ══ PAYMENT ═════════════════════════════════════════════ */}
-              <div id="payment" className="space-y-6">
+              <div id="payment" className="space-y-6 animate-scale-in">
                 <div className={`flex items-center gap-2 ${hlCls('payment')}`}>
                   <Zap size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>Payment</h2>
@@ -1661,7 +1661,7 @@ export default function SettingsView({
               </div>
 
               {/* ══ SHIPPING ════════════════════════════════════════════ */}
-              <div id="shipping" className="space-y-6">
+              <div id="shipping" className="space-y-6 animate-scale-in">
                 <div className={`flex items-center gap-2 ${hlCls('shipping')}`}>
                   <Package size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>Shipping</h2>
@@ -1703,7 +1703,7 @@ export default function SettingsView({
                             key={opt.value}
                             type="button"
                             onClick={() => set('shippingPayer', opt.value)}
-                            className={`px-5 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                            className={`px-5 py-1.5 rounded-lg text-xs font-bold transition-all border active:scale-90 ${
                               active
                                 ? 'text-white border-transparent shadow-sm'
                                 : isDark
@@ -1764,7 +1764,7 @@ export default function SettingsView({
               </div>
 
               {/* ══ NOTIFICATIONS ══════════════════════════════════════ */}
-              <div id="notifications" className="space-y-6">
+              <div id="notifications" className="space-y-6 animate-scale-in">
                 <div className={`flex items-center gap-2 ${hlCls('notifications')}`}>
                   <Bell size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>Notifications</h2>

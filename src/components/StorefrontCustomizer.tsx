@@ -141,7 +141,7 @@ function Toggle({ enabled, onChange, accent, label }: { enabled: boolean; onChan
       className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
       style={{ backgroundColor: enabled ? accent : '#374151' }}
     >
-      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : ''}`} />
+      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow toggle-spring ${enabled ? 'translate-x-5' : ''}`} />
     </button>
   );
 }
@@ -256,7 +256,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 aria-selected={activeTab === tab.id}
                 aria-controls={`${tab.id}-panel`}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 active:scale-95 ${
                   active
                     ? isDark ? 'bg-white/8 border border-white/10' : 'bg-slate-100 border border-slate-200'
                     : isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'

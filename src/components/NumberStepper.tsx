@@ -14,7 +14,7 @@ export default function NumberStepper({
   const px = size === 'sm' ? 'w-10' : 'w-11';
   const txtSize = size === 'sm' ? 'text-xs' : 'text-sm';
   const divider = `w-px self-stretch ${isDark ? 'bg-[#2a2f45]' : 'bg-slate-300'}`;
-  const btnCls = `${px} ${h} flex items-center justify-center text-base font-bold flex-shrink-0 transition-colors disabled:opacity-25
+  const btnCls = `${px} ${h} flex items-center justify-center text-base font-bold flex-shrink-0 transition-all duration-150 active:scale-90 disabled:opacity-25
     ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`;
   return (
     <div className={`flex items-center ${h} rounded-xl border overflow-hidden ${isDark ? 'bg-[#0f1117] border-[#2a2f45]' : 'bg-white border-slate-300'}`}>
@@ -35,7 +35,7 @@ export default function NumberStepper({
         step={step}
         aria-label={label ?? 'quantity'}
         onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) onChange(clamp(n)); }}
-        className={`flex-1 min-w-0 text-center ${txtSize} font-semibold bg-transparent outline-none py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isDark ? 'text-white' : 'text-slate-800'}`}
+        className={`flex-1 min-w-0 text-center ${txtSize} font-semibold bg-transparent outline-none py-2 transition-all duration-150 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isDark ? 'text-white' : 'text-slate-800'}`}
       />
       <div className={divider} />
       <button

@@ -217,9 +217,9 @@ function UploadZone({
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
-        className={`relative flex flex-col items-center justify-center gap-2 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none ${
+        className={`relative flex flex-col items-center justify-center gap-2 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200 select-none ${
           dragging
-            ? 'border-accent bg-accent/5'
+            ? 'border-accent bg-accent/5 scale-[1.02] ring-2 ring-accent/40'
             : isDark ? 'border-[#1f2335] hover:border-accent/50 hover:bg-accent/5' : 'border-slate-200 hover:border-accent/50 hover:bg-accent/5'
         }`}
       >
@@ -353,7 +353,7 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
             <button
               key={type}
               onClick={() => add(type)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-accent/50'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors active:scale-95 ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-accent/50'}`}
             >
               {icon} + {label}
             </button>
@@ -1061,7 +1061,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
           <button
             key={s.id}
             onClick={() => setSection(s.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 active:scale-95 flex-1 justify-center ${
               section === s.id
                 ? 'text-white shadow-sm'
                 : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
@@ -1108,7 +1108,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                       onClick={() => setBPlatforms(prev =>
                         selected ? prev.filter(x => x !== p.id) : [...prev, p.id]
                       )}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
                         !p.configured
                           ? isDark ? 'border-[#1f2335] text-[#4a5068] cursor-not-allowed' : 'border-slate-200 text-slate-300 cursor-not-allowed'
                           : selected
@@ -1225,14 +1225,14 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                 <button
                   type="button"
                   onClick={() => setBLineExtras(prev => [...prev, { type: 'video' }])}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-accent/50'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors active:scale-95 ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-accent/50'}`}
                 >
                   <Video size={11} /> + Video
                 </button>
                 <button
                   type="button"
                   onClick={() => setBLineExtras(prev => [...prev, { type: 'sticker' }])}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-accent/50'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors active:scale-95 ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent/50' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-accent/50'}`}
                 >
                   <Smile size={11} /> + Sticker
                 </button>
@@ -1412,8 +1412,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               <div className={`pt-4 border-t ${k.border}`}>
                 <p className={`text-[11px] font-semibold uppercase tracking-widest mb-3 ${k.muted}`}>History</p>
                 <div className="space-y-2">
-                  {[...instantHistory, ...queuedHistory].slice(0, 5).map(c => (
-                    <div key={c._id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                  {[...instantHistory, ...queuedHistory].slice(0, 5).map((c, idx) => (
+                    <div key={c._id} className={`flex items-center justify-between px-3 py-2 rounded-lg animate-slide-up ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`} style={{ animationDelay: `${idx * 50}ms` }}>
                       <div className="min-w-0">
                         <p className={`text-xs font-medium truncate ${k.text}`}>{c.name || 'Untitled'}</p>
                         <p className={`text-[10px] ${k.muted}`}>
@@ -2058,7 +2058,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               <button
                 key={s.id}
                 onClick={() => setLineSubSection(s.id)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 ${
                   lineSubSection === s.id
                     ? 'text-white shadow-sm'
                     : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
