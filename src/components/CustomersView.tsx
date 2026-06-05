@@ -1467,42 +1467,45 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   />
                 </section>
 
-                {/* PARCELS AWAITING SHIPMENT — pending fulfilments ready to be shipped */}
+                {/* PARCELS AWAITING SHIPMENT — all pending fulfilments merged into one parcel */}
                 <div data-section="section-parcels" />
                 {pendingFulfilments.length > 0 && (
                   <section aria-label="Parcels awaiting shipment">
                     <SectionLabel>Parcels Awaiting Shipment</SectionLabel>
-                    <div className="mt-3 space-y-6">
-                      {pendingFulfilments.map((fulfilment) => (
-                        <ParcelFulfilmentContainer
-                          key={fulfilment._id}
-                          fulfilment={fulfilment}
-                          selectedAddress={selectedCustomer?.addresses[selectedAddressIdx] || ''}
-                          isDark={isDark}
-                          k={k}
-                          merchantSettings={merchantSettings}
-                          products={products}
-                          onUpdateItems={async (items) => {
-                            await patchFulfilment(fulfilment._id, fulfilment.orderId, { items });
-                          }}
-                          onShip={async (courier, tracking) => {
-                            await patchFulfilment(fulfilment._id, fulfilment.orderId, {
+                    <div className="mt-3">
+                      <ParcelFulfilmentContainer
+                        fulfilments={pendingFulfilments}
+                        selectedAddress={selectedCustomer?.addresses[selectedAddressIdx] || ''}
+                        isDark={isDark}
+                        k={k}
+                        merchantSettings={merchantSettings}
+                        products={products}
+                        onUpdateItem={async (fid, orderId, items) => {
+                          await patchFulfilment(fid, orderId, { items });
+                        }}
+                        onShip={async (courier, tracking) => {
+                          await Promise.all(pendingFulfilments.map(f =>
+                            patchFulfilment(f._id, f.orderId, {
                               courier, tracking,
                               address: selectedCustomer?.addresses[selectedAddressIdx] || '',
                               status: 'shipped',
-                            });
-                          }}
-                          onCancel={async () => {
-                            setConfirm({
-                              open: true,
-                              title: 'Remove Parcel?',
-                              message: 'This will delete the parcel and return items to pending.',
-                              onConfirm: async () => { await deleteFulfilment(fulfilment._id, fulfilment.orderId); },
-                              danger: true,
-                            });
-                          }}
-                        />
-                      ))}
+                            })
+                          ));
+                        }}
+                        onCancel={() => {
+                          setConfirm({
+                            open: true,
+                            title: 'Remove Parcel?',
+                            message: pendingFulfilments.length > 1
+                              ? 'This will delete all pending parcels and return items to pending.'
+                              : 'This will delete the parcel and return items to pending.',
+                            onConfirm: async () => {
+                              await Promise.all(pendingFulfilments.map(f => deleteFulfilment(f._id, f.orderId)));
+                            },
+                            danger: true,
+                          });
+                        }}
+                      />
                     </div>
                   </section>
                 )}
@@ -4072,58 +4075,64 @@ function OrderBanner({
 
 // ── Parcel Fulfilment Container ────────────────────────────────────────────────
 // Shows a pending fulfilment with editable items, ready to be shipped
+type MergedFulfilmentItem = FulfilmentItem & { _fid: string; _orderId: string };
+
+function buildMergedItems(fulfilments: Fulfilment[]): MergedFulfilmentItem[] {
+  return fulfilments.flatMap(f =>
+    (f.items || []).map(item => ({ ...item, _fid: f._id, _orderId: String(f.orderId) }))
+  );
+}
+
 function ParcelFulfilmentContainer({
-  fulfilment,
+  fulfilments,
   selectedAddress,
   isDark,
   k,
   merchantSettings,
   products,
-  onUpdateItems,
+  onUpdateItem,
   onShip,
   onCancel,
 }: {
-  fulfilment: Fulfilment;
+  fulfilments: Fulfilment[];
   selectedAddress: string;
   isDark: boolean;
   k: typeof DK;
   merchantSettings?: any;
   products?: Product[];
-  onUpdateItems: (items: FulfilmentItem[]) => Promise<void>;
+  onUpdateItem: (fulfilmentId: string, orderId: string, items: FulfilmentItem[]) => Promise<void>;
   onShip: (courier: string, tracking: string) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [items, setItems] = useState<FulfilmentItem[]>(fulfilment.items || []);
-
-  // Sync local items when external PATCH adds new items (e.g. "Move to Parcel" second click)
-  useEffect(() => {
-    setItems(fulfilment.items || []);
-  // Only resync on count change to avoid stomping in-progress inline edits
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [(fulfilment.items || []).length]);
-  const [courier, setCourier] = useState(fulfilment.courier || '');
-  const [tracking, setTracking] = useState(fulfilment.tracking || '');
+  const [localItems, setLocalItems] = useState<MergedFulfilmentItem[]>(() => buildMergedItems(fulfilments));
+  const [courier, setCourier] = useState('');
+  const [tracking, setTracking] = useState('');
   const [shipping, setShipping] = useState(false);
   const [shipError, setShipError] = useState('');
 
-  const parcelId = fulfilment._id || 'NEW';
-  const parcelShortId = fulfilment._id.slice(-4).toUpperCase() || 'NEW';
-  const createdAt = fulfilment.createdAt
-    ? new Date(fulfilment.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    : null;
+  const totalItemCount = fulfilments.reduce((s, f) => s + (f.items?.length ?? 0), 0);
+  useEffect(() => {
+    setLocalItems(buildMergedItems(fulfilments));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalItemCount, fulfilments.length]);
 
-  const totalPrice = items.reduce((s, i) => s + (i.price * i.qty), 0);
+  const totalPrice = localItems.reduce((s, i) => s + (i.price * i.qty), 0);
+  const multiOrder = fulfilments.length > 1;
 
-  function updateItem(idx: number, updates: Partial<FulfilmentItem>) {
-    const updated = items.map((item, i) => i === idx ? { ...item, ...updates } : item);
-    setItems(updated);
-    onUpdateItems(updated).catch(() => setItems(fulfilment.items || []));
+  async function handleUpdateItem(idx: number, updates: Partial<FulfilmentItem>) {
+    const meta = localItems[idx];
+    const updated = localItems.map((item, i) => i === idx ? { ...item, ...updates } : item);
+    setLocalItems(updated);
+    const forFulfilment = updated.filter(i => i._fid === meta._fid).map(({ _fid, _orderId, ...rest }) => rest as FulfilmentItem);
+    await onUpdateItem(meta._fid, meta._orderId, forFulfilment).catch(() => setLocalItems(buildMergedItems(fulfilments)));
   }
 
-  function removeItem(idx: number) {
-    const updated = items.filter((_, i) => i !== idx);
-    setItems(updated);
-    onUpdateItems(updated).catch(() => setItems(fulfilment.items || []));
+  async function handleRemoveItem(idx: number) {
+    const meta = localItems[idx];
+    const updated = localItems.filter((_, i) => i !== idx);
+    setLocalItems(updated);
+    const forFulfilment = updated.filter(i => i._fid === meta._fid).map(({ _fid, _orderId, ...rest }) => rest as FulfilmentItem);
+    await onUpdateItem(meta._fid, meta._orderId, forFulfilment).catch(() => setLocalItems(buildMergedItems(fulfilments)));
   }
 
   async function handleShipAndPrint() {
@@ -4148,8 +4157,10 @@ function ParcelFulfilmentContainer({
             <Package size={16} className="text-accent" />
           </div>
           <div>
-            <p className={`text-sm font-black ${k.text}`} title={parcelId}>#{parcelShortId}</p>
-            {createdAt && <p className={`text-[11px] ${k.muted}`}>{createdAt}</p>}
+            <p className={`text-sm font-black ${k.text}`}>
+              Pending Parcel
+              {multiOrder && <span className={`ml-2 text-[10px] font-medium ${k.muted}`}>· {fulfilments.length} orders</span>}
+            </p>
           </div>
         </div>
         <button
@@ -4178,18 +4189,30 @@ function ParcelFulfilmentContainer({
             </tr>
           </thead>
           <tbody>
-            {items.map((item, idx) => (
-              <ParcelItemRow
-                key={idx}
-                item={item}
-                isDark={isDark}
-                k={k}
-                products={products}
-                onUpdate={(updates) => updateItem(idx, updates)}
-                onRemove={() => removeItem(idx)}
-              />
-            ))}
-            {items.length === 0 && (
+            {localItems.map((item, idx) => {
+              const prevItem = idx > 0 ? localItems[idx - 1] : null;
+              const showGroupHeader = multiOrder && (!prevItem || prevItem._fid !== item._fid);
+              return (
+                <React.Fragment key={`${item._fid}-${idx}`}>
+                  {showGroupHeader && (
+                    <tr className={isDark ? 'bg-[#1a1d2e]/70' : 'bg-slate-50'}>
+                      <td colSpan={5} className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest ${k.muted}`}>
+                        Order #{item._orderId.slice(-6).toUpperCase()}
+                      </td>
+                    </tr>
+                  )}
+                  <ParcelItemRow
+                    item={item}
+                    isDark={isDark}
+                    k={k}
+                    products={products}
+                    onUpdate={(updates) => handleUpdateItem(idx, updates)}
+                    onRemove={() => handleRemoveItem(idx)}
+                  />
+                </React.Fragment>
+              );
+            })}
+            {localItems.length === 0 && (
               <tr>
                 <td colSpan={5} className={`py-4 text-center text-[11px] ${k.muted}`}>No items yet</td>
               </tr>
@@ -4246,7 +4269,7 @@ function ParcelFulfilmentContainer({
 
         <button
           onClick={handleShipAndPrint}
-          disabled={shipping || items.length === 0}
+          disabled={shipping || localItems.length === 0}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[12px] font-bold text-white hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 shadow-lg shadow-accent/20"
           style={{ background: 'var(--accent-gradient)' }}
         >
