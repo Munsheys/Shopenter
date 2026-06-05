@@ -280,7 +280,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
           <button onClick={handleSave} disabled={saving}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
             style={{ background: saved ? '#10b981' : dashboardAccent, color: saved ? '#ffffff' : dashboardAccentText }}>
-            {saved ? <><Check size={13} />Saved!</> : saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : <><Save size={13} />Save</>}
+            {saved ? <><Check size={13} className="animate-check-pop" />Saved!</> : saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : <><Save size={13} />Save</>}
           </button>
           {saveError && <p role="alert" className="text-xs text-red-400 mt-2">{saveError}</p>}
         </div>
@@ -335,7 +335,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   return (
                     <button key={preset.id} onClick={() => set('preset', preset.id)}
                       aria-pressed={config.preset === preset.id}
-                      className={`relative rounded-xl border-2 overflow-hidden text-left transition-all hover:scale-[1.02] ${active ? 'shadow-lg' : 'border-transparent hover:border-white/10'}`}
+                      className={`relative rounded-xl border-2 overflow-hidden text-left transition-all hover-lift active:scale-95 hover:scale-[1.02] ${active ? 'shadow-lg' : 'border-transparent hover:border-white/10'}`}
                       style={active ? { borderColor: dashboardAccent, boxShadow: `0 8px 20px -4px ${dashboardAccent}40` } : undefined}>
                       <div className="h-14 flex gap-1 p-2" style={{ background: preset.pageBg }}>
                         <div className="flex-1 rounded-md" style={{ background: preset.cardBg, border: `1px solid ${preset.cardBorder}` }} />
@@ -383,7 +383,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                         return (
                           <button key={color} onClick={() => setAccent(color)} title={color}
                             style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : {}) }}
-                            className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
+                            className={`w-8 h-8 rounded-full transition-all duration-200 active:scale-90 flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-110'}`} />
                         );
                       })}
                     </div>
@@ -463,7 +463,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                         return (
                           <button key={preset.name} onClick={() => setAccent(preset.primary, preset.gradient)} title={preset.name}
                             style={{ background: preset.gradient, ...(isActive ? { outline: `2.5px solid ${preset.primary}`, outlineOffset: '3px' } : {}) }}
-                            className={`w-8 h-8 rounded-full transition-all flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-105'}`} />
+                            className={`w-8 h-8 rounded-full transition-all duration-200 active:scale-90 flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-110'}`} />
                         );
                       })}
                     </div>
@@ -489,7 +489,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                                 onClick={() => setAccent(primary, css)}
                                 title="Custom gradient"
                                 style={{ background: css, ...(isActive ? { outline: `2.5px solid ${primary}`, outlineOffset: '3px' } : {}) }}
-                                className={`w-8 h-8 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                                className={`w-8 h-8 rounded-full transition-all duration-200 active:scale-90 ${isActive ? 'scale-110' : 'hover:scale-110'}`}
                               />
                               <button
                                 onClick={() => {
@@ -623,7 +623,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                             <div key={color} className="flex flex-col items-center gap-1">
                               <button onClick={() => set('announcementColor', color)}
                                 style={{ backgroundColor: bg, ...(isActive ? { outline: `2px solid ${bg}`, outlineOffset: '2px' } : {}) }}
-                                className={`w-7 h-7 rounded-full transition-all ${isActive ? 'scale-110' : 'hover:scale-105'}`}
+                                className={`w-7 h-7 rounded-full transition-all duration-200 active:scale-90 hover:scale-110 ${isActive ? 'scale-110' : ''}`}
                                 title={color} />
                               <span className={`text-[10px] ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>{colorLabel}</span>
                             </div>
