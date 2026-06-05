@@ -308,7 +308,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     }
   }, []);
 
-  useEffect(() => { refreshOrders(); }, [refreshOrders]);
+  useEffect(() => {
+    // Recompute fulfilment statuses once on mount to self-correct any records
+    // that were set to partially_fulfilled when they should be shipped/fulfilled.
+    refreshOrders();
+    fetch('/api/orders/recompute', { method: 'POST' })
+      .then(() => refreshOrders())
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetch('/api/products').then(r => r.json()).then(d => {
