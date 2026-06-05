@@ -476,11 +476,17 @@ export default function DashboardPage() {
             disabled={isRefreshing}
             title="Refresh data"
             aria-label="Refresh data"
-            className={`relative p-2.5 rounded-lg transition-all disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+            className={`group relative p-2.5 rounded-lg transition-all disabled:opacity-40 ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
             style={isRefreshing ? { color: accentColor } : undefined}
           >
             {isRefreshing && <div className="absolute inset-0 rounded-lg blur-md pointer-events-none -z-10" style={{ background: `var(--accent-gradient)`, opacity: 0.25 }} />}
-            <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+            {isRefreshing ? (
+              <RefreshCw size={15} className="animate-spin" />
+            ) : (
+              <span className="transition-transform duration-300 group-hover:rotate-180 inline-flex">
+                <RefreshCw size={15} />
+              </span>
+            )}
           </button>
 
           {/* Notification bell */}
@@ -493,13 +499,13 @@ export default function DashboardPage() {
             >
               <Bell size={15} />
               {unreadNotifCount > 0 && (
-                <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[11px] font-black flex items-center justify-center" style={{ background: 'var(--accent-gradient)' }}>
+                <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[11px] font-black flex items-center justify-center animate-badge-pulse" style={{ background: 'var(--accent-gradient)' }}>
                   {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
                 </span>
               )}
             </button>
             {notifOpen && (
-              <div role="dialog" aria-label="Notifications" className={`absolute right-0 top-10 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border shadow-2xl z-50 overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-[#e2e5ef]'}`}>
+              <div role="dialog" aria-label="Notifications" className={`absolute right-0 top-10 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border shadow-2xl z-50 overflow-hidden animate-notif ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-[#e2e5ef]'}`}>
                 <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-[#e2e5ef]'}`}>
                   <span className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-[#3f4557]'}`}>Notifications</span>
                   <button onClick={() => setNotifOpen(false)} aria-label="Close notifications" className="text-[#8b92ad] hover:text-red-400 p-1"><X size={14} /></button>
@@ -507,7 +513,7 @@ export default function DashboardPage() {
                 <div className="max-h-72 overflow-y-auto">
                   {notifications.length === 0 ? (
                     <div className="px-4 py-8 text-center text-[#8b92ad] text-xs">No notifications yet</div>
-                  ) : notifications.map((n: any) => {
+                  ) : notifications.map((n: any, i: number) => {
                     const icons: Record<string, React.ReactNode> = {
                       new_order: <ShoppingBag size={13} className="text-accent" />,
                       slip_verified: <CheckCheck size={13} className="text-emerald-500" />,
@@ -515,7 +521,7 @@ export default function DashboardPage() {
                       out_of_stock: <TrendingDown size={13} className="text-red-500" />,
                     };
                     return (
-                      <div key={n._id} className={`flex gap-3 px-4 py-3 border-b last:border-b-0 ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#dce1ea]' : 'border-[#f4f6f9]'} ${!n.read ? isDark ? 'bg-accent/5' : isLite ? 'bg-accent/5' : 'bg-accent/[3%]' : ''}`}>
+                      <div key={n._id} className={`flex gap-3 px-4 py-3 border-b last:border-b-0 animate-slide-up ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#dce1ea]' : 'border-[#f4f6f9]'} ${!n.read ? isDark ? 'bg-accent/5' : isLite ? 'bg-accent/5' : 'bg-accent/[3%]' : ''}`} style={{ animationDelay: `${i * 50}ms` }}>
                         <div className={`w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center ${isDark ? 'bg-[#1a1d2e]' : isLite ? 'bg-[#d9dfe8]' : 'bg-[#f4f6f9]'}`}>{icons[n.type] ?? <Bell size={13} />}</div>
                         <div className="flex-1 min-w-0">
                           <p className={`text-[11px] leading-snug ${isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-[#1a1d2e]'}`}>{n.message}</p>
@@ -575,55 +581,55 @@ export default function DashboardPage() {
 
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div key={`customers-${refreshKey}`} className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
+        <div key={activeTab === 'customers' ? `customers-active-${refreshKey}` : `customers-${refreshKey}`} className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
             <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} jumpToOrderId={jumpToOrderId} onJumpOrderConsumed={() => setJumpToOrderId(null)} onOrderMutated={() => { setOrdersRefreshKey(k => k + 1); setReportsRefreshKey(k => k + 1); }} />
           </ErrorBoundary>
         </div>
 
-        <div key={`orders-${refreshKey}-${ordersRefreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0' : 'hidden'}>
+        <div key={activeTab === 'orders' ? `orders-active-${refreshKey}-${ordersRefreshKey}` : `orders-${refreshKey}-${ordersRefreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
             <ShopOrdersView theme={theme} t={{}} localCurrency={settings?.localCurrency} onLimitHit={handleLimitHit} onViewCustomer={(userId, orderId) => { setJumpToUserId(userId); setJumpToOrderId(orderId ?? null); setActiveTab('customers'); }} />
           </ErrorBoundary>
         </div>
 
-        <div key={`products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto pb-16 md:pb-0' : 'hidden'}>
+        <div key={activeTab === 'products' ? `products-active-${refreshKey}` : `products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
             <ProductManagement theme={theme} t={{}} onLimitHit={handleLimitHit} onDirtyChange={handleProductsDirtyChange} />
           </ErrorBoundary>
         </div>
 
-        <div key={`reports-${refreshKey}-${reportsRefreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0' : 'hidden'}>
+        <div key={activeTab === 'reports' ? `reports-active-${refreshKey}-${reportsRefreshKey}` : `reports-${refreshKey}-${reportsRefreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
             <ReportsView theme={theme} t={{}} accentColor={accentColor} />
           </ErrorBoundary>
         </div>
 
-        <div key={`broadcasts-${refreshKey}`} className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col' : 'hidden'}>
+        <div key={activeTab === 'broadcasts' ? `broadcasts-active-${refreshKey}` : `broadcasts-${refreshKey}`} className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
             <BroadcastsView theme={theme} t={{}} accentColor={accentColor} onLimitHit={handleLimitHit} onGoToSettings={(section) => { setActiveTab('settings'); setSettingsScroll({ section, id: Date.now() }); }} />
           </ErrorBoundary>
         </div>
 
-        <div key={`feedback-${refreshKey}`} className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
+        <div key={activeTab === 'feedback' ? `feedback-active-${refreshKey}` : `feedback-${refreshKey}`} className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
             <FeedbackView theme={theme} />
           </ErrorBoundary>
         </div>
 
-        <div key={`settings-${refreshKey}`} className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col' : 'hidden'}>
+        <div key={activeTab === 'settings' ? `settings-active-${refreshKey}` : `settings-${refreshKey}`} className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
             <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} onDirtyChange={setSettingsDirty} refreshTrigger={settingsRefreshKey} />
           </ErrorBoundary>
         </div>
 
-        <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6 pb-16 md:pb-0' : 'hidden'}>
+        <div key={activeTab === 'coupons' ? 'coupons-active' : 'coupons'} className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6 pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
             <CouponsView theme={theme} />
           </ErrorBoundary>
         </div>
 
-        <div key={`storefront-${refreshKey}`} className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6 pb-20 md:pb-6' : 'hidden'}>
+        <div key={activeTab === 'storefront' ? `storefront-active-${refreshKey}` : `storefront-${refreshKey}`} className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6 pb-20 md:pb-6 view-enter' : 'hidden'}>
 
           <div className="mb-6">
             <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Storefront customization</h2>
@@ -668,7 +674,7 @@ export default function DashboardPage() {
             aria-selected={activeTab === tab.id}
             aria-label={tab.label}
             onClick={() => handleTabSwitch(tab.id)}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-colors`}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-all duration-300${activeTab === tab.id ? ' scale-110' : ''}`}
             style={activeTab === tab.id ? { color: accentColor } : undefined}
           >
             <tab.Icon size={20} />
@@ -689,8 +695,8 @@ export default function DashboardPage() {
       {/* ── Mobile "More" drawer ── */}
       {mobileMoreOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileMoreOpen(false)} />
-          <div className={`relative rounded-t-3xl border-t p-4 pb-6 ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-gray-100'}`} style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setMobileMoreOpen(false)} />
+          <div className={`relative rounded-t-3xl border-t p-4 pb-6 animate-drawer ${isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-gray-100'}`} style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
             <div className={`mx-auto w-10 h-1 rounded-full mb-4 ${isDark ? 'bg-[#2d3555]' : 'bg-gray-200'}`} />
             <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${isDark ? 'text-[#8b92ad]' : 'text-gray-400'}`}>More</p>
             <div className="space-y-1">
@@ -778,7 +784,7 @@ export default function DashboardPage() {
       />
 
       {autoDeliverToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border border-emerald-500/20 bg-emerald-500/10 backdrop-blur-sm">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border border-emerald-500/20 bg-emerald-500/10 backdrop-blur-sm animate-toast">
           <CheckCheck size={15} className="text-emerald-500 flex-shrink-0" />
           <span className={`text-xs font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>{autoDeliverToast}</span>
           <button onClick={() => setAutoDeliverToast(null)} className="text-[#8b92ad] hover:text-red-400 ml-1"><X size={13} /></button>
