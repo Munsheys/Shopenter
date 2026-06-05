@@ -1927,23 +1927,25 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   const total = Math.max(0, subtotal - qoDiscount);
                   return (
                     <div className={`border-t ${k.border} px-4 py-4 space-y-3 flex-shrink-0`}>
-                      {/* Cost input */}
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={qoCostCurrency}
-                          onChange={e => setQoCostCurrency(e.target.value)}
-                          className={`text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input} w-16`}
-                        >
-                          {COST_CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                        </select>
-                        <input
-                          type="number"
-                          value={qoCostPrice}
-                          onChange={e => setQoCostPrice(e.target.value)}
-                          placeholder="Cost (optional)"
-                          className={`flex-1 text-xs rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
-                        />
-                      </div>
+                      {/* Cost input — only relevant when creating a new product */}
+                      {qoNewProdOpen && (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={qoCostCurrency}
+                            onChange={e => setQoCostCurrency(e.target.value)}
+                            className={`text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input} w-16`}
+                          >
+                            {COST_CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                          </select>
+                          <input
+                            type="number"
+                            value={qoCostPrice}
+                            onChange={e => setQoCostPrice(e.target.value)}
+                            placeholder="Cost (optional)"
+                            className={`flex-1 text-xs rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
+                          />
+                        </div>
+                      )}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
                           <span className={`text-xs ${k.muted}`}>Subtotal</span>
