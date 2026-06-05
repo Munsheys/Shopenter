@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
 import {
   BookOpen, Check, ArrowRight, ExternalLink, ChevronUp, ChevronDown,
   Store, MessageSquare, Globe, Zap, Package, Hand, LayoutGrid, Megaphone, X,
@@ -67,6 +68,7 @@ export default function FloatingGuide({
   const [hasRichMenu, setHasRichMenu] = useState(false);
   const [hasBroadcast, setHasBroadcast] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const { mounted: scMounted, visible: scVisible } = useDelayedUnmount(showConfirm);
 
   useEffect(() => {
     const syncDismissed = () => {
@@ -467,16 +469,18 @@ export default function FloatingGuide({
       )}
 
       {/* Dismiss Confirmation Modal */}
-      {showConfirm && (
+      {scMounted && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200 pointer-events-auto"
+          className="modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 pointer-events-auto"
+          data-state={scVisible ? 'open' : 'closed'}
           onClick={(e) => { if (e.target === e.currentTarget) setShowConfirm(false); }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="dismiss-guide-title"
-            className={`max-w-xl w-full rounded-[36px] p-9 shadow-2xl space-y-8 animate-in zoom-in-95 duration-200 ${
+            data-state={scVisible ? 'open' : 'closed'}
+            className={`modal-panel max-w-xl w-full rounded-[36px] p-9 shadow-2xl space-y-8 ${
               isDark ? 'bg-[#161925] border border-[#1f2335] text-white' : 'bg-white border border-slate-100 text-slate-900'
             }`}
           >

@@ -759,6 +759,7 @@ export default function DashboardPage() {
 
       {upgradePrompt && (
         <UpgradePrompt
+          open={!!upgradePrompt}
           feature={upgradePrompt.feature}
           limit={upgradePrompt.limit}
           current={upgradePrompt.current}

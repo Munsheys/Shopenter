@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
 import { AlertTriangle } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -29,6 +30,7 @@ export default function UnsavedChangesModal({
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
   const dialogRef = useRef<HTMLDivElement>(null);
+  const { mounted, visible } = useDelayedUnmount(isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -52,11 +54,12 @@ export default function UnsavedChangesModal({
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onCancel]);
 
-  if (!isOpen) return null;
+  if (!mounted) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      data-state={visible ? 'open' : 'closed'}
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div
@@ -64,8 +67,9 @@ export default function UnsavedChangesModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="unsaved-title"
+        data-state={visible ? 'open' : 'closed'}
         className={cn(
-          "rounded-2xl border shadow-2xl p-6 max-w-md w-full mx-4 space-y-4",
+          "modal-panel rounded-2xl border shadow-2xl p-6 max-w-md w-full mx-4 space-y-4",
           isDark ? "bg-[#161925] border-[#1f2335]" : isLite ? "bg-[#e7ecf3] border-[#cdd3dd]" : "bg-white border-[#e2e5ef]"
         )}
       >

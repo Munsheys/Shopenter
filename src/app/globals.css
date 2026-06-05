@@ -1,5 +1,43 @@
 @import "tailwindcss";
 
+/* ── Modal & overlay transitions ─────────────────────────────── */
+.modal-overlay {
+  transition: opacity 0.18s ease-out;
+}
+.modal-overlay[data-state="closed"] {
+  opacity: 0;
+  pointer-events: none;
+}
+.modal-overlay[data-state="open"] {
+  opacity: 1;
+}
+
+.modal-panel {
+  transition: opacity 0.18s ease-out, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+.modal-panel[data-state="closed"] {
+  opacity: 0;
+  transform: scale(0.96) translateY(6px);
+}
+.modal-panel[data-state="open"] {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.toolbar-slide {
+  transition: opacity 0.18s ease-out, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toolbar-slide[data-state="closed"] {
+  opacity: 0;
+  transform: translateX(-50%) translateY(12px);
+  pointer-events: none;
+}
+.toolbar-slide[data-state="open"] {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

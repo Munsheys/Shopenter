@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
 import {
   HelpCircle, Send, CheckCircle2, MessageSquare, AlertCircle, Sparkles,
   Loader2, MessageSquareCode, Trash2, ArrowLeft, User, ShieldAlert
@@ -48,6 +49,9 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
 
   const [feedbackToDelete, setFeedbackToDelete] = useState<FeedbackItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const feedbackToDeleteRef = useRef<FeedbackItem | null>(null);
+  if (feedbackToDelete !== null) feedbackToDeleteRef.current = feedbackToDelete;
+  const { mounted: delMounted, visible: delVisible } = useDelayedUnmount(!!feedbackToDelete);
   const deleteModalRef = useRef<HTMLDivElement>(null);
 
   const fetchHistory = async (autoSelectId?: string) => {
@@ -536,9 +540,10 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
       </div>
 
       {/* Delete Confirmation Modal */}
-      {feedbackToDelete && (
+      {delMounted && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4"
+          data-state={delVisible ? 'open' : 'closed'}
           onClick={(e) => { if (e.target === e.currentTarget) setFeedbackToDelete(null); }}
         >
           <div
@@ -546,7 +551,8 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-feedback-title"
-            className={cn("max-w-sm w-full rounded-[24px] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200",
+            data-state={delVisible ? 'open' : 'closed'}
+            className={cn("modal-panel max-w-sm w-full rounded-[24px] p-6 shadow-2xl space-y-5",
               isDark ? 'bg-[#161925] border border-[#1f2335] text-white' : 'bg-white border border-slate-100 text-slate-900'
             )}
           >

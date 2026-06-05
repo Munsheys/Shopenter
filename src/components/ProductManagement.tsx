@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
 import {
   Package,
   Plus,
@@ -708,7 +709,8 @@ export function ProductModal({
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  if (!isOpen) return null;
+  const { mounted: pmMounted, visible: pmVisible } = useDelayedUnmount(isOpen);
+  if (!pmMounted) return null;
 
   const updateForm = (updates: Partial<ProductForm>) => setForm(prev => ({ ...prev, ...updates }));
   const addOption = () => { if (form.options.length >= 3) return; updateForm({ options: [...form.options, { name: '', values: [] }] }); };
@@ -720,15 +722,17 @@ export function ProductModal({
   const isValid = quickOrderMode ? form.name.trim() !== '' : form.name.trim() !== '' && form.brand.trim() !== '';
 
   return (
-    <div 
-      className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200"
+    <div
+      className="modal-overlay fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
+      data-state={pmVisible ? 'open' : 'closed'}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-modal-title"
-        className={cn("w-full max-w-4xl rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+        data-state={pmVisible ? 'open' : 'closed'}
+        className={cn("modal-panel w-full max-w-4xl rounded-[32px] overflow-hidden shadow-2xl max-h-[90vh] flex flex-col", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
       >
         {/* Header */}
         <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
@@ -1068,10 +1072,10 @@ export function ProductModal({
 
 // --- StockModal ---
 
-function StockModal({ product, onClose, onSave, isSaving, theme, stockError = '' }: {
+function StockModal({ product, onClose, onSave, isSaving, theme, stockError = '', open }: {
   product: Product; onClose: () => void;
   onSave: (updatedVariants: any[]) => void;
-  isSaving: boolean; theme?: 'light' | 'dark'; stockError?: string;
+  isSaving: boolean; theme?: 'light' | 'dark'; stockError?: string; open?: boolean;
 }) {
   const [stocks, setStocks] = useState<Record<number, string>>({});
 
@@ -1090,22 +1094,28 @@ function StockModal({ product, onClose, onSave, isSaving, theme, stockError = ''
     return [v.variantName, v.colors?.[0]].filter(Boolean).join(' — ') || 'Default';
   }
 
+  const { mounted: stMounted, visible: stVisible } = useDelayedUnmount(open !== false);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
+  if (!stMounted) return null;
+
   return (
-    <div 
-      className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200"
+    <div
+      className="modal-overlay fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+      data-state={stVisible ? 'open' : 'closed'}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="stock-modal-title"
-        className={cn("w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+        data-state={stVisible ? 'open' : 'closed'}
+        className={cn("modal-panel w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
       >
         <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
           <div>
@@ -1220,6 +1230,13 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
 
   const secret = typeof window !== 'undefined' ? localStorage.getItem('admin_secret') || '' : '';
   const [merchantCurrencies, setMerchantCurrencies] = useState({ sold: 'THB', cost: 'THB' });
+
+  const stockProductRef = useRef<Product | null>(null);
+  if (stockProduct !== null) stockProductRef.current = stockProduct;
+  const { mounted: smMounted, visible: smVisible } = useDelayedUnmount(!!stockProduct);
+  const { mounted: siMounted, visible: siVisible } = useDelayedUnmount(showImport);
+  const { mounted: dcMounted, visible: dcVisible } = useDelayedUnmount(!!deleteConfirm);
+  const { mounted: bdMounted, visible: bdVisible } = useDelayedUnmount(bulkDeleteConfirmOpen);
 
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
@@ -2046,14 +2063,14 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         onSaveAsDefault={(val) => { setDefaultTrackStock(val); localStorage.setItem('defaultTrackStock', String(val)); }}
         priceError={priceError} />
 
-      {stockProduct && (
-        <StockModal product={stockProduct} onClose={() => { setStockProduct(null); setStockError(''); }} onSave={handleStockSave} isSaving={isStockSaving} theme={theme} stockError={stockError} />
+      {smMounted && stockProductRef.current && (
+        <StockModal open={smVisible} product={stockProductRef.current} onClose={() => { setStockProduct(null); setStockError(''); }} onSave={handleStockSave} isSaving={isStockSaving} theme={theme} stockError={stockError} />
       )}
 
       {/* ── CSV Import modal ── */}
-      {showImport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className={cn('w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden', theme === 'dark' ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white')}>
+      {siMounted && (
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" data-state={siVisible ? 'open' : 'closed'}>
+          <div data-state={siVisible ? 'open' : 'closed'} className={cn('modal-panel w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden', theme === 'dark' ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white')}>
             <div className={cn('flex items-center justify-between px-6 py-4 border-b', theme === 'dark' ? 'border-[#1f2335]' : 'border-slate-200')}>
               <p className={cn('text-sm font-semibold', theme === 'dark' ? 'text-white' : 'text-slate-900')}>Import Products from CSV</p>
               <button onClick={() => setShowImport(false)} className="text-[#8b92ad] hover:text-white transition-colors"><X size={16} /></button>
@@ -2166,16 +2183,18 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
         </div>
       )}
 
-      {deleteConfirm && (
+      {dcMounted && (
         <div
-          className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+          className="modal-overlay fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+          data-state={dcVisible ? 'open' : 'closed'}
           onClick={(e) => { if (e.target === e.currentTarget) { setDeleteConfirm(null); setDeletingName(''); } }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-confirm-title"
-            className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+            data-state={dcVisible ? 'open' : 'closed'}
+            className={cn("modal-panel rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
           >
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6"><Trash2 size={32} /></div>
             <h3 id="delete-confirm-title" className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete &ldquo;{deletingName}&rdquo;?</h3>
@@ -2183,22 +2202,24 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
             {deleteError && <p role="alert" className="text-xs text-red-500 mb-4">{deleteError}</p>}
             <div className="flex gap-3">
               <button onClick={() => { setDeleteConfirm(null); setDeletingName(''); setDeleteError(''); }} disabled={isDeleting} className={cn("flex-1 py-3 text-sm font-bold rounded-xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad]" : "bg-[#f4f6f9] text-[#8b92ad]")}>Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm!)} disabled={isDeleting} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl disabled:opacity-50">{isDeleting ? 'Deleting…' : 'Delete'}</button>
+              <button onClick={() => deleteConfirm && handleDelete(deleteConfirm)} disabled={isDeleting} className="flex-1 py-3 text-sm font-bold bg-red-500 text-white rounded-xl disabled:opacity-50">{isDeleting ? 'Deleting…' : 'Delete'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {bulkDeleteConfirmOpen && (
+      {bdMounted && (
         <div
-          className="fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+          className="modal-overlay fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+          data-state={bdVisible ? 'open' : 'closed'}
           onClick={(e) => { if (e.target === e.currentTarget) setBulkDeleteConfirmOpen(false); }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="bulk-delete-confirm-title"
-            className={cn("rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl animate-in zoom-in-95", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+            data-state={bdVisible ? 'open' : 'closed'}
+            className={cn("modal-panel rounded-[32px] w-full max-w-sm p-8 text-center shadow-2xl", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
           >
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6"><Trash2 size={32} /></div>
             <h3 id="bulk-delete-confirm-title" className={cn("text-xl font-bold mb-2", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>Delete {selectedIds.size} Product{selectedIds.size !== 1 ? 's' : ''}?</h3>

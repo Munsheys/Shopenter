@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
 import {
   Megaphone, Zap, Clock, MessageSquare, Hand, LayoutGrid,
   Plus, Trash2, Edit2, Check, X, AlertTriangle,
@@ -671,6 +672,9 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
 
   // Auto-reply form
   const [showRuleModal, setShowRuleModal] = useState(false);
+
+  const { mounted: scMounted, visible: scVisible } = useDelayedUnmount(showSendConfirm);
+  const { mounted: rmMounted, visible: rmVisible } = useDelayedUnmount(showRuleModal);
   const [editingRule, setEditingRule] = useState<AutoReplyRule | null>(null);
   const [rKeyword, setRKeyword] = useState('');
   const [rMatchType, setRMatchType] = useState<AutoReplyRule['matchType']>('contains');
@@ -2240,9 +2244,11 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
       )}
 
       {/* ── Send confirmation ── */}
-      {showSendConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
+      {scMounted && (
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          data-state={scVisible ? 'open' : 'closed'}>
+          <div className={`modal-panel w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}
+            data-state={scVisible ? 'open' : 'closed'}>
             <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border}`}>
               <p className={`text-sm font-semibold ${k.text}`}>Confirm Broadcast</p>
               <button onClick={() => setShowSendConfirm(false)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}><X size={16} /></button>
@@ -2287,9 +2293,11 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
       )}
 
       {/* ── Auto-reply modal ── */}
-      {showRuleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
+      {rmMounted && (
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          data-state={rmVisible ? 'open' : 'closed'}>
+          <div className={`modal-panel w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}
+            data-state={rmVisible ? 'open' : 'closed'}>
             <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border}`}>
               <p className={`text-sm font-semibold ${k.text}`}>{editingRule ? 'Edit Rule' : 'New Auto-Reply Rule'}</p>
               <button onClick={() => setShowRuleModal(false)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}><X size={16} /></button>

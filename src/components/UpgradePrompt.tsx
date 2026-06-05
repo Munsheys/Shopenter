@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
 import { useRouter } from 'next/navigation';
 import { X, Zap, Package, Megaphone, MessageSquare, Tag, Star } from 'lucide-react';
 
@@ -30,11 +31,13 @@ interface UpgradePromptProps {
   onClose: () => void;
   theme?: 'light' | 'dark';
   upgradeUrl?: string;
+  open?: boolean;
 }
 
-export default function UpgradePrompt({ feature, limit, current, onClose, theme = 'light', upgradeUrl }: UpgradePromptProps) {
+export default function UpgradePrompt({ feature, limit, current, onClose, theme = 'light', upgradeUrl, open = true }: UpgradePromptProps) {
   const isDark = theme === 'dark';
   const router = useRouter();
+  const { mounted, visible } = useDelayedUnmount(open);
   const info = FEATURE_INFO[feature] ?? { label: feature, icon: <Zap size={20} />, description: 'Upgrade to unlock this feature' };
 
   useEffect(() => {
@@ -50,15 +53,18 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
     router.push(upgradeUrl || '/dashboard/settings?tab=billing');
   };
 
+  if (!mounted) return null;
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[500] flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="modal-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-[500] flex items-center justify-center p-4"
+      data-state={visible ? 'open' : 'closed'}
       role="dialog"
       aria-modal="true"
       aria-labelledby="upgrade-prompt-title"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className={`w-full max-w-md rounded-[28px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-[#e2e5ef]'}`}>
+      <div className={`modal-panel w-full max-w-md rounded-[28px] overflow-hidden shadow-2xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-[#e2e5ef]'}`}
+        data-state={visible ? 'open' : 'closed'}>
         {/* Header */}
         <div className="relative bg-gradient-to-br from-accent to-[#007700] p-8 pb-10">
           <button

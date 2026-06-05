@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
 import {
   MessageCircle, ShoppingCart, Send, Search, X, Plus, Minus, Trash2,
   Package, CheckCircle, QrCode, ChevronRight, ChevronLeft, MapPin,
@@ -214,6 +215,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [fulfilmentsCache, setFulfilmentsCache] = useState<Record<string, Fulfilment[]>>({});
 
   // Products to Fulfil state — removed; items box directly to parcel from order card
+
+  // Modal animation states
+  const { mounted: qoMounted, visible: qoVisible } = useDelayedUnmount(showModal && !!selectedCustomer);
+  const { mounted: fcMounted, visible: fcVisible } = useDelayedUnmount(showFindCustomerModal);
+  const { mounted: eoMounted, visible: eoVisible } = useDelayedUnmount(!!editingOrder);
+  const { mounted: fmMounted, visible: fmVisible } = useDelayedUnmount(!!fulfilmentModalOrderId && !!fulfilmentModalOrder);
+  const { mounted: ccMounted, visible: ccVisible } = useDelayedUnmount(!!cancelCreditModal?.open);
+  const { mounted: batchMounted, visible: batchVisible } = useDelayedUnmount(selectedOrderIds.size > 0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1782,13 +1791,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       )}
 
       {/* ── New Order Modal (2-panel) ── */}
-      {showModal && selectedCustomer && (
+      {qoMounted && selectedCustomer && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4 overflow-x-auto"
+          className="modal-overlay fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4 overflow-x-auto"
+          data-state={qoVisible ? 'open' : 'closed'}
           role="dialog" aria-modal="true" aria-label="New order"
           onClick={(e) => { if (e.target === e.currentTarget) closeQuickOrder(); }}
         >
-          <div className="flex items-start gap-4 flex-shrink-0">
+          <div className="modal-panel flex items-start gap-4 flex-shrink-0" data-state={qoVisible ? 'open' : 'closed'}>
 
             {/* ── New Product slide-in panel (left) ── */}
             <div
@@ -2047,17 +2057,19 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
 
       {/* Find Customer Modal */}
-      {showFindCustomerModal && (
+      {fcMounted && (
         <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="modal-overlay fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          data-state={fcVisible ? 'open' : 'closed'}
         >
           <div
+            className={`modal-panel w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${isDark ? 'bg-[#161925]' : 'bg-white'}`}
+            data-state={fcVisible ? 'open' : 'closed'}
             role="dialog"
             aria-modal="true"
             aria-label="Find customer"
             tabIndex={-1}
             onKeyDown={(e) => { if (e.key === 'Escape') { setShowFindCustomerModal(false); setFindCustomerSearch(''); } }}
-            className={`w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] ${isDark ? 'bg-[#161925]' : 'bg-white'}`}
           >
             {/* Modal Header */}
             <div className={`px-6 py-5 border-b ${k.border} flex-shrink-0 text-center`}>
@@ -2188,11 +2200,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       )}
 
       {/* ── Item-level order edit modal ── */}
-      {editingOrder && (() => {
+      {eoMounted && (() => {
         const lineTotal = (item: EditLineItem) => item.qty * item.price;
-        const orderSubtotal = editingOrder.items.reduce((s, i) => s + lineTotal(i), 0);
-        const orderTotal = Math.max(0, orderSubtotal - (editingOrder.discount || 0));
-        const orderProfit = orderTotal - editingOrder.costTHB - editingOrder.shipCostTHB;
+        const orderSubtotal = (editingOrder?.items ?? []).reduce((s, i) => s + lineTotal(i), 0);
+        const orderTotal = Math.max(0, orderSubtotal - (editingOrder?.discount || 0));
+        const orderProfit = orderTotal - (editingOrder?.costTHB ?? 0) - (editingOrder?.shipCostTHB ?? 0);
         const updateItem = (idx: number, patch: Partial<EditLineItem>) =>
           setEditingOrder(v => v && { ...v, items: v.items.map((it, i) => i === idx ? { ...it, ...patch } : it) });
         const removeItem = (idx: number) =>
@@ -2202,14 +2214,16 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         const addFromCatalog = (p: Product) =>
           setEditingOrder(v => v && { ...v, items: [...v.items, { productId: p._id, name: p.name, variantLabel: '', qty: 1, price: p.price }] });
         return (
-          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+          <div className="modal-overlay fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+            data-state={eoVisible ? 'open' : 'closed'}
             onClick={e => { if (e.target === e.currentTarget) setEditingOrder(null); }}>
-            <div className={`w-full max-w-4xl rounded-2xl border shadow-2xl flex flex-col max-h-[92vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
+            <div className={`modal-panel w-full max-w-4xl rounded-2xl border shadow-2xl flex flex-col max-h-[92vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}
+              data-state={eoVisible ? 'open' : 'closed'}>
               {/* Header */}
               <div className="flex items-center justify-between px-6 pt-5 pb-4 flex-shrink-0 border-b" style={{ borderColor: isDark ? '#1f2335' : '#e2e5ef' }}>
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-[#8b92ad]">Edit Order</p>
-                  <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>#{editingOrder.id.slice(-6).toUpperCase()}</p>
+                  <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>#{editingOrder?.id.slice(-6).toUpperCase()}</p>
                 </div>
                 <button onClick={() => setEditingOrder(null)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:bg-white/10' : 'text-[#8b92ad] hover:bg-black/5'}`}><X size={15} /></button>
               </div>
@@ -2266,7 +2280,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 {/* ── Right panel: order items ── */}
                 <div className="flex-1 flex flex-col min-w-0">
                   <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-                    {editingOrder.items.map((item, idx) => (
+                    {(editingOrder?.items ?? []).map((item, idx) => (
                       <EditOrderItemCard
                         key={idx}
                         item={item}
@@ -2298,7 +2312,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         <span className={`text-[10px] font-semibold ${k.muted}`}>-฿</span>
                         <input
                           type="number" min={0} max={orderSubtotal}
-                          value={editingOrder.discount || 0}
+                          value={editingOrder?.discount || 0}
                           onChange={e => setEditingOrder(v => v && { ...v, discount: Math.max(0, parseFloat(e.target.value) || 0) })}
                           placeholder="0"
                           className={`w-24 text-xs font-bold rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${isDark ? 'bg-[#1a1d2e] border-[#2a3050] text-white' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#1a1d2e]'}`}
@@ -2309,7 +2323,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       <span className="text-sm text-[#8b92ad] font-semibold">Total</span>
                       <span className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>฿{orderTotal.toLocaleString()}</span>
                     </div>
-                    {editingOrder.costTHB > 0 && (
+                    {(editingOrder?.costTHB ?? 0) > 0 && (
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-[#8b92ad] font-medium">Profit</span>
                         <span className={`text-xs font-black ${orderProfit >= 0 ? 'text-accent' : 'text-rose-500'}`}>
@@ -2319,6 +2333,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                     )}
                     <button
                       onClick={() => {
+                        if (!editingOrder) return;
                         const totalQty = editingOrder.items.reduce((s, i) => s + i.qty, 0);
                         const primaryName = editingOrder.items[0]?.name || '';
                         patchOrder(editingOrder.id, {
@@ -2362,8 +2377,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       )}
 
       {/* ── Floating batch selection toolbar ── */}
-      {selectedOrderIds.size > 0 && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3 py-2 rounded-2xl border shadow-2xl w-fit max-w-[90vw] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}>
+      {batchMounted && (
+        <div className={`toolbar-slide fixed bottom-6 left-1/2 z-40 flex items-center gap-2 px-3 py-2 rounded-2xl border shadow-2xl w-fit max-w-[90vw] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]'}`}
+          data-state={batchVisible ? 'open' : 'closed'}>
           <span className={`text-xs font-bold text-accent whitespace-nowrap`}>{selectedOrderIds.size} selected</span>
           <div className="flex items-center gap-1">
             <span className={`text-[10px] font-semibold ${isDark ? 'text-[#8b92ad]' : 'text-[#8b92ad]'}`}>฿</span>
@@ -2402,17 +2418,18 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       <ConfirmModal config={confirm} onClose={() => setConfirm(v => ({ ...v, open: false }))} isDark={isDark} k={k} />
 
       {/* ── Fulfilment Modal ── */}
-      {fulfilmentModalOrderId && fulfilmentModalOrder && (
+      {fmMounted && (
         <FulfilmentModal
-          order={fulfilmentModalOrder}
-          existingFulfilments={fulfilmentsCache[fulfilmentModalOrderId] ?? []}
+          open={fmVisible}
+          order={fulfilmentModalOrder!}
+          existingFulfilments={fulfilmentsCache[fulfilmentModalOrderId!] ?? []}
           isDark={isDark}
           k={k}
           shippingCompanies={merchantSettings?.shippingCompanies ?? ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express']}
           onClose={closeFulfilmentModal}
           onSuccess={async () => {
             await refreshOrders();
-            await fetchFulfilments(fulfilmentModalOrderId);
+            await fetchFulfilments(fulfilmentModalOrderId!);
             onOrderMutated?.();
             closeFulfilmentModal();
           }}
@@ -2420,25 +2437,27 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       )}
 
       {/* Cancel + Credit Modal */}
-      {cancelCreditModal?.open && (
+      {ccMounted && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          data-state={ccVisible ? 'open' : 'closed'}
           onClick={e => { if (e.target === e.currentTarget) setCancelCreditModal(null); }}
         >
-          <div className={`w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
+          <div className={`modal-panel w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}
+            data-state={ccVisible ? 'open' : 'closed'}>
             <div className="p-8">
               <div className="w-16 h-16 rounded-[24px] flex items-center justify-center mx-auto mb-5 bg-amber-500/10 text-amber-500">
                 <Coins size={30} />
               </div>
               <h3 className={`text-xl font-black text-center mb-1 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>Handle Refund?</h3>
               <p className={`text-xs text-center mb-6 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>
-                This order was paid (฿{fmt(cancelCreditModal.amount)}). Choose how to handle the refund.
+                This order was paid (฿{fmt(cancelCreditModal?.amount ?? 0)}). Choose how to handle the refund.
               </p>
 
               <div className="space-y-3 mb-4">
                 {/* Option 1 — manual refund */}
                 <button
-                  onClick={() => { patchOrder(cancelCreditModal.orderId, { status: 'cancelled' }); setCancelCreditModal(null); }}
+                  onClick={() => { if (cancelCreditModal) patchOrder(cancelCreditModal.orderId, { status: 'cancelled' }); setCancelCreditModal(null); }}
                   className={`w-full p-4 rounded-2xl border text-left transition-all hover:border-accent/40 active:scale-[0.98] ${isDark ? 'border-[#2a3050] hover:bg-white/5' : 'border-slate-200 hover:bg-slate-50'}`}
                 >
                   <div className={`text-xs font-black mb-0.5 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>↩ Refund Manually</div>
@@ -2447,11 +2466,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
                 {/* Option 2 — issue shop credits */}
                 <button
-                  onClick={() => issueCreditsAndCancel(cancelCreditModal.orderId, cancelCreditModal.amount)}
+                  onClick={() => cancelCreditModal && issueCreditsAndCancel(cancelCreditModal.orderId, cancelCreditModal.amount)}
                   className="w-full p-4 rounded-2xl border border-amber-200 bg-amber-50 text-left transition-all hover:bg-amber-100 active:scale-[0.98]"
                 >
                   <div className="text-xs font-black text-amber-700 flex items-center gap-2 mb-0.5">
-                    <Coins size={13} /> Issue ฿{fmt(cancelCreditModal.amount)} Shop Credits
+                    <Coins size={13} /> Issue ฿{fmt(cancelCreditModal?.amount ?? 0)} Shop Credits
                   </div>
                   <div className="text-[10px] text-amber-600/80">Customer receives credits to spend on future orders at this shop.</div>
                 </button>
@@ -2472,19 +2491,22 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 }
 
 function ConfirmModal({ config, onClose, isDark, k }: { config: any, onClose: () => void, isDark: boolean, k: typeof DK }) {
+  const { mounted, visible } = useDelayedUnmount(!!config.open);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  if (!config.open) return null;
+  if (!mounted) return null;
   return (
-    <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+    <div
+      className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      data-state={visible ? 'open' : 'closed'}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className={`w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}>
+      <div className={`modal-panel w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}
+        data-state={visible ? 'open' : 'closed'}>
         <div className="p-10 text-center">
           <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 ${config.danger ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
             <AlertTriangle size={36} />
@@ -3362,7 +3384,7 @@ function ParcelRow({ fulfilment, isDark, k, onPatch, onDelete }: {
 }
 
 // ── Fulfilment Modal ───────────────────────────────────────────────────────────
-function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompanies, onClose, onSuccess }: {
+function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompanies, onClose, onSuccess, open }: {
   order: Order;
   existingFulfilments: Fulfilment[];
   isDark: boolean;
@@ -3370,6 +3392,7 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
   shippingCompanies: string[];
   onClose: () => void;
   onSuccess: () => void;
+  open?: boolean;
 }) {
   // Compute how many of each item have already been assigned to parcels
   const alreadyFulfilledQty: Record<string, number> = {};
@@ -3452,13 +3475,15 @@ function FulfilmentModal({ order, existingFulfilments, isDark, k, shippingCompan
 
   return (
     <div
-      className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className="modal-overlay fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      data-state={open !== false ? 'open' : 'closed'}
       role="dialog"
       aria-modal="true"
       aria-label="Ship items"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className={`w-full max-w-lg rounded-3xl shadow-2xl border flex flex-col max-h-[90vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'}`}>
+      <div className={`modal-panel w-full max-w-lg rounded-3xl shadow-2xl border flex flex-col max-h-[90vh] ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'}`}
+        data-state={open !== false ? 'open' : 'closed'}>
         {/* Header */}
         <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border} flex-shrink-0`}>
           <div>

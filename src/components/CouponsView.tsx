@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
 import { Tag, Plus, Trash2, X, ToggleLeft, ToggleRight, RefreshCw, Copy, Check } from 'lucide-react';
 
 interface Coupon {
@@ -33,6 +34,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'lite' | 'dar
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteCode, setDeleteCode] = useState<string | null>(null);
+  const { mounted: delMounted, visible: delVisible } = useDelayedUnmount(!!deleteId);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [createError, setCreateError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -357,13 +359,16 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'lite' | 'dar
       )}
 
       {/* Delete confirmation */}
-      {deleteId && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[400] flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) { setDeleteId(null); setDeleteCode(null); } }}>
+      {delMounted && (
+        <div className="modal-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-[400] flex items-center justify-center p-4"
+          data-state={delVisible ? 'open' : 'closed'}
+          onClick={e => { if (e.target === e.currentTarget) { setDeleteId(null); setDeleteCode(null); } }}>
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-coupon-title"
-            className={cn('rounded-[28px] w-full max-w-sm p-8 text-center shadow-2xl', isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white')}
+            data-state={delVisible ? 'open' : 'closed'}
+            className={cn('modal-panel rounded-[28px] w-full max-w-sm p-8 text-center shadow-2xl', isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white')}
           >
             <div className="w-14 h-14 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-5"><Trash2 size={28} /></div>
             <h3 id="delete-coupon-title" className={cn('text-lg font-bold mb-2', isDark ? 'text-white' : 'text-[#1a1d2e]')}>Delete coupon {deleteCode}?</h3>

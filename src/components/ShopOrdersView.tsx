@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
 import { currencySymbol } from '@/lib/currency';
 import {
   ShoppingCart,
@@ -102,6 +103,12 @@ export default function ShopOrdersView({
   // Date picker refs — lets the whole container trigger showPicker()
   const startDateRef = useRef<HTMLInputElement>(null);
   const endDateRef = useRef<HTMLInputElement>(null);
+
+  // Modal animation states
+  const { mounted: bcMounted, visible: bcVisible } = useDelayedUnmount(batchCancelConfirm);
+  const { mounted: bdMounted, visible: bdVisible } = useDelayedUnmount(batchDeleteConfirm);
+  const { mounted: ccMounted, visible: ccVisible } = useDelayedUnmount(cancelConfirm.open);
+  const { mounted: dcMounted, visible: dcVisible } = useDelayedUnmount(deleteConfirm.open);
 
   // Escape-key dismiss for all modals
   useEffect(() => {
@@ -1110,12 +1117,14 @@ export default function ShopOrdersView({
       )}
 
       {/* Batch Cancel Confirmation Modal */}
-      {batchCancelConfirm && (
+      {bcMounted && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          data-state={bcVisible ? 'open' : 'closed'}
           onClick={e => { if (e.target === e.currentTarget) setBatchCancelConfirm(false); }}
         >
-          <div className={cn("w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+          <div className={cn("modal-panel w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+            data-state={bcVisible ? 'open' : 'closed'}>
             <div className="p-10 text-center">
               <div className="w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 bg-rose-500/10 text-rose-500">
                 <Ban size={36} />
@@ -1138,12 +1147,14 @@ export default function ShopOrdersView({
       )}
 
       {/* Batch Delete Confirmation Modal */}
-      {batchDeleteConfirm && (
+      {bdMounted && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          data-state={bdVisible ? 'open' : 'closed'}
           onClick={e => { if (e.target === e.currentTarget) setBatchDeleteConfirm(false); }}
         >
-          <div className={cn("w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}>
+          <div className={cn("modal-panel w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+            data-state={bdVisible ? 'open' : 'closed'}>
             <div className="p-10 text-center">
               <div className="w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 bg-red-500/10 text-red-500">
                 <Trash2 size={36} />
@@ -1164,15 +1175,16 @@ export default function ShopOrdersView({
       )}
 
       {/* Cancel Confirmation Modal */}
-      {cancelConfirm.open && (
+      {ccMounted && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          data-state={ccVisible ? 'open' : 'closed'}
           onClick={(e) => { if (e.target === e.currentTarget) setCancelConfirm({ open: false, orderId: null }); }}
         >
           <div className={cn(
-            "w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl",
+            "modal-panel w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl",
             theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white"
-          )}>
+          )} data-state={ccVisible ? 'open' : 'closed'}>
             <div className="p-10 text-center">
               <div className="w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 bg-red-500/10 text-red-500">
                 <AlertTriangle size={36} />
@@ -1202,15 +1214,16 @@ export default function ShopOrdersView({
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirm.open && (
+      {dcMounted && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          data-state={dcVisible ? 'open' : 'closed'}
           onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm({ open: false, orderId: null }); }}
         >
           <div className={cn(
-            "w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl",
+            "modal-panel w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl",
             theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white"
-          )}>
+          )} data-state={dcVisible ? 'open' : 'closed'}>
             <div className="p-10 text-center">
               <div className="w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-8 bg-red-500/10 text-red-500">
                 <Trash2 size={36} />
