@@ -3967,45 +3967,34 @@ function OrderBanner({
           {/* Order address */}
           {(() => {
             const selectedMismatch = selectedAddress && selectedAddress.trim() && orderAddr !== selectedAddress.trim();
-            return (
-              <>
-                {orderAddr && (
-                  <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
-                    addrInList
-                      ? (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
-                      : (isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200')
-                  }`}>
-                    <MapPin size={11} className={`flex-shrink-0 mt-0.5 ${addrInList ? k.muted : 'text-amber-500'}`} />
-                    <p className={`text-[11px] flex-1 leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-600'}`}>{orderAddr}</p>
-                    {!addrInList && (
-                      <button
-                        onClick={e => { e.stopPropagation(); onAddAddress(orderAddr); }}
-                        className="text-[10px] font-medium px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex-shrink-0 whitespace-nowrap"
-                      >
-                        + Add to list
-                      </button>
-                    )}
-                  </div>
+            return orderAddr ? (
+              <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
+                addrInList
+                  ? (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
+                  : (isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200')
+              }`}>
+                <MapPin size={11} className={`flex-shrink-0 mt-0.5 ${addrInList ? k.muted : 'text-amber-500'}`} />
+                <p className={`text-[11px] flex-1 leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-600'}`}>{orderAddr}</p>
+                {!addrInList && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onAddAddress(orderAddr); }}
+                    className="text-[10px] font-medium px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex-shrink-0 whitespace-nowrap"
+                  >
+                    + Add to list
+                  </button>
                 )}
                 {selectedMismatch && (
-                  <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
-                    isDark ? 'bg-blue-500/10 border-blue-500/30' : 'bg-blue-50 border-blue-200'
-                  }`}>
-                    <MapPin size={11} className="flex-shrink-0 mt-0.5 text-blue-400" />
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 text-blue-400`}>Selected address</p>
-                      <p className={`text-[11px] leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-600'}`}>{selectedAddress}</p>
-                    </div>
-                    <button
-                      onClick={e => { e.stopPropagation(); onUpdateAddress?.(selectedAddress!); }}
-                      className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors flex-shrink-0 whitespace-nowrap"
-                    >
-                      Set address
-                    </button>
-                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); onUpdateAddress?.(selectedAddress!); }}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-colors flex-shrink-0 whitespace-nowrap ${
+                      isDark ? 'bg-white/10 text-white/70 hover:bg-blue-500 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-blue-500 hover:text-white'
+                    }`}
+                  >
+                    Use selected
+                  </button>
                 )}
-              </>
-            );
+              </div>
+            ) : null;
           })()}
 
           {/* Item rows */}
