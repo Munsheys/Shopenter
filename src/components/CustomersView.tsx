@@ -1433,6 +1433,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             k={k}
                             products={products}
                             customerAddresses={selectedCustomer?.addresses || []}
+                            selectedAddress={selectedCustomer?.addresses[selectedAddressIdx] || ''}
                             onAddAddress={async (addr) => {
                               await addAddress(addr);
                               const newIdx = (selectedCustomer?.addresses || []).length;
@@ -3776,6 +3777,7 @@ function OrderBanner({
   isDark,
   k,
   customerAddresses,
+  selectedAddress,
   onAddAddress,
   onBoxItems,
   onUnboxItem,
@@ -3796,6 +3798,7 @@ function OrderBanner({
   isDark: boolean;
   k: typeof DK;
   customerAddresses: string[];
+  selectedAddress: string;
   onAddAddress: (addr: string) => void;
   onBoxItems: (items: Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>) => Promise<void>;
   onUnboxItem: (itemName: string) => Promise<void>;
@@ -3974,6 +3977,13 @@ function OrderBanner({
                 >
                   + Add to list
                 </button>
+              )}
+              {selectedAddress && selectedAddress.trim() && selectedAddress.trim() !== orderAddr && (
+                <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex-shrink-0 whitespace-nowrap ${
+                  isDark ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-500'
+                }`}>
+                  Shipping to different address
+                </span>
               )}
             </div>
           )}
