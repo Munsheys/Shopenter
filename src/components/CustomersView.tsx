@@ -127,6 +127,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [seedLoading, setSeedLoading] = useState(false);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -923,6 +924,23 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     }
   }
 
+  async function seedMockData() {
+    setSeedLoading(true);
+    try {
+      const res = await fetch('/api/dev/seed', { method: 'POST' });
+      if (res.ok) {
+        showToast('Mock data seeded — refresh to see customers', 'success');
+      } else {
+        const e = await res.json().catch(() => ({}));
+        showToast(e.error || 'Seed failed', 'error');
+      }
+    } catch {
+      showToast('Network error during seed', 'error');
+    } finally {
+      setSeedLoading(false);
+    }
+  }
+
   function confirmDeleteAddress(idx: number) {
     setConfirm({
       open: true,
@@ -1027,7 +1045,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     ? allOrders.filter(o => o.userId === selectedCustomer.userId)
     : [];
   const activeOrders = customerOrders
-    .filter(o => ['pending', 'paid'].includes(o.status))
+    .filter(o => ['pending', 'paid', 'shipped', 'partially_fulfilled'].includes(o.status))
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   const pendingOrders = activeOrders.filter(o => o.status === 'pending');
 
@@ -1090,12 +1108,21 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         {listOpen ? (
           <>
             <div className={`flex items-center gap-2 px-4 py-3 border-b ${k.border} flex-shrink-0`}>
-              <span className={`font-black text-xs tracking-wide ${k.text}`}>
+              <span className={`font-black text-xs tracking-wide flex-1 ${k.text}`}>
                 CUSTOMERS
                 {totalUnread > 0 && (
                   <span className="ml-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{totalUnread}</span>
                 )}
               </span>
+              <button
+                onClick={seedMockData}
+                disabled={seedLoading}
+                title="Generate mock customers & orders for testing"
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 ${isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20' : 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
+              >
+                {seedLoading ? <div className="w-3 h-3 border border-t-transparent border-current rounded-full animate-spin" /> : <Plus size={10} />}
+                {seedLoading ? 'Seeding…' : 'Mock Data'}
+              </button>
               <button
                 onClick={() => setListOpen(false)}
                 aria-label="Collapse customer list"
@@ -1525,6 +1552,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                               fulfilments={fulfilmentsCache[o._id]}
                               onPatchFulfilment={(fid, patch) => patchFulfilment(fid, o._id, patch)}
                               onDeleteFulfilment={(fid) => deleteFulfilment(fid, o._id)}
+                              products={products}
                             />
                           );
                         }
@@ -1538,6 +1566,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             onPatchOrder={(id, patch) => patchOrder(id, patch)}
                             onDeleteOrder={(id) => confirmDeleteOrder(id)}
                             isGroupHighlighted={isGroupHighlighted}
+                            products={products}
                           />
                         );
                       })}
@@ -1578,6 +1607,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                           fulfilments={fulfilmentsCache[order._id]}
                           onPatchFulfilment={(fid, patch) => patchFulfilment(fid, order._id, patch)}
                           onDeleteFulfilment={(fid) => deleteFulfilment(fid, order._id)}
+                          products={products}
                         />
                       ))}
                     </div>
@@ -2850,7 +2880,7 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
 }
 
 // ── History Row ───────────────────────────────────────────────────────────────
-function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment }: {
+function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment, products }: {
   order: Order; isDark: boolean; k: typeof DK; isLast: boolean;
   onPatch: (patch: object) => void;
   onDelete: () => void;
@@ -2860,6 +2890,7 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
   fulfilments?: Fulfilment[];
   onPatchFulfilment?: (fulfilmentId: string, patch: object) => void;
   onDeleteFulfilment?: (fulfilmentId: string) => void;
+  products?: Product[];
 }) {
   const [open, setOpen] = useState(false);
   const [sold, setSold] = useState(String(order.soldTHB || ''));
@@ -2986,6 +3017,40 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
 
       {open && (
         <div className={`px-5 pb-4 ${isDark ? 'bg-[#1a1d2e]' : 'bg-[#f8f9fc]'}`}>
+          {/* Item table */}
+          {(() => {
+            const orderItems = order.items || [];
+            if (orderItems.length === 0) return null;
+            const divBorder = isDark ? 'border-[#1f2335]' : 'border-slate-200';
+            return (
+              <div className={`rounded-xl overflow-hidden border ${divBorder} mb-3`}>
+                {orderItems.map((item, idx) => {
+                  const product = products?.find(p => p._id === item.productId);
+                  const isItemLast = idx === orderItems.length - 1;
+                  return (
+                    <div key={idx} className={`flex items-center gap-3 px-3 py-2.5 ${!isItemLast ? `border-b ${divBorder}` : ''} ${isDark ? 'bg-[#161925]' : 'bg-white'}`}>
+                      <div className={`w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        {product?.imageUrl
+                          ? <img src={product.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center"><Package size={12} className={k.muted} /></div>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[11px] font-medium truncate ${isDark ? 'text-white/90' : 'text-[#1a1d2e]'}`}>{item.name}</p>
+                        {item.variantLabel && (
+                          <p className={`text-[10px] ${k.muted}`}>{item.variantLabel}</p>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`text-[11px] font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>×{item.qty}</p>
+                        <p className={`text-[10px] ${k.muted}`}>฿{fmt(item.price)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div>
               <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Cost ({cc})</label>
@@ -3059,11 +3124,12 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
 }
 
 // ── In-Transit Parcel Group ───────────────────────────────────────────────────
-function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDeleteOrder, isGroupHighlighted }: {
+function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDeleteOrder, isGroupHighlighted, products }: {
   orders: Order[]; isDark: boolean; k: typeof DK; isLast: boolean;
   onPatchOrder: (id: string, patch: object) => void;
   onDeleteOrder: (id: string) => void;
   isGroupHighlighted?: boolean;
+  products?: Product[];
 }) {
   const [open, setOpen] = useState(false);
   const firstOrder = orders[0];
@@ -3146,28 +3212,58 @@ function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDelet
       </button>
 
       {open && (
-        <div className={`px-5 pb-4 space-y-2 ${isDark ? 'bg-[#1a1d2e]' : 'bg-[#f8f9fc]'}`}>
+        <div className={`px-5 pb-4 space-y-3 ${isDark ? 'bg-[#1a1d2e]' : 'bg-[#f8f9fc]'}`}>
           {orders.map(order => {
             const profit = order.profit || 0;
+            const orderItems = order.items || [];
+            const divBorder = isDark ? 'border-[#1f2335]' : 'border-slate-200';
             return (
-              <div key={order._id} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'}`}>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
-                  <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(order.soldTHB)} · Profit: {sc} {fmt(profit)}</p>
+              <div key={order._id} className={`rounded-xl border overflow-hidden ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'}`}>
+                {/* Order header row */}
+                <div className={`flex items-center gap-3 px-4 py-3 border-b ${divBorder}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{order.product}</p>
+                    <p className={`text-[10px] ${k.muted}`}>
+                      #{order._id.slice(-6).toUpperCase()} · Sales: {sc} {fmt(order.soldTHB)} · Profit: {sc} {fmt(profit)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onPatchOrder(order._id, { status: 'delivered' })}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all flex-shrink-0"
+                  >
+                    <CheckCircle size={9} /> Delivered
+                  </button>
+                  <button
+                    onClick={() => onDeleteOrder(order._id)}
+                    className={`p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0`}
+                    aria-label="Delete order"
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => onPatchOrder(order._id, { status: 'delivered' })}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all flex-shrink-0"
-                >
-                  <CheckCircle size={9} /> Delivered
-                </button>
-                <button
-                  onClick={() => onDeleteOrder(order._id)}
-                  className={`p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0`}
-                  aria-label="Delete order"
-                >
-                  <Trash2 size={12} />
-                </button>
+                {/* Item rows */}
+                {orderItems.map((item, idx) => {
+                  const product = products?.find(p => p._id === item.productId);
+                  const isItemLast = idx === orderItems.length - 1;
+                  return (
+                    <div key={idx} className={`flex items-center gap-3 px-4 py-2.5 ${!isItemLast ? `border-b ${divBorder}` : ''}`}>
+                      <div className={`w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        {product?.imageUrl
+                          ? <img src={product.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center"><Package size={11} className={k.muted} /></div>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[11px] font-medium truncate ${isDark ? 'text-white/90' : 'text-[#1a1d2e]'}`}>{item.name}</p>
+                        {item.variantLabel && <p className={`text-[10px] ${k.muted}`}>{item.variantLabel}</p>}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`text-[11px] font-bold ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>×{item.qty}</p>
+                        <p className={`text-[10px] ${k.muted}`}>฿{fmt(item.price)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
