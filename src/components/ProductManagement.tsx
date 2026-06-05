@@ -721,6 +721,11 @@ export function ProductModal({
   const activeOptions = form.options.filter(o => o.name && o.values.length > 0);
   const isValid = quickOrderMode ? form.name.trim() !== '' : form.name.trim() !== '' && form.brand.trim() !== '';
 
+  const isDark = theme === 'dark';
+  const surface = isDark ? 'bg-[#0f1117] border-[#1f2335]' : 'bg-[#f8f9fc] border-[#e2e5ef]';
+  const inputCls = cn('w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-accent transition-colors', isDark ? 'bg-[#161925] border-[#1f2335] text-white placeholder:text-[#3a4060]' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]');
+  const sectionLabel = 'text-[9px] font-black uppercase tracking-widest text-[#8b92ad]';
+
   return (
     <div
       className="modal-overlay fixed inset-0 bg-[#1a1d2e]/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
@@ -732,65 +737,92 @@ export function ProductModal({
         aria-modal="true"
         aria-labelledby="product-modal-title"
         data-state={pmVisible ? 'open' : 'closed'}
-        className={cn("modal-panel w-full max-w-4xl rounded-[32px] overflow-hidden shadow-2xl max-h-[90vh] flex flex-col", theme === 'dark' ? "bg-[#161925] border border-[#1f2335]" : "bg-white")}
+        className={cn('modal-panel w-full max-w-4xl rounded-[32px] overflow-hidden shadow-2xl max-h-[90vh] flex flex-col', isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-[#e2e5ef]')}
       >
-        {/* Header */}
-        <div className={cn("flex items-center justify-between px-8 pt-8 pb-4 border-b", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
-          <div>
-            <h3 id="product-modal-title" className={cn("text-xl font-bold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>{initialData ? 'Edit Product' : 'Catalog New Product'}</h3>
-            <p className="text-xs text-[#8b92ad]">{quickOrderMode ? 'Fill what you need now — manage stock and photos later' : 'Options auto-generate variant combinations'}</p>
+        {/* ── Header ── */}
+        <div className={cn('flex items-center gap-4 px-7 pt-6 pb-5 border-b flex-shrink-0', isDark ? 'border-[#1f2335]' : 'border-[#f0f2f7]')}>
+          <div className={cn('w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0', isDark ? 'bg-accent/15 text-accent' : 'bg-accent/10 text-accent')}>
+            <Package size={20} />
           </div>
-          <button onClick={onClose} aria-label="Close" className={cn("w-8 h-8 flex items-center justify-center rounded-full", theme === 'dark' ? "bg-[#1a1d2e] text-white hover:bg-[#2d324d]" : "bg-[#f4f6f9] hover:bg-[#e2e5ef]")}><X size={16} /></button>
+          <div className="flex-1 min-w-0">
+            <h3 id="product-modal-title" className={cn('text-base font-black', isDark ? 'text-white' : 'text-[#1a1d2e]')}>
+              {initialData ? 'Edit Product' : 'Catalog New Product'}
+            </h3>
+            <p className="text-[11px] text-[#8b92ad] mt-0.5">
+              {quickOrderMode ? 'Fill what you need now — manage stock and photos later' : 'Options auto-generate variant combinations'}
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className={cn('w-8 h-8 flex items-center justify-center rounded-full flex-shrink-0 transition-colors', isDark ? 'bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d] hover:text-white' : 'bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]')}>
+            <X size={15} />
+          </button>
         </div>
 
-        <div className="px-8 py-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Left Column */}
-          <div className="space-y-5">
-            <MultiImageUploader images={form.images} onChange={imgs => updateForm({ images: imgs })} theme={theme} />
+        {/* ── Body ── */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 overflow-hidden">
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="relative z-[100]">
-                <CreatableDropdown label="Brand" value={form.brand} onChange={v => updateForm({ brand: v })} options={existingOptions.brands} placeholder="e.g. Nike" theme={theme} required={true} />
-              </div>
-              <div className="relative z-[90]">
-                <CreatableDropdown label="Model Line" value={form.modelLine} onChange={v => updateForm({ modelLine: v })} options={existingOptions.modelLines} placeholder="e.g. Air Max" theme={theme} />
-              </div>
-            </div>
+          {/* Left column */}
+          <div className={cn('px-6 py-5 space-y-5 overflow-y-auto', isDark ? 'border-r border-[#1f2335]' : 'border-r border-[#f0f2f7]')}>
 
+            {/* Photos */}
             <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Display Name <span className="text-red-500">*</span></label>
-              <input type="text" value={form.name} onChange={e => updateForm({ name: e.target.value })} placeholder="e.g. Classic Tee"
-                onBlur={() => setTouched(t => ({ ...t, name: true }))}
-                className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]", touched.name && !form.name.trim() && "!border-red-500")} />
-              {touched.name && !form.name.trim() && <p role="alert" className="text-xs text-red-500 mt-1">Display name is required</p>}
+              <p className={cn(sectionLabel, 'mb-2.5')}>Product Photos · first is primary</p>
+              <MultiImageUploader images={form.images} onChange={imgs => updateForm({ images: imgs })} theme={theme} />
             </div>
 
-            {/* Base Price + Base Cost with Currencies */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Price &amp; Cost</label>
+            {/* Identity */}
+            <div>
+              <p className={cn(sectionLabel, 'mb-2.5')}>Identity</p>
+              <div className={cn('rounded-2xl border p-4 space-y-3', surface)}>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative z-[100]">
+                    <CreatableDropdown label="Brand" value={form.brand} onChange={v => updateForm({ brand: v })} options={existingOptions.brands} placeholder="e.g. Nike" theme={theme} required={true} />
+                  </div>
+                  <div className="relative z-[90]">
+                    <CreatableDropdown label="Model Line" value={form.modelLine} onChange={v => updateForm({ modelLine: v })} options={existingOptions.modelLines} placeholder="e.g. Air Max" theme={theme} />
+                  </div>
+                </div>
+                <div>
+                  <label className={cn(sectionLabel, 'mb-1.5 block')}>Display Name <span className="text-red-500">*</span></label>
+                  <input type="text" value={form.name} onChange={e => updateForm({ name: e.target.value })} placeholder="e.g. Classic Tee"
+                    onBlur={() => setTouched(t => ({ ...t, name: true }))}
+                    className={cn(inputCls, touched.name && !form.name.trim() && '!border-red-500')} />
+                  {touched.name && !form.name.trim() && <p role="alert" className="text-[10px] text-red-500 mt-1">Display name is required</p>}
+                </div>
+                <div>
+                  <label className={cn(sectionLabel, 'mb-1.5 block')}>Description</label>
+                  <textarea value={form.description} onChange={e => updateForm({ description: e.target.value })} rows={2}
+                    placeholder="What makes this product special..."
+                    className={cn(inputCls, 'resize-none')} />
+                </div>
+              </div>
+            </div>
+
+            {/* Pricing */}
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <p className={sectionLabel}>Pricing</p>
                 <span className="text-[9px] text-[#8b92ad]">Variants can override</span>
               </div>
-              <div className="space-y-3">
+              <div className={cn('rounded-2xl border p-4 space-y-3', surface)}>
                 <div>
-                  <label className="text-[9px] text-[#8b92ad] mb-1.5 block">Selling Price <span className="text-red-500">*</span></label>
+                  <label className={cn(sectionLabel, 'mb-1.5 block')}>Selling Price <span className="text-red-500">*</span></label>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" min="0.01" step="any" value={form.price} onChange={e => updateForm({ price: e.target.value })} placeholder="e.g. 299"
-                      className={cn("col-span-2 border rounded-xl px-3 py-2.5 text-sm font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
+                    <input type="number" min="0.01" step="any" value={form.price} onChange={e => updateForm({ price: e.target.value })} placeholder="299"
+                      className={cn(inputCls, 'col-span-2 font-bold text-accent')} />
                     <select value={form.soldCurrency} onChange={e => updateForm({ soldCurrency: e.target.value })}
-                      className={cn("border rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}>
+                      className={cn('border rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:border-accent transition-colors', isDark ? 'bg-[#161925] border-[#1f2335] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]')}>
                       {ALL_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
-                  {priceError && <p role="alert" className="text-xs text-red-500 mt-1">{priceError}</p>}
+                  {priceError && <p role="alert" className="text-[10px] text-red-500 mt-1">{priceError}</p>}
                 </div>
                 <div>
-                  <label className="text-[9px] text-[#8b92ad] mb-1.5 block">Cost Price</label>
+                  <label className={cn(sectionLabel, 'mb-1.5 block')}>Cost Price</label>
                   <div className="grid grid-cols-3 gap-2">
-                    <input type="number" value={form.cost} onChange={e => updateForm({ cost: e.target.value })} placeholder="e.g. 150"
-                      className={cn("col-span-2 border rounded-xl px-3 py-2.5 text-sm font-bold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+                    <input type="number" value={form.cost} onChange={e => updateForm({ cost: e.target.value })} placeholder="150"
+                      className={cn(inputCls, 'col-span-2 font-bold')} />
                     <select value={form.costCurrency} onChange={e => updateForm({ costCurrency: e.target.value })}
-                      className={cn("border rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}>
+                      className={cn('border rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:border-accent transition-colors', isDark ? 'bg-[#161925] border-[#1f2335] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]')}>
                       {ALL_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
@@ -798,266 +830,240 @@ export function ProductModal({
               </div>
             </div>
 
-            <TagSelector label="Categories" selected={form.categories}
-              onAdd={c => !form.categories.includes(c) && updateForm({ categories: [...form.categories, c] })}
-              onRemove={c => updateForm({ categories: form.categories.filter(x => x !== c) })}
-              options={existingOptions.categories} placeholder="Search or add category..." theme={theme} />
-
+            {/* Details */}
             <div>
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Description</label>
-              <textarea value={form.description} onChange={e => updateForm({ description: e.target.value })} rows={3}
-                className={cn("w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent resize-none", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
-            </div>
-
-            {/* Fix 7: SKU / Barcode / Weight detail fields */}
-            <div className="space-y-3">
-              <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider block">Details</label>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-[9px] text-[#8b92ad] mb-1 block">SKU</label>
-                  <input type="text" value={form.sku || ''} onChange={e => updateForm({ sku: e.target.value })} placeholder="e.g. SKU-001"
-                    className={cn("w-full border rounded-xl px-3 py-2 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
-                </div>
-                <div>
-                  <label className="text-[9px] text-[#8b92ad] mb-1 block">Barcode</label>
-                  <input type="text" value={form.barcode || ''} onChange={e => updateForm({ barcode: e.target.value })} placeholder="e.g. 8851234567890"
-                    className={cn("w-full border rounded-xl px-3 py-2 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
-                </div>
-                <div>
-                  <label className="text-[9px] text-[#8b92ad] mb-1 block">Weight (g)</label>
-                  <input type="number" min="0" value={form.weight || ''} onChange={e => updateForm({ weight: e.target.value })} placeholder="e.g. 250"
-                    className={cn("w-full border rounded-xl px-3 py-2 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
+              <p className={cn(sectionLabel, 'mb-2.5')}>Details</p>
+              <div className={cn('rounded-2xl border p-4', surface)}>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { field: 'sku', label: 'SKU', placeholder: 'SKU-001', type: 'text' },
+                    { field: 'barcode', label: 'Barcode', placeholder: '8851234…', type: 'text' },
+                    { field: 'weight', label: 'Weight (g)', placeholder: '250', type: 'number' },
+                  ].map(({ field, label, placeholder, type }) => (
+                    <div key={field}>
+                      <label className="text-[9px] font-bold text-[#8b92ad] mb-1.5 block">{label}</label>
+                      <input type={type} min={type === 'number' ? 0 : undefined}
+                        value={(form as any)[field] || ''}
+                        onChange={e => updateForm({ [field]: e.target.value } as any)}
+                        placeholder={placeholder}
+                        className={cn('w-full border rounded-xl px-3 py-2 text-xs outline-none focus:border-accent transition-colors', isDark ? 'bg-[#161925] border-[#1f2335] text-white placeholder:text-[#3a4060]' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]')} />
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-
-            <div className={cn("border rounded-xl px-4 py-3.5 space-y-2", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-0.5 block">Track stock</label>
-                  <p className="text-[9.5px] text-[#8b92ad]">Enable stock count and low/out-of-stock alerts</p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={form.trackStock}
-                  aria-label="Track stock quantity"
-                  onClick={() => updateForm({ trackStock: !form.trackStock })}
-                  className={cn(
-                    "relative w-11 h-6 rounded-full transition-colors flex-shrink-0",
-                    form.trackStock ? "bg-accent" : (theme === 'dark' ? "bg-[#2a2f45]" : "bg-slate-300")
-                  )}
-                >
-                  <span className={cn("absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform", form.trackStock && "translate-x-5")} />
-                </button>
-              </div>
-              {onSaveAsDefault && (
-                form.trackStock === defaultTrackStock ? (
-                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-500">
-                    <CheckCircle size={10} /> New products default: {defaultTrackStock ? 'Track ON' : 'Track OFF'}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onSaveAsDefault(form.trackStock)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all active:scale-95",
-                      "border-accent/40 text-accent hover:bg-accent/10 hover:border-accent"
-                    )}
-                  >
-                    <Check size={9} /> Save &quot;{form.trackStock ? 'ON' : 'OFF'}&quot; as default for new products
-                  </button>
-                )
-              )}
-            </div>
-
-            {/* Inline stock qty for simple products */}
-            {form.trackStock && form.options.length === 0 && !quickOrderMode && (
-              <div className={cn("border rounded-xl px-4 py-3.5", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335]" : "bg-white border-[#e2e5ef]")}>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-2 block">Current Stock</label>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    aria-label="Decrease stock"
-                    onClick={() => updateForm({ simpleStock: String(Math.max(0, (parseInt(form.simpleStock) || 0) - 1)) })}
-                    className={cn("w-9 h-9 rounded-xl border text-lg font-bold flex items-center justify-center transition-colors active:scale-95",
-                      theme === 'dark' ? "border-[#1f2335] text-white hover:bg-[#2d324d]" : "border-[#e2e5ef] text-[#1a1d2e] hover:bg-[#f4f6f9]")}
-                  >−</button>
-                  <input
-                    type="number" min="0"
-                    value={form.simpleStock}
-                    onChange={e => updateForm({ simpleStock: e.target.value })}
-                    className={cn("flex-1 border rounded-xl px-3 py-2 text-sm font-bold text-center outline-none focus:border-accent",
-                      theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")}
-                  />
-                  <button
-                    type="button"
-                    aria-label="Increase stock"
-                    onClick={() => updateForm({ simpleStock: String((parseInt(form.simpleStock) || 0) + 1) })}
-                    className={cn("w-9 h-9 rounded-xl border text-lg font-bold flex items-center justify-center transition-colors active:scale-95",
-                      theme === 'dark' ? "border-[#1f2335] text-white hover:bg-[#2d324d]" : "border-[#e2e5ef] text-[#1a1d2e] hover:bg-[#f4f6f9]")}
-                  >+</button>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Right Column: Options & Variants */}
-          <div className="space-y-5">
-            <div className="flex justify-between items-center">
-              <div>
-                <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Product Options</label>
-                <p className="text-[9px] text-[#8b92ad] mt-0.5">Max 3 · variants auto-generated</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {!form.options.some(o => o.name.toLowerCase() === 'color') && form.options.length < 3 && (
-                  <button
-                    onClick={() => { updateForm({ options: [...form.options, { name: 'Color', values: [] }] }); }}
-                    className="text-[10px] font-bold flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-dashed transition-all text-[#8b92ad] hover:border-accent hover:text-accent"
-                    style={{ borderColor: 'currentColor' }}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-pink-400 to-violet-500 flex-shrink-0" />
-                    + Color
-                  </button>
-                )}
-                <button onClick={addOption} disabled={form.options.length >= 3}
-                  className="text-accent text-[10px] font-bold flex items-center gap-1 hover:underline disabled:opacity-30 disabled:no-underline">
-                  <Plus size={14} /> Add Option
-                </button>
-              </div>
-            </div>
+          {/* Right column */}
+          <div className="px-6 py-5 space-y-5 overflow-y-auto">
 
-            {form.options.length === 0 && (
-              <div className={cn("rounded-2xl border-2 border-dashed p-5 text-center cursor-pointer transition-colors", theme === 'dark' ? "border-[#1f2335] hover:border-accent/40" : "border-[#e2e5ef] hover:border-accent/40")} onClick={addOption}>
-                <Plus size={18} className="mx-auto mb-1 opacity-30" />
-                <p className="text-xs font-bold text-[#8b92ad]">Add an option</p>
-                <p className="text-[10px] text-[#8b92ad] mt-0.5">e.g. Color, Size, Material, Thickness</p>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              {form.options.map((opt, idx) => (
-                <div key={idx} style={{ zIndex: (form.options.length - idx) * 10 + 10, position: 'relative' }}>
-                  <OptionCard option={opt} index={idx} existingOptions={existingOptions}
-                    onUpdate={updates => updateOption(idx, updates)} onRemove={() => removeOption(idx)} theme={theme} />
-                </div>
-              ))}
-            </div>
-
-            {/* Variant Table */}
-            {activeOptions.length > 0 && form.variants.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Variants ({form.variants.length})</label>
-                  {form.images.length > 0 && <span className="text-[9px] text-[#8b92ad]">Click photo icon to assign image per variant</span>}
-                </div>
-                <div className={cn("rounded-2xl border overflow-hidden", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
-                  <div className="overflow-x-auto max-h-72 overflow-y-auto">
-                    <table className="w-full min-w-[360px]">
-                      <thead className="sticky top-0">
-                        <tr className={cn("text-[9px] font-bold uppercase tracking-wider border-b", theme === 'dark' ? "bg-[#1a1d2e] border-[#1f2335] text-[#8b92ad]" : "bg-[#f8f9fc] border-[#e2e5ef] text-[#8b92ad]")}>
-                          {activeOptions.map(o => <th key={o.name} className="px-3 py-2 text-left whitespace-nowrap">{o.name}</th>)}
-                          {form.images.length > 0 && <th className="px-2 py-2 text-left">Photo</th>}
-                          <th className="px-2 py-2 text-left">Price</th>
-                          <th className="px-2 py-2 text-left">Cost</th>
-                          {form.trackStock && <th className="px-2 py-2 text-left">Stock</th>}
-                        </tr>
-                      </thead>
-                      <tbody className={cn("divide-y", theme === 'dark' ? "divide-[#1f2335]" : "divide-[#f4f6f9]")}>
-                        {form.variants.map((v, idx) => (
-                          <tr key={JSON.stringify(v.combination || idx)} className={cn("transition-colors", theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#fafbfc]")}>
-                            {activeOptions.map(o => (
-                              <td key={o.name} className={cn("px-3 py-1.5 text-xs font-bold whitespace-nowrap", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>
-                                {v.combination[o.name] || '—'}
-                              </td>
-                            ))}
-                            {/* Photo picker */}
-                            {form.images.length > 0 && (
-                              <td className="px-1.5 py-1">
-                                <div className="relative" onClick={e => e.stopPropagation()}>
-                                  <button
-                                    onClick={() => setImagePickerRow(imagePickerRow === idx ? null : idx)}
-                                    aria-label={`Assign image to variant ${Object.values(v.combination || {}).join('/')}`}
-                                    aria-expanded={imagePickerRow === idx}
-                                    className={cn("w-10 h-10 rounded-lg border overflow-hidden flex items-center justify-center transition-colors",
-                                      v.imageUrl ? "border-accent" : (theme === 'dark' ? "border-[#1f2335] border-dashed" : "border-dashed border-[#e2e5ef]")
-                                    )}
-                                  >
-                                    {v.imageUrl
-                                      ? <img src={v.imageUrl} className="w-full h-full object-cover" alt="" />
-                                      : <ImageIcon size={12} className="text-[#8b92ad]" />
-                                    }
-                                  </button>
-                                  {imagePickerRow === idx && (
-                                    <div className={cn("absolute left-0 top-10 z-[60] border rounded-xl shadow-xl p-2 flex gap-1.5 flex-wrap", theme === 'dark' ? "bg-[#1f2335] border-[#2d324d]" : "bg-white border-[#e2e5ef]")} style={{ minWidth: 112 }}>
-                                      <button onClick={() => { updateVariant(idx, 'imageUrl', ''); setImagePickerRow(null); }}
-                                        className={cn("w-8 h-8 rounded-lg border-dashed border flex items-center justify-center text-[#8b92ad] hover:border-red-400 hover:text-red-400", theme === 'dark' ? "border-[#2d324d]" : "border-[#e2e5ef]")}>
-                                        <X size={10} />
-                                      </button>
-                                      {form.images.map((img, imgIdx) => (
-                                        <button key={imgIdx} onClick={() => { updateVariant(idx, 'imageUrl', img); setImagePickerRow(null); }}
-                                          className={cn("w-8 h-8 rounded-lg border-2 overflow-hidden transition-all", v.imageUrl === img ? "border-accent scale-110" : "border-transparent hover:border-[#8b92ad]")}>
-                                          <img src={img} className="w-full h-full object-cover" alt="" />
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                            <td className="px-1.5 py-1">
-                              <input type="number" value={v.price} onChange={e => updateVariant(idx, 'price', e.target.value)}
-                                placeholder={form.price || '—'}
-                                aria-label={`Price for ${Object.values(v.combination || {}).join('/')}`}
-                                className={cn("w-20 border rounded-lg px-2 py-1 text-xs font-bold text-accent outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]")} />
-                            </td>
-                            <td className="px-1.5 py-1">
-                              <input type="number" value={v.cost} onChange={e => updateVariant(idx, 'cost', e.target.value)}
-                                placeholder={form.cost || '—'}
-                                aria-label={`Cost for ${Object.values(v.combination || {}).join('/')}`}
-                                className={cn("w-20 border rounded-lg px-2 py-1 text-xs outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-white" : "bg-white border-[#e2e5ef] text-[#1a1d2e]")} />
-                            </td>
-                            {form.trackStock && (
-                              <td className="px-1.5 py-1">
-                                <input type="number" min="0" value={v.stock} onChange={e => updateVariant(idx, 'stock', e.target.value)}
-                                  placeholder="0"
-                                  aria-label={`Stock for ${Object.values(v.combination || {}).join('/')}`}
-                                  className={cn("w-16 border rounded-lg px-2 py-1 text-xs font-bold outline-none focus:border-accent", theme === 'dark' ? "bg-[#161925] border-[#1f2335] text-emerald-400" : "bg-white border-[#e2e5ef] text-emerald-600")} />
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+            {/* Inventory */}
+            <div>
+              <p className={cn(sectionLabel, 'mb-2.5')}>Inventory</p>
+              <div className={cn('rounded-2xl border p-4 space-y-3', surface)}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className={cn('text-sm font-bold', isDark ? 'text-white' : 'text-[#1a1d2e]')}>Track Stock</p>
+                    <p className="text-[10px] text-[#8b92ad] mt-0.5">Count inventory &amp; get low-stock alerts</p>
                   </div>
+                  <button type="button" role="switch" aria-checked={form.trackStock} aria-label="Track stock quantity"
+                    onClick={() => updateForm({ trackStock: !form.trackStock })}
+                    className={cn('relative w-11 h-6 rounded-full transition-colors flex-shrink-0', form.trackStock ? 'bg-accent' : (isDark ? 'bg-[#2a2f45]' : 'bg-slate-300'))}>
+                    <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform', form.trackStock && 'translate-x-5')} />
+                  </button>
                 </div>
-                <p className="text-[10px] text-[#8b92ad] mt-1.5">{form.trackStock ? 'Set stock quantities per variant above.' : 'Enable Track Stock to set quantities per variant.'}</p>
+                {onSaveAsDefault && (
+                  form.trackStock === defaultTrackStock ? (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-500">
+                      <CheckCircle size={10} /> Default: {defaultTrackStock ? 'Track ON' : 'Track OFF'}
+                    </span>
+                  ) : (
+                    <button type="button" onClick={() => onSaveAsDefault(form.trackStock)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-accent/40 text-accent hover:bg-accent/10 hover:border-accent transition-all active:scale-95">
+                      <Check size={9} /> Save &quot;{form.trackStock ? 'ON' : 'OFF'}&quot; as default
+                    </button>
+                  )
+                )}
+                {form.trackStock && form.options.length === 0 && !quickOrderMode && (
+                  <div className={cn('border-t pt-3', isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]')}>
+                    <label className={cn(sectionLabel, 'mb-2 block')}>Current Stock</label>
+                    <div className="flex items-center gap-2">
+                      <button type="button" aria-label="Decrease stock"
+                        onClick={() => updateForm({ simpleStock: String(Math.max(0, (parseInt(form.simpleStock) || 0) - 1)) })}
+                        className={cn('w-9 h-9 rounded-xl border text-lg font-bold flex items-center justify-center transition-colors active:scale-95', isDark ? 'border-[#1f2335] text-white hover:bg-[#2d324d]' : 'border-[#e2e5ef] text-[#1a1d2e] hover:bg-[#f4f6f9]')}>−</button>
+                      <input type="number" min="0" value={form.simpleStock} onChange={e => updateForm({ simpleStock: e.target.value })}
+                        className={cn('flex-1 border rounded-xl px-3 py-2 text-sm font-bold text-center outline-none focus:border-accent transition-colors', isDark ? 'bg-[#161925] border-[#1f2335] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]')} />
+                      <button type="button" aria-label="Increase stock"
+                        onClick={() => updateForm({ simpleStock: String((parseInt(form.simpleStock) || 0) + 1) })}
+                        className={cn('w-9 h-9 rounded-xl border text-lg font-bold flex items-center justify-center transition-colors active:scale-95', isDark ? 'border-[#1f2335] text-white hover:bg-[#2d324d]' : 'border-[#e2e5ef] text-[#1a1d2e] hover:bg-[#f4f6f9]')}>+</button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {form.options.length > 0 && activeOptions.length === 0 && (
-              <div className={cn("rounded-2xl p-4 text-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-[#f8f9fc]")}>
-                <p className="text-xs text-[#8b92ad]">Set a name and at least one value for each option to generate variants.</p>
-              </div>
-            )}
+            {/* Categories */}
+            <div>
+              <p className={cn(sectionLabel, 'mb-2.5')}>Categories</p>
+              <TagSelector selected={form.categories}
+                onAdd={c => !form.categories.includes(c) && updateForm({ categories: [...form.categories, c] })}
+                onRemove={c => updateForm({ categories: form.categories.filter(x => x !== c) })}
+                options={existingOptions.categories} placeholder="Search or add category..." theme={theme} />
+            </div>
 
-            {form.options.length === 0 && (
-              <div className={cn("rounded-2xl p-4 text-center border border-dashed", theme === 'dark' ? "border-[#1f2335]" : "border-[#e2e5ef]")}>
-                <p className="text-xs text-[#8b92ad] font-medium">Simple product</p>
-                <p className="text-[10px] text-[#8b92ad] mt-0.5">Base price applies · no variant selection for customers</p>
+            {/* Options */}
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <div>
+                  <p className={sectionLabel}>Product Options</p>
+                  <p className="text-[9px] text-[#8b92ad] mt-0.5">Max 3 · variants auto-generated</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!form.options.some(o => o.name.toLowerCase() === 'color') && form.options.length < 3 && (
+                    <button onClick={() => updateForm({ options: [...form.options, { name: 'Color', values: [] }] })}
+                      className={cn('text-[10px] font-bold flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all', isDark ? 'border-[#1f2335] text-[#8b92ad] hover:border-accent/50 hover:text-accent bg-[#0f1117]' : 'border-[#e2e5ef] text-[#8b92ad] hover:border-accent/50 hover:text-accent bg-[#f8f9fc]')}>
+                      <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-pink-400 to-violet-500 flex-shrink-0" />
+                      + Color
+                    </button>
+                  )}
+                  <button onClick={addOption} disabled={form.options.length >= 3}
+                    className="text-accent text-[10px] font-bold flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-accent/30 hover:bg-accent/10 transition-colors disabled:opacity-30">
+                    <Plus size={12} /> Add Option
+                  </button>
+                </div>
               </div>
-            )}
+
+              <div className="space-y-3">
+                {form.options.map((opt, idx) => (
+                  <div key={idx} style={{ zIndex: (form.options.length - idx) * 10 + 10, position: 'relative' }}>
+                    <OptionCard option={opt} index={idx} existingOptions={existingOptions}
+                      onUpdate={updates => updateOption(idx, updates)} onRemove={() => removeOption(idx)} theme={theme} />
+                  </div>
+                ))}
+              </div>
+
+              {form.options.length === 0 && (
+                <div onClick={addOption}
+                  className={cn('rounded-2xl border-2 border-dashed p-5 text-center cursor-pointer transition-colors group mt-1', isDark ? 'border-[#1f2335] hover:border-accent/40' : 'border-[#e2e5ef] hover:border-accent/40')}>
+                  <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center mx-auto mb-2 transition-colors', isDark ? 'bg-[#1a1d2e] text-[#8b92ad] group-hover:text-accent' : 'bg-[#f4f6f9] text-[#8b92ad] group-hover:text-accent')}>
+                    <Plus size={16} />
+                  </div>
+                  <p className={cn('text-xs font-bold', isDark ? 'text-[#8b92ad]' : 'text-[#4a5170]')}>Add your first option</p>
+                  <p className="text-[10px] text-[#8b92ad] mt-0.5">e.g. Color, Size, Material</p>
+                </div>
+              )}
+
+              {form.options.length === 0 && (
+                <div className={cn('mt-2.5 rounded-xl px-3 py-2.5 flex items-center gap-2.5', isDark ? 'bg-[#0f1117]' : 'bg-[#f4f6f9]')}>
+                  <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', isDark ? 'bg-[#2a2f45]' : 'bg-[#c8cdd8]')} />
+                  <p className="text-[10px] text-[#8b92ad]">Simple product — base price, no variant selection for customers</p>
+                </div>
+              )}
+
+              {form.options.length > 0 && activeOptions.length === 0 && (
+                <div className={cn('mt-2 rounded-xl p-3.5 text-center', isDark ? 'bg-[#0f1117]' : 'bg-[#f8f9fc]')}>
+                  <p className="text-xs text-[#8b92ad]">Set a name and at least one value to generate variants.</p>
+                </div>
+              )}
+
+              {/* Variant table */}
+              {activeOptions.length > 0 && form.variants.length > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className={sectionLabel}>Variants ({form.variants.length})</p>
+                    {form.images.length > 0 && <span className="text-[9px] text-[#8b92ad]">Click photo icon to assign image</span>}
+                  </div>
+                  <div className={cn('rounded-2xl border overflow-hidden', isDark ? 'border-[#1f2335]' : 'border-[#e2e5ef]')}>
+                    <div className="overflow-x-auto max-h-56 overflow-y-auto">
+                      <table className="w-full min-w-[360px]">
+                        <thead className="sticky top-0">
+                          <tr className={cn('text-[9px] font-black uppercase tracking-widest border-b', isDark ? 'bg-[#0f1117] border-[#1f2335] text-[#8b92ad]' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#8b92ad]')}>
+                            {activeOptions.map(o => <th key={o.name} className="px-3 py-2 text-left whitespace-nowrap">{o.name}</th>)}
+                            {form.images.length > 0 && <th className="px-2 py-2 text-left">Photo</th>}
+                            <th className="px-2 py-2 text-left">Price</th>
+                            <th className="px-2 py-2 text-left">Cost</th>
+                            {form.trackStock && <th className="px-2 py-2 text-left">Stock</th>}
+                          </tr>
+                        </thead>
+                        <tbody className={cn('divide-y', isDark ? 'divide-[#1f2335]' : 'divide-[#f4f6f9]')}>
+                          {form.variants.map((v, idx) => (
+                            <tr key={JSON.stringify(v.combination || idx)} className={cn('transition-colors', isDark ? 'hover:bg-[#1a1d2e]' : 'hover:bg-[#fafbfc]')}>
+                              {activeOptions.map(o => (
+                                <td key={o.name} className={cn('px-3 py-1.5 text-xs font-bold whitespace-nowrap', isDark ? 'text-white' : 'text-[#1a1d2e]')}>
+                                  {v.combination[o.name] || '—'}
+                                </td>
+                              ))}
+                              {form.images.length > 0 && (
+                                <td className="px-1.5 py-1">
+                                  <div className="relative" onClick={e => e.stopPropagation()}>
+                                    <button
+                                      onClick={() => setImagePickerRow(imagePickerRow === idx ? null : idx)}
+                                      aria-label={`Assign image to variant ${Object.values(v.combination || {}).join('/')}`}
+                                      aria-expanded={imagePickerRow === idx}
+                                      className={cn('w-10 h-10 rounded-lg border overflow-hidden flex items-center justify-center transition-colors',
+                                        v.imageUrl ? 'border-accent' : (isDark ? 'border-[#1f2335] border-dashed' : 'border-dashed border-[#e2e5ef]')
+                                      )}>
+                                      {v.imageUrl ? <img src={v.imageUrl} className="w-full h-full object-cover" alt="" /> : <ImageIcon size={12} className="text-[#8b92ad]" />}
+                                    </button>
+                                    {imagePickerRow === idx && (
+                                      <div className={cn('absolute left-0 top-10 z-[60] border rounded-xl shadow-xl p-2 flex gap-1.5 flex-wrap', isDark ? 'bg-[#1f2335] border-[#2d324d]' : 'bg-white border-[#e2e5ef]')} style={{ minWidth: 112 }}>
+                                        <button onClick={() => { updateVariant(idx, 'imageUrl', ''); setImagePickerRow(null); }}
+                                          className={cn('w-8 h-8 rounded-lg border-dashed border flex items-center justify-center text-[#8b92ad] hover:border-red-400 hover:text-red-400', isDark ? 'border-[#2d324d]' : 'border-[#e2e5ef]')}>
+                                          <X size={10} />
+                                        </button>
+                                        {form.images.map((img, imgIdx) => (
+                                          <button key={imgIdx} onClick={() => { updateVariant(idx, 'imageUrl', img); setImagePickerRow(null); }}
+                                            className={cn('w-8 h-8 rounded-lg border-2 overflow-hidden transition-all', v.imageUrl === img ? 'border-accent scale-110' : 'border-transparent hover:border-[#8b92ad]')}>
+                                            <img src={img} className="w-full h-full object-cover" alt="" />
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              )}
+                              <td className="px-1.5 py-1">
+                                <input type="number" value={v.price} onChange={e => updateVariant(idx, 'price', e.target.value)}
+                                  placeholder={form.price || '—'}
+                                  aria-label={`Price for ${Object.values(v.combination || {}).join('/')}`}
+                                  className={cn('w-20 border rounded-lg px-2 py-1 text-xs font-bold text-accent outline-none focus:border-accent', isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]')} />
+                              </td>
+                              <td className="px-1.5 py-1">
+                                <input type="number" value={v.cost} onChange={e => updateVariant(idx, 'cost', e.target.value)}
+                                  placeholder={form.cost || '—'}
+                                  aria-label={`Cost for ${Object.values(v.combination || {}).join('/')}`}
+                                  className={cn('w-20 border rounded-lg px-2 py-1 text-xs outline-none focus:border-accent', isDark ? 'bg-[#161925] border-[#1f2335] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]')} />
+                              </td>
+                              {form.trackStock && (
+                                <td className="px-1.5 py-1">
+                                  <input type="number" min="0" value={v.stock} onChange={e => updateVariant(idx, 'stock', e.target.value)}
+                                    placeholder="0"
+                                    aria-label={`Stock for ${Object.values(v.combination || {}).join('/')}`}
+                                    className={cn('w-16 border rounded-lg px-2 py-1 text-xs font-bold outline-none focus:border-accent', isDark ? 'bg-[#161925] border-[#1f2335] text-emerald-400' : 'bg-white border-[#e2e5ef] text-emerald-600')} />
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-[#8b92ad] mt-1.5">{form.trackStock ? 'Set stock quantities per variant above.' : 'Enable Track Stock to set quantities per variant.'}</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className={cn("p-8 pt-4 border-t flex gap-3", theme === 'dark' ? "border-[#1f2335]" : "border-[#f4f6f9]")}>
-          <button onClick={onClose} className={cn("flex-1 py-4 text-sm font-bold rounded-2xl", theme === 'dark' ? "bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]" : "bg-[#f8f9fc] text-[#8b92ad] hover:bg-[#e2e5ef]")}>Cancel</button>
+        {/* ── Footer ── */}
+        <div className={cn('flex gap-3 px-6 py-4 border-t flex-shrink-0', isDark ? 'border-[#1f2335]' : 'border-[#f0f2f7]')}>
+          <button onClick={onClose} className={cn('px-6 py-3 text-sm font-bold rounded-2xl transition-colors', isDark ? 'bg-[#1a1d2e] text-[#8b92ad] hover:bg-[#2d324d]' : 'bg-[#f4f6f9] text-[#8b92ad] hover:bg-[#e2e5ef]')}>
+            Cancel
+          </button>
           <div className="flex-1 flex flex-col gap-1">
             <button disabled={!isValid || isSaving} onClick={() => onSave(form)}
-              className="w-full py-4 text-sm font-bold text-white rounded-2xl shadow-lg hover:opacity-90 disabled:opacity-40"
+              className="w-full py-3 text-sm font-black text-white rounded-2xl shadow-lg hover:opacity-90 disabled:opacity-40 transition-opacity"
               style={{ background: 'var(--accent-gradient)' }}>
-              {/* Fix 10: clear labels — editing uses pending-buffer, new products save immediately */}
               {isSaving ? 'Processing...' : quickOrderMode ? 'Save & Select' : initialData ? 'Stage Changes' : 'Save Product'}
             </button>
             {initialData && !isSaving && (
