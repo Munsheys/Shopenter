@@ -1473,7 +1473,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   <section aria-label="Parcels awaiting shipment">
                     <SectionLabel>Parcels Awaiting Shipment</SectionLabel>
                     <div className="mt-3 space-y-6">
-                      {pendingFulfilments.slice(0, 1).map((fulfilment) => (
+                      {pendingFulfilments.map((fulfilment) => (
                         <ParcelFulfilmentContainer
                           key={fulfilment._id}
                           fulfilment={fulfilment}
