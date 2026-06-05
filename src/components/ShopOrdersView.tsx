@@ -88,6 +88,7 @@ export default function ShopOrdersView({
 
   // Batch selection
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const lastSelectedIdxRef = useRef<number | null>(null);
   const [batchActing, setBatchActing] = useState(false);
   const [batchCancelConfirm, setBatchCancelConfirm] = useState(false);
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
@@ -288,6 +289,18 @@ export default function ShopOrdersView({
   // ── Batch operations ──────────────────────────────────────────────────────────
   function toggleRow(id: string) {
     setSelectedOrderIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
+
+  function handleRowSelect(id: string, idx: number, shiftKey: boolean) {
+    if (shiftKey && lastSelectedIdxRef.current !== null && paginatedOrders) {
+      const from = Math.min(lastSelectedIdxRef.current, idx);
+      const to = Math.max(lastSelectedIdxRef.current, idx);
+      const rangeIds = paginatedOrders.slice(from, to + 1).map(o => o._id);
+      setSelectedOrderIds(prev => { const s = new Set(prev); rangeIds.forEach(rid => s.add(rid)); return s; });
+    } else {
+      toggleRow(id);
+      lastSelectedIdxRef.current = idx;
+    }
   }
 
   async function batchDeliver() {
@@ -686,7 +699,7 @@ export default function ShopOrdersView({
               </tr>
             </thead>
             <tbody className={cn("divide-y", theme === 'dark' ? "divide-[#1f2335]" : "divide-[#f4f6f9]")}>
-              {!isLoading && selectedStatuses.length > 0 && paginatedOrders?.map((o) => {
+              {!isLoading && selectedStatuses.length > 0 && paginatedOrders?.map((o, idx) => {
                 const isSelected = selectedOrderIds.has(o._id);
                 const isExpanded = expandedOrderId === o._id;
                 return (
@@ -710,8 +723,8 @@ export default function ShopOrdersView({
                       aria-checked={isSelected}
                       aria-label={`Select order ${o._id.slice(-6)}`}
                       tabIndex={0}
-                      onClick={e => { e.stopPropagation(); toggleRow(o._id); }}
-                      onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleRow(o._id); } }}
+                      onClick={e => { e.stopPropagation(); e.preventDefault(); handleRowSelect(o._id, idx, e.shiftKey); }}
+                      onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); handleRowSelect(o._id, idx, false); } }}
                       className={cn(
                         "w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer transition-all mx-auto",
                         isSelected
