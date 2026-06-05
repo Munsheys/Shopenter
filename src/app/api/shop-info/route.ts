@@ -21,7 +21,15 @@ export async function GET() {
       liffId: settings.liffId || process.env.NEXT_PUBLIC_LIFF_ID || process.env.LIFF_ID,
       adminLineId: settings.adminLineId || process.env.NEXT_PUBLIC_ADMIN_LINE_ID,
       krwRate: settings.krwRate ?? 0.026,
-      branding: { theme: settings.theme || 'light' }
+      branding: { theme: settings.theme || 'light' },
+      shipping: {
+        payer: settings.shippingPayer || 'merchant',
+        defaultCost: settings.defaultShippingCost || 0,
+        freeThreshold: {
+          enabled: settings.freeShippingThreshold?.enabled ?? false,
+          amount: settings.freeShippingThreshold?.amount ?? 0,
+        },
+      },
     });
   } catch (error) {
     const local = getLocalSettings();

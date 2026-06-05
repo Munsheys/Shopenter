@@ -1689,30 +1689,70 @@ export default function SettingsView({
                     <p className={`text-sm font-semibold ${K.text}`}>Shipping Rates</p>
                     <p className={`text-xs mt-1 ${K.muted}`}>Default shipping costs applied at checkout.</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                      <label className={lbl}>Default Shipping Cost (฿)</label>
-                      <NumberStepper value={settings.defaultShippingCost || 0} onChange={v => set('defaultShippingCost', v)} min={0} step={100} isDark={isDark} />
-                      <p className={hint}>Applied when no specific rate matches</p>
+                  {/* Who pays shipping */}
+                  <div>
+                    <label className={lbl}>Who pays shipping?</label>
+                    <div className="flex gap-2 mt-1">
+                      {([
+                        { value: 'merchant', label: 'Merchant' },
+                        { value: 'customer', label: 'Customer' },
+                      ] as const).map(opt => {
+                        const active = (settings.shippingPayer || 'merchant') === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => set('shippingPayer', opt.value)}
+                            className={`px-5 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                              active
+                                ? 'text-white border-transparent shadow-sm'
+                                : isDark
+                                ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-[#3a3f55]'
+                                : isLite
+                                ? 'border-[#b8c2d8] text-[#5a6285] hover:text-[#1a1d2e] hover:border-[#8892b0]'
+                                : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                            }`}
+                            style={active ? { background: localAccentBg, color: accentTextColor } : undefined}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <div>
-                      <label className={lbl}>COD Surcharge (฿)</label>
-                      <NumberStepper value={settings.codSurcharge || 0} onChange={v => set('codSurcharge', v)} min={0} step={100} isDark={isDark} />
-                      <p className={hint}>Extra fee added for cash-on-delivery orders</p>
-                    </div>
+                    <p className={hint}>
+                      {(settings.shippingPayer || 'merchant') === 'merchant'
+                        ? 'Shipping cost is absorbed by you — customers only pay for items.'
+                        : 'Shipping fee is added to the customer\'s total at checkout.'}
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className={`text-xs font-semibold ${K.text}`}>Free Shipping Threshold</p>
-                      <p className={hint}>Waive shipping for orders above a minimum</p>
-                    </div>
-                    <Toggle enabled={!!settings.freeShippingThreshold?.enabled} onChange={v => setFst('enabled', v)} isDark={isDark} />
-                  </div>
-                  {settings.freeShippingThreshold?.enabled && (
-                    <div className="md:w-1/3">
-                      <label className={lbl}>Free shipping above (฿)</label>
-                      <NumberStepper value={settings.freeShippingThreshold?.amount || 0} onChange={v => setFst('amount', v)} min={0} step={100} isDark={isDark} />
-                    </div>
+                  {(settings.shippingPayer || 'merchant') === 'customer' && (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                          <label className={lbl}>Default Shipping Cost</label>
+                          <NumberStepper value={settings.defaultShippingCost || 0} onChange={v => set('defaultShippingCost', v)} min={0} step={100} isDark={isDark} />
+                          <p className={hint}>Applied when no specific rate matches</p>
+                        </div>
+                        <div>
+                          <label className={lbl}>COD Surcharge</label>
+                          <NumberStepper value={settings.codSurcharge || 0} onChange={v => set('codSurcharge', v)} min={0} step={100} isDark={isDark} />
+                          <p className={hint}>Extra fee added for cash-on-delivery orders</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className={`text-xs font-semibold ${K.text}`}>Free Shipping Threshold</p>
+                          <p className={hint}>Waive shipping for orders above a minimum</p>
+                        </div>
+                        <Toggle enabled={!!settings.freeShippingThreshold?.enabled} onChange={v => setFst('enabled', v)} isDark={isDark} />
+                      </div>
+                      {settings.freeShippingThreshold?.enabled && (
+                        <div className="md:w-1/3">
+                          <label className={lbl}>Free shipping above</label>
+                          <NumberStepper value={settings.freeShippingThreshold?.amount || 0} onChange={v => setFst('amount', v)} min={0} step={100} isDark={isDark} />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 

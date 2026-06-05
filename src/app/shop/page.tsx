@@ -195,6 +195,14 @@ export default function Shop() {
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
+  const shippingFee = (() => {
+    const s = shopInfo?.shipping;
+    if (!s || s.payer !== 'customer') return 0;
+    if (s.freeThreshold?.enabled && cartTotal >= s.freeThreshold.amount) return 0;
+    return s.defaultCost || 0;
+  })();
+  const orderTotal = cartTotal + shippingFee;
+
   const addToCart = useCallback(() => {
     if (!selectedProduct) return;
     const price = selectedVariant?.price ?? selectedProduct.price;
@@ -225,7 +233,8 @@ export default function Shop() {
           displayName: customer?.displayName,
           pictureUrl: customer?.pictureUrl,
           items: cart,
-          totalTHB: cartTotal
+          totalTHB: orderTotal,
+          shipCostTHB: shippingFee
         })
       });
       if (res.ok) {
@@ -272,7 +281,7 @@ export default function Shop() {
           <div className="flex items-center justify-end min-w-[120px] lg:min-w-[200px]">
             <button onClick={() => setIsCartOpen(true)} className="flex items-center gap-2 sm:gap-3 bg-[#1a1d2e] text-white px-3 sm:px-6 py-2 sm:py-2.5 rounded-full sm:rounded-2xl transition-all active:scale-95 shadow-lg group">
               <ShoppingBag size={16} className="text-[#d4af37] group-hover:scale-110 transition-transform" />
-              <span className="hidden sm:inline text-sm font-black tracking-tight">฿{cartTotal.toLocaleString()}</span>
+              <span className="hidden sm:inline text-sm font-black tracking-tight">฿{orderTotal.toLocaleString()}</span>
               {cartCount > 0 && <span className="bg-[#d4af37] text-[#1a1d2e] text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center -mr-1">{cartCount}</span>}
             </button>
           </div>
@@ -501,7 +510,31 @@ export default function Shop() {
               ))}
             </div>
             {cart.length > 0 && (
-              <div className="px-8 pt-8 pb-12 bg-[#fdfbf7] border-t border-[#1a1d2e]/5 rounded-b-[48px]"><div className="flex justify-between items-center mb-8"><span className="text-[#1a1d2e]/40 font-black uppercase tracking-widest text-[10px] sm:text-xs">Total Investment</span><span className="text-[#1a1d2e] font-black text-3xl sm:text-5xl tracking-tighter">฿{cartTotal.toLocaleString()}</span></div><button onClick={handleConfirmOrder} disabled={isOrdering} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-5 sm:py-6 rounded-[24px] sm:rounded-[32px] font-black text-base sm:text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3">{isOrdering ? <div className="w-5 h-5 border-2 border-white/20 border-t-[#d4af37] rounded-full animate-spin" /> : <>CONFIRM ACQUISITION <ArrowRight size={18} className="text-[#d4af37]" /></>}</button></div>
+              <div className="px-8 pt-8 pb-12 bg-[#fdfbf7] border-t border-[#1a1d2e]/5 rounded-b-[48px]">
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#1a1d2e]/40 font-black uppercase tracking-widest text-[10px] sm:text-xs">Subtotal</span>
+                    <span className="text-[#1a1d2e] font-black text-base sm:text-xl">฿{cartTotal.toLocaleString()}</span>
+                  </div>
+                  {shippingFee > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-[#1a1d2e]/40 font-black uppercase tracking-widest text-[10px] sm:text-xs">Shipping</span>
+                      <span className="text-[#1a1d2e] font-black text-base sm:text-xl">฿{shippingFee.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {shippingFee === 0 && shopInfo?.shipping?.payer === 'customer' && shopInfo?.shipping?.freeThreshold?.enabled && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-[#1a1d2e]/40 font-black uppercase tracking-widest text-[10px] sm:text-xs">Shipping</span>
+                      <span className="text-emerald-600 font-black text-base sm:text-xl">Free</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-3 border-t border-[#1a1d2e]/10">
+                    <span className="text-[#1a1d2e]/40 font-black uppercase tracking-widest text-[10px] sm:text-xs">Total Investment</span>
+                    <span className="text-[#1a1d2e] font-black text-3xl sm:text-5xl tracking-tighter">฿{orderTotal.toLocaleString()}</span>
+                  </div>
+                </div>
+                <button onClick={handleConfirmOrder} disabled={isOrdering} className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-5 sm:py-6 rounded-[24px] sm:rounded-[32px] font-black text-base sm:text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3">{isOrdering ? <div className="w-5 h-5 border-2 border-white/20 border-t-[#d4af37] rounded-full animate-spin" /> : <>CONFIRM ACQUISITION <ArrowRight size={18} className="text-[#d4af37]" /></>}</button>
+              </div>
             )}
           </div>
         </div>

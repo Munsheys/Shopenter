@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
       platform: body.platform || 'line',
       displayName: body.displayName,
       soldTHB: body.totalTHB,
+      shipCostTHB: body.shipCostTHB || 0,
       items: body.items,
       product: body.items?.map((i: any) => `${i.qty}x ${i.name}`).join(', '),
       status: 'pending',

@@ -154,6 +154,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [qoSearch, setQoSearch] = useState('');
   const [qoDraftItems, setQoDraftItems] = useState<Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>>([]);
   const [qoDiscount, setQoDiscount] = useState(0);
+  const [qoShipping, setQoShipping] = useState(0);
   const [qoCostPrice, setQoCostPrice] = useState('');
   const [qoCostCurrency, setQoCostCurrency] = useState('KRW');
   const [qoSubmitting, setQoSubmitting] = useState(false);
@@ -425,6 +426,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     setQoSearch('');
     setQoDraftItems([]);
     setQoDiscount(0);
+    setQoShipping(0);
     setQoCostPrice('');
     setQoNewProdOpen(false);
     setQoNewProdName('');
@@ -817,7 +819,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     if (!selectedCustomer || qoSubmitting || qoDraftItems.length === 0) return;
     const costAmount = parseFloat(qoCostPrice) || 0;
     const subtotal = qoDraftItems.reduce((s, i) => s + i.qty * i.price, 0);
-    const total = Math.max(0, subtotal - qoDiscount);
+    const customerPaysShipping = merchantSettings?.shippingPayer === 'customer';
+    const shippingFee = customerPaysShipping ? qoShipping : 0;
+    const total = Math.max(0, subtotal - qoDiscount + shippingFee);
     const totalQty = qoDraftItems.reduce((s, i) => s + i.qty, 0);
     const primaryName = qoDraftItems[0]?.name || '';
 
@@ -834,6 +838,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
           quantity: totalQty,
           items: qoDraftItems,
           soldTHB: total,
+          shipCostTHB: qoShipping || 0,
           costKRW: costAmount,
           costCurrency: qoCostCurrency,
           discount: qoDiscount || 0,
@@ -1976,7 +1981,9 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 {/* Footer */}
                 {(() => {
                   const subtotal = qoDraftItems.reduce((s, i) => s + i.qty * i.price, 0);
-                  const total = Math.max(0, subtotal - qoDiscount);
+                  const customerPaysShipping = merchantSettings?.shippingPayer === 'customer';
+                  const shippingFee = customerPaysShipping ? qoShipping : 0;
+                  const total = Math.max(0, subtotal - qoDiscount + shippingFee);
                   return (
                     <div className={`border-t ${k.border} px-4 py-4 space-y-3 flex-shrink-0`}>
                       <div className="space-y-1.5">
@@ -1992,6 +1999,19 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                               type="number"
                               value={qoDiscount || ''}
                               onChange={e => setQoDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                              placeholder="0"
+                              className={`w-20 text-xs text-right rounded-lg px-2 py-1 border outline-none focus:border-accent transition-all ${k.input}`}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs ${k.muted}`}>Shipping{!customerPaysShipping && ' (merchant)'}</span>
+                          <div className="flex items-center gap-1">
+                            <span className={`text-xs ${k.muted}`}>฿</span>
+                            <input
+                              type="number"
+                              value={qoShipping || ''}
+                              onChange={e => setQoShipping(Math.max(0, parseFloat(e.target.value) || 0))}
                               placeholder="0"
                               className={`w-20 text-xs text-right rounded-lg px-2 py-1 border outline-none focus:border-accent transition-all ${k.input}`}
                             />

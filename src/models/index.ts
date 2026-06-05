@@ -99,6 +99,7 @@ const SettingsSchema = new mongoose.Schema({
   autoCancelHours: { type: Number, default: 0 }, // 0 = disabled
   useSlipok: { type: Boolean, default: false },
   // Shipping extras
+  shippingPayer: { type: String, enum: ['merchant', 'customer'], default: 'merchant' },
   defaultShippingCost: { type: Number, default: 0 },
   freeShippingThreshold: {
     enabled: { type: Boolean, default: false },
