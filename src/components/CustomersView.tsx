@@ -1433,13 +1433,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             k={k}
                             products={products}
                             customerAddresses={selectedCustomer?.addresses || []}
-                            selectedAddress={selectedCustomer?.addresses[selectedAddressIdx] || ''}
                             onAddAddress={async (addr) => {
                               await addAddress(addr);
                               const newIdx = (selectedCustomer?.addresses || []).length;
                               setSelectedAddressIdx(newIdx);
                             }}
-                            onUpdateAddress={(addr) => patchOrder(order._id, { address: addr }, 'Delivery address updated')}
                             onBoxItems={(items) => boxItemsToParcel(order._id, items)}
                             onUnboxItem={(itemName) => unboxItemFromParcel(order._id, itemName)}
                             onSendQR={() => sendQR(order._id)}
@@ -3778,9 +3776,7 @@ function OrderBanner({
   isDark,
   k,
   customerAddresses,
-  selectedAddress,
   onAddAddress,
-  onUpdateAddress,
   onBoxItems,
   onUnboxItem,
   onSendQR,
@@ -3800,9 +3796,7 @@ function OrderBanner({
   isDark: boolean;
   k: typeof DK;
   customerAddresses: string[];
-  selectedAddress?: string;
   onAddAddress: (addr: string) => void;
-  onUpdateAddress?: (addr: string) => void;
   onBoxItems: (items: Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>) => Promise<void>;
   onUnboxItem: (itemName: string) => Promise<void>;
   onSendQR: () => void;
@@ -3964,38 +3958,25 @@ function OrderBanner({
       {/* ── Expanded body ───────────────────────────────────────────── */}
       {isExpanded && (
         <div className={`border-t ${divider} px-4 pt-3 pb-4 space-y-3`}>
-          {/* Order address */}
-          {(() => {
-            const selectedMismatch = selectedAddress && selectedAddress.trim() && orderAddr !== selectedAddress.trim();
-            return orderAddr ? (
-              <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
-                addrInList
-                  ? (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
-                  : (isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200')
-              }`}>
-                <MapPin size={11} className={`flex-shrink-0 mt-0.5 ${addrInList ? k.muted : 'text-amber-500'}`} />
-                <p className={`text-[11px] flex-1 leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-600'}`}>{orderAddr}</p>
-                {!addrInList && (
-                  <button
-                    onClick={e => { e.stopPropagation(); onAddAddress(orderAddr); }}
-                    className="text-[10px] font-medium px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex-shrink-0 whitespace-nowrap"
-                  >
-                    + Add to list
-                  </button>
-                )}
-                {selectedMismatch && (
-                  <button
-                    onClick={e => { e.stopPropagation(); onUpdateAddress?.(selectedAddress!); }}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-colors flex-shrink-0 whitespace-nowrap ${
-                      isDark ? 'bg-white/10 text-white/70 hover:bg-blue-500 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-blue-500 hover:text-white'
-                    }`}
-                  >
-                    Use selected
-                  </button>
-                )}
-              </div>
-            ) : null;
-          })()}
+          {/* Order address — read-only record of what customer submitted */}
+          {orderAddr && (
+            <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${
+              addrInList
+                ? (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
+                : (isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200')
+            }`}>
+              <MapPin size={11} className={`flex-shrink-0 mt-0.5 ${addrInList ? k.muted : 'text-amber-500'}`} />
+              <p className={`text-[11px] flex-1 leading-relaxed ${isDark ? 'text-white/60' : 'text-slate-600'}`}>{orderAddr}</p>
+              {!addrInList && (
+                <button
+                  onClick={e => { e.stopPropagation(); onAddAddress(orderAddr); }}
+                  className="text-[10px] font-medium px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors flex-shrink-0 whitespace-nowrap"
+                >
+                  + Add to list
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Item rows */}
           <div className={`rounded-xl overflow-hidden border ${divider}`}>
