@@ -285,7 +285,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         </div>
         <div className="p-4 space-y-4 max-w-lg mx-auto">
           {displayImg
-            ? <img src={displayImg} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl" />
+            ? <img src={displayImg} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl animate-fade-in" />
             : <div className="w-full aspect-square rounded-2xl flex items-center justify-center" style={{ background: p.inputBg }}><Package size={48} style={style.muted} /></div>
           }
           {/* Fix 6: thumbnail buttons with aria-label and aria-pressed */}
@@ -300,7 +300,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                   className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all"
                   style={{ borderColor: !selectedVariant?.imageUrl && activeImgIdx === i ? p.accent : 'transparent', opacity: !selectedVariant?.imageUrl && activeImgIdx === i ? 1 : 0.6 }}
                 >
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img src={img} alt="" className="w-full h-full object-cover animate-fade-in" />
                 </button>
               ))}
             </div>
@@ -308,7 +308,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           <div>
             <h2 className="text-lg font-bold">{selectedProduct.name}</h2>
             {selectedProduct.brand && <p className="text-sm" style={style.muted}>{selectedProduct.brand}</p>}
-            <p className="text-xl font-bold mt-1" style={{ color: p.accent }}>฿{(selectedVariant?.price ?? selectedProduct.price).toLocaleString()}</p>
+            <p key={selectedVariant?._id ?? 'base'} className="text-xl font-bold mt-1 animate-scale-in" style={{ color: p.accent }}>฿{(selectedVariant?.price ?? selectedProduct.price).toLocaleString()}</p>
             {selectedProduct.description && <p className="text-sm mt-2" style={style.sub}>{selectedProduct.description}</p>}
           </div>
           {productOptions.map(option => (
@@ -332,7 +332,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
             <p className="text-sm font-medium">Qty</p>
             <div className="flex items-center gap-2">
               <button onClick={() => setQty(q => Math.max(1, q - 1))} style={style.card} className="w-11 h-11 rounded-lg flex items-center justify-center"><Minus size={14} /></button>
-              <span className="w-6 text-center font-semibold">{qty}</span>
+              <span key={qty} className="w-6 text-center font-semibold animate-scale-in">{qty}</span>
               <button onClick={() => setQty(q => q + 1)} style={style.card} className="w-11 h-11 rounded-lg flex items-center justify-center"><Plus size={14} /></button>
             </div>
           </div>
@@ -349,7 +349,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         </div>
         {/* Fix 14: cart toast */}
         {cartToast && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium text-white z-50" style={{ background: p.accent }}>Added to cart</div>
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium text-white z-50 animate-toast" style={{ background: p.accent }}>Added to cart</div>
         )}
       </div>
     );
@@ -405,12 +405,12 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         </div>
         {/* Fix 7: banner alt text */}
         {sf.bannerUrl && (
-          <img src={sf.bannerUrl} alt={`${shopInfo.shopName} banner`} className="w-full h-28 object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+          <img src={sf.bannerUrl} alt={`${shopInfo.shopName} banner`} className="w-full h-28 object-cover animate-fade-in" onError={e => (e.currentTarget.style.display = 'none')} />
         )}
         {/* Fix 3: search role and aria-labels */}
         {sf.showSearch !== false && (
           <div className="px-4 pb-2">
-            <div role="search" className="flex items-center gap-2 rounded-xl px-3 py-2" style={style.input}>
+            <div role="search" className="flex items-center gap-2 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-accent/30 transition-all" style={style.input}>
               <Search size={14} style={style.muted} />
               <input
                 value={searchQuery}
@@ -447,20 +447,20 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       </div>
 
       <div className={`p-4 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}`}>
-        {filtered.map(pr => {
+        {filtered.map((pr, idx) => {
           // Fix 16: out-of-stock on product card
           const cardOutOfStock = pr.trackStock === true && (pr.stock ?? 0) <= 0;
           return (
             <button key={pr._id}
               onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
-              className={`rounded-2xl overflow-hidden text-left transition-all active:scale-95 ${cardLayout === 'list' ? 'flex gap-3 p-3' : ''}`}
-              style={style.card}
+              className={`rounded-2xl overflow-hidden text-left transition-all active:scale-95 hover-lift group animate-scale-in ${cardLayout === 'list' ? 'flex gap-3 p-3' : ''}`}
+              style={{ ...style.card, animationDelay: `${idx * 40}ms` }}
             >
               {cardLayout === 'grid' ? (
                 <>
-                  <div className="relative">
+                  <div className="relative overflow-hidden">
                     {pr.imageUrl
-                      ? <img src={pr.imageUrl} alt={pr.name} className="w-full aspect-square object-cover" />
+                      ? <img src={pr.imageUrl} alt={pr.name} className="w-full aspect-square object-cover animate-fade-in transition-transform duration-300 group-hover:scale-105" />
                       : <div className="w-full aspect-square flex items-center justify-center" style={{ background: p.inputBg }}><Package size={32} style={style.muted} /></div>
                     }
                     {cardOutOfStock && (
@@ -477,9 +477,9 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                 </>
               ) : (
                 <>
-                  <div className="relative flex-shrink-0">
+                  <div className="relative flex-shrink-0 overflow-hidden">
                     {pr.imageUrl
-                      ? <img src={pr.imageUrl} alt={pr.name} className="w-16 h-16 rounded-xl object-cover" />
+                      ? <img src={pr.imageUrl} alt={pr.name} className="w-16 h-16 rounded-xl object-cover animate-fade-in transition-transform duration-300 group-hover:scale-105" />
                       : <div className="w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: p.inputBg }}><Package size={20} style={style.muted} /></div>
                     }
                     {cardOutOfStock && (
@@ -508,7 +508,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       </div>
       {/* Fix 14: toast shown on home view after navigating back */}
       {cartToast && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium text-white z-50" style={{ background: p.accent }}>Added to cart</div>
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium text-white z-50 animate-toast" style={{ background: p.accent }}>Added to cart</div>
       )}
     </div>
   );
@@ -573,10 +573,10 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
         <span className="font-semibold text-sm">Cart ({cart.length} items)</span>
       </div>
       <div className="p-4 space-y-3 max-w-lg mx-auto">
-        {cart.map(item => (
-          <div key={`${item.productId}-${item.variantLabel}`} style={style.card} className="rounded-2xl p-3 flex items-center gap-3">
+        {cart.map((item, idx) => (
+          <div key={`${item.productId}-${item.variantLabel}`} data-cart-item="true" style={{ ...style.card, animationDelay: `${idx * 50}ms` }} className="rounded-2xl p-3 flex items-center gap-3 animate-slide-left">
             {item.imageUrl
-              ? <img src={item.imageUrl} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" alt={item.name} />
+              ? <img src={item.imageUrl} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 animate-fade-in" alt={item.name} />
               : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: p.inputBg }}><Package size={20} style={style.muted} /></div>
             }
             <div className="flex-1 min-w-0">
@@ -589,7 +589,19 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
               <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, -1)} style={style.card} className="w-10 h-10 rounded-lg flex items-center justify-center"><Minus size={12} /></button>
               <span className="w-5 text-center text-sm font-semibold">{item.qty}</span>
               <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, 1)} style={style.card} className="w-10 h-10 rounded-lg flex items-center justify-center"><Plus size={12} /></button>
-              <button onClick={() => onRemove(`${item.productId}-${item.variantLabel}`)} className="w-10 h-10 ml-1 rounded-lg flex items-center justify-center" style={{ color: '#ef4444' }}><Trash2 size={12} /></button>
+              <button
+                onClick={(e) => {
+                  const el = (e.currentTarget as HTMLElement).closest('[data-cart-item]');
+                  if (el) {
+                    el.classList.add('animate-cart-exit');
+                    setTimeout(() => onRemove(`${item.productId}-${item.variantLabel}`), 280);
+                  } else {
+                    onRemove(`${item.productId}-${item.variantLabel}`);
+                  }
+                }}
+                className="w-10 h-10 ml-1 rounded-lg flex items-center justify-center"
+                style={{ color: '#ef4444' }}
+              ><Trash2 size={12} /></button>
             </div>
           </div>
         ))}
