@@ -40,9 +40,9 @@ interface ReportsViewProps {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function KpiCard({ icon, label, value, sub, subHighlight, trend, color, theme, isLoading }: {
+function KpiCard({ icon, label, value, sub, subHighlight, trend, color, theme, isLoading, style }: {
   icon: React.ReactNode; label: string; value: string; sub?: string; subHighlight?: boolean;
-  trend?: number | null; color: string; theme?: string; isLoading?: boolean;
+  trend?: number | null; color: string; theme?: string; isLoading?: boolean; style?: React.CSSProperties;
 }) {
   const colorMap: Record<string, string> = {
     emerald: 'text-emerald-500 bg-emerald-500/10',
@@ -68,8 +68,8 @@ function KpiCard({ icon, label, value, sub, subHighlight, trend, color, theme, i
     );
   }
   return (
-    <div className={cn(
-      'p-5 rounded-3xl border flex flex-col gap-3 transition-all hover:shadow-lg hover:-translate-y-0.5',
+    <div style={style} className={cn(
+      'p-5 rounded-3xl border flex flex-col gap-3 transition-all hover:shadow-lg hover:-translate-y-0.5 hover-lift animate-scale-in',
       isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]',
     )}>
       <div className="flex items-start justify-between">
@@ -103,7 +103,7 @@ function SectionCard({ title, sub, children, theme, className }: {
   const isDark = theme === 'dark';
   return (
     <div className={cn(
-      'p-6 rounded-[32px] border transition-all',
+      'p-6 rounded-[32px] border transition-all animate-scale-in',
       isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-[#e2e5ef]',
       className,
     )}>
@@ -417,6 +417,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
   const chartOptions = useMemo(() => ({
     maintainAspectRatio: false,
     interaction: { mode: 'index' as const, intersect: false },
+    animation: {
+      duration: 900,
+      easing: 'easeInOutQuart' as const,
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -522,6 +526,10 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
 
   const dowOptions = useMemo(() => ({
     maintainAspectRatio: false,
+    animation: {
+      duration: 900,
+      easing: 'easeInOutQuart' as const,
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -803,6 +811,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           sub={pendingRevenue > 0 ? `+${fmt(pendingRevenue, currency)} potential` : undefined}
           subHighlight={pendingRevenue > 0}
           trend={trends.revenue}
+          style={{ animationDelay: '0ms' }}
         />
         <KpiCard
           theme={theme} color="blue" isLoading={isLoading}
@@ -811,6 +820,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           value={fmt(kpi.curr.profit, currency)}
           sub={`${kpi.curr.margin.toFixed(1)}% margin`}
           trend={trends.profit}
+          style={{ animationDelay: '80ms' }}
         />
         <KpiCard
           theme={theme} color="indigo" isLoading={isLoading}
@@ -819,6 +829,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           value={kpi.curr.count.toString()}
           sub={`${(kpi.curr.count / windowDays).toFixed(1)}/day${pendingCount > 0 ? ` · ${pendingCount} pending` : ''}`}
           trend={trends.count}
+          style={{ animationDelay: '160ms' }}
         />
         <KpiCard
           theme={theme} color="violet" isLoading={isLoading}
@@ -827,6 +838,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           value={fmt(kpi.curr.aov, currency)}
           sub={confirmedOrders.length > 0 ? `across ${confirmedOrders.length} paid orders` : undefined}
           trend={trends.aov}
+          style={{ animationDelay: '240ms' }}
         />
         <KpiCard
           theme={theme} color="amber" isLoading={isLoading}
@@ -835,6 +847,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           value={`${kpi.curr.repeatRate.toFixed(0)}%`}
           sub={`${kpi.curr.repeatCustomers} of ${kpi.curr.uniqueCustomers} customers`}
           trend={null}
+          style={{ animationDelay: '320ms' }}
         />
         <KpiCard
           theme={theme} color="rose" isLoading={isLoading}
@@ -843,6 +856,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           value={fmt(kpi.curr.shipCost, currency)}
           sub={kpi.curr.revenue > 0 ? `${((kpi.curr.shipCost / kpi.curr.revenue) * 100).toFixed(1)}% of revenue` : undefined}
           trend={trends.shipCost != null ? -trends.shipCost : null}
+          style={{ animationDelay: '400ms' }}
         />
       </div>
 
@@ -890,7 +904,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           ) : (
             <div className="space-y-3">
               {statusFunnel.map((stage, i) => (
-                <div key={stage.status}>
+                <div key={stage.status} className="animate-slide-left" style={{ animationDelay: `${i * 90}ms` }}>
                   <div className="flex items-center justify-between mb-1">
                     <span className={cn('text-xs font-bold', heading)}>{STATUS_LABEL_MAP[stage.status]}</span>
                     <div className="flex items-center gap-2">
@@ -953,7 +967,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
             <>
               <div className="space-y-3">
                 {topProducts.map((p, i) => (
-                  <div key={i} className="group">
+                  <div key={i} className="group animate-slide-left" style={{ animationDelay: `${i * 70}ms` }}>
                     <div className="flex items-center justify-between mb-1 gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={cn(
@@ -1032,7 +1046,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
             <>
               <div className="space-y-3">
                 {topCustomers.map((c, i) => (
-                  <div key={i} className="group">
+                  <div key={i} className="group animate-slide-left" style={{ animationDelay: `${i * 70}ms` }}>
                     <div className="flex items-center justify-between mb-1 gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={cn(
@@ -1146,7 +1160,7 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
           ) : (
             <div className="space-y-3">
               {courierStats.map((c, i) => (
-                <div key={c.name}>
+                <div key={c.name} className="animate-slide-left" style={{ animationDelay: `${i * 70}ms` }}>
                   <div className="flex items-center justify-between mb-1">
                     <span className={cn('text-xs font-bold', heading)}>{c.name}</span>
                     <div className="flex items-center gap-2">
@@ -1195,8 +1209,8 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
                   { label: 'Usage Rate',      value: `${discountStats.couponRate.toFixed(1)}%` },
                   { label: 'Total Discounts', value: fmt(discountStats.totalDiscount, currency) },
                   { label: 'Avg Discount',    value: discountStats.withCoupon > 0 ? fmt(discountStats.avgDiscount, currency) : '—' },
-                ].map(s => (
-                  <div key={s.label} className={cn('p-3 rounded-2xl', isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50')}>
+                ].map((s, i) => (
+                  <div key={s.label} className={cn('p-3 rounded-2xl animate-scale-in', isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50')} style={{ animationDelay: `${i * 50}ms` }}>
                     <div className={cn('text-[9px] font-black uppercase tracking-widest mb-1', muted)}>{s.label}</div>
                     <div className={cn('text-sm font-black', heading)}>{s.value}</div>
                   </div>
@@ -1213,8 +1227,8 @@ export default function ReportsView({ theme, t, accentColor = '#00b900' }: Repor
               {discountStats.topCodes.length > 0 && (
                 <div className="space-y-2">
                   <div className={cn('text-[9px] font-black uppercase tracking-widest', muted)}>Top Codes</div>
-                  {discountStats.topCodes.map(code => (
-                    <div key={code.code} className="flex items-center justify-between">
+                  {discountStats.topCodes.map((code, i) => (
+                    <div key={code.code} className="flex items-center justify-between animate-slide-left" style={{ animationDelay: `${i * 60}ms` }}>
                       <div className="flex items-center gap-2">
                         <Tag size={11} className="text-accent flex-shrink-0" />
                         <span className={cn('text-xs font-mono font-bold', heading)}>{code.code}</span>
