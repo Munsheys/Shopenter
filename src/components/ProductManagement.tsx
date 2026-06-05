@@ -737,10 +737,10 @@ export function ProductModal({
         aria-modal="true"
         aria-labelledby="product-modal-title"
         data-state={pmVisible ? 'open' : 'closed'}
-        className={cn('modal-panel w-full max-w-4xl rounded-[32px] overflow-hidden shadow-2xl max-h-[90vh] flex flex-col', isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-[#e2e5ef]')}
+        className={cn('modal-panel w-full max-w-6xl rounded-[32px] overflow-hidden shadow-2xl max-h-[96vh] flex flex-col', isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-[#e2e5ef]')}
       >
         {/* ── Header ── */}
-        <div className={cn('flex items-center gap-4 px-7 pt-6 pb-5 border-b flex-shrink-0', isDark ? 'border-[#1f2335]' : 'border-[#f0f2f7]')}>
+        <div className={cn('flex items-center gap-4 px-7 pt-5 pb-4 border-b flex-shrink-0', isDark ? 'border-[#1f2335]' : 'border-[#f0f2f7]')}>
           <div className={cn('w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0', isDark ? 'bg-accent/15 text-accent' : 'bg-accent/10 text-accent')}>
             <Package size={20} />
           </div>
@@ -761,18 +761,18 @@ export function ProductModal({
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 overflow-hidden">
 
           {/* Left column */}
-          <div className={cn('px-6 py-5 space-y-5 overflow-y-auto', isDark ? 'border-r border-[#1f2335]' : 'border-r border-[#f0f2f7]')}>
+          <div className={cn('px-6 py-4 space-y-4 overflow-y-auto', isDark ? 'border-r border-[#1f2335]' : 'border-r border-[#f0f2f7]')}>
 
             {/* Photos */}
             <div>
-              <p className={cn(sectionLabel, 'mb-2.5')}>Product Photos · first is primary</p>
+              <p className={cn(sectionLabel, 'mb-2')}>Product Photos · first is primary</p>
               <MultiImageUploader images={form.images} onChange={imgs => updateForm({ images: imgs })} theme={theme} />
             </div>
 
             {/* Identity */}
             <div>
-              <p className={cn(sectionLabel, 'mb-2.5')}>Identity</p>
-              <div className={cn('rounded-2xl border p-4 space-y-3', surface)}>
+              <p className={cn(sectionLabel, 'mb-2')}>Identity</p>
+              <div className={cn('rounded-2xl border p-3 space-y-2.5', surface)}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="relative z-[100]">
                     <CreatableDropdown label="Brand" value={form.brand} onChange={v => updateForm({ brand: v })} options={existingOptions.brands} placeholder="e.g. Nike" theme={theme} required={true} />
@@ -790,7 +790,7 @@ export function ProductModal({
                 </div>
                 <div>
                   <label className={cn(sectionLabel, 'mb-1.5 block')}>Description</label>
-                  <textarea value={form.description} onChange={e => updateForm({ description: e.target.value })} rows={2}
+                  <textarea value={form.description} onChange={e => updateForm({ description: e.target.value })} rows={1}
                     placeholder="What makes this product special..."
                     className={cn(inputCls, 'resize-none')} />
                 </div>
@@ -799,11 +799,11 @@ export function ProductModal({
 
             {/* Pricing */}
             <div>
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between mb-2">
                 <p className={sectionLabel}>Pricing</p>
                 <span className="text-[9px] text-[#8b92ad]">Variants can override</span>
               </div>
-              <div className={cn('rounded-2xl border p-4 space-y-3', surface)}>
+              <div className={cn('rounded-2xl border p-3 space-y-2', surface)}>
                 <div>
                   <label className={cn(sectionLabel, 'mb-1.5 block')}>Selling Price <span className="text-red-500">*</span></label>
                   <div className="grid grid-cols-3 gap-2">
@@ -832,8 +832,8 @@ export function ProductModal({
 
             {/* Details */}
             <div>
-              <p className={cn(sectionLabel, 'mb-2.5')}>Details</p>
-              <div className={cn('rounded-2xl border p-4', surface)}>
+              <p className={cn(sectionLabel, 'mb-2')}>Details</p>
+              <div className={cn('rounded-2xl border p-3', surface)}>
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { field: 'sku', label: 'SKU', placeholder: 'SKU-001', type: 'text' },
@@ -855,12 +855,12 @@ export function ProductModal({
           </div>
 
           {/* Right column */}
-          <div className="px-6 py-5 space-y-5 overflow-y-auto">
+          <div className="px-6 py-4 space-y-4 overflow-y-auto">
 
             {/* Inventory */}
             <div>
-              <p className={cn(sectionLabel, 'mb-2.5')}>Inventory</p>
-              <div className={cn('rounded-2xl border p-4 space-y-3', surface)}>
+              <p className={cn(sectionLabel, 'mb-2')}>Inventory</p>
+              <div className={cn('rounded-2xl border p-3 space-y-2.5', surface)}>
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className={cn('text-sm font-bold', isDark ? 'text-white' : 'text-[#1a1d2e]')}>Track Stock</p>
@@ -904,7 +904,7 @@ export function ProductModal({
 
             {/* Categories */}
             <div>
-              <p className={cn(sectionLabel, 'mb-2.5')}>Categories</p>
+              <p className={cn(sectionLabel, 'mb-2')}>Categories</p>
               <TagSelector selected={form.categories}
                 onAdd={c => !form.categories.includes(c) && updateForm({ categories: [...form.categories, c] })}
                 onRemove={c => updateForm({ categories: form.categories.filter(x => x !== c) })}
@@ -913,7 +913,7 @@ export function ProductModal({
 
             {/* Options */}
             <div>
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between mb-2">
                 <div>
                   <p className={sectionLabel}>Product Options</p>
                   <p className="text-[9px] text-[#8b92ad] mt-0.5">Max 3 · variants auto-generated</p>
