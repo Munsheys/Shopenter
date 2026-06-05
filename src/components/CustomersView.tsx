@@ -2893,31 +2893,25 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
   products?: Product[];
 }) {
   const [open, setOpen] = useState(false);
-  const [sold, setSold] = useState(String(order.soldTHB || ''));
-  const [cost, setCost] = useState(String(order.costKRW || ''));
   // Use rateUsed or fallback to calculated rate; guard against division by zero and NaN
   const initialRate = order.rateUsed || (order.costKRW > 0 && order.costTHB > 0 ? (order.costTHB / order.costKRW) : 0);
   const [rate, setRate] = useState(String(initialRate || ''));
   const [saving, setSaving] = useState(false);
-  
+
   const sc = order.soldCurrency || 'THB';
   const cc = order.costCurrency || 'KRW';
 
-  // Derived values for dynamic UI
-  const currentSold = parseFloat(sold) || 0;
-  const currentCostKRW = parseFloat(cost) || 0;
+  // Derived values — sold and cost come from the order record; only rate is editable
   const currentRate = parseFloat(rate) || 0;
-  const currentCostTHB = currentCostKRW * currentRate;
-  const currentProfit = currentSold - currentCostTHB - (order.shipCostTHB || 0);
+  const currentCostTHB = (order.costKRW || 0) * currentRate;
+  const currentProfit = (order.soldTHB || 0) - currentCostTHB - (order.shipCostTHB || 0);
 
   async function saveUpdate() {
     setSaving(true);
-    await onPatch({ 
-      soldTHB: currentSold, 
-      costKRW: currentCostKRW, 
+    await onPatch({
       costTHB: currentCostTHB,
       profit: currentProfit,
-      rateUsed: currentRate 
+      rateUsed: currentRate
     });
     setSaving(false);
     setOpen(false);
@@ -2971,7 +2965,7 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
           <p className={`text-sm font-black ${currentProfit >= 0 ? 'text-accent' : 'text-red-500'}`}>
             {sc} {fmt(currentProfit)}
           </p>
-          <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(currentSold)}</p>
+          <p className={`text-[10px] ${k.muted}`}>Sales: {sc} {fmt(order.soldTHB)}</p>
         </div>
         {order.status === 'shipped' && (
           <button
@@ -2995,8 +2989,8 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
                 ${order.tracking ? `<p><b>Courier:</b> ${order.courier || ''} · ${order.tracking}</p>` : ''}
                 ${order.address ? `<p><b>Address:</b> ${order.address}</p>` : ''}
                 <hr/>
-                <p><b>Sales:</b> ${sc} ${fmt(currentSold)}</p>
-                <p><b>Cost:</b> ${cc} ${fmt(currentCostKRW)} (${sc} ${fmt(Math.round(currentCostTHB))})</p>
+                <p><b>Sales:</b> ${sc} ${fmt(order.soldTHB)}</p>
+                <p><b>Cost:</b> ${cc} ${fmt(order.costKRW)} (${sc} ${fmt(Math.round(currentCostTHB))})</p>
                 ${order.shipCostTHB ? `<p><b>Shipping:</b> ${sc} ${fmt(order.shipCostTHB)}</p>` : ''}
                 <p><b>Profit:</b> ${sc} ${fmt(Math.round(currentProfit))}</p>
                 <script>window.onload=()=>window.print()</script>
@@ -3051,24 +3045,20 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
               </div>
             );
           })()}
-          <div className="grid grid-cols-3 gap-3 mb-3">
-            <div>
-              <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Cost ({cc})</label>
-              <NumberStepper value={parseFloat(cost) || 0} onChange={v => setCost(String(v))} min={0} step={1000} isDark={isDark} />
+          {/* Rate editor — sold and cost come from the order record automatically */}
+          <div className="flex items-end gap-3 mb-3">
+            <div className="w-48">
+              <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Exchange Rate ({cc} → {sc})</label>
+              <NumberStepper value={currentRate} onChange={v => setRate(String(v))} min={0} step={0.001} isDark={isDark} />
             </div>
-            <div>
-              <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Sold ({sc})</label>
-              <NumberStepper value={parseFloat(sold) || 0} onChange={v => setSold(String(v))} min={0} step={100} isDark={isDark} />
-            </div>
-            <div>
-              <label className={`block text-[9px] font-black uppercase tracking-widest mb-1 ${k.muted}`}>Rate ({cc} → {sc})</label>
-              <NumberStepper value={parseFloat(rate) || 0} onChange={v => setRate(String(v))} min={0} step={0.001} isDark={isDark} />
+            <div className={`text-[10px] ${k.muted} pb-2`}>
+              Cost: {sc} {fmt(Math.round(currentCostTHB))} · Profit: <span className={currentProfit >= 0 ? 'text-accent' : 'text-red-500'}>{sc} {fmt(Math.round(currentProfit))}</span>
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
             <button onClick={saveUpdate} disabled={saving}
               className="flex-1 py-3 rounded-xl text-xs font-black bg-[#1a1d2e] hover:bg-black text-white transition-all active:scale-95 disabled:opacity-40">
-              {saving ? 'Saving...' : 'Update Prices'}
+              {saving ? 'Saving...' : 'Update Rate'}
             </button>
             {['shipped', 'partially_fulfilled'].includes(order.status) && (
               <button onClick={() => onPatch({ status: order.status === 'partially_fulfilled' ? 'fulfilled' : 'delivered' })}
