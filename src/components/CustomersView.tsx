@@ -1439,6 +1439,10 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                               const newIdx = (selectedCustomer?.addresses || []).length;
                               setSelectedAddressIdx(newIdx);
                             }}
+                            onSelectOrderAddress={(addr) => {
+                              const idx = (selectedCustomer?.addresses || []).findIndex(a => a.trim() === addr.trim());
+                              if (idx >= 0) setSelectedAddressIdx(idx);
+                            }}
                             onBoxItems={(items) => boxItemsToParcel(order._id, items)}
                             onUnboxItem={(itemName) => unboxItemFromParcel(order._id, itemName)}
                             onSendQR={() => sendQR(order._id)}
@@ -3779,6 +3783,7 @@ function OrderBanner({
   customerAddresses,
   selectedAddress,
   onAddAddress,
+  onSelectOrderAddress,
   onBoxItems,
   onUnboxItem,
   onSendQR,
@@ -3800,6 +3805,7 @@ function OrderBanner({
   customerAddresses: string[];
   selectedAddress: string;
   onAddAddress: (addr: string) => void;
+  onSelectOrderAddress: (addr: string) => void;
   onBoxItems: (items: Array<{ productId?: string; name: string; variantLabel?: string; qty: number; price: number }>) => Promise<void>;
   onUnboxItem: (itemName: string) => Promise<void>;
   onSendQR: () => void;
@@ -3978,12 +3984,15 @@ function OrderBanner({
                   + Add to list
                 </button>
               )}
-              {selectedAddress && selectedAddress.trim() && selectedAddress.trim() !== orderAddr && (
-                <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex-shrink-0 whitespace-nowrap ${
-                  isDark ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-500'
-                }`}>
-                  Shipping to different address
-                </span>
+              {addrInList && selectedAddress.trim() !== orderAddr && (
+                <button
+                  onClick={e => { e.stopPropagation(); onSelectOrderAddress(orderAddr); }}
+                  className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors flex-shrink-0 whitespace-nowrap ${
+                    isDark ? 'bg-white/8 border-white/15 text-white/60 hover:bg-accent hover:border-accent hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-accent hover:border-accent hover:text-white'
+                  }`}
+                >
+                  Select
+                </button>
               )}
             </div>
           )}
