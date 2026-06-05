@@ -270,7 +270,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'lite' | 'dar
             <button
               type="submit"
               disabled={saving || !form.code || !form.value}
-              className="flex-1 py-3 text-sm font-bold text-white rounded-2xl disabled:opacity-40 hover:opacity-90"
+              className="flex-1 py-3 text-sm font-bold text-white rounded-2xl disabled:opacity-40 hover:opacity-90 active:scale-95 transition-all"
               style={{ background: 'var(--accent-gradient)' }}
             >
               {saving ? 'Creating...' : 'Create Coupon'}
@@ -287,18 +287,18 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'lite' | 'dar
         </div>
       ) : coupons.length === 0 ? (
         <div className={cn('border rounded-3xl p-12 text-center', surface)}>
-          <div className="w-14 h-14 bg-accent/10 rounded-3xl flex items-center justify-center mx-auto mb-4"><Tag size={28} className="text-accent opacity-50" /></div>
+          <div className="w-14 h-14 bg-accent/10 rounded-3xl flex items-center justify-center mx-auto mb-4"><Tag size={28} className="animate-pulse text-accent opacity-50" /></div>
           <p className={cn('text-sm font-bold', isDark ? 'text-white' : 'text-[#1a1d2e]')}>No coupons yet</p>
           <p className="text-xs text-[#8b92ad] mt-1">Create your first discount code above</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {coupons.map(coupon => {
+          {coupons.map((coupon, idx) => {
             const isExpired = coupon.expiresAt && new Date(coupon.expiresAt) < new Date();
             const isExhausted = coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses;
 
             return (
-              <div key={coupon._id} className={cn('border rounded-3xl p-5 transition-all', surface, !coupon.isActive && 'opacity-60')}>
+              <div key={coupon._id} className={cn('border rounded-3xl p-5 transition-all hover-lift animate-slide-left', surface, !coupon.isActive && 'opacity-60')} style={{ animationDelay: `${idx * 60}ms` }}>
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3 min-w-0">
                     <button
@@ -335,7 +335,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'lite' | 'dar
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => toggleActive(coupon)}
-                      className={cn('flex items-center gap-1.5 px-3 py-2 min-h-[36px] rounded-xl text-[10px] font-bold border transition-all',
+                      className={cn('flex items-center gap-1.5 px-3 py-2 min-h-[36px] rounded-xl text-[10px] font-bold border transition-all active:scale-95',
                         coupon.isActive
                           ? 'border-accent/30 bg-accent/10 text-accent'
                           : isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-[#e2e5ef] text-[#8b92ad]'
@@ -346,7 +346,7 @@ export default function CouponsView({ theme }: { theme?: 'light' | 'lite' | 'dar
                     <button
                       onClick={() => { setDeleteId(coupon._id); setDeleteCode(coupon.code); }}
                       aria-label={`Delete coupon ${coupon.code}`}
-                      className={cn('p-3 rounded-xl transition-colors', isDark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-500')}
+                      className={cn('p-3 rounded-xl transition-colors active:scale-95', isDark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-500')}
                     >
                       <Trash2 size={14} />
                     </button>

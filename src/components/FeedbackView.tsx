@@ -388,7 +388,8 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                     return (
                       <div
                         key={`${rep.createdAt}-${rep.sender}-${idx}`}
-                        className={cn("flex flex-col gap-1", isAdmin ? "items-start" : "items-end")}
+                        className={cn("flex flex-col gap-1", isAdmin ? "items-start animate-slide-left" : "items-end animate-slide-right")}
+                        style={{ animationDelay: `${idx * 80}ms` }}
                       >
                         <div className={cn(
                           "px-4 py-3 rounded-2xl text-[11px] leading-relaxed max-w-[85%] border shadow-sm",
@@ -477,12 +478,12 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                   </div>
                 ) : history.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-                    <MessageSquareCode size={36} className="opacity-20 text-[#8b92ad]" aria-hidden="true" />
+                    <MessageSquareCode size={36} className="animate-pulse opacity-20 text-[#8b92ad]" aria-hidden="true" />
                     <p className={cn("text-xs font-bold", K.text)}>No Feedback Submitted Yet</p>
                     <p className={cn("text-[11px] max-w-[200px] leading-relaxed mx-auto", K.muted)}>Your opinion matters. Submit your thoughts on the left and track conversations here!</p>
                   </div>
                 ) : (
-                  history.map((item) => (
+                  history.map((item, idx) => (
                     <div
                       key={item._id}
                       onClick={() => setSelectedFeedback(item)}
@@ -490,7 +491,8 @@ export default function FeedbackView({ theme }: { theme?: 'light' | 'dark' }) {
                       tabIndex={0}
                       role="button"
                       aria-label={`Open feedback: ${getCategoryLabel(item.category)}`}
-                      className={cn("p-4 rounded-xl space-y-3 cursor-pointer hover:border-accent/30 transition-all active:scale-99 animate-in fade-in duration-300 focus-visible:outline-2 focus-visible:outline-accent", K.card)}
+                      className={cn("p-4 rounded-xl space-y-3 cursor-pointer hover:border-accent/30 transition-all active:scale-99 animate-scale-in focus-visible:outline-2 focus-visible:outline-accent hover-lift", K.card)}
+                      style={{ animationDelay: `${idx * 50}ms` }}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className={cn("text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md", getStatusStyles(item.status))}>
