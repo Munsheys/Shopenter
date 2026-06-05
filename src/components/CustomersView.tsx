@@ -1437,6 +1437,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                             onUnboxItem={(itemName) => unboxItemFromParcel(order._id, itemName)}
                             onSendQR={() => sendQR(order._id)}
                             onMarkPaid={() => markPaid(order._id)}
+                            onMarkDelivered={() => patchOrder(order._id, { status: 'delivered' }, 'Order delivered')}
                             onCancel={() => confirmCancelOrder(order._id)}
                             onDelete={() => confirmDeleteOrder(order._id)}
                             onEdit={() => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: (order.items?.length > 0 ? order.items.map((i: any) => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel ?? '', qty: i.qty, price: i.price })) : [{ name: order.product, variantLabel: '', qty: order.quantity || 1, price: order.soldTHB || 0 }]) })}
@@ -3748,6 +3749,7 @@ function OrderBanner({
   onUnboxItem,
   onSendQR,
   onMarkPaid,
+  onMarkDelivered,
   onCancel,
   onDelete,
   onEdit,
@@ -3767,6 +3769,7 @@ function OrderBanner({
   onUnboxItem: (itemName: string) => Promise<void>;
   onSendQR: () => void;
   onMarkPaid: () => void;
+  onMarkDelivered: () => void;
   onCancel: () => void;
   onDelete: () => void;
   onEdit: () => void;
@@ -3886,7 +3889,16 @@ function OrderBanner({
                 </button>
               </>
             )}
-            {order.status !== 'pending' && (() => {
+            {order.status === 'shipped' && (
+              <button
+                onClick={onMarkDelivered}
+                disabled={isActing}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
+              >
+                <CheckCircle size={10} /> Delivered
+              </button>
+            )}
+            {order.status !== 'pending' && order.status !== 'shipped' && (() => {
               const pendingItems = orderItems
                 .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name, item.variantLabel) - computeInParcelQty(item.name, item.variantLabel)), price: item.price }))
                 .filter(i => i.qty > 0);
@@ -3991,8 +4003,8 @@ function OrderBanner({
                     </div>
                   </div>
 
-                  {/* Pending → BoxControl (paid orders only); fully boxed → back arrow to unbox */}
-                  {pendingQty > 0 && order.status !== 'pending' ? (
+                  {/* Pending → BoxControl (paid/partially_fulfilled only); shipped → no boxing */}
+                  {pendingQty > 0 && order.status !== 'pending' && order.status !== 'shipped' ? (
                     <BoxControl
                       max={pendingQty}
                       isDark={isDark}
@@ -4020,31 +4032,43 @@ function OrderBanner({
             })}
           </div>
 
-          {/* Bottom action row: Box All + Cancel + Delete in one line */}
+          {/* Bottom action row */}
           {(() => {
             const allPending = orderItems
               .map(item => ({ productId: item.productId, name: item.name, variantLabel: item.variantLabel, qty: Math.max(0, item.qty - computeShippedQty(item.name, item.variantLabel) - computeInParcelQty(item.name, item.variantLabel)), price: item.price }))
               .filter(i => i.qty > 0);
             return (
               <div className="flex gap-2">
-                {order.status !== 'pending' && order.status !== 'cancelled' && allPending.length > 0 && (
+                {order.status === 'shipped' ? (
                   <button
-                    onClick={() => onBoxItems(allPending)}
+                    onClick={onMarkDelivered}
                     disabled={isActing}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white transition-all active:scale-95 disabled:opacity-50 hover:opacity-90"
-                    style={{ background: 'var(--accent-gradient)' }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
                   >
-                    <Package size={12} /> Box {allPending.length} Pending
+                    <CheckCircle size={12} /> Mark Delivered
                   </button>
-                )}
-                {order.status !== 'cancelled' && (
-                  <button
-                    onClick={onCancel}
-                    disabled={isActing}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    <Ban size={12} /> Cancel Order
-                  </button>
+                ) : (
+                  <>
+                    {order.status !== 'pending' && order.status !== 'cancelled' && allPending.length > 0 && (
+                      <button
+                        onClick={() => onBoxItems(allPending)}
+                        disabled={isActing}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white transition-all active:scale-95 disabled:opacity-50 hover:opacity-90"
+                        style={{ background: 'var(--accent-gradient)' }}
+                      >
+                        <Package size={12} /> Box {allPending.length} Pending
+                      </button>
+                    )}
+                    {order.status !== 'cancelled' && (
+                      <button
+                        onClick={onCancel}
+                        disabled={isActing}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        <Ban size={12} /> Cancel Order
+                      </button>
+                    )}
+                  </>
                 )}
                 <button
                   onClick={onDelete}
