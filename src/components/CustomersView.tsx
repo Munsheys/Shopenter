@@ -3730,18 +3730,18 @@ function OrderBanner({
           className={`flex-shrink-0 transition-transform duration-200 ${k.muted} ${isExpanded ? 'rotate-90' : ''}`}
         />
 
-        {/* Left group: ID · status · products · date — all together, fixed width to anchor the progress bar */}
-        <div className="w-[220px] flex-shrink-0 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <p className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
+        {/* Left group: ID + status + products — no-wrap, wide enough for longest badge ("New Order") */}
+        <div className="w-[250px] flex-shrink-0 overflow-hidden">
+          <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden">
+            <p className={`text-sm font-black leading-none flex-shrink-0 ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>
               #{order._id.slice(-6).toUpperCase()}
             </p>
-            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border flex-shrink-0 ${
               isDark ? darkStatusClass : `${status.lightBg} ${status.text} ${status.border}`
             }`}>
               {label}
             </span>
-            <div className="hidden sm:flex items-center gap-1" onClick={e => e.stopPropagation()}>
+            <div className="hidden sm:flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
               <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
                 isDark ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-50 border-slate-200 text-slate-500'
               }`}>
@@ -3762,8 +3762,8 @@ function OrderBanner({
           </p>
         </div>
 
-        {/* Progress bar — flex-1; left edge is locked because all content before it is fixed width */}
-        <div className="hidden sm:flex flex-col gap-0.5 flex-1 min-w-[60px]">
+        {/* Progress bar — flex-1 with right margin for breathing room before action buttons */}
+        <div className="hidden sm:flex flex-col gap-0.5 flex-1 min-w-[60px] mr-3">
           <span className={`text-[9px] font-medium ${k.muted}`}>{progress}%</span>
           <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
             <div
@@ -3773,22 +3773,22 @@ function OrderBanner({
           </div>
         </div>
 
-        {/* Fixed-width action column — QR icon-only + Paid, or Parcel, always at the same X */}
+        {/* Action column — fixed width, QR matches Paid height exactly */}
         <div className="flex items-center gap-2 flex-shrink-0 ml-auto sm:ml-0">
-          <div className="flex items-center gap-1 w-[88px] justify-end flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-1 w-[96px] justify-end flex-shrink-0" onClick={e => e.stopPropagation()}>
             {order.status === 'pending' && (
               <>
                 <button
                   onClick={onSendQR}
                   disabled={isActing}
                   title={order.paymentQrSent ? 'Resend QR' : 'Send QR'}
-                  className={`flex items-center justify-center w-7 h-7 rounded-lg border transition-all active:scale-95 disabled:opacity-50 ${
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all active:scale-95 disabled:opacity-50 ${
                     order.paymentQrSent
                       ? (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600')
                       : 'bg-amber-400 border-amber-400 text-amber-950 hover:bg-amber-500'
                   }`}
                 >
-                  <QrCode size={12} />
+                  <QrCode size={10} /> QR
                 </button>
                 <button
                   onClick={onMarkPaid}
