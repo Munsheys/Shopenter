@@ -710,6 +710,7 @@ export default function ShopOrdersView({
                     ? theme === 'dark' ? "bg-accent/5" : "bg-accent/[3%]"
                     : theme === 'dark' ? "hover:bg-[#1a1d2e]" : "hover:bg-[#f8f9fc]"
                 )}
+                  onMouseDown={e => { if (e.shiftKey) e.preventDefault(); }}
                   onClick={() => setExpandedOrderId(isExpanded ? null : o._id)}
                 >
                   {/* Row checkbox */}
