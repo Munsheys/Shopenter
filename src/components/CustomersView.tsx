@@ -1774,11 +1774,113 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
       {/* ── New Order Modal (2-panel) ── */}
       {showModal && selectedCustomer && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4"
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2 sm:p-4 overflow-x-auto"
           role="dialog" aria-modal="true" aria-label="New order"
           onClick={(e) => { if (e.target === e.currentTarget) closeQuickOrder(); }}
         >
-          <div className={`${isDark ? 'bg-[#0f1117]' : 'bg-white'} rounded-3xl shadow-2xl w-full max-w-4xl border ${k.border} flex flex-col`} style={{ maxHeight: '92vh' }}>
+          <div className="flex items-start gap-4 flex-shrink-0">
+
+            {/* ── New Product slide-in panel (left) ── */}
+            <div
+              className="overflow-hidden flex-shrink-0 transition-all duration-300 ease-out"
+              style={{ width: qoNewProdOpen ? 340 : 0, opacity: qoNewProdOpen ? 1 : 0 }}
+            >
+              <div
+                className={`w-[340px] ${isDark ? 'bg-[#0f1117]' : 'bg-white'} rounded-3xl shadow-2xl border ${k.border} flex flex-col`}
+                style={{ maxHeight: '92vh' }}
+              >
+                {/* Header */}
+                <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border} flex-shrink-0`}>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest mb-0.5 text-accent">NEW PRODUCT</p>
+                    <p className={`text-sm font-black ${k.text}`}>Quick Catalog</p>
+                  </div>
+                  <button onClick={() => setQoNewProdOpen(false)} aria-label="Close"
+                    className={`p-1.5 rounded-xl ${k.muted} ${k.hover} transition-colors`}>
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-4 space-y-2.5 overflow-y-auto flex-1">
+                  <input
+                    autoFocus
+                    value={qoNewProdName}
+                    onChange={e => setQoNewProdName(e.target.value)}
+                    placeholder="Product name *"
+                    className={`w-full text-xs rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all font-semibold ${k.input}`}
+                  />
+                  <input
+                    type="number"
+                    value={qoNewProdPrice}
+                    onChange={e => setQoNewProdPrice(e.target.value)}
+                    placeholder="Price (฿) for this variant"
+                    className={`w-full text-xs rounded-xl px-3 py-2.5 border outline-none focus:border-accent transition-all ${k.input}`}
+                  />
+                  {/* Cost */}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={qoCostCurrency}
+                      onChange={e => setQoCostCurrency(e.target.value)}
+                      className={`text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input} w-16`}
+                    >
+                      {COST_CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                    <input
+                      type="number"
+                      value={qoCostPrice}
+                      onChange={e => setQoCostPrice(e.target.value)}
+                      placeholder="Cost (optional)"
+                      className={`flex-1 text-xs rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
+                    />
+                  </div>
+                  {/* Options */}
+                  <p className={`text-[10px] font-semibold pt-1 ${k.muted}`}>Options ordered (only what customer wants):</p>
+                  {qoNewProdOpts.map((opt, i) => (
+                    <div key={i} className="flex gap-1.5">
+                      <input
+                        value={opt.name}
+                        onChange={e => { const n = [...qoNewProdOpts]; n[i] = { ...n[i], name: e.target.value }; setQoNewProdOpts(n); }}
+                        placeholder="e.g. Color"
+                        className={`w-24 text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input}`}
+                      />
+                      <input
+                        value={opt.value}
+                        onChange={e => { const n = [...qoNewProdOpts]; n[i] = { ...n[i], value: e.target.value }; setQoNewProdOpts(n); }}
+                        placeholder="e.g. Red"
+                        className={`flex-1 text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input}`}
+                      />
+                      <button type="button"
+                        onClick={() => setQoNewProdOpts(qoNewProdOpts.filter((_, j) => j !== i))}
+                        className={`px-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 border ${k.border} transition-colors`}
+                      ><X size={11} /></button>
+                    </div>
+                  ))}
+                  <button type="button"
+                    onClick={() => setQoNewProdOpts([...qoNewProdOpts, { name: '', value: '' }])}
+                    className="text-[10px] font-bold text-accent hover:underline flex items-center gap-1"
+                  ><Plus size={10} /> Add option</button>
+                </div>
+
+                {/* Footer */}
+                <div className={`border-t ${k.border} p-4 flex-shrink-0`}>
+                  <button
+                    disabled={!qoNewProdName.trim() || qoNewProdSaving}
+                    onClick={handleQoNewProd}
+                    className="w-full py-2.5 rounded-2xl text-xs font-black text-white disabled:opacity-40 transition-all active:scale-95"
+                    style={{ background: 'var(--accent-gradient)' }}
+                  >
+                    {qoNewProdSaving ? 'Creating...' : 'Create & Add to Order →'}
+                  </button>
+                  <p className={`text-[9px] ${k.muted} text-center leading-relaxed mt-2`}>
+                    Saved to catalog as incomplete — fill in remaining variants later in Products.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── New Order modal (right) ── */}
+            <div className={`${isDark ? 'bg-[#0f1117]' : 'bg-white'} rounded-3xl shadow-2xl w-[min(896px,90vw)] border ${k.border} flex flex-col flex-shrink-0`} style={{ maxHeight: '92vh' }}>
             {/* Header */}
             <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border} flex-shrink-0`}>
               <div>
@@ -1836,67 +1938,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 </div>
 
                 {/* New product section */}
-                <div className={`border-t ${k.border} p-3 flex-shrink-0 space-y-2`}>
+                <div className={`border-t ${k.border} p-3 flex-shrink-0`}>
                   <button
                     onClick={() => setQoNewProdOpen(!qoNewProdOpen)}
-                    className="flex items-center gap-1.5 text-[11px] font-bold text-accent hover:underline"
+                    className={`flex items-center gap-1.5 text-[11px] font-bold transition-colors ${qoNewProdOpen ? 'text-accent/60 hover:text-accent' : 'text-accent hover:underline'}`}
                   >
                     <Plus size={11} />
-                    {qoNewProdOpen ? 'Cancel' : 'Not in catalog? Add new product'}
+                    {qoNewProdOpen ? 'New product panel open ←' : 'Not in catalog? Add new product'}
                   </button>
-                  {qoNewProdOpen && (
-                    <div className="space-y-2">
-                      <input
-                        value={qoNewProdName}
-                        onChange={e => setQoNewProdName(e.target.value)}
-                        placeholder="Product name *"
-                        className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all font-semibold ${k.input}`}
-                      />
-                      <input
-                        type="number"
-                        value={qoNewProdPrice}
-                        onChange={e => setQoNewProdPrice(e.target.value)}
-                        placeholder="Price (฿) for this variant"
-                        className={`w-full text-xs rounded-xl px-3 py-2 border outline-none focus:border-accent transition-all ${k.input}`}
-                      />
-                      <p className={`text-[10px] font-semibold ${k.muted}`}>Options ordered (only what customer wants):</p>
-                      {qoNewProdOpts.map((opt, i) => (
-                        <div key={i} className="flex gap-1.5">
-                          <input
-                            value={opt.name}
-                            onChange={e => { const n = [...qoNewProdOpts]; n[i] = { ...n[i], name: e.target.value }; setQoNewProdOpts(n); }}
-                            placeholder="e.g. Color"
-                            className={`w-20 text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input}`}
-                          />
-                          <input
-                            value={opt.value}
-                            onChange={e => { const n = [...qoNewProdOpts]; n[i] = { ...n[i], value: e.target.value }; setQoNewProdOpts(n); }}
-                            placeholder="e.g. Red"
-                            className={`flex-1 text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input}`}
-                          />
-                          <button type="button"
-                            onClick={() => setQoNewProdOpts(qoNewProdOpts.filter((_, j) => j !== i))}
-                            className={`px-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 border ${k.border} transition-colors`}
-                          ><X size={11} /></button>
-                        </div>
-                      ))}
-                      <button type="button"
-                        onClick={() => setQoNewProdOpts([...qoNewProdOpts, { name: '', value: '' }])}
-                        className="text-[10px] font-bold text-accent hover:underline flex items-center gap-1"
-                      ><Plus size={10} /> Add option</button>
-                      <button
-                        disabled={!qoNewProdName.trim() || qoNewProdSaving}
-                        onClick={handleQoNewProd}
-                        className="w-full py-1.5 rounded-xl text-[11px] font-black text-white disabled:opacity-40 transition-all active:scale-95"
-                        style={{ background: 'var(--accent-gradient)' }}
-                      >
-                        {qoNewProdSaving ? 'Creating...' : 'Create & Add to Order →'}
-                      </button>
-                      <p className={`text-[9px] ${k.muted} text-center leading-relaxed`}>
-                        Saved to catalog as incomplete — fill in remaining variants later in Products.
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1930,25 +1979,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   const total = Math.max(0, subtotal - qoDiscount);
                   return (
                     <div className={`border-t ${k.border} px-4 py-4 space-y-3 flex-shrink-0`}>
-                      {/* Cost input — only relevant when creating a new product */}
-                      {qoNewProdOpen && (
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={qoCostCurrency}
-                            onChange={e => setQoCostCurrency(e.target.value)}
-                            className={`text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input} w-16`}
-                          >
-                            {COST_CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                          </select>
-                          <input
-                            type="number"
-                            value={qoCostPrice}
-                            onChange={e => setQoCostPrice(e.target.value)}
-                            placeholder="Cost (optional)"
-                            className={`flex-1 text-xs rounded-xl px-3 py-1.5 border outline-none focus:border-accent transition-all ${k.input}`}
-                          />
-                        </div>
-                      )}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
                           <span className={`text-xs ${k.muted}`}>Subtotal</span>
@@ -1986,6 +2016,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               </div>
             </div>
           </div>
+          </div>{/* flex row */}
         </div>
       )}
 
