@@ -1507,30 +1507,6 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   </section>
                 )}
 
-                {/* Parcel Fulfillment */}
-                {parcelOrders.length > 0 && (
-                  <section aria-label="Parcels awaiting shipment">
-                    <div className={`space-y-4 ${parcelOrders.some(o => o._id === highlightedOrderId) ? 'ring-2 ring-accent shadow-lg shadow-accent/20 rounded-[32px]' : ''}`}>
-                      <ParcelContainer
-                        orders={parcelOrders}
-                        isDark={isDark}
-                        k={k}
-                        merchantSettings={merchantSettings}
-                        onPatch={(id, patch) => patchOrder(id, patch)}
-                        onCancelParcel={(id) => patchOrder(id, { status: 'paid' })}
-                        onShip={async (tracking, courier) => {
-                          const addr = selectedCustomer?.addresses[selectedAddressIdx] || '';
-                          for (const o of parcelOrders) {
-                            await patchOrder(o._id, { tracking, courier, address: addr, status: 'shipped' }, 'Order shipped');
-                          }
-                        }}
-                        onAddItem={() => setShowModal(true)}
-                        onEditOrder={(order) => setEditingOrder({ id: order._id, costTHB: order.costTHB || 0, shipCostTHB: order.shipCostTHB || 0, discount: 0, items: order.items?.length > 0 ? order.items.map((i: any) => ({ name: i.name, variantLabel: i.variantLabel, qty: i.qty, price: i.price })) : [{ name: order.product, qty: order.quantity || 1, price: order.soldTHB || 0 }] })}
-                      />
-                    </div>
-                  </section>
-                )}
-
                 {/* In Transit */}
                 <div data-section="section-intransit" />
                 {inTransitGroups.length > 0 && (
