@@ -13,11 +13,11 @@ export default function NumberStepper({
   const h = size === 'sm' ? 'h-9' : 'h-11';
   const px = size === 'sm' ? 'w-10' : 'w-11';
   const txtSize = size === 'sm' ? 'text-xs' : 'text-sm';
-  const divider = `w-px self-stretch ${isDark ? 'bg-[#2a2f45]' : 'bg-slate-200'}`;
+  const divider = `w-px self-stretch ${isDark ? 'bg-[#2a2f45]' : 'bg-slate-300'}`;
   const btnCls = `${px} ${h} flex items-center justify-center text-base font-bold flex-shrink-0 transition-colors disabled:opacity-25
-    ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`;
+    ${isDark ? 'text-[#8b92ad] hover:text-white hover:bg-white/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`;
   return (
-    <div className={`flex items-center ${h} rounded-xl border overflow-hidden ${isDark ? 'bg-[#0f1117] border-[#2a2f45]' : 'bg-white border-slate-200'}`}>
+    <div className={`flex items-center ${h} rounded-xl border overflow-hidden ${isDark ? 'bg-[#0f1117] border-[#2a2f45]' : 'bg-white border-slate-300'}`}>
       <button
         type="button"
         aria-label={`Decrease ${label ?? 'value'}`}

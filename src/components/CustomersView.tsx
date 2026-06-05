@@ -3657,10 +3657,10 @@ function EditOrderItemCard({
         {/* Qty stepper inline */}
         <div className="flex items-center gap-1 flex-shrink-0">
           <button onClick={() => onUpdate({ qty: Math.max(1, item.qty - 1) })}
-            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all disabled:opacity-30 ${k.border} ${k.hover}`}><Minus size={9} /></button>
+            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all disabled:opacity-30 ${isDark ? 'border-[#2a3050] text-[#8b92ad] hover:text-white hover:bg-white/10' : 'border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}><Minus size={9} /></button>
           <span className={`w-8 text-center text-[12px] font-black ${isDark ? 'text-white' : 'text-[#1a1d2e]'}`}>{item.qty}</span>
           <button onClick={() => onUpdate({ qty: item.qty + 1 })}
-            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${k.border} ${k.hover}`}><Plus size={9} /></button>
+            className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${isDark ? 'border-[#2a3050] text-[#8b92ad] hover:text-white hover:bg-white/10' : 'border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}><Plus size={9} /></button>
         </div>
         <button onClick={onRemove} className="p-1 rounded-lg text-rose-400/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0"><X size={13} /></button>
       </div>
