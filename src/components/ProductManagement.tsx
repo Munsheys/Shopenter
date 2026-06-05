@@ -935,7 +935,7 @@ export function ProductModal({
 
               <div className="space-y-3">
                 {form.options.map((opt, idx) => (
-                  <div key={idx} style={{ zIndex: (form.options.length - idx) * 10 + 10, position: 'relative' }}>
+                  <div key={idx} className="animate-slide-up" style={{ zIndex: (form.options.length - idx) * 10 + 10, position: 'relative', animationDelay: `${idx * 80}ms` }}>
                     <OptionCard option={opt} index={idx} existingOptions={existingOptions}
                       onUpdate={updates => updateOption(idx, updates)} onRemove={() => removeOption(idx)} theme={theme} />
                   </div>
@@ -987,7 +987,7 @@ export function ProductModal({
                         </thead>
                         <tbody className={cn('divide-y', isDark ? 'divide-[#1f2335]' : 'divide-[#f4f6f9]')}>
                           {form.variants.map((v, idx) => (
-                            <tr key={JSON.stringify(v.combination || idx)} className={cn('transition-colors', isDark ? 'hover:bg-[#1a1d2e]' : 'hover:bg-[#fafbfc]')}>
+                            <tr key={JSON.stringify(v.combination || idx)} className={cn('animate-fade-in transition-colors hover:bg-accent/[0.03]', isDark ? 'hover:bg-[#1a1d2e]' : 'hover:bg-[#fafbfc]')} style={{ animationDelay: `${idx * 25}ms` }}>
                               {activeOptions.map(o => (
                                 <td key={o.name} className={cn('px-3 py-1.5 text-xs font-bold whitespace-nowrap', isDark ? 'text-white' : 'text-[#1a1d2e]')}>
                                   {v.combination[o.name] || '—'}
@@ -1894,11 +1894,11 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           </div>
           <div className="flex items-center gap-2">
             <button disabled={selectedIds.size === 0 || isBulkActing} onClick={() => bulkSetVisibility(true)}
-              className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-emerald-400 hover:bg-emerald-500/10" : "border-[#e2e5ef] text-emerald-600 hover:bg-emerald-50")}>
+              className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all active:scale-95 disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-emerald-400 hover:bg-emerald-500/10" : "border-[#e2e5ef] text-emerald-600 hover:bg-emerald-50")}>
               <Eye size={12} /> Show
             </button>
             <button disabled={selectedIds.size === 0 || isBulkActing} onClick={() => bulkSetVisibility(false)}
-              className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:bg-[#f8f9fc]")}>
+              className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all active:scale-95 disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-[#8b92ad] hover:bg-[#1a1d2e]" : "border-[#e2e5ef] text-[#8b92ad] hover:bg-[#f8f9fc]")}>
               <EyeOff size={12} /> Hide
             </button>
             {/* Fix 9: bulk set price */}
@@ -1928,12 +1928,12 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
               </div>
             ) : (
               <button disabled={selectedIds.size === 0 || isBulkActing} onClick={() => setBulkPriceMode(true)}
-                className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-blue-400 hover:bg-blue-500/10" : "border-[#e2e5ef] text-blue-600 hover:bg-blue-50")}>
+                className={cn("px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all active:scale-95 disabled:opacity-40", theme === 'dark' ? "border-[#1f2335] text-blue-400 hover:bg-blue-500/10" : "border-[#e2e5ef] text-blue-600 hover:bg-blue-50")}>
                 <DollarSign size={12} /> Set Price
               </button>
             )}
             <button disabled={selectedIds.size === 0 || isBulkActing} onClick={bulkDelete}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-red-500/20 text-red-500 hover:bg-red-500/10 transition-all disabled:opacity-40">
+              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-red-500/20 text-red-500 hover:bg-red-500/10 transition-all active:scale-95 disabled:opacity-40">
               <Trash2 size={12} /> Delete
             </button>
           </div>
@@ -1986,22 +1986,24 @@ const ProductManagement = React.memo(function ProductManagement({ theme, t, onLi
           4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
           5: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6',
         }[cardSize] || 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4')}>
-          {paginatedProducts.map(p => (
-            <ProductCard key={p._id} product={p} theme={theme}
-              onEdit={() => { setEditingProduct(p); setIsModalOpen(true); }}
-              onCardClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
-              onDelete={() => { setDeleteConfirm(p._id); setDeletingName(p.name); }}
-              onToggleVisibility={() => toggleVisibility(p)}
-              onManageStock={() => setStockProduct(p)}
-              hasPendingEdit={!!pendingEdits[p._id]}
-              selected={selectedIds.has(p._id)}
-              onSelect={() => toggleSelect(p._id)}
-            />
+          {paginatedProducts.map((p, idx) => (
+            <div key={p._id} className="animate-scale-in" style={{ animationDelay: `${idx * 45}ms` }}>
+              <ProductCard product={p} theme={theme}
+                onEdit={() => { setEditingProduct(p); setIsModalOpen(true); }}
+                onCardClick={() => { setEditingProduct(p); setIsModalOpen(true); }}
+                onDelete={() => { setDeleteConfirm(p._id); setDeletingName(p.name); }}
+                onToggleVisibility={() => toggleVisibility(p)}
+                onManageStock={() => setStockProduct(p)}
+                hasPendingEdit={!!pendingEdits[p._id]}
+                selected={selectedIds.has(p._id)}
+                onSelect={() => toggleSelect(p._id)}
+              />
+            </div>
           ))}
           {products.length === 0 && !isLoading && (
             <div className="col-span-full flex flex-col items-center justify-center flex-1 gap-4 py-20 text-center px-6">
               <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center", theme === 'dark' ? "bg-[#1a1d2e]" : "bg-slate-100")}>
-                <Package size={28} className="text-[#8b92ad]" />
+                <Package size={28} className="text-[#8b92ad] animate-pulse" />
               </div>
               <div>
                 <p className={cn("text-sm font-semibold", theme === 'dark' ? "text-white" : "text-[#1a1d2e]")}>No products yet</p>
@@ -2253,7 +2255,7 @@ function ProductCard({ product, theme, onEdit, onCardClick, onDelete, onToggleVi
       tabIndex={0}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCardClick(); } }}
       className={cn(
-        "rounded-[32px] border p-5 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden flex flex-col h-full cursor-pointer",
+        "rounded-[32px] border p-5 shadow-sm hover:shadow-xl transition-all hover-lift group relative overflow-hidden flex flex-col h-full cursor-pointer",
         theme === 'dark' ? "bg-[#161925] border-[#1f2335]" : "bg-white border-[#e2e5ef]",
         !product.isActive && "opacity-60",
         selected && "ring-2 ring-accent border-accent/40"
