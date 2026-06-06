@@ -581,55 +581,55 @@ export default function DashboardPage() {
 
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div key={activeTab === 'customers' ? `customers-active-${refreshKey}` : `customers-${refreshKey}`} className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
+        <div className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
             <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} jumpToOrderId={jumpToOrderId} onJumpOrderConsumed={() => setJumpToOrderId(null)} onOrderMutated={() => { setOrdersRefreshKey(k => k + 1); setReportsRefreshKey(k => k + 1); }} />
           </ErrorBoundary>
         </div>
 
-        <div key={activeTab === 'orders' ? `orders-active-${refreshKey}-${ordersRefreshKey}` : `orders-${refreshKey}-${ordersRefreshKey}`} className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0 view-enter' : 'hidden'}>
+        <div className={activeTab === 'orders' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
             <ShopOrdersView theme={theme} t={{}} localCurrency={settings?.localCurrency} onLimitHit={handleLimitHit} onViewCustomer={(userId, orderId) => { setJumpToUserId(userId); setJumpToOrderId(orderId ?? null); setActiveTab('customers'); }} />
           </ErrorBoundary>
         </div>
 
-        <div key={activeTab === 'products' ? `products-active-${refreshKey}` : `products-${refreshKey}`} className={activeTab === 'products' ? 'flex-1 overflow-auto pb-16 md:pb-0 view-enter' : 'hidden'}>
+        <div className={activeTab === 'products' ? 'flex-1 overflow-auto pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
             <ProductManagement theme={theme} t={{}} onLimitHit={handleLimitHit} onDirtyChange={handleProductsDirtyChange} />
           </ErrorBoundary>
         </div>
 
-        <div key={activeTab === 'reports' ? `reports-active-${refreshKey}-${reportsRefreshKey}` : `reports-${refreshKey}-${reportsRefreshKey}`} className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0 view-enter' : 'hidden'}>
+        <div className={activeTab === 'reports' ? 'flex-1 overflow-auto pt-2 pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
             <ReportsView theme={theme} t={{}} accentColor={accentColor} />
           </ErrorBoundary>
         </div>
 
-        <div key={activeTab === 'broadcasts' ? `broadcasts-active-${refreshKey}` : `broadcasts-${refreshKey}`} className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col view-enter' : 'hidden'}>
+        <div className={activeTab === 'broadcasts' ? 'flex-1 overflow-hidden flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
             <BroadcastsView theme={theme} t={{}} accentColor={accentColor} onLimitHit={handleLimitHit} onGoToSettings={(section) => { setActiveTab('settings'); setSettingsScroll({ section, id: Date.now() }); }} />
           </ErrorBoundary>
         </div>
 
-        <div key={activeTab === 'feedback' ? `feedback-active-${refreshKey}` : `feedback-${refreshKey}`} className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
+        <div className={activeTab === 'feedback' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
             <FeedbackView theme={theme} />
           </ErrorBoundary>
         </div>
 
-        <div key={activeTab === 'settings' ? `settings-active-${refreshKey}` : `settings-${refreshKey}`} className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
+        <div className={activeTab === 'settings' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
             <SettingsView theme={theme} onSave={refreshSettings} onThemeChange={handleThemeChange} onAccentChange={handleAccentChange} scrollTrigger={settingsScroll} onDirtyChange={setSettingsDirty} refreshTrigger={settingsRefreshKey} />
           </ErrorBoundary>
         </div>
 
-        <div key={activeTab === 'coupons' ? 'coupons-active' : 'coupons'} className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6 pb-16 md:pb-0 view-enter' : 'hidden'}>
+        <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6 pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
             <CouponsView theme={theme} />
           </ErrorBoundary>
         </div>
 
-        <div key={activeTab === 'storefront' ? `storefront-active-${refreshKey}` : `storefront-${refreshKey}`} className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6 pb-20 md:pb-6 view-enter' : 'hidden'}>
+        <div className={activeTab === 'storefront' ? 'flex-1 overflow-auto p-6 pb-20 md:pb-6 view-enter' : 'hidden'}>
 
           <div className="mb-6">
             <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Storefront customization</h2>
