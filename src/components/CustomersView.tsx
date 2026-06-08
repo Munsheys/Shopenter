@@ -1542,7 +1542,14 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                 <div data-section="section-intransit" />
                 {inTransitGroups.length > 0 && (
                   <section aria-label="Orders in transit">
-                    <SectionLabel>In Transit</SectionLabel>
+                    <div className="flex items-center justify-between mb-1">
+                      <SectionLabel>In Transit</SectionLabel>
+                      <AutoDeliverBadge
+                        merchantSettings={merchantSettings}
+                        isDark={isDark}
+                        onSettingsChange={(updated) => setMerchantSettings((s: any) => ({ ...s, ...updated }))}
+                      />
+                    </div>
                     <div className={`${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'} border rounded-3xl overflow-hidden mt-3`}>
                       {inTransitGroups.map((group, i) => {
                         const isLast = i === inTransitGroups.length - 1;
@@ -2555,6 +2562,81 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
       <span className="w-1 h-3 bg-emerald-500 rounded-full" />
       {children}
     </p>
+  );
+}
+
+function AutoDeliverBadge({ merchantSettings, isDark, onSettingsChange }: {
+  merchantSettings: any;
+  isDark: boolean;
+  onSettingsChange: (updated: any) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const enabled: boolean = !!merchantSettings?.autoDeliver?.enabled;
+  const days: number = merchantSettings?.autoDeliver?.afterDays ?? 14;
+
+  async function patch(patch: object) {
+    const next = { autoDeliver: { ...(merchantSettings?.autoDeliver || {}), ...patch } };
+    setSaving(true);
+    try {
+      const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) });
+      if (res.ok) {
+        onSettingsChange(next);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1800);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const base = `text-[10px] font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`;
+
+  if (!enabled) {
+    return (
+      <button
+        onClick={() => patch({ enabled: true, afterDays: days })}
+        disabled={saving}
+        title="Auto-deliver marks shipped orders as delivered after N days"
+        className={`${base} ${isDark ? 'text-[#8b92ad] hover:text-emerald-400 hover:border-emerald-500/40 bg-[#1a1d2e]' : 'text-slate-400 hover:text-emerald-600 hover:border-emerald-400/50 bg-white'} active:scale-95`}
+      >
+        <Clock size={10} />
+        Auto-deliver off · Enable
+      </button>
+    );
+  }
+
+  return (
+    <div className={`flex items-center gap-1 ${isDark ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-emerald-50 border-emerald-200'} border rounded-full px-2 py-0.5`}>
+      <Clock size={10} className="text-emerald-500 flex-shrink-0" />
+      <span className={`text-[10px] font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>Auto-delivers after</span>
+      <button
+        onClick={() => patch({ enabled: true, afterDays: Math.max(1, days - 1) })}
+        disabled={saving || days <= 1}
+        aria-label="Decrease days"
+        className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black transition-all active:scale-90 disabled:opacity-30 ${isDark ? 'hover:bg-emerald-500/20 text-emerald-400' : 'hover:bg-emerald-100 text-emerald-700'}`}
+      >−</button>
+      <span className={`text-[10px] font-black tabular-nums min-w-[14px] text-center ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>
+        {saved ? <Check size={9} className="inline text-emerald-500" /> : days}
+      </span>
+      <button
+        onClick={() => patch({ enabled: true, afterDays: Math.min(90, days + 1) })}
+        disabled={saving}
+        aria-label="Increase days"
+        className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black transition-all active:scale-90 ${isDark ? 'hover:bg-emerald-500/20 text-emerald-400' : 'hover:bg-emerald-100 text-emerald-700'}`}
+      >+</button>
+      <span className={`text-[10px] font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>days</span>
+      <button
+        onClick={() => patch({ enabled: false })}
+        disabled={saving}
+        title="Disable auto-deliver"
+        aria-label="Disable auto-deliver"
+        className={`ml-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center transition-all active:scale-90 ${isDark ? 'text-[#8b92ad] hover:text-red-400 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`}
+      >
+        <X size={8} />
+      </button>
+    </div>
   );
 }
 
