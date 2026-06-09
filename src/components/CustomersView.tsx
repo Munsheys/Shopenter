@@ -188,6 +188,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [chatButtonY, setChatButtonY] = useState(200);
   const [isDraggingButton, setIsDraggingButton] = useState(false);
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
+  const [highlightedCustomerId, setHighlightedCustomerId] = useState<string | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
 
@@ -285,7 +286,11 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     const target = customers.find(c => c.userId === jumpToUserId);
     if (target) {
       selectCustomer(target);
+      // Flash the sidebar entry briefly so it feels like the cursor landed there
+      setHighlightedCustomerId(target._id);
+      const t = setTimeout(() => setHighlightedCustomerId(null), 1600);
       onJumpConsumed?.();
+      return () => clearTimeout(t);
     }
   // selectCustomer and onJumpConsumed are stable references (useCallback / prop)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -296,8 +301,17 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     if (!jumpToOrderId) return;
     setHighlightedOrderId(jumpToOrderId);
     onJumpOrderConsumed?.();
-    const timer = setTimeout(() => setHighlightedOrderId(null), 3000);
-    return () => clearTimeout(timer);
+    // Scroll into view after customer panel has had time to render (~500ms)
+    const scrollTimer = setTimeout(() => {
+      const el: Element | null =
+        document.querySelector(`[data-order-id="${jumpToOrderId}"]`) ||
+        Array.from(document.querySelectorAll<Element>('[data-order-ids]')).find(
+          el => (el.getAttribute('data-order-ids') ?? '').split(',').includes(jumpToOrderId)
+        ) || null;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 500);
+    const clearTimer = setTimeout(() => setHighlightedOrderId(null), 3000);
+    return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
   }, [jumpToOrderId]);
 
   const refreshOrders = useCallback(async () => {
@@ -1230,7 +1244,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         isSelected
                           ? isDark ? 'bg-accent/10 border-l-accent' : 'bg-accent/5 border-l-accent'
                           : `border-l-transparent ${k.hover}`
-                      } ${isBlocked ? 'opacity-50' : ''}`}
+                      } ${isBlocked ? 'opacity-50' : ''} ${highlightedCustomerId === c._id ? 'sidebar-flash ring-1 ring-accent/50' : ''}`}
                       style={{ animationDelay: `${index * 35}ms` }}
                     >
                       <div className="relative flex-shrink-0">
@@ -1557,32 +1571,35 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                         if (group.length === 1) {
                           const o = group[0];
                           return (
-                            <HistoryRow key={o._id} order={o} isDark={isDark} k={k}
-                              isLast={isLast}
-                              onPatch={(patch) => patchOrder(o._id, patch)}
-                              onDelete={() => confirmDeleteOrder(o._id)}
-                              isHighlighted={isGroupHighlighted}
-                              onToggleFulfilments={o.status === 'partially_fulfilled' && (o.fulfilmentSummary?.total ?? 0) > 0 ? () => toggleFulfilmentsExpanded(o._id) : undefined}
-                              fulfilmentsExpanded={!!expandedFulfilments[o._id]}
-                              fulfilments={fulfilmentsCache[o._id]}
-                              onPatchFulfilment={(fid, patch) => patchFulfilment(fid, o._id, patch)}
-                              onDeleteFulfilment={(fid) => deleteFulfilment(fid, o._id)}
-                              products={products}
-                            />
+                            <div key={o._id} data-order-id={o._id}>
+                              <HistoryRow order={o} isDark={isDark} k={k}
+                                isLast={isLast}
+                                onPatch={(patch) => patchOrder(o._id, patch)}
+                                onDelete={() => confirmDeleteOrder(o._id)}
+                                isHighlighted={isGroupHighlighted}
+                                onToggleFulfilments={o.status === 'partially_fulfilled' && (o.fulfilmentSummary?.total ?? 0) > 0 ? () => toggleFulfilmentsExpanded(o._id) : undefined}
+                                fulfilmentsExpanded={!!expandedFulfilments[o._id]}
+                                fulfilments={fulfilmentsCache[o._id]}
+                                onPatchFulfilment={(fid, patch) => patchFulfilment(fid, o._id, patch)}
+                                onDeleteFulfilment={(fid) => deleteFulfilment(fid, o._id)}
+                                products={products}
+                              />
+                            </div>
                           );
                         }
                         return (
-                          <InTransitParcelGroup
-                            key={group[0].tracking || group[0]._id}
-                            orders={group}
-                            isDark={isDark}
-                            k={k}
-                            isLast={isLast}
-                            onPatchOrder={(id, patch) => patchOrder(id, patch)}
-                            onDeleteOrder={(id) => confirmDeleteOrder(id)}
-                            isGroupHighlighted={isGroupHighlighted}
-                            products={products}
-                          />
+                          <div key={group[0].tracking || group[0]._id} data-order-ids={group.map(o => o._id).join(',')}>
+                            <InTransitParcelGroup
+                              orders={group}
+                              isDark={isDark}
+                              k={k}
+                              isLast={isLast}
+                              onPatchOrder={(id, patch) => patchOrder(id, patch)}
+                              onDeleteOrder={(id) => confirmDeleteOrder(id)}
+                              isGroupHighlighted={isGroupHighlighted}
+                              products={products}
+                            />
+                          </div>
                         );
                       })}
                     </div>
@@ -1613,11 +1630,12 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                   ) : (
                     <div className={`${k.surface} border ${k.border} rounded-3xl overflow-hidden`}>
                       {historyOrders.map((order, idx) => (
-                        <div key={order._id} className="animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
+                        <div key={order._id} data-order-id={order._id} className="animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
                           <HistoryRow order={order} isDark={isDark} k={k}
                             isLast={idx === historyOrders.length - 1}
                             onPatch={(patch) => patchOrder(order._id, patch)}
                             onDelete={() => confirmDeleteOrder(order._id)}
+                            isHighlighted={highlightedOrderId === order._id}
                             onToggleFulfilments={['fulfilled'].includes(order.status) && (order.fulfilmentSummary?.total ?? 0) > 0 ? () => toggleFulfilmentsExpanded(order._id) : undefined}
                             fulfilmentsExpanded={!!expandedFulfilments[order._id]}
                             fulfilments={fulfilmentsCache[order._id]}
@@ -3087,7 +3105,7 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
   const statusLabel: Record<string, string> = { shipped: 'IN TRANSIT', partially_fulfilled: 'PART. FULFILLED', delivered: 'DELIVERED', fulfilled: 'FULFILLED', cancelled: 'CANCELLED' };
 
   return (
-    <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''} ${isHighlighted ? 'ring-2 ring-accent shadow-lg shadow-accent/20' : ''}`}>
+    <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''} ${isHighlighted ? 'ring-2 ring-accent/80 shadow-lg shadow-accent/20 order-glow-pulse' : ''}`}>
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
@@ -3289,7 +3307,7 @@ function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDelet
   const date = new Date(firstOrder.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
-    <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''} ${isGroupHighlighted ? 'ring-2 ring-accent shadow-lg shadow-accent/20' : ''}`}>
+    <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''} ${isGroupHighlighted ? 'ring-2 ring-accent/80 shadow-lg shadow-accent/20 order-glow-pulse' : ''}`}>
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}

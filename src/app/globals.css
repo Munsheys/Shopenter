@@ -189,6 +189,25 @@ body {
   to   { opacity: 0; transform: translateX(60px); max-height: 0; }
 }
 
+/* "View in Chat" — order card glow pulse (repeats 3× then fades) */
+@keyframes orderGlowPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0,185,0,0.5); }
+  55%  { box-shadow: 0 0 0 16px rgba(0,185,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,185,0,0); }
+}
+.order-glow-pulse {
+  animation: orderGlowPulse 0.85s ease-out 3;
+}
+
+/* "View in Chat" — sidebar customer flash */
+@keyframes sidebarFlash {
+  0%   { background: rgba(0,185,0,0.18); }
+  100% { background: transparent; }
+}
+.sidebar-flash {
+  animation: sidebarFlash 1.4s ease-out forwards;
+}
+
 /* ── Utility animation classes ────────────────────────────────── */
 /* backwards fill: hidden during delay, no persistent transform after finish */
 .animate-slide-up   { animation: slideInUp   0.45s cubic-bezier(0.16,1,0.3,1) backwards; }
