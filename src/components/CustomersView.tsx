@@ -3109,16 +3109,31 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
   const statusLabel: Record<string, string> = { shipped: 'IN TRANSIT', partially_fulfilled: 'PART. FULFILLED', delivered: 'DELIVERED', fulfilled: 'FULFILLED', cancelled: 'CANCELLED' };
 
   const autoFulfillBadge = autoDeliverAfterDays != null && order.status === 'shipped' ? (() => {
-    const daysIn = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 86_400_000);
-    const rem = autoDeliverAfterDays - daysIn;
-    const label = rem > 1 ? `${rem}d to auto-fulfill` : rem === 1 ? 'Auto-fulfills tomorrow' : rem === 0 ? 'Auto-fulfills today' : `${Math.abs(rem)}d overdue`;
-    const color = rem <= 0
-      ? (isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-500')
-      : rem <= 2
-        ? (isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600')
-        : rem <= 5
-          ? (isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600')
-          : (isDark ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-500');
+    const targetMs = new Date(order.createdAt).getTime() + autoDeliverAfterDays * 86_400_000;
+    const remainingMs = targetMs - Date.now();
+    let label: string;
+    let color: string;
+    if (remainingMs <= 0) {
+      label = 'Fulfilling soon';
+      color = isDark ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-500';
+    } else {
+      const days = Math.floor(remainingMs / 86_400_000);
+      if (days === 0) {
+        const hours = Math.floor(remainingMs / 3_600_000);
+        const mins = Math.floor((remainingMs % 3_600_000) / 60_000);
+        label = hours > 0 ? `${hours}h ${mins}m to auto-fulfill` : `${mins}m to auto-fulfill`;
+        color = isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600';
+      } else if (days === 1) {
+        label = 'Auto-fulfills tomorrow';
+        color = isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600';
+      } else if (days <= 5) {
+        label = `${days}d to auto-fulfill`;
+        color = isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600';
+      } else {
+        label = `${days}d to auto-fulfill`;
+        color = isDark ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-500';
+      }
+    }
     return <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 flex-shrink-0 ${color}`}><Clock size={7} /> {label}</span>;
   })() : null;
 
@@ -3327,16 +3342,31 @@ function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDelet
   const date = new Date(firstOrder.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const autoFulfillBadge = autoDeliverAfterDays != null ? (() => {
-    const daysIn = Math.floor((Date.now() - new Date(firstOrder.createdAt).getTime()) / 86_400_000);
-    const rem = autoDeliverAfterDays - daysIn;
-    const label = rem > 1 ? `${rem}d to auto-fulfill` : rem === 1 ? 'Auto-fulfills tomorrow' : rem === 0 ? 'Auto-fulfills today' : `${Math.abs(rem)}d overdue`;
-    const color = rem <= 0
-      ? (isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-500')
-      : rem <= 2
-        ? (isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600')
-        : rem <= 5
-          ? (isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600')
-          : (isDark ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-500');
+    const targetMs = new Date(firstOrder.createdAt).getTime() + autoDeliverAfterDays * 86_400_000;
+    const remainingMs = targetMs - Date.now();
+    let label: string;
+    let color: string;
+    if (remainingMs <= 0) {
+      label = 'Fulfilling soon';
+      color = isDark ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-500';
+    } else {
+      const days = Math.floor(remainingMs / 86_400_000);
+      if (days === 0) {
+        const hours = Math.floor(remainingMs / 3_600_000);
+        const mins = Math.floor((remainingMs % 3_600_000) / 60_000);
+        label = hours > 0 ? `${hours}h ${mins}m to auto-fulfill` : `${mins}m to auto-fulfill`;
+        color = isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600';
+      } else if (days === 1) {
+        label = 'Auto-fulfills tomorrow';
+        color = isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600';
+      } else if (days <= 5) {
+        label = `${days}d to auto-fulfill`;
+        color = isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600';
+      } else {
+        label = `${days}d to auto-fulfill`;
+        color = isDark ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-500';
+      }
+    }
     return <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 flex-shrink-0 ${color}`}><Clock size={7} /> {label}</span>;
   })() : null;
 
