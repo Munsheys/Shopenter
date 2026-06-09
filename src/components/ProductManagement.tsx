@@ -665,7 +665,7 @@ export function ProductModal({
       } else {
         const currentId = (initialData as any)?._id;
         if (currentId !== prevIdRef.current) {
-          setForm(initialData);
+          setForm({ ...initialData, soldCurrency: defaultSoldCurrency });
           setTouched({});
           prevOptionsRef.current = JSON.stringify(initialData.options || []);
           prevIdRef.current = currentId;
@@ -809,10 +809,10 @@ export function ProductModal({
                   <div className="grid grid-cols-3 gap-2">
                     <input type="number" min="0.01" step="any" value={form.price} onChange={e => updateForm({ price: e.target.value })} placeholder="299"
                       className={cn(inputCls, 'col-span-2 font-bold text-accent')} />
-                    <select value={form.soldCurrency} onChange={e => updateForm({ soldCurrency: e.target.value })}
-                      className={cn('border rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:border-accent transition-colors', isDark ? 'bg-[#161925] border-[#1f2335] text-white' : 'bg-white border-[#e2e5ef] text-[#1a1d2e]')}>
-                      {ALL_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <div className={cn('border rounded-xl px-3 py-2.5 text-xs font-bold flex items-center justify-center select-none', isDark ? 'bg-[#161925] border-[#1f2335] text-[#8b92ad]' : 'bg-[#f8f9fc] border-[#e2e5ef] text-[#8b92ad]')}
+                      title="Selling currency is set in Settings → Local currency">
+                      {form.soldCurrency || defaultSoldCurrency}
+                    </div>
                   </div>
                   {priceError && <p role="alert" className="text-[10px] text-red-500 mt-1">{priceError}</p>}
                 </div>
