@@ -2570,25 +2570,34 @@ function AutoDeliverBadge({ merchantSettings, isDark, onSettingsChange }: {
   isDark: boolean;
   onSettingsChange: (updated: any) => void;
 }) {
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
   const enabled: boolean = !!merchantSettings?.autoDeliver?.enabled;
-  const days: number = merchantSettings?.autoDeliver?.afterDays ?? 14;
+  const serverDays: number = merchantSettings?.autoDeliver?.afterDays ?? 14;
 
-  async function patch(patch: object) {
-    const next = { autoDeliver: { ...(merchantSettings?.autoDeliver || {}), ...patch } };
-    setSaving(true);
-    try {
+  const [localDays, setLocalDays] = useState(serverDays);
+  const [saved, setSaved] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep local in sync when parent merchantSettings changes from outside
+  useEffect(() => { setLocalDays(serverDays); }, [serverDays]);
+
+  function saveDays(newDays: number) {
+    setLocalDays(newDays);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const next = { autoDeliver: { ...(merchantSettings?.autoDeliver || {}), enabled: true, afterDays: newDays } };
       const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) });
       if (res.ok) {
         onSettingsChange(next);
         setSaved(true);
-        setTimeout(() => setSaved(false), 1800);
+        setTimeout(() => setSaved(false), 1200);
       }
-    } finally {
-      setSaving(false);
-    }
+    }, 600);
+  }
+
+  async function toggleEnabled(on: boolean) {
+    const next = { autoDeliver: { ...(merchantSettings?.autoDeliver || {}), enabled: on, afterDays: localDays } };
+    const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) });
+    if (res.ok) onSettingsChange(next);
   }
 
   const base = `text-[10px] font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`;
@@ -2596,8 +2605,7 @@ function AutoDeliverBadge({ merchantSettings, isDark, onSettingsChange }: {
   if (!enabled) {
     return (
       <button
-        onClick={() => patch({ enabled: true, afterDays: days })}
-        disabled={saving}
+        onClick={() => toggleEnabled(true)}
         title="Auto-deliver marks shipped orders as delivered after N days"
         className={`${base} ${isDark ? 'text-[#8b92ad] hover:text-emerald-400 hover:border-emerald-500/40 bg-[#1a1d2e]' : 'text-slate-400 hover:text-emerald-600 hover:border-emerald-400/50 bg-white'} active:scale-95`}
       >
@@ -2612,24 +2620,23 @@ function AutoDeliverBadge({ merchantSettings, isDark, onSettingsChange }: {
       <Clock size={10} className="text-emerald-500 flex-shrink-0" />
       <span className={`text-[10px] font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>Auto-delivers after</span>
       <button
-        onClick={() => patch({ enabled: true, afterDays: Math.max(1, days - 1) })}
-        disabled={saving || days <= 1}
+        onClick={() => saveDays(Math.max(1, localDays - 1))}
+        disabled={localDays <= 1}
         aria-label="Decrease days"
         className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black transition-all active:scale-90 disabled:opacity-30 ${isDark ? 'hover:bg-emerald-500/20 text-emerald-400' : 'hover:bg-emerald-100 text-emerald-700'}`}
       >−</button>
       <span className={`text-[10px] font-black tabular-nums min-w-[14px] text-center ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>
-        {saved ? <Check size={9} className="inline text-emerald-500" /> : days}
+        {saved ? <Check size={9} className="inline text-emerald-500" /> : localDays}
       </span>
       <button
-        onClick={() => patch({ enabled: true, afterDays: Math.min(90, days + 1) })}
-        disabled={saving}
+        onClick={() => saveDays(Math.min(90, localDays + 1))}
+        disabled={localDays >= 90}
         aria-label="Increase days"
-        className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black transition-all active:scale-90 ${isDark ? 'hover:bg-emerald-500/20 text-emerald-400' : 'hover:bg-emerald-100 text-emerald-700'}`}
+        className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black transition-all active:scale-90 disabled:opacity-30 ${isDark ? 'hover:bg-emerald-500/20 text-emerald-400' : 'hover:bg-emerald-100 text-emerald-700'}`}
       >+</button>
       <span className={`text-[10px] font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>days</span>
       <button
-        onClick={() => patch({ enabled: false })}
-        disabled={saving}
+        onClick={() => toggleEnabled(false)}
         title="Disable auto-deliver"
         aria-label="Disable auto-deliver"
         className={`ml-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center transition-all active:scale-90 ${isDark ? 'text-[#8b92ad] hover:text-red-400 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`}
