@@ -226,7 +226,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action, feedbackId } = body;
 
-    // Case 0: Configure SlipOK credentials for a specific merchant (master admin only)
+    // Case 0a: Migrate all trialing merchants to paid (free-tier rollout)
+    if (action === 'migrate_free_tier') {
+      const result = await Merchant.updateMany(
+        { paymentStatus: { $in: ['trialing', 'unpaid'] } },
+        { $set: { paymentStatus: 'paid' } }
+      );
+      return NextResponse.json({ success: true, updated: result.modifiedCount });
+    }
+
+    // Case 0b: Configure SlipOK credentials for a specific merchant (master admin only)
     if (action === 'configure_slipok') {
       const { merchantId, slipokApiKey, slipokBranchId } = body;
       if (!merchantId) return NextResponse.json({ error: 'merchantId is required' }, { status: 400 });

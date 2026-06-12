@@ -76,7 +76,7 @@ function getLinePlanColor(plan: string): string {
 }
 
 const SHOPENTER_PLAN: Record<string, { label: string; color: string; desc: string }> = {
-  free:       { label: 'Free',       color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',   desc: 'Basic features included' },
+  free:       { label: 'Free',       color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', desc: 'All features included' },
   pro:        { label: 'Pro',        color: 'bg-violet-500/15 text-violet-400 border-violet-500/30', desc: 'Full feature access' },
   enterprise: { label: 'Enterprise', color: 'bg-amber-500/15 text-amber-400 border-amber-500/30',   desc: 'Custom solutions & support' },
 };
@@ -1034,8 +1034,7 @@ export default function SettingsView({
                       </div>
                       {merchantPlan.tier === 'free' && (
                         <div className={`mt-2 pt-3 border-t ${K.border}`}>
-                          <p className={`text-xs ${K.muted} mb-2`}>Upgrade for higher order limits, broadcasts, and more.</p>
-                          <button className="px-4 py-2 rounded-xl text-xs font-bold bg-accent text-white hover:opacity-90 transition-all">Upgrade to Pro →</button>
+                          <p className={`text-xs ${K.muted}`}>Unlimited products, orders, broadcasts, and all features — no credit card required.</p>
                         </div>
                       )}
                     </div>
