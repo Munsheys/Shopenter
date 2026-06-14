@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Send markAsRead to LINE API
     const settings = await Settings.findOne({ merchantId: merchant.merchantId });
-    const channelAccessToken = (settings?.lineChannelAccessToken || process.env.LINE_CHANNEL_ACCESS_TOKEN || '').trim();
+    const channelAccessToken = (settings?.lineChannelAccessToken || '').trim();
 
     if (channelAccessToken && userId && !userId.startsWith('mock-')) {
       await markLineMessagesAsRead(channelAccessToken, userId);
