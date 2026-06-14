@@ -1568,6 +1568,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       {inTransitGroups.map((group, i) => {
                         const isLast = i === inTransitGroups.length - 1;
                         const isGroupHighlighted = group.some(o => highlightedOrderId === o._id);
+                        const autoDeliverAfterDays = merchantSettings?.autoDeliver?.enabled ? (merchantSettings.autoDeliver.afterDays ?? 14) : null;
                         if (group.length === 1) {
                           const o = group[0];
                           return (
@@ -1577,6 +1578,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                                 onPatch={(patch) => patchOrder(o._id, patch)}
                                 onDelete={() => confirmDeleteOrder(o._id)}
                                 isHighlighted={isGroupHighlighted}
+                                autoDeliverAfterDays={autoDeliverAfterDays}
                                 onToggleFulfilments={o.status === 'partially_fulfilled' && (o.fulfilmentSummary?.total ?? 0) > 0 ? () => toggleFulfilmentsExpanded(o._id) : undefined}
                                 fulfilmentsExpanded={!!expandedFulfilments[o._id]}
                                 fulfilments={fulfilmentsCache[o._id]}
@@ -1597,6 +1599,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                               onPatchOrder={(id, patch) => patchOrder(id, patch)}
                               onDeleteOrder={(id) => confirmDeleteOrder(id)}
                               isGroupHighlighted={isGroupHighlighted}
+                              autoDeliverAfterDays={autoDeliverAfterDays}
                               products={products}
                             />
                           </div>
@@ -3058,11 +3061,12 @@ function AddressSection({ customer, isDark, k, selectedIdx, onSelect, onAdd, onR
 }
 
 // ── History Row ───────────────────────────────────────────────────────────────
-function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment, products }: {
+function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted, autoDeliverAfterDays, onToggleFulfilments, fulfilmentsExpanded, fulfilments, onPatchFulfilment, onDeleteFulfilment, products }: {
   order: Order; isDark: boolean; k: typeof DK; isLast: boolean;
   onPatch: (patch: object) => void;
   onDelete: () => void;
   isHighlighted?: boolean;
+  autoDeliverAfterDays?: number | null;
   onToggleFulfilments?: () => void;
   fulfilmentsExpanded?: boolean;
   fulfilments?: Fulfilment[];
@@ -3104,6 +3108,20 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
   };
   const statusLabel: Record<string, string> = { shipped: 'IN TRANSIT', partially_fulfilled: 'PART. FULFILLED', delivered: 'DELIVERED', fulfilled: 'FULFILLED', cancelled: 'CANCELLED' };
 
+  const autoFulfillBadge = autoDeliverAfterDays != null && order.status === 'shipped' ? (() => {
+    const daysIn = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 86_400_000);
+    const rem = autoDeliverAfterDays - daysIn;
+    const label = rem > 1 ? `${rem}d to auto-fulfill` : rem === 1 ? 'Auto-fulfills tomorrow' : rem === 0 ? 'Auto-fulfills today' : `${Math.abs(rem)}d overdue`;
+    const color = rem <= 0
+      ? (isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-500')
+      : rem <= 2
+        ? (isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600')
+        : rem <= 5
+          ? (isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600')
+          : (isDark ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-500');
+    return <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 flex-shrink-0 ${color}`}><Clock size={7} /> {label}</span>;
+  })() : null;
+
   return (
     <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''} ${isHighlighted ? 'ring-2 ring-accent/80 shadow-lg shadow-accent/20 order-glow-pulse' : ''}`}>
       <button
@@ -3127,7 +3145,7 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
               {statusLabel[order.status] || order.status.toUpperCase()}
             </span>
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className={`text-[10px] ${k.muted} flex items-center gap-1`}>
               <Clock size={9} />
               {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -3137,6 +3155,7 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
                 {order.courier || 'Shipped'} · {order.tracking}
               </span>
             )}
+            {autoFulfillBadge}
           </div>
         </div>
         <div className="text-right flex-shrink-0">
@@ -3292,11 +3311,12 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
 }
 
 // ── In-Transit Parcel Group ───────────────────────────────────────────────────
-function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDeleteOrder, isGroupHighlighted, products }: {
+function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDeleteOrder, isGroupHighlighted, autoDeliverAfterDays, products }: {
   orders: Order[]; isDark: boolean; k: typeof DK; isLast: boolean;
   onPatchOrder: (id: string, patch: object) => void;
   onDeleteOrder: (id: string) => void;
   isGroupHighlighted?: boolean;
+  autoDeliverAfterDays?: number | null;
   products?: Product[];
 }) {
   const [open, setOpen] = useState(false);
@@ -3305,6 +3325,20 @@ function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDelet
   const totalProfit = orders.reduce((s, o) => s + (o.profit || 0), 0);
   const sc = firstOrder.soldCurrency || 'THB';
   const date = new Date(firstOrder.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const autoFulfillBadge = autoDeliverAfterDays != null ? (() => {
+    const daysIn = Math.floor((Date.now() - new Date(firstOrder.createdAt).getTime()) / 86_400_000);
+    const rem = autoDeliverAfterDays - daysIn;
+    const label = rem > 1 ? `${rem}d to auto-fulfill` : rem === 1 ? 'Auto-fulfills tomorrow' : rem === 0 ? 'Auto-fulfills today' : `${Math.abs(rem)}d overdue`;
+    const color = rem <= 0
+      ? (isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-500')
+      : rem <= 2
+        ? (isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600')
+        : rem <= 5
+          ? (isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600')
+          : (isDark ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-500');
+    return <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 flex-shrink-0 ${color}`}><Clock size={7} /> {label}</span>;
+  })() : null;
 
   return (
     <div className={`transition-all duration-300 ${!isLast ? `border-b ${k.border}` : ''} ${open ? (isDark ? 'bg-white/5' : 'bg-slate-50') : ''} ${isGroupHighlighted ? 'ring-2 ring-accent/80 shadow-lg shadow-accent/20 order-glow-pulse' : ''}`}>
@@ -3325,10 +3359,11 @@ function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDelet
               IN TRANSIT
             </span>
           </div>
-          <div className="flex items-center gap-1 mt-0.5">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className={`text-[10px] ${k.muted} flex items-center gap-1`}>
               <Clock size={9} />{date}
             </span>
+            {autoFulfillBadge}
           </div>
           <p className={`text-[10px] mt-0.5 truncate ${k.muted}`}>
             {orders.map(o => o.product).join(' · ')}
