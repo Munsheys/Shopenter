@@ -486,7 +486,7 @@ export default function Shop() {
           <p className="text-[#8b92ad] text-sm sm:text-base font-medium mb-12 text-center">Thank you for your acquisition. Please complete the transfer below.</p>
           <div className="bg-white rounded-[48px] sm:rounded-[64px] p-10 sm:p-16 inline-block mb-12 shadow-2xl border border-[#1a1d2e]/5 relative">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1a1d2e] text-white text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-[0.3em]">Official Secure Portal</div>
-            <img src={`/api/qr?amount=${currentOrder.soldTHB}&ref=${currentOrder._id}`} alt="PromptPay QR" className="w-64 h-64 sm:w-80 sm:h-80 mx-auto object-contain mb-6 sm:mb-10" />
+            <img src={`/api/qr?amount=${currentOrder.soldTHB}&ref=${currentOrder._id}${shopInfo?.merchantId ? `&merchantId=${shopInfo.merchantId}` : ''}`} alt="PromptPay QR" className="w-64 h-64 sm:w-80 sm:h-80 mx-auto object-contain mb-6 sm:mb-10" />
             <div className="text-[#1a1d2e] font-black text-3xl sm:text-5xl tracking-tighter">฿{currentOrder.soldTHB?.toLocaleString()}</div>
             <p className="text-[10px] sm:text-xs font-black text-[#d4af37] uppercase tracking-widest mt-2 sm:mt-4">REF: {currentOrder._id.slice(-8).toUpperCase()}</p>
           </div>

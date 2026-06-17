@@ -1,6 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import dbConnect from '@/lib/db';
 import { Customer, Settings, Merchant } from '@/models';
 import { searchProducts } from '@/lib/intentSearch';
@@ -8,6 +9,18 @@ import { sendInstagramMessage, sendInstagramProductCards } from '@/lib/platforms
 
 // Verify token merchants set in their Meta App webhook config
 const VERIFY_TOKEN = process.env.IG_VERIFY_TOKEN || 'shopenter';
+// Meta App Secret — used to verify the X-Hub-Signature-256 HMAC on each event.
+const APP_SECRET = process.env.IG_APP_SECRET || '';
+
+// Constant-time check of Meta's signature against one computed from the raw body.
+function verifyInstagramSignature(rawBody: string, signatureHeader: string | null): boolean {
+  if (!APP_SECRET) return true; // not configured — skip verification (backward compat)
+  if (!signatureHeader?.startsWith('sha256=')) return false;
+  const expected = 'sha256=' + crypto.createHmac('sha256', APP_SECRET).update(rawBody).digest('hex');
+  const a = Buffer.from(signatureHeader);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 // ── Webhook verification (Meta sends a GET to confirm the endpoint) ────────────
 export async function GET(
@@ -32,8 +45,14 @@ export async function POST(
 ) {
   const { merchantId } = await params;
 
+  // Read the raw body first — HMAC must be computed over the exact bytes Meta sent.
+  const rawBody = await req.text();
+  if (!verifyInstagramSignature(rawBody, req.headers.get('x-hub-signature-256'))) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
+  }
+
   let body: any;
-  try { body = await req.json(); } catch { return NextResponse.json({ ok: true }); }
+  try { body = JSON.parse(rawBody); } catch { return NextResponse.json({ ok: true }); }
 
   const proto  = req.headers.get('x-forwarded-proto') || 'https';
   const host   = req.headers.get('host') || '';

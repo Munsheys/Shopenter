@@ -80,8 +80,14 @@ export async function POST(req: NextRequest) {
         update[key] = val;
       }
     }
-    // Never let clients overwrite the merchantId binding
-    delete body.merchantId;
+
+    // Strip fields a merchant must never self-assign via this endpoint:
+    //  - merchantId/_id/__v: rebinding the doc to another tenant would corrupt/hijack data
+    //  - tier/paymentStatus: billing-controlled; only the admin/billing path may change these
+    //  - createdAt: immutable
+    for (const protectedKey of ['merchantId', '_id', '__v', 'tier', 'paymentStatus', 'createdAt']) {
+      delete update[protectedKey];
+    }
 
     // Sync shopName and slug to the Merchant model as well, since they govern global identity and storefront routing
     if (body.shopName !== undefined || body.slug !== undefined) {

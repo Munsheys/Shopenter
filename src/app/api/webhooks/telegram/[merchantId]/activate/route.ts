@@ -1,6 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
 import { setTelegramWebhook } from '@/lib/platforms/telegram';
@@ -25,10 +26,17 @@ export async function POST(
   const proto = req.headers.get('x-forwarded-proto') ?? 'https';
   const webhookUrl = `${proto}://${host}/api/webhooks/telegram/${merchantId}`;
 
-  const result = await setTelegramWebhook(settings.telegram.botToken, webhookUrl);
+  // Reuse an existing secret if present, otherwise mint one. Telegram echoes it back
+  // in the X-Telegram-Bot-Api-Secret-Token header so the webhook can reject forgeries.
+  const webhookSecret: string = settings.telegram.webhookSecret || randomUUID().replace(/-/g, '');
+
+  const result = await setTelegramWebhook(settings.telegram.botToken, webhookUrl, webhookSecret);
 
   if (result.ok) {
-    await Settings.findOneAndUpdate({ merchantId }, { 'telegram.webhookActive': true });
+    await Settings.findOneAndUpdate(
+      { merchantId },
+      { 'telegram.webhookActive': true, 'telegram.webhookSecret': webhookSecret },
+    );
     return NextResponse.json({ success: true, webhookUrl });
   } else {
     return NextResponse.json({ error: result.description ?? 'Failed to set webhook' }, { status: 400 });

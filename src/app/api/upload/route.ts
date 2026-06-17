@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { getMerchantFromRequest } from '@/lib/auth';
 import dbConnect from '@/lib/db';
 import { MediaFile } from '@/models';
@@ -76,10 +77,12 @@ export async function POST(req: NextRequest) {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   await dbConnect();
+  const token = randomUUID();
   const media = await MediaFile.create({
     merchantId: merchant.merchantId,
     contentType: file.type,
     filename: file.name,
+    token,
     data: buffer,
   });
 
@@ -89,6 +92,6 @@ export async function POST(req: NextRequest) {
   const host   = req.headers.get('x-forwarded-host') ?? new URL(req.url).host;
   const origin = `${proto}://${host}`;
 
-  const url = `${origin}/api/media/${media._id}`;
-  return NextResponse.json({ url, id: media._id.toString(), contentType: file.type });
+  const url = `${origin}/api/media/${media._id}?t=${token}`;
+  return NextResponse.json({ url, id: media._id.toString(), token, contentType: file.type });
 }

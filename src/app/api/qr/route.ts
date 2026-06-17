@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
+import { resolveStoreMerchantId } from '@/lib/storeScope';
 import ppqr from 'th-promptpay-qr';
 import QRCode from 'qrcode';
 
@@ -13,7 +14,16 @@ export async function GET(req: NextRequest) {
     const amount = amountStr ? parseFloat(amountStr) : 0;
 
     await dbConnect();
-    const settings = await Settings.findOne();
+
+    // Resolve which merchant this QR belongs to. Without scoping, a bare
+    // findOne() returns an arbitrary tenant's PromptPay ID — i.e. money could
+    // be collected into the wrong merchant's account.
+    const merchantId = await resolveStoreMerchantId(searchParams.get('merchantId'));
+    if (!merchantId) {
+      return new NextResponse('Merchant not specified', { status: 400 });
+    }
+
+    const settings = await Settings.findOne({ merchantId });
     if (!settings || !settings.promptPayId) {
       return new NextResponse('PromptPay ID not configured', { status: 400 });
     }

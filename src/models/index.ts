@@ -135,6 +135,7 @@ const SettingsSchema = new mongoose.Schema({
   telegram: {
     botToken:              { type: String,  default: '' },
     webhookActive:         { type: Boolean, default: false },
+    webhookSecret:         { type: String,  default: '' }, // verifies inbound webhook calls came from Telegram
     intentSearch:          { type: Boolean, default: true },
     welcomeEnabled:        { type: Boolean, default: true },
     welcomeMessage:        { type: String,  default: '' },
@@ -362,6 +363,11 @@ const MediaFileSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   contentType: { type: String, required: true },
   filename: { type: String, default: '' },
+  // Capability token — the public URL carries `?t=<token>` and must match to fetch.
+  // The endpoint stays unauthenticated (LINE/Telegram fetch it directly), but a bare
+  // ObjectId is no longer enough to read another merchant's media. Legacy docs with an
+  // empty token remain readable so previously-sent message URLs keep working.
+  token: { type: String, default: '' },
   data: { type: Buffer, required: true },
   createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 30 },
 });

@@ -77,12 +77,23 @@ export async function answerCallbackQuery(token: string, callbackQueryId: string
   } catch {}
 }
 
-export async function setTelegramWebhook(token: string, webhookUrl: string): Promise<{ ok: boolean; description?: string }> {
+export async function setTelegramWebhook(
+  token: string,
+  webhookUrl: string,
+  secretToken?: string,
+): Promise<{ ok: boolean; description?: string }> {
   try {
+    const body: Record<string, unknown> = {
+      url: webhookUrl,
+      allowed_updates: ['message', 'callback_query'],
+    };
+    // Telegram echoes this back in the X-Telegram-Bot-Api-Secret-Token header on
+    // every webhook call, letting us reject forged requests.
+    if (secretToken) body.secret_token = secretToken;
     const res = await fetch(`${BASE(token)}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message', 'callback_query'] }),
+      body: JSON.stringify(body),
     });
     return res.json();
   } catch { return { ok: false }; }

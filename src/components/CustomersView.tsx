@@ -11,6 +11,18 @@ import {
 import { type ProductForm } from './ProductManagement';
 import NumberStepper from '@/components/NumberStepper';
 
+// Escape user-controlled values before injecting them into printed receipt HTML.
+// Order fields (product name, address, courier, tracking) can contain customer-typed
+// text; without escaping, a value like `<img src=x onerror=...>` would execute.
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 type Customer = {
   _id: string; userId: string; displayName: string; pictureUrl?: string;
   addresses: string[]; lastSeen: string; unreadCount: number;
@@ -3195,11 +3207,11 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
               const w = window.open('', '_blank', 'width=480,height=600');
               if (!w) return;
               w.document.write(`<html><head><title>Order Receipt</title><style>body{font-family:sans-serif;padding:24px;font-size:13px}h2{margin:0 0 4px}p{margin:4px 0}hr{border:none;border-top:1px solid #ddd;margin:12px 0}.label{color:#888;font-size:11px}</style></head><body>
-                <h2>${order.product}</h2>
+                <h2>${escapeHtml(order.product)}</h2>
                 <p class="label">${new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 <hr/>
-                ${order.tracking ? `<p><b>Courier:</b> ${order.courier || ''} · ${order.tracking}</p>` : ''}
-                ${order.address ? `<p><b>Address:</b> ${order.address}</p>` : ''}
+                ${order.tracking ? `<p><b>Courier:</b> ${escapeHtml(order.courier || '')} · ${escapeHtml(order.tracking)}</p>` : ''}
+                ${order.address ? `<p><b>Address:</b> ${escapeHtml(order.address)}</p>` : ''}
                 <hr/>
                 <p><b>Sales:</b> ${sc} ${fmt(order.soldTHB)}</p>
                 <p><b>Cost:</b> ${cc} ${fmt(order.costKRW)} (${sc} ${fmt(Math.round(currentCostTHB))})</p>
@@ -3418,14 +3430,14 @@ function InTransitParcelGroup({ orders, isDark, k, isLast, onPatchOrder, onDelet
             const w = window.open('', '_blank', 'width=480,height=700');
             if (!w) return;
             const rows = orders.map(o =>
-              `<tr><td>${o.product}</td><td style="text-align:right;padding-left:16px">${sc} ${fmt(o.soldTHB)}</td></tr>`
+              `<tr><td>${escapeHtml(o.product)}</td><td style="text-align:right;padding-left:16px">${sc} ${fmt(o.soldTHB)}</td></tr>`
             ).join('');
             w.document.write(`<html><head><title>Parcel Receipt</title><style>body{font-family:sans-serif;padding:24px;font-size:13px}h2{margin:0 0 4px}p{margin:4px 0}hr{border:none;border-top:1px solid #ddd;margin:12px 0}table{width:100%}.label{color:#888;font-size:11px}td{padding:4px 0}</style></head><body>
               <h2>Parcel · ${orders.length} items</h2>
-              <p class="label">${firstOrder.courier ? `${firstOrder.courier} · ` : ''}${firstOrder.tracking || ''}</p>
+              <p class="label">${firstOrder.courier ? `${escapeHtml(firstOrder.courier)} · ` : ''}${escapeHtml(firstOrder.tracking || '')}</p>
               <p class="label">${date}</p>
               <hr/>
-              ${firstOrder.address ? `<p><b>Address:</b> ${firstOrder.address}</p><hr/>` : ''}
+              ${firstOrder.address ? `<p><b>Address:</b> ${escapeHtml(firstOrder.address)}</p><hr/>` : ''}
               <table>${rows}<tr style="font-weight:bold;border-top:1px solid #ddd"><td>Total</td><td style="text-align:right;padding-left:16px">${sc} ${fmt(totalSold)}</td></tr></table>
               <hr/>
               <p><b>Profit:</b> ${sc} ${fmt(Math.round(totalProfit))}</p>

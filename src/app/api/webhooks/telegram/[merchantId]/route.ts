@@ -23,15 +23,26 @@ export async function POST(
   const host  = req.headers.get('host') || '';
   const baseUrl = `${proto}://${host}`;
 
-  handleUpdate(merchantId, body, baseUrl).catch(err => console.error('[telegram webhook]', err));
+  // Telegram echoes the secret we registered via setWebhook. Verify it so forged
+  // POSTs to this public URL can't inject fake messages or trigger outbound sends.
+  const secretHeader = req.headers.get('x-telegram-bot-api-secret-token') || '';
+
+  handleUpdate(merchantId, body, baseUrl, secretHeader).catch(err => console.error('[telegram webhook]', err));
   return NextResponse.json({ ok: true });
 }
 
-async function handleUpdate(merchantId: string, update: any, baseUrl: string) {
+async function handleUpdate(merchantId: string, update: any, baseUrl: string, secretHeader: string) {
   await dbConnect();
 
   const settings = await Settings.findOne({ merchantId }).lean() as any;
   if (!settings?.telegram?.botToken) return;
+
+  // Reject if a secret is configured and the inbound header doesn't match.
+  // (Webhooks activated before this rollout have no secret yet — they pass until re-activated.)
+  if (settings.telegram.webhookSecret && settings.telegram.webhookSecret !== secretHeader) {
+    console.warn('[telegram webhook] secret token mismatch — rejecting');
+    return;
+  }
 
   const token: string = settings.telegram.botToken;
   const shopName: string = settings.shopName || 'Our Shop';
