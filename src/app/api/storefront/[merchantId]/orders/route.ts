@@ -24,11 +24,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
 
     // Recompute total server-side — never trust the client-supplied price
     let baseTotal = 0;
+    // Stock to atomically decrement after pricing (only stock-tracked variant items)
+    const stockDecrements: Array<{ productId: string; variantLabel: string; qty: number }> = [];
     if (Array.isArray(orderData.items) && orderData.items.length > 0) {
       const recomputedItems = await Promise.all(
         orderData.items.map(async (item: any) => {
           const product = await Product.findById(item.productId)
-            .select('price variants trackStock stock')
+            .select('price variants trackStock')
             .lean() as any;
 
           let serverPrice: number;
@@ -40,6 +42,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
               (v: any) => v.variantName === item.variantLabel
             );
             serverPrice = matched?.price ?? product.price;
+            if (product.trackStock && matched) {
+              stockDecrements.push({ productId: String(product._id), variantLabel: item.variantLabel, qty: item.qty ?? 1 });
+            }
           } else {
             serverPrice = product.price;
           }
@@ -54,7 +59,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
       baseTotal = orderData.soldTHB || 0;
     }
 
-    // Validate and apply coupon
+    // ── Atomically reserve stock (prevents overselling under concurrency) ────────
+    // Each decrement only succeeds if the variant still has enough stock. If any item
+    // is short, roll back the ones already decremented and reject the whole order.
+    const decremented: typeof stockDecrements = [];
+    for (const op of stockDecrements) {
+      const res = await Product.updateOne(
+        { _id: op.productId, merchantId, variants: { $elemMatch: { variantName: op.variantLabel, stock: { $gte: op.qty } } } },
+        { $inc: { 'variants.$.stock': -op.qty } }
+      );
+      if (res.modifiedCount === 1) {
+        decremented.push(op);
+      } else {
+        for (const d of decremented) {
+          await Product.updateOne(
+            { _id: d.productId, 'variants.variantName': d.variantLabel },
+            { $inc: { 'variants.$.stock': d.qty } }
+          );
+        }
+        return NextResponse.json({ error: 'Sorry, one or more items just went out of stock.', outOfStock: true }, { status: 409 });
+      }
+    }
+
+    // Helper to undo all stock reservations if a later step fails before the order is saved
+    const rollbackStock = async () => {
+      for (const d of decremented) {
+        await Product.updateOne(
+          { _id: d.productId, 'variants.variantName': d.variantLabel },
+          { $inc: { 'variants.$.stock': d.qty } }
+        );
+      }
+    };
+
+    // Validate and apply coupon — claim a use atomically so concurrent checkouts
+    // can't push usedCount past maxUses.
     if (couponCode) {
       const coupon = await Coupon.findOne({
         merchantId,
@@ -62,18 +100,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
         isActive: true,
       });
 
-      if (coupon && !(coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) &&
-          !(coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) &&
-          !(coupon.minOrderAmount > 0 && baseTotal < coupon.minOrderAmount)) {
-        discountAmount = coupon.type === 'percent'
-          ? Math.floor((baseTotal * coupon.value) / 100)
-          : Math.min(coupon.value, baseTotal);
-        appliedCouponCode = coupon.code;
-        await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
+      const valid = coupon &&
+        !(coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) &&
+        !(coupon.minOrderAmount > 0 && baseTotal < coupon.minOrderAmount);
+
+      if (valid) {
+        let claimed = true;
+        if (coupon.maxUses > 0) {
+          const res = await Coupon.findOneAndUpdate(
+            { _id: coupon._id, $expr: { $lt: ['$usedCount', '$maxUses'] } },
+            { $inc: { usedCount: 1 } },
+          );
+          claimed = !!res;
+        } else {
+          await Coupon.updateOne({ _id: coupon._id }, { $inc: { usedCount: 1 } });
+        }
+        if (claimed) {
+          discountAmount = coupon.type === 'percent'
+            ? Math.floor((baseTotal * coupon.value) / 100)
+            : Math.min(coupon.value, baseTotal);
+          appliedCouponCode = coupon.code;
+        }
       }
     }
 
-    // Validate and apply loyalty point redemption
+    // Validate and apply loyalty point redemption — deduct atomically so the same
+    // balance can't be spent twice by concurrent orders.
     if (redeemPoints && userId) {
       const loyaltySettings = await Settings.findOne({ merchantId }).select('loyalty').lean() as any;
       const loyalty = loyaltySettings?.loyalty;
@@ -85,32 +137,44 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
         const pointsToRedeem = Math.min(Number(redeemPoints), availablePoints);
 
         if (pointsToRedeem >= (loyalty.minRedeemPoints ?? 100)) {
-          const pointDiscount = Math.floor(pointsToRedeem / loyalty.redeemRate);
-          discountAmount += pointDiscount;
-          redeemedPoints = pointsToRedeem;
+          const deducted = await Customer.findOneAndUpdate(
+            { merchantId, userId, loyaltyPoints: { $gte: pointsToRedeem } },
+            { $inc: { loyaltyPoints: -pointsToRedeem } },
+          );
+          if (deducted) {
+            discountAmount += Math.floor(pointsToRedeem / loyalty.redeemRate);
+            redeemedPoints = pointsToRedeem;
+          }
         }
       }
     }
 
     const finalTotal = Math.max(0, baseTotal - discountAmount);
 
-    const order = await Order.create({
-      ...orderData,
-      userId,
-      platform: 'line',
-      merchantId,
-      soldTHB: finalTotal,
-      discountAmount,
-      couponCode: appliedCouponCode,
-      redeemedPoints,
-    });
+    let order;
+    try {
+      order = await Order.create({
+        ...orderData,
+        userId,
+        platform: 'line',
+        merchantId,
+        soldTHB: finalTotal,
+        discountAmount,
+        couponCode: appliedCouponCode,
+        redeemedPoints,
+      });
+    } catch (err) {
+      // Order failed to save — undo the stock reservation and refund redeemed points
+      // so the customer isn't charged points for an order that never existed.
+      await rollbackStock();
+      if (redeemedPoints > 0 && userId) {
+        await Customer.updateOne({ merchantId, userId }, { $inc: { loyaltyPoints: redeemedPoints } });
+      }
+      throw err;
+    }
 
-    // Deduct redeemed points from customer
+    // Record the redemption ledger entry (points were already deducted above)
     if (redeemedPoints > 0 && userId) {
-      await Customer.findOneAndUpdate(
-        { merchantId, userId },
-        { $inc: { loyaltyPoints: -redeemedPoints } }
-      );
       await LoyaltyTransaction.create({
         merchantId,
         userId,

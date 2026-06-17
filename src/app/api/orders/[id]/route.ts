@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Settings, Customer, LoyaltyTransaction, Message, Fulfilment } from '@/models';
+import { Order, Settings, Message, Fulfilment } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
+import { awardLoyaltyForOrder } from '@/lib/loyalty';
 import { sendLineMessage, sendFlexMessage, buildOrderStatusFlex, interpolateTemplate } from '@/lib/platforms/line';
 
 export const runtime = 'nodejs';
@@ -49,27 +50,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const needsSettings = (newStatus === 'paid' && before.status !== 'paid') || (flag && before.status !== newStatus);
     const settings = needsSettings ? await Settings.findOne({ merchantId: merchant.merchantId }) : null;
 
-    // Auto-earn loyalty points when order is marked paid
-    if (newStatus === 'paid' && before.status !== 'paid' && order.userId && order.soldTHB > 0) {
-      const loyalty = settings?.loyalty;
-      if (loyalty?.enabled && loyalty.pointsPerBaht > 0) {
-        const earned = Math.floor(order.soldTHB * loyalty.pointsPerBaht);
-        if (earned > 0) {
-          await Customer.findOneAndUpdate(
-            { merchantId: merchant.merchantId, userId: order.userId },
-            { $inc: { loyaltyPoints: earned } }
-          );
-          await LoyaltyTransaction.create({
-            merchantId: merchant.merchantId,
-            userId: order.userId,
-            platform: order.platform || 'line',
-            orderId: order._id,
-            type: 'earn',
-            points: earned,
-            note: `Earned from order ฿${order.soldTHB}`,
-          });
-        }
-      }
+    // Auto-earn loyalty points when order is marked paid (idempotent across all paid paths)
+    if (newStatus === 'paid' && before.status !== 'paid') {
+      await awardLoyaltyForOrder(merchant.merchantId, order, settings?.loyalty);
     }
 
     if (flag && before.status !== newStatus && !before[flag] && order.userId) {

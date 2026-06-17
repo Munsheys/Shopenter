@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Order, Settings, Message } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
+import { awardLoyaltyForOrder } from '@/lib/loyalty';
 
 export const runtime = 'nodejs';
 
@@ -20,8 +21,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'LINE access token not configured' }, { status: 400 });
     }
 
+    const wasPaid = order.status === 'paid';
     order.status = 'paid';
     await order.save();
+
+    // Award loyalty points on the first transition to paid (idempotent via the helper)
+    if (!wasPaid) {
+      await awardLoyaltyForOrder(merchant.merchantId, order, settings.loyalty);
+    }
 
     let messageText = settings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
     const displayProduct = `${(order.quantity || 1) > 1 ? `${order.quantity}x ` : ''}${order.product?.replace(/^\d+x\s/, '') || 'Order'}`;

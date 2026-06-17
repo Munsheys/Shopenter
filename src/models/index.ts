@@ -410,6 +410,24 @@ const LoyaltyTransactionSchema = new mongoose.Schema({
   note: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
 });
+// At most one "earn" transaction per order — the guard that makes loyalty earning
+// idempotent across the multiple paths that mark an order paid (manual PATCH, mark-paid,
+// batch mark-paid, slip verification). Insert is attempted first; a duplicate key means
+// points were already awarded for this order, so the second path skips crediting.
+LoyaltyTransactionSchema.index(
+  { orderId: 1, type: 1 },
+  { unique: true, partialFilterExpression: { type: 'earn', orderId: { $exists: true } } },
+);
+
+// Records each verified payment slip so the same slip image can't mark orders paid twice.
+const ProcessedSlipSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  transRef:   { type: String, required: true },
+  amount:     { type: Number },
+  userId:     { type: String },
+  createdAt:  { type: Date, default: Date.now, expires: 60 * 60 * 24 * 90 },
+});
+ProcessedSlipSchema.index({ merchantId: 1, transRef: 1 }, { unique: true });
 
 const FulfilmentSchema = new mongoose.Schema({
   orderId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
@@ -449,4 +467,5 @@ export const MediaFile = mongoose.models.MediaFile || mongoose.model('MediaFile'
 export const Feedback = mongoose.models.Feedback || mongoose.model('Feedback', FeedbackSchema);
 export const Coupon = mongoose.models.Coupon || mongoose.model('Coupon', CouponSchema);
 export const LoyaltyTransaction = mongoose.models.LoyaltyTransaction || mongoose.model('LoyaltyTransaction', LoyaltyTransactionSchema);
+export const ProcessedSlip = mongoose.models.ProcessedSlip || mongoose.model('ProcessedSlip', ProcessedSlipSchema);
 export const Fulfilment = mongoose.models.Fulfilment || mongoose.model('Fulfilment', FulfilmentSchema);

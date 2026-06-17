@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import dbConnect from '@/lib/db';
-import { Customer, Message, Settings, ProcessedEvent, Order, Campaign, AutoReply, Merchant } from '@/models';
+import { Customer, Message, Settings, ProcessedEvent, ProcessedSlip, Order, Campaign, AutoReply, Merchant } from '@/models';
 import { messagingApi } from '@line/bot-sdk';
 import { enqueueCustomerUpdate } from '@/lib/customerQueue';
 import { notifyMerchant } from '@/lib/notifyMerchant';
 import { searchProducts } from '@/lib/intentSearch';
+import { awardLoyaltyForOrder } from '@/lib/loyalty';
 
 export const runtime = 'nodejs';
 
@@ -443,7 +444,23 @@ export async function POST(req: Request) {
                   const slipData = await slipRes.json();
                   if (slipData.success && slipData.data?.amount) {
                     const amountPaid = slipData.data.amount;
-                    const pendingOrders = await Order.find({ merchantId, userId, status: 'pending' }).sort({ createdAt: 1 });
+
+                    // Idempotency: each bank slip has a unique transaction reference. Record it
+                    // before acting so the same slip image (re-sent or redelivered) can't mark a
+                    // second batch of orders paid. transRef should always be present; fall back to
+                    // an amount+time key only if the provider omits it.
+                    const slipKey: string = slipData.data.transRef
+                      || `${userId}:${amountPaid}:${new Date().toISOString().slice(0, 10)}`;
+                    let alreadyProcessed = false;
+                    try {
+                      await ProcessedSlip.create({ merchantId, transRef: slipKey, amount: amountPaid, userId });
+                    } catch (e: any) {
+                      if (e?.code === 11000) alreadyProcessed = true; else throw e;
+                    }
+
+                    const pendingOrders = alreadyProcessed
+                      ? []
+                      : await Order.find({ merchantId, userId, status: 'pending' }).sort({ createdAt: 1 });
                     let remaining = amountPaid;
                     const toMark: any[] = [];
 
@@ -456,6 +473,10 @@ export async function POST(req: Request) {
 
                     if (toMark.length > 0) {
                       await Order.updateMany({ _id: { $in: toMark.map((o: any) => o._id) } }, { $set: { status: 'paid' } });
+                      // Award loyalty points for each newly-paid order (idempotent helper)
+                      for (const o of toMark) {
+                        await awardLoyaltyForOrder(merchantId, o, matchedSettings?.loyalty);
+                      }
                       const combinedProducts = toMark.map((o: any) => `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${o.product?.replace(/^\d+x\s/, '')}`).join(', ');
                       const customer = await Customer.findOne({ merchantId, userId }).lean() as any;
                       // Type B: customer confirmation message

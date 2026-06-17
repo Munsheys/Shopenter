@@ -489,15 +489,22 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
 
   async function sendMessage() {
     if (!selectedCustomer || !inputText.trim() || sending) return;
+    const text = inputText.trim();
     setSending(true);
     try {
-      await fetch('/api/messages/send', {
+      const res = await fetch('/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: selectedCustomer.userId, text: inputText.trim() }),
+        body: JSON.stringify({ userId: selectedCustomer.userId, text }),
       });
+      if (!res.ok) throw new Error(`send failed (${res.status})`);
+      // Only clear the input once the send is confirmed — otherwise the merchant
+      // would silently lose their reply on a failed/dropped request.
       setInputText('');
       await loadMessages(selectedCustomer.userId);
+    } catch {
+      // Keep the text so it can be retried, and surface the failure.
+      showToast('Message not sent — check your connection and tap send again', 'error');
     } finally { setSending(false); }
   }
 
