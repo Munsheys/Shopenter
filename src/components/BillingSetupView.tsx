@@ -127,10 +127,10 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
 
   return (
     <div className="flex-1 overflow-auto pb-20 md:pb-6">
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-start justify-between mb-4">
+        <div className="mb-6">
+          <div className="flex items-start justify-between mb-2">
             <div>
               <h2 className={`text-2xl font-black ${text} mb-2`}>Subscription & Billing</h2>
               <p className={`text-sm ${muted}`}>Choose the perfect plan for your business. Scale up as you grow.</p>
@@ -150,7 +150,7 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         )}
 
         {/* Current Plan Summary */}
-        <div className={`mb-8 rounded-2xl border p-6 ${surface}`}>
+        <div className={`mb-6 rounded-2xl border p-4 ${surface}`}>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${muted}`}>
@@ -176,8 +176,8 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         </div>
 
         {/* Tier Selection Cards */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
             <h3 className={`text-lg font-black ${text}`}>
               Choose Your Plan
             </h3>
@@ -190,7 +190,7 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             {tiers.map((t) => {
               const isSelected = selectedTier === t.id;
               const isCurrent = tier === t.id;
@@ -211,7 +211,7 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                   </div>
 
                   {/* Content */}
-                  <div className="p-6">
+                  <div className="p-4">
                     {/* Selected Checkmark */}
                     {(isSelected || isCurrent) && (
                       <div className="absolute top-4 left-4 w-6 h-6 bg-accent rounded-full flex items-center justify-center animate-fade-in-scale">
@@ -220,15 +220,15 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                     )}
 
                     {/* Title & Price */}
-                    <h4 className={`text-xl font-black mb-1 ${text}`}>
+                    <h4 className={`text-lg font-black mb-0.5 ${text}`}>
                       {t.name}
                     </h4>
-                    <p className={`text-xs mb-4 ${mutedStrong}`}>
+                    <p className={`text-xs mb-3 ${mutedStrong}`}>
                       {t.description}
                     </p>
 
                     {/* Price */}
-                    <div className="mb-6">
+                    <div className="mb-4">
                       {t.price !== null ? (
                         <div>
                           <span className={`text-3xl font-black ${text}`}>
@@ -247,13 +247,13 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
 
                     {/* Current Plan Badge */}
                     {isCurrent && (
-                      <div className={`mb-4 px-2 py-1.5 rounded-lg text-[10px] font-bold text-center ${currentPlanBadge}`}>
+                      <div className={`mb-3 px-2 py-1 rounded-lg text-[9px] font-bold text-center ${currentPlanBadge}`}>
                         YOUR CURRENT PLAN
                       </div>
                     )}
 
                     {/* Features */}
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {t.features.map((f, i) => (
                         <div key={i} className="flex items-start gap-2">
                           <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
@@ -325,8 +325,8 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
 
         {/* Payment Method Section */}
         {selectedTier !== 'free' && selectedTier !== 'enterprise' && (
-          <div className={`mb-8 rounded-2xl border p-6 ${surface}`}>
-            <h4 className={`text-lg font-black mb-4 ${text}`}>
+          <div className={`mb-6 rounded-2xl border p-4 ${surface}`}>
+            <h4 className={`text-base font-black mb-3 ${text}`}>
               Payment Method
             </h4>
             <div className="space-y-3">
@@ -357,11 +357,11 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         )}
 
         {/* CTA Button */}
-        <div className="flex gap-3 mb-8">
+        <div className="flex gap-3 mb-6">
           <button
             onClick={handleUpgrade}
             disabled={isLoading || selectedTier === tier}
-            className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
               selectedTier === tier
                 ? currentPlanCtaBg
                 : selectedTier === 'enterprise'
@@ -399,11 +399,11 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         </div>
 
         {/* Billing History */}
-        <div className={`rounded-2xl border p-6 ${surface}`}>
-          <h4 className={`text-lg font-black mb-4 ${text}`}>
+        <div className={`rounded-2xl border p-4 ${surface}`}>
+          <h4 className={`text-base font-black mb-3 ${text}`}>
             Billing History
           </h4>
-          <div className={`text-center py-8 ${mutedStrong}`}>
+          <div className={`text-center py-6 ${mutedStrong}`}>
             <p className="text-xs">No invoices yet. Your billing history will appear here after your first payment.</p>
           </div>
         </div>
