@@ -18,18 +18,13 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'promptpay'>('card');
   const [showComparison, setShowComparison] = useState(false);
 
-  // ── Theme tokens (light / lite / dark) ──────────────────────────────────
-  const pageBg = isDark ? 'bg-[#0a0d14]' : isLite ? 'bg-[#d9dfe8]' : 'bg-gradient-to-br from-white to-slate-50';
   const surface = isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-slate-200';
-  const surfaceRaised = isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd] shadow-md' : 'bg-white border-slate-200 shadow-lg';
   const text = isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-slate-900';
   const muted = isDark ? 'text-[#8b92ad]' : isLite ? 'text-[#6d7a8c]' : 'text-slate-500';
   const mutedStrong = isDark ? 'text-[#8b92ad]' : isLite ? 'text-[#5b6677]' : 'text-slate-600';
-  const border = isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-slate-200';
   const chipBg = isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#292d45]' : isLite ? 'bg-[#cdd3dd] text-[#5b6677] hover:bg-[#bcc4d1]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200';
   const cardHover = isDark ? 'bg-[#161925] border-[#1f2335] hover:border-[#2a2f45] hover:shadow-lg' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd] hover:border-[#bcc4d1] hover:shadow-lg' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-lg';
-  const cardSelected = isDark ? 'bg-[#1a1d2e] border-accent shadow-2xl shadow-accent/30' : isLite ? 'bg-[#e7ecf3] border-accent shadow-2xl shadow-accent/20' : 'bg-white border-accent shadow-2xl shadow-accent/20';
-  const badgeBgWrap = isDark ? 'bg-[#0a0d14]/80' : isLite ? 'bg-[#e7ecf3]/90' : 'bg-white/80';
+  const cardSelected = isDark ? 'bg-[#1a1d2e] border-accent shadow-2xl shadow-accent/30' : 'bg-white border-accent shadow-2xl shadow-accent/20';
   const featureUnfilled = isDark ? 'bg-[#1f2335] text-[#8b92ad]' : isLite ? 'bg-[#cdd3dd] text-[#5b6677]' : 'bg-slate-200 text-slate-500';
   const featureFilledMuted = isDark ? 'bg-accent/10 text-[#8b92ad]' : isLite ? 'bg-accent/10 text-[#5b6677]' : 'bg-accent/5 text-slate-500';
   const currentPlanBadge = isDark ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-accent/10 text-accent border border-accent/20';
@@ -131,27 +126,21 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
   const currentTierObj = tiers.find(t => t.id === tier);
 
   return (
-    <div className={`min-h-screen ${pageBg}`}>
-      {/* Hero Gradient Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-accent via-[#009900] to-[#005500] pt-16 pb-24 px-6">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" aria-hidden="true" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/20 rounded-full blur-3xl -ml-16 -mb-16" aria-hidden="true" />
-
-        <div className="max-w-5xl mx-auto relative z-10">
-          <div className="flex items-start justify-between mb-6">
+    <div className="flex-1 overflow-auto pb-20 md:pb-6">
+      <div className="p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-start justify-between mb-4">
             <div>
-              <h1 className="text-4xl md:text-5xl font-black text-white mb-3 tracking-tight">Subscription & Billing</h1>
-              <p className="text-white/80 text-lg max-w-2xl">Choose the perfect plan for your business. Scale up as you grow.</p>
+              <h2 className={`text-2xl font-black ${text} mb-2`}>Subscription & Billing</h2>
+              <p className={`text-sm ${muted}`}>Choose the perfect plan for your business. Scale up as you grow.</p>
             </div>
-            <div className="hidden sm:block text-white/20">
-              <CreditCard size={64} />
+            <div className={`hidden sm:flex items-center justify-center w-12 h-12 rounded-2xl ${isDark ? 'bg-[#1f2335]' : isLite ? 'bg-[#cdd3dd]' : 'bg-slate-200'}`}>
+              <CreditCard size={24} className={muted} />
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-6 py-12">
         {/* Error Message */}
         {error && (
           <div className={`mb-6 p-4 rounded-2xl border flex items-start gap-3 animate-slide-up ${errorBox}`}>
@@ -161,45 +150,43 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         )}
 
         {/* Current Plan Summary */}
-        <div className={`mb-12 rounded-3xl border overflow-hidden ${surfaceRaised}`}>
-          <div className="p-8 flex items-center justify-between flex-wrap gap-4">
+        <div className={`mb-8 rounded-2xl border p-6 ${surface}`}>
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <p className={`text-sm font-bold uppercase tracking-widest mb-2 ${muted}`}>
+              <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${muted}`}>
                 Current Plan
               </p>
-              <h2 className={`text-3xl font-black mb-2 ${text}`}>
+              <h3 className={`text-2xl font-black mb-1 ${text}`}>
                 {currentTierObj?.name}
-              </h2>
+              </h3>
               <p className={`text-sm ${mutedStrong}`}>
                 {currentTierObj?.description}
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className={`px-4 py-2 rounded-xl text-sm font-bold ${
-                tier === 'free'
-                  ? 'bg-slate-500/20 text-slate-300'
-                  : tier === 'pro'
-                  ? 'bg-accent/20 text-accent'
-                  : 'bg-amber-500/20 text-amber-300'
-              }`}>
-                {tier === 'free' ? '✓ Active' : tier === 'pro' ? '✓ Active' : '✓ Custom'}
-              </div>
+            <div className={`px-4 py-2 rounded-xl text-sm font-bold ${
+              tier === 'free'
+                ? 'bg-slate-500/20 text-slate-300'
+                : tier === 'pro'
+                ? 'bg-accent/20 text-accent'
+                : 'bg-amber-500/20 text-amber-300'
+            }`}>
+              {tier === 'free' ? '✓ Active' : tier === 'pro' ? '✓ Active' : '✓ Custom'}
             </div>
           </div>
         </div>
 
         {/* Tier Selection Cards */}
-        <div className="mb-12">
+        <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h2 className={`text-2xl font-black ${text}`}>
+            <h3 className={`text-lg font-black ${text}`}>
               Choose Your Plan
-            </h2>
+            </h3>
             <button
               onClick={() => setShowComparison(!showComparison)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${chipBg}`}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${chipBg}`}
             >
-              Compare Plans
-              <ChevronDown size={16} className={`transition-transform ${showComparison ? 'rotate-180' : ''}`} />
+              Compare
+              <ChevronDown size={14} className={`transition-transform ${showComparison ? 'rotate-180' : ''}`} />
             </button>
           </div>
 
@@ -212,47 +199,47 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                 <div
                   key={t.id}
                   onClick={() => setSelectedTier(t.id)}
-                  className={`group relative rounded-3xl border overflow-hidden transition-all duration-300 cursor-pointer ${
+                  className={`group relative rounded-2xl border overflow-hidden transition-all duration-300 cursor-pointer ${
                     isSelected || isCurrent
                       ? `${cardSelected} ring-2 ring-accent/40`
                       : cardHover
                   }`}
                 >
                   {/* Badge */}
-                  <div className={`absolute top-0 right-0 px-4 py-2 text-[10px] font-black uppercase border-l border-b rounded-bl-2xl ${t.badgeColor} ${badgeBgWrap}`}>
+                  <div className={`absolute top-0 right-0 px-3 py-1.5 text-[9px] font-black uppercase border-l border-b rounded-bl-xl ${t.badgeColor} ${isDark ? 'bg-[#0a0d14]/80' : isLite ? 'bg-[#e7ecf3]/90' : 'bg-white/80'}`}>
                     {t.badge}
                   </div>
 
                   {/* Content */}
-                  <div className="p-8">
+                  <div className="p-6">
                     {/* Selected Checkmark */}
                     {(isSelected || isCurrent) && (
-                      <div className="absolute top-4 left-4 w-8 h-8 bg-accent rounded-full flex items-center justify-center animate-fade-in-scale">
-                        <Check size={18} className="text-white" strokeWidth={3} />
+                      <div className="absolute top-4 left-4 w-6 h-6 bg-accent rounded-full flex items-center justify-center animate-fade-in-scale">
+                        <Check size={16} className="text-white" strokeWidth={3} />
                       </div>
                     )}
 
                     {/* Title & Price */}
-                    <h3 className={`text-2xl font-black mb-2 ${text}`}>
+                    <h4 className={`text-xl font-black mb-1 ${text}`}>
                       {t.name}
-                    </h3>
-                    <p className={`text-sm mb-6 ${mutedStrong}`}>
+                    </h4>
+                    <p className={`text-xs mb-4 ${mutedStrong}`}>
                       {t.description}
                     </p>
 
                     {/* Price */}
-                    <div className="mb-8">
+                    <div className="mb-6">
                       {t.price !== null ? (
                         <div>
-                          <span className={`text-4xl font-black ${text}`}>
+                          <span className={`text-3xl font-black ${text}`}>
                             ฿{t.price.toLocaleString()}
                           </span>
-                          <span className={`text-sm ml-2 ${muted}`}>
+                          <span className={`text-xs ml-2 ${muted}`}>
                             {t.billingPeriod}
                           </span>
                         </div>
                       ) : (
-                        <div className="text-lg font-bold text-accent">
+                        <div className="text-base font-bold text-accent">
                           Custom pricing
                         </div>
                       )}
@@ -260,29 +247,27 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
 
                     {/* Current Plan Badge */}
                     {isCurrent && (
-                      <div className={`mb-6 px-3 py-2 rounded-lg text-[11px] font-bold text-center ${currentPlanBadge}`}>
+                      <div className={`mb-4 px-2 py-1.5 rounded-lg text-[10px] font-bold text-center ${currentPlanBadge}`}>
                         YOUR CURRENT PLAN
                       </div>
                     )}
 
                     {/* Features */}
-                    <div className="space-y-3 pt-6 border-t border-white/10">
+                    <div className="space-y-2">
                       {t.features.map((f, i) => (
-                        <div key={i} className="flex items-start gap-3">
-                          <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        <div key={i} className="flex items-start gap-2">
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
                             f.highlight && isSelected
                               ? 'bg-accent/30 text-accent'
                               : f.highlight
                               ? featureFilledMuted
                               : featureUnfilled
                           }`}>
-                            <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                            <div className="w-1 h-1 rounded-full bg-current" />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-sm ${mutedStrong}`}>
-                              {f.label}
-                            </span>
-                          </div>
+                          <span className={`text-xs ${mutedStrong}`}>
+                            {f.label}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -299,9 +284,9 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                 <table className="w-full text-sm">
                   <thead>
                     <tr className={`border-b ${tableHeadBg}`}>
-                      <th className={`px-6 py-4 text-left font-bold ${mutedStrong}`}>Feature</th>
+                      <th className={`px-4 py-3 text-left text-xs font-bold ${mutedStrong}`}>Feature</th>
                       {tiers.map(t => (
-                        <th key={t.id} className={`px-6 py-4 text-center font-bold ${text}`}>
+                        <th key={t.id} className={`px-4 py-3 text-center text-xs font-bold ${text}`}>
                           {t.name}
                         </th>
                       ))}
@@ -316,17 +301,17 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                       { label: 'Loyalty Program', free: '✗', pro: '✓', ent: '✓' },
                       { label: 'CSV Export', free: '✗', pro: '✓', ent: '✓' },
                     ].map((row, i) => (
-                      <tr key={i} className={`border-b last:border-b-0 ${border}`}>
-                        <td className={`px-6 py-4 font-semibold ${mutedStrong}`}>
+                      <tr key={i} className={`border-b last:border-b-0`}>
+                        <td className={`px-4 py-3 text-xs font-semibold ${mutedStrong}`}>
                           {row.label}
                         </td>
-                        <td className={`px-6 py-4 text-center ${mutedStrong}`}>
+                        <td className={`px-4 py-3 text-center text-xs ${mutedStrong}`}>
                           {row.free}
                         </td>
-                        <td className="px-6 py-4 text-center font-bold text-accent">
+                        <td className="px-4 py-3 text-center text-xs font-bold text-accent">
                           {row.pro}
                         </td>
-                        <td className={`px-6 py-4 text-center font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                        <td className={`px-4 py-3 text-center text-xs font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
                           {row.ent}
                         </td>
                       </tr>
@@ -340,16 +325,16 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
 
         {/* Payment Method Section */}
         {selectedTier !== 'free' && selectedTier !== 'enterprise' && (
-          <div className={`mb-12 rounded-3xl border p-8 ${surface}`}>
-            <h3 className={`text-xl font-black mb-6 ${text}`}>
+          <div className={`mb-8 rounded-2xl border p-6 ${surface}`}>
+            <h4 className={`text-lg font-black mb-4 ${text}`}>
               Payment Method
-            </h3>
+            </h4>
             <div className="space-y-3">
               {[
                 { id: 'card', label: 'Credit/Debit Card', desc: 'Visa, Mastercard, American Express', icon: '💳' },
                 { id: 'promptpay', label: 'PromptPay', desc: 'Instant bank transfer (Thailand)', icon: '🏦' },
               ].map((method: any) => (
-                <label key={method.id} className={`flex items-start gap-4 p-4 rounded-2xl cursor-pointer transition-all ${
+                <label key={method.id} className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all ${
                   paymentMethod === method.id ? radioSelected : radioUnselected
                 }`}>
                   <input
@@ -360,11 +345,11 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                     onChange={(e) => setPaymentMethod(e.target.value as any)}
                     className="mt-1"
                   />
-                  <div className="flex-1">
-                    <p className={`font-bold ${text}`}>{method.label}</p>
-                    <p className={`text-sm ${mutedStrong}`}>{method.desc}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-semibold text-sm ${text}`}>{method.label}</p>
+                    <p className={`text-xs ${mutedStrong}`}>{method.desc}</p>
                   </div>
-                  <span className="text-2xl">{method.icon}</span>
+                  <span className="text-lg flex-shrink-0">{method.icon}</span>
                 </label>
               ))}
             </div>
@@ -372,11 +357,11 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         )}
 
         {/* CTA Button */}
-        <div className="flex gap-4 mb-12">
+        <div className="flex gap-3 mb-8">
           <button
             onClick={handleUpgrade}
             disabled={isLoading || selectedTier === tier}
-            className={`flex-1 py-4 px-6 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
               selectedTier === tier
                 ? currentPlanCtaBg
                 : selectedTier === 'enterprise'
@@ -386,27 +371,27 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
           >
             {isLoading ? (
               <>
-                <Loader size={18} className="animate-spin" />
+                <Loader size={16} className="animate-spin" />
                 Processing...
               </>
             ) : selectedTier === tier ? (
               <>
-                <Check size={18} />
+                <Check size={16} />
                 Current Plan
               </>
             ) : selectedTier === 'free' ? (
               <>
-                <ArrowRight size={18} />
+                <ArrowRight size={16} />
                 Downgrade to Free
               </>
             ) : selectedTier === 'enterprise' ? (
               <>
-                <CreditCard size={18} />
+                <CreditCard size={16} />
                 Contact Sales
               </>
             ) : (
               <>
-                <CreditCard size={18} />
+                <CreditCard size={16} />
                 Upgrade to Pro
               </>
             )}
@@ -414,12 +399,12 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         </div>
 
         {/* Billing History */}
-        <div className={`rounded-3xl border p-8 ${surface}`}>
-          <h3 className={`text-xl font-black mb-6 ${text}`}>
+        <div className={`rounded-2xl border p-6 ${surface}`}>
+          <h4 className={`text-lg font-black mb-4 ${text}`}>
             Billing History
-          </h3>
-          <div className={`text-center py-12 ${mutedStrong}`}>
-            <p className="text-sm">No invoices yet. Your billing history will appear here after your first payment.</p>
+          </h4>
+          <div className={`text-center py-8 ${mutedStrong}`}>
+            <p className="text-xs">No invoices yet. Your billing history will appear here after your first payment.</p>
           </div>
         </div>
       </div>
