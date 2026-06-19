@@ -53,12 +53,24 @@ export async function POST(req: NextRequest) {
   try {
     await dbConnect();
     const body = await req.json();
+
+    let baseTotal = 0;
+    if (Array.isArray(body.items) && body.items.length > 0) {
+      for (const item of body.items) {
+        baseTotal += (item.price ?? 0) * (item.qty ?? 1);
+      }
+    } else {
+      return NextResponse.json({ error: 'No items provided' }, { status: 400 });
+    }
+
+    const finalTotal = baseTotal + (body.shipCostTHB ?? 0);
+
     const order = await Order.create({
       merchantId: merchant.merchantId,
       userId: body.userId || body.lineUserId,
       platform: body.platform || 'line',
       displayName: body.displayName,
-      soldTHB: body.totalTHB,
+      soldTHB: finalTotal,
       shipCostTHB: body.shipCostTHB || 0,
       items: body.items,
       product: body.items?.map((i: any) => `${i.qty}x ${i.name}`).join(', '),
@@ -66,7 +78,7 @@ export async function POST(req: NextRequest) {
       paymentQrSent: false
     });
     return NextResponse.json(order, { status: 201 });
-  } catch {
+  } catch (err: any) {
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
   }
 }
