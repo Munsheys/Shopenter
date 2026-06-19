@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Message, Product } from '@/models';
-import { sendLineMessage } from '@/lib/platforms/line';
+import { sendLineMessage, verifyLiffIdToken } from '@/lib/platforms/line';
 import { notifyMerchant } from '@/lib/notifyMerchant';
 
 export const runtime = 'nodejs';
@@ -10,12 +10,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
   const { merchantId } = await params;
   try {
     await dbConnect();
-    const merchantExists = await Settings.exists({ merchantId });
-    if (!merchantExists) return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+    const settings = await Settings.findOne({ merchantId });
+    if (!settings) return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
 
     const body = await req.json();
-    const { couponCode, redeemPoints, lineUserId, userId: bodyUserId, isLiffClient, ...orderData } = body;
-    const userId = bodyUserId || lineUserId; // accept both field names during transition
+    const { couponCode, redeemPoints, lineUserId, userId: bodyUserId, isLiffClient, liffIdToken, ...orderData } = body;
+    let userId = bodyUserId || lineUserId;
+
+    if (isLiffClient && liffIdToken) {
+      const verified = await verifyLiffIdToken(liffIdToken, settings.liffId);
+      if (!verified) return NextResponse.json({ error: 'Invalid LIFF token' }, { status: 401 });
+      userId = verified.userId;
+    } else if (isLiffClient) {
+      return NextResponse.json({ error: 'LIFF token required' }, { status: 400 });
+    }
 
     let discountAmount = 0;
     let appliedCouponCode = '';
@@ -24,35 +32,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
 
     // Recompute total server-side — never trust the client-supplied price
     let baseTotal = 0;
-    if (Array.isArray(orderData.items) && orderData.items.length > 0) {
-      const recomputedItems = await Promise.all(
-        orderData.items.map(async (item: any) => {
-          const product = await Product.findById(item.productId)
-            .select('price variants trackStock stock')
-            .lean() as any;
-
-          let serverPrice: number;
-          if (!product) {
-            // Product was deleted — fall back to client-supplied price so the order is not rejected
-            serverPrice = item.price ?? 0;
-          } else if (product.variants?.length && item.variantLabel) {
-            const matched = product.variants.find(
-              (v: any) => v.variantName === item.variantLabel
-            );
-            serverPrice = matched?.price ?? product.price;
-          } else {
-            serverPrice = product.price;
-          }
-
-          baseTotal += serverPrice * (item.qty ?? 1);
-          return { ...item, price: serverPrice };
-        })
-      );
-      orderData.items = recomputedItems;
-    } else {
-      // No structured items — fall back to client-supplied total (legacy single-product orders)
-      baseTotal = orderData.soldTHB || 0;
+    if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
+      return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
+
+    const recomputedItems = await Promise.all(
+      orderData.items.map(async (item: any) => {
+        const product = await Product.findOne({
+          _id: item.productId,
+          merchantId,
+          isActive: true,
+        })
+          .select('price variants trackStock stock')
+          .lean() as any;
+
+        if (!product) {
+          throw new Error(`Product ${item.productId} not found or inactive`);
+        }
+
+        let serverPrice: number;
+        if (product.variants?.length && item.variantLabel) {
+          const matched = product.variants.find(
+            (v: any) => v.variantName === item.variantLabel
+          );
+          serverPrice = matched?.price ?? product.price;
+        } else {
+          serverPrice = product.price;
+        }
+
+        baseTotal += serverPrice * (item.qty ?? 1);
+        return { ...item, price: serverPrice, productDoc: product };
+      })
+    );
+
+    orderData.items = recomputedItems.map(({ productDoc, ...item }: any) => item);
 
     // Validate and apply coupon
     if (couponCode) {
@@ -104,6 +117,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
       couponCode: appliedCouponCode,
       redeemedPoints,
     });
+
+    for (const item of recomputedItems) {
+      const product = await Product.findOne({
+        _id: item.productId,
+        merchantId,
+        isActive: true,
+      }).lean() as any;
+
+      if (product?.trackStock) {
+        if (item.variantLabel && product.variants?.length) {
+          await Product.updateOne(
+            {
+              _id: product._id,
+              'variants.variantName': item.variantLabel,
+            },
+            {
+              $inc: { 'variants.$.stock': -(item.qty ?? 1) },
+            }
+          );
+        } else {
+          await Product.updateOne(
+            { _id: product._id },
+            {
+              $inc: { stock: -(item.qty ?? 1) },
+            }
+          );
+        }
+      }
+    }
 
     // Deduct redeemed points from customer
     if (redeemedPoints > 0 && userId) {
