@@ -8,6 +8,7 @@ import LoadingView from '@/components/LoadingView';
 import FloatingGuide from '@/components/FloatingGuide';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import UnsavedChangesModal from '@/components/UnsavedChangesModal';
+import TrialExpirationBanner from '@/components/TrialExpirationBanner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const ProductManagement    = dynamic(() => import('@/components/ProductManagement'),    { ssr: false });
@@ -33,6 +34,7 @@ interface Merchant {
   slug?: string | null;
   tier?: Tier;
   paymentStatus?: string;
+  trialEndsAt?: string | null;
 }
 
 const TIER_BADGE_COLORS: Record<string, string> = {
@@ -585,6 +587,17 @@ export default function DashboardPage() {
 
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        {merchant?.paymentStatus === 'trialing' && (
+          <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-[#1f2335]">
+            <TrialExpirationBanner
+              trialEndsAt={merchant.trialEndsAt ? new Date(merchant.trialEndsAt) : null}
+              paymentStatus={merchant.paymentStatus as 'paid' | 'trialing' | 'unpaid'}
+              tier={merchant.tier || 'pro'}
+              theme={theme as 'light' | 'lite' | 'dark'}
+              onUpgradeClick={() => setActiveTab('billing')}
+            />
+          </div>
+        )}
         <div className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
             <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} jumpToOrderId={jumpToOrderId} onJumpOrderConsumed={() => setJumpToOrderId(null)} onOrderMutated={() => { setOrdersRefreshKey(k => k + 1); setReportsRefreshKey(k => k + 1); }} />
