@@ -73,7 +73,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
         merchantId,
         code: String(couponCode).toUpperCase().trim(),
         isActive: true,
-      });
+      }).lean() as any;
 
       if (coupon && !(coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) &&
           !(coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) &&
