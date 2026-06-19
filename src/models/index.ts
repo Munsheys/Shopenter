@@ -7,8 +7,15 @@ const MerchantSchema = new mongoose.Schema({
   slug: { type: String, unique: true, sparse: true, lowercase: true },
   tier: { type: String, enum: ['free', 'pro', 'enterprise'], default: 'free' },
   paymentStatus: { type: String, enum: ['paid', 'trialing', 'unpaid'], default: 'paid' },
+  trialEndsAt: { type: Date, default: null },
+  trialReason: { type: String, enum: ['signup', 'referral', 'affiliate_reward'], default: 'signup' },
+  referralCode: { type: String, unique: true, sparse: true, lowercase: true, match: /^[a-z0-9]{12}$/ },
+  referredByMerchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', default: null },
+  affiliateRewardsEarnedThisYear: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
+MerchantSchema.index({ referralCode: 1 });
+MerchantSchema.index({ referredByMerchantId: 1 });
 
 const NotificationSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
@@ -452,6 +459,19 @@ const FulfilmentSchema = new mongoose.Schema({
 FulfilmentSchema.index({ orderId: 1, status: 1 });
 FulfilmentSchema.index({ merchantId: 1, createdAt: -1 });
 
+const AffiliateCommissionSchema = new mongoose.Schema({
+  referrerMerchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  referredMerchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  referralCode: { type: String, required: true },
+  status: { type: String, enum: ['pending', 'earned', 'expired'], default: 'pending' },
+  createdAt: { type: Date, default: Date.now },
+  expiresAt: { type: Date, required: true, index: true },
+  earnedAt: { type: Date, default: null },
+  rewardAppliedAt: { type: Date, default: null },
+});
+AffiliateCommissionSchema.index({ referrerMerchantId: 1, status: 1 });
+AffiliateCommissionSchema.index({ referredMerchantId: 1, status: 1 });
+
 export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
@@ -469,3 +489,4 @@ export const Coupon = mongoose.models.Coupon || mongoose.model('Coupon', CouponS
 export const LoyaltyTransaction = mongoose.models.LoyaltyTransaction || mongoose.model('LoyaltyTransaction', LoyaltyTransactionSchema);
 export const ProcessedSlip = mongoose.models.ProcessedSlip || mongoose.model('ProcessedSlip', ProcessedSlipSchema);
 export const Fulfilment = mongoose.models.Fulfilment || mongoose.model('Fulfilment', FulfilmentSchema);
+export const AffiliateCommission = mongoose.models.AffiliateCommission || mongoose.model('AffiliateCommission', AffiliateCommissionSchema);

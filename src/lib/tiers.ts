@@ -2,29 +2,29 @@ export const TIER_LIMITS = {
   free: {
     products: 10,
     ordersPerMonth: 100,
-    campaigns: 2,
     autoReplies: 3,
     csvExport: false,
     discountCodes: false,
     loyalty: false,
+    affiliateProgram: false,
   },
   pro: {
     products: 500,
     ordersPerMonth: 10000,
-    campaigns: 50,
     autoReplies: 100,
     csvExport: true,
     discountCodes: true,
     loyalty: true,
+    affiliateProgram: true,
   },
   enterprise: {
     products: -1,
     ordersPerMonth: -1,
-    campaigns: -1,
     autoReplies: -1,
     csvExport: true,
     discountCodes: true,
     loyalty: true,
+    affiliateProgram: true,
   },
 } as const;
 
@@ -33,7 +33,7 @@ export type TierFeature = keyof typeof TIER_LIMITS.free;
 
 export function checkCountLimit(
   tier: Tier,
-  feature: 'products' | 'ordersPerMonth' | 'campaigns' | 'autoReplies',
+  feature: 'products' | 'ordersPerMonth' | 'autoReplies',
   currentCount: number
 ): { allowed: boolean; limit: number; upgrade: boolean } {
   const limits = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
@@ -45,7 +45,7 @@ export function checkCountLimit(
 
 export function checkBooleanFeature(
   tier: Tier,
-  feature: 'csvExport' | 'discountCodes' | 'loyalty'
+  feature: 'csvExport' | 'discountCodes' | 'loyalty' | 'affiliateProgram'
 ): boolean {
   const limits = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
   return Boolean(limits[feature]);
