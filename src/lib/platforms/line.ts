@@ -4,6 +4,22 @@ export function interpolateTemplate(template: string, data: Record<string, strin
   return template.replace(/\{(\w+)\}/g, (_, key) => data[key] ?? '');
 }
 
+export async function verifyLiffIdToken(idToken: string, channelId: string): Promise<{ userId: string } | null> {
+  if (!idToken || !channelId) return null;
+  try {
+    const res = await fetch('https://api.line.me/oauth2.0/token/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `id_token=${encodeURIComponent(idToken)}&client_id=${encodeURIComponent(channelId)}`,
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    return data.sub ? { userId: data.sub } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function sendLineMessage(token: string, userId: string, text: string): Promise<boolean> {
   if (!token || !userId || !text) return false;
   try {

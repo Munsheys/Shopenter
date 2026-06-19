@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Message, Product } from '@/models';
-import { sendLineMessage } from '@/lib/platforms/line';
+import { sendLineMessage, verifyLiffIdToken } from '@/lib/platforms/line';
 import { notifyMerchant } from '@/lib/notifyMerchant';
 
 export const runtime = 'nodejs';
@@ -10,12 +10,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
   const { merchantId } = await params;
   try {
     await dbConnect();
-    const merchantExists = await Settings.exists({ merchantId });
-    if (!merchantExists) return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+    const settings = await Settings.findOne({ merchantId });
+    if (!settings) return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
 
     const body = await req.json();
-    const { couponCode, redeemPoints, lineUserId, userId: bodyUserId, isLiffClient, ...orderData } = body;
-    const userId = bodyUserId || lineUserId; // accept both field names during transition
+    const { couponCode, redeemPoints, lineUserId, userId: bodyUserId, isLiffClient, liffIdToken, ...orderData } = body;
+    let userId = bodyUserId || lineUserId; // accept both field names during transition
+
+    // LIFF token verification for authentic orders
+    if (isLiffClient && liffIdToken) {
+      const verified = await verifyLiffIdToken(liffIdToken, settings.liffId);
+      if (!verified) return NextResponse.json({ error: 'Invalid LIFF token' }, { status: 401 });
+      userId = verified.userId;
+    } else if (isLiffClient) {
+      return NextResponse.json({ error: 'LIFF token required' }, { status: 400 });
+    }
 
     let discountAmount = 0;
     let appliedCouponCode = '';
@@ -29,7 +38,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     if (Array.isArray(orderData.items) && orderData.items.length > 0) {
       const recomputedItems = await Promise.all(
         orderData.items.map(async (item: any) => {
-          const product = await Product.findById(item.productId)
+          const product = await Product.findOne({
+            _id: item.productId,
+            merchantId,
+            isActive: true,
+          })
             .select('price variants trackStock')
             .lean() as any;
 

@@ -8,7 +8,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mer
   const { merchantId } = await params;
   try {
     await dbConnect();
-    const products = await Product.find({ merchantId, isActive: true });
+    const products = await Product.find({ merchantId, isActive: true })
+      .select('-cost -maxPrice -variants.cost');
     return NextResponse.json(products);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });

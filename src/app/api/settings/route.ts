@@ -27,6 +27,19 @@ export async function GET(req: NextRequest) {
   }
 }
 
+const ALLOWED_FIELDS = [
+  'shopName', 'theme', 'dashboardAccent', 'dashboardAccentGradient', 'dashboardCustomSolids', 'dashboardCustomGradients',
+  'krwRate', 'importCurrency', 'localCurrency', 'useAutoRate', 'trackingTemplate', 'senderAddress',
+  'shippingCompanies', 'lineChannelAccessToken', 'lineChannelSecret', 'liffId', 'adminLineId', 'adminSecret',
+  'promptPayId', 'paymentTemplate', 'slipokBranchId', 'slipokApiKey', 'lineOAPlan', 'dashboardLanguage',
+  'orderNotifications', 'shopDescription', 'shopTimezone', 'shopLogoUrl', 'compactMode', 'businessHours',
+  'defaultWelcomeMessage', 'defaultWelcomeStorefrontLink', 'defaultReEngageMessage', 'defaultReEngageStorefrontLink',
+  'greetingEnabled', 'greetingMessages', 'greetingCustom', 'reEngageEnabled', 'reEngageMessages', 'reEngageCustom',
+  'richMenuSavedId', 'paymentMethods', 'bankAccounts', 'autoCancelHours', 'useSlipok', 'shippingPayer',
+  'defaultShippingCost', 'freeShippingThreshold', 'codSurcharge', 'deliveryEstimates', 'adminAlerts',
+  'broadcastReminder', 'orderPrefix', 'autoDeliver', 'loyalty', 'lineIntentSearch', 'telegram', 'instagram'
+];
+
 export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -66,8 +79,11 @@ export async function POST(req: NextRequest) {
 
     // Build flat $set — convert nested telegram/instagram to dotted keys to avoid
     // MongoDB "path conflict" errors when mixing nested objects with dotted paths
+    // Also filter to allowed fields only (never allow merchant to assign tier/paymentStatus)
     const update: Record<string, any> = {};
     for (const [key, val] of Object.entries(body)) {
+      if (!ALLOWED_FIELDS.includes(key)) continue; // Skip disallowed fields
+      if (['tier', 'paymentStatus', 'merchantId', '_id', '__v', 'createdAt'].includes(key)) continue;
       if (key === 'telegram' && val && typeof val === 'object' && !Array.isArray(val)) {
         for (const [subKey, subVal] of Object.entries(val as Record<string, unknown>)) {
           if (subVal !== undefined) update[`telegram.${subKey}`] = subVal;
@@ -81,14 +97,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Strip fields a merchant must never self-assign via this endpoint:
-    //  - merchantId/_id/__v: rebinding the doc to another tenant would corrupt/hijack data
-    //  - tier/paymentStatus: billing-controlled; only the admin/billing path may change these
-    //  - createdAt: immutable
-    for (const protectedKey of ['merchantId', '_id', '__v', 'tier', 'paymentStatus', 'createdAt']) {
-      delete update[protectedKey];
-    }
-
     // Sync shopName and slug to the Merchant model as well, since they govern global identity and storefront routing
     if (body.shopName !== undefined || body.slug !== undefined) {
       const merchantUpdate: any = {};
@@ -97,7 +105,7 @@ export async function POST(req: NextRequest) {
         // Enforce lowercase alphanumeric with hyphens
         const cleanSlug = typeof body.slug === 'string' ? body.slug.toLowerCase().replace(/[^a-z0-9-]/g, '') : '';
         merchantUpdate.slug = cleanSlug || null; // convert empty strings to null to avoid unique constraint errors on empty slugs
-        body.slug = cleanSlug;
+        update.slug = cleanSlug;
       }
       try {
         const { Merchant } = require('@/models');
@@ -110,10 +118,10 @@ export async function POST(req: NextRequest) {
     const s = await Settings.findOneAndUpdate(
       { merchantId: merchant.merchantId },
       { $set: update },
-      { upsert: true, new: true }
+      { upsert: true, new: true, runValidators: true }
     );
     return NextResponse.json(s);
-  } catch {
-    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
+  } catch (err: any) {
+    return NextResponse.json({ error: `Failed to update settings: ${err.message || 'Unknown error'}` }, { status: 400 });
   }
 }

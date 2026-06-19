@@ -1,6 +1,11 @@
 import { Fulfilment, Order } from '@/models';
 
 export async function recomputeOrderStatus(orderId: string) {
+  const order = await Order.findById(orderId).select('status').lean() as any;
+  if (!order) return;
+
+  if (order.status === 'cancelled') return; // Never resurrect cancelled orders
+
   const fulfilments = await Fulfilment.find({ orderId });
   if (fulfilments.length === 0) return; // no change — status set by merchant manually
 

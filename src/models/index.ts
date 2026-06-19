@@ -21,7 +21,7 @@ const NotificationSchema = new mongoose.Schema({
 NotificationSchema.index({ merchantId: 1, read: 1, createdAt: -1 });
 
 const SettingsSchema = new mongoose.Schema({
-  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true, unique: true },
   shopName: { type: String, default: "My Shop" },
   theme: { type: String, enum: ['light', 'lite', 'dark'], default: "light" },
   dashboardAccent: { type: String, default: '#00b900' },

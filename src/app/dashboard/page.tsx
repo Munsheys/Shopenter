@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw, Tag, Zap, Bell, X, ShoppingBag, CheckCheck, AlertTriangle, TrendingDown, Radio, MoreHorizontal, ChevronRight } from 'lucide-react';
+import { Package, ShoppingCart, Settings as SettingsIcon, BarChart3, MessageCircle, LogOut, Store, ExternalLink, Megaphone, HeartHandshake, RefreshCw, Tag, Zap, Bell, X, ShoppingBag, CheckCheck, AlertTriangle, TrendingDown, Radio, MoreHorizontal, ChevronRight, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import LoadingView from '@/components/LoadingView';
@@ -19,10 +19,11 @@ const CustomersView        = dynamic(() => import('@/components/CustomersView'),
 const BroadcastsView       = dynamic(() => import('@/components/BroadcastsView'),       { ssr: false });
 const FeedbackView         = dynamic(() => import('@/components/FeedbackView'),         { ssr: false });
 const CouponsView          = dynamic(() => import('@/components/CouponsView'),          { ssr: false });
+const BillingSetupView     = dynamic(() => import('@/components/BillingSetupView'),     { ssr: false });
 import { type Tier, getTierLabel, checkBooleanFeature } from '@/lib/tiers';
 import { getAccentText } from '@/lib/accent';
 
-type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'coupons' | 'feedback' | 'settings';
+type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'coupons' | 'feedback' | 'settings' | 'billing';
 
 interface Merchant {
   merchantId: string;
@@ -47,11 +48,12 @@ const tabs: { id: Tab; label: string; Icon: React.ComponentType<{ size?: number 
   { id: 'broadcasts', label: 'Messaging',  Icon: Radio },
   { id: 'storefront', label: 'Storefront', Icon: Store },
   { id: 'coupons',    label: 'Coupons',    Icon: Tag },
+  { id: 'billing',    label: 'Billing',    Icon: CreditCard },
 ];
 
 // Bottom nav: 4 primary + "More" button; secondary tabs live in the More drawer
 const PRIMARY_TAB_IDS: Tab[] = ['customers', 'orders', 'products', 'broadcasts'];
-const SECONDARY_TAB_IDS: Tab[] = ['reports', 'storefront', 'coupons'];
+const SECONDARY_TAB_IDS: Tab[] = ['reports', 'storefront', 'coupons', 'billing'];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -626,6 +628,14 @@ export default function DashboardPage() {
         <div className={activeTab === 'coupons' ? 'flex-1 overflow-auto pt-6 pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
             <CouponsView theme={theme} />
+          </ErrorBoundary>
+        </div>
+
+        <div className={activeTab === 'billing' ? 'flex-1 overflow-auto pb-16 md:pb-0 view-enter' : 'hidden'}>
+          <ErrorBoundary>
+            <BillingSetupView theme={theme} tier={merchant?.tier || 'free'} onTierChange={(newTier) => {
+              setMerchant((prev) => prev ? { ...prev, tier: newTier as any } : null);
+            }} />
           </ErrorBoundary>
         </div>
 
