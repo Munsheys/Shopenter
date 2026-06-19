@@ -270,6 +270,19 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                           </span>
                         </div>
                       ))}
+                      {/* Add Affiliate Program feature for Pro/Enterprise */}
+                      {(t.id === 'pro' || t.id === 'enterprise') && (
+                        <div className="flex items-start gap-2">
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                            isSelected ? 'bg-accent/30 text-accent' : featureFilledMuted
+                          }`}>
+                            <div className="w-1 h-1 rounded-full bg-current" />
+                          </div>
+                          <span className={`text-xs ${mutedStrong}`}>
+                            Affiliate Program
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

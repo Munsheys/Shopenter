@@ -20,10 +20,11 @@ const BroadcastsView       = dynamic(() => import('@/components/BroadcastsView')
 const FeedbackView         = dynamic(() => import('@/components/FeedbackView'),         { ssr: false });
 const CouponsView          = dynamic(() => import('@/components/CouponsView'),          { ssr: false });
 const BillingSetupView     = dynamic(() => import('@/components/BillingSetupView'),     { ssr: false });
+const AffiliatePanel       = dynamic(() => import('@/components/AffiliatePanel'),       { ssr: false });
 import { type Tier, getTierLabel, checkBooleanFeature } from '@/lib/tiers';
 import { getAccentText } from '@/lib/accent';
 
-type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'coupons' | 'feedback' | 'settings' | 'billing';
+type Tab = 'customers' | 'orders' | 'products' | 'reports' | 'broadcasts' | 'storefront' | 'coupons' | 'feedback' | 'settings' | 'billing' | 'affiliate';
 
 interface Merchant {
   merchantId: string;
@@ -49,11 +50,12 @@ const tabs: { id: Tab; label: string; Icon: React.ComponentType<{ size?: number 
   { id: 'storefront', label: 'Storefront', Icon: Store },
   { id: 'coupons',    label: 'Coupons',    Icon: Tag },
   { id: 'billing',    label: 'Billing',    Icon: CreditCard },
+  { id: 'affiliate',  label: 'Affiliate',  Icon: HeartHandshake },
 ];
 
 // Bottom nav: 4 primary + "More" button; secondary tabs live in the More drawer
 const PRIMARY_TAB_IDS: Tab[] = ['customers', 'orders', 'products', 'broadcasts'];
-const SECONDARY_TAB_IDS: Tab[] = ['reports', 'storefront', 'coupons', 'billing'];
+const SECONDARY_TAB_IDS: Tab[] = ['reports', 'storefront', 'coupons', 'billing', 'affiliate'];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -636,6 +638,17 @@ export default function DashboardPage() {
             <BillingSetupView theme={theme} tier={merchant?.tier || 'free'} onTierChange={(newTier) => {
               setMerchant((prev) => prev ? { ...prev, tier: newTier as any } : null);
             }} />
+          </ErrorBoundary>
+        </div>
+
+        <div className={activeTab === 'affiliate' ? 'flex-1 overflow-auto p-6 pb-16 md:pb-6 view-enter' : 'hidden'}>
+          <ErrorBoundary>
+            <div className="max-w-5xl">
+              <h2 className={`text-2xl font-black mb-6 ${isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-slate-900'}`}>
+                Affiliate Program
+              </h2>
+              <AffiliatePanel theme={theme} />
+            </div>
           </ErrorBoundary>
         </div>
 
