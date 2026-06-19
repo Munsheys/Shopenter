@@ -72,6 +72,57 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section className="border-t border-white/5 px-6 py-20">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-4">Simple, Transparent Pricing</h2>
+          <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">Start free. Upgrade when you scale. No hidden fees.</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[
+              {
+                name: 'Free',
+                price: '0',
+                desc: 'Perfect for getting started',
+                features: ['10 products', '100 orders/month', '2 campaigns', 'Basic analytics', 'LINE messaging']
+              },
+              {
+                name: 'Pro',
+                price: '299',
+                desc: 'For growing stores',
+                features: ['500 products', '10,000 orders/month', '50 campaigns', 'Discount codes', 'Loyalty program', 'CSV export'],
+                highlighted: true
+              },
+              {
+                name: 'Enterprise',
+                price: 'Custom',
+                desc: 'For large operations',
+                features: ['Unlimited products', 'Unlimited orders', 'Unlimited campaigns', 'All Pro features', 'Dedicated support', 'Custom integrations']
+              }
+            ].map(tier => (
+              <div key={tier.name} className={`rounded-2xl p-8 border transition-all ${tier.highlighted ? 'border-green-500 bg-green-500/5 ring-2 ring-green-500/20' : 'border-white/10 bg-white/3'}`}>
+                <h3 className="text-xl font-semibold text-white mb-2">{tier.name}</h3>
+                <p className="text-gray-400 text-sm mb-6">{tier.desc}</p>
+                <div className="mb-6">
+                  <span className="text-3xl font-bold text-white">${tier.price}</span>
+                  {tier.price !== 'Custom' && <span className="text-gray-400 text-sm">/month</span>}
+                </div>
+                <ul className="space-y-3 mb-8">
+                  {tier.features.map(f => (
+                    <li key={f} className="flex items-start gap-3 text-sm text-gray-300">
+                      <span className="text-green-400 mt-0.5">✓</span> {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link href={tier.name === 'Enterprise' ? '/contact' : '/signup'} className={`block text-center py-3 rounded-xl font-semibold transition-colors ${tier.highlighted ? 'bg-green-500 hover:bg-green-400 text-white' : 'border border-white/20 text-white hover:bg-white/5'}`}>
+                  {tier.name === 'Enterprise' ? 'Contact sales' : 'Get started'}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <footer className="border-t border-white/5 px-6 py-6 text-center text-xs text-gray-600">
         © {new Date().getFullYear()} Shopenter. Built for LINE OA merchants.
       </footer>
