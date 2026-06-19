@@ -4,18 +4,40 @@ import React, { useState } from 'react';
 import { CreditCard, Check, AlertCircle, Loader, Zap, Package, Users, TrendingUp, ArrowRight, ChevronDown } from 'lucide-react';
 
 interface BillingSetupProps {
-  theme: 'light' | 'dark';
+  theme: 'light' | 'lite' | 'dark';
   tier: string;
   onTierChange?: (tier: string) => void;
 }
 
 export default function BillingSetupView({ theme, tier = 'free', onTierChange }: BillingSetupProps) {
   const isDark = theme === 'dark';
+  const isLite = theme === 'lite';
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedTier, setSelectedTier] = useState(tier);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'promptpay'>('card');
   const [showComparison, setShowComparison] = useState(false);
+
+  // ── Theme tokens (light / lite / dark) ──────────────────────────────────
+  const pageBg = isDark ? 'bg-[#0a0d14]' : isLite ? 'bg-[#d9dfe8]' : 'bg-gradient-to-br from-white to-slate-50';
+  const surface = isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-slate-200';
+  const surfaceRaised = isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd] shadow-md' : 'bg-white border-slate-200 shadow-lg';
+  const text = isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-slate-900';
+  const muted = isDark ? 'text-[#8b92ad]' : isLite ? 'text-[#6d7a8c]' : 'text-slate-500';
+  const mutedStrong = isDark ? 'text-[#8b92ad]' : isLite ? 'text-[#5b6677]' : 'text-slate-600';
+  const border = isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-slate-200';
+  const chipBg = isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#292d45]' : isLite ? 'bg-[#cdd3dd] text-[#5b6677] hover:bg-[#bcc4d1]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200';
+  const cardHover = isDark ? 'bg-[#161925] border-[#1f2335] hover:border-[#2a2f45] hover:shadow-lg' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd] hover:border-[#bcc4d1] hover:shadow-lg' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-lg';
+  const cardSelected = isDark ? 'bg-[#1a1d2e] border-accent shadow-2xl shadow-accent/30' : isLite ? 'bg-[#e7ecf3] border-accent shadow-2xl shadow-accent/20' : 'bg-white border-accent shadow-2xl shadow-accent/20';
+  const badgeBgWrap = isDark ? 'bg-[#0a0d14]/80' : isLite ? 'bg-[#e7ecf3]/90' : 'bg-white/80';
+  const featureUnfilled = isDark ? 'bg-[#1f2335] text-[#8b92ad]' : isLite ? 'bg-[#cdd3dd] text-[#5b6677]' : 'bg-slate-200 text-slate-500';
+  const featureFilledMuted = isDark ? 'bg-accent/10 text-[#8b92ad]' : isLite ? 'bg-accent/10 text-[#5b6677]' : 'bg-accent/5 text-slate-500';
+  const currentPlanBadge = isDark ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-accent/10 text-accent border border-accent/20';
+  const tableHeadBg = isDark ? 'border-[#1f2335] bg-[#0a0d14]' : isLite ? 'border-[#cdd3dd] bg-[#d9dfe8]' : 'border-slate-200 bg-slate-50';
+  const radioSelected = isDark ? 'bg-accent/20 border border-accent/40' : 'bg-accent/10 border border-accent/30';
+  const radioUnselected = isDark ? 'bg-[#0a0d14] border border-[#1f2335] hover:border-[#2a2f45]' : isLite ? 'bg-[#d9dfe8] border border-[#cdd3dd] hover:border-[#bcc4d1]' : 'bg-slate-50 border border-slate-200 hover:border-slate-300';
+  const currentPlanCtaBg = isDark ? 'bg-[#1f2335] text-[#8b92ad] cursor-default' : isLite ? 'bg-[#cdd3dd] text-[#5b6677] cursor-default' : 'bg-slate-200 text-slate-600 cursor-default';
+  const errorBox = isDark ? 'bg-red-500/10 border-red-500/20 text-red-400' : isLite ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-red-50 border-red-200 text-red-700';
 
   const tiers = [
     {
@@ -107,10 +129,9 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
   };
 
   const currentTierObj = tiers.find(t => t.id === tier);
-  const selectedTierObj = tiers.find(t => t.id === selectedTier);
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#0a0d14]' : 'bg-gradient-to-br from-white to-slate-50'}`}>
+    <div className={`min-h-screen ${pageBg}`}>
       {/* Hero Gradient Header */}
       <div className="relative overflow-hidden bg-gradient-to-br from-accent via-[#009900] to-[#005500] pt-16 pb-24 px-6">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" aria-hidden="true" />
@@ -133,31 +154,23 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
       <div className="max-w-6xl mx-auto px-6 py-12">
         {/* Error Message */}
         {error && (
-          <div className={`mb-6 p-4 rounded-2xl border flex items-start gap-3 animate-slide-up ${
-            isDark
-              ? 'bg-red-500/10 border-red-500/20 text-red-400'
-              : 'bg-red-50 border-red-200 text-red-700'
-          }`}>
+          <div className={`mb-6 p-4 rounded-2xl border flex items-start gap-3 animate-slide-up ${errorBox}`}>
             <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
             <p className="text-sm font-medium">{error}</p>
           </div>
         )}
 
         {/* Current Plan Summary */}
-        <div className={`mb-12 rounded-3xl border overflow-hidden ${
-          isDark
-            ? 'bg-[#161925] border-[#1f2335]'
-            : 'bg-white border-slate-200 shadow-lg'
-        }`}>
+        <div className={`mb-12 rounded-3xl border overflow-hidden ${surfaceRaised}`}>
           <div className="p-8 flex items-center justify-between flex-wrap gap-4">
             <div>
-              <p className={`text-sm font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>
+              <p className={`text-sm font-bold uppercase tracking-widest mb-2 ${muted}`}>
                 Current Plan
               </p>
-              <h2 className={`text-3xl font-black mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              <h2 className={`text-3xl font-black mb-2 ${text}`}>
                 {currentTierObj?.name}
               </h2>
-              <p className={`text-sm ${isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>
+              <p className={`text-sm ${mutedStrong}`}>
                 {currentTierObj?.description}
               </p>
             </div>
@@ -178,16 +191,12 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         {/* Tier Selection Cards */}
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
-            <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <h2 className={`text-2xl font-black ${text}`}>
               Choose Your Plan
             </h2>
             <button
               onClick={() => setShowComparison(!showComparison)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                isDark
-                  ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white hover:bg-[#292d45]'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${chipBg}`}
             >
               Compare Plans
               <ChevronDown size={16} className={`transition-transform ${showComparison ? 'rotate-180' : ''}`} />
@@ -205,12 +214,12 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                   onClick={() => setSelectedTier(t.id)}
                   className={`group relative rounded-3xl border overflow-hidden transition-all duration-300 cursor-pointer ${
                     isSelected || isCurrent
-                      ? `${isDark ? 'bg-[#1a1d2e] border-accent shadow-2xl shadow-accent/30' : 'bg-white border-accent shadow-2xl shadow-accent/20'} ring-2 ring-accent/40`
-                      : `${isDark ? 'bg-[#161925] border-[#1f2335] hover:border-[#2a2f45] hover:shadow-lg' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-lg'}`
+                      ? `${cardSelected} ring-2 ring-accent/40`
+                      : cardHover
                   }`}
                 >
                   {/* Badge */}
-                  <div className={`absolute top-0 right-0 px-4 py-2 text-[10px] font-black uppercase border-l border-b rounded-bl-2xl ${t.badgeColor} ${isDark ? 'bg-[#0a0d14]/80' : 'bg-white/80'}`}>
+                  <div className={`absolute top-0 right-0 px-4 py-2 text-[10px] font-black uppercase border-l border-b rounded-bl-2xl ${t.badgeColor} ${badgeBgWrap}`}>
                     {t.badge}
                   </div>
 
@@ -224,10 +233,10 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                     )}
 
                     {/* Title & Price */}
-                    <h3 className={`text-2xl font-black mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    <h3 className={`text-2xl font-black mb-2 ${text}`}>
                       {t.name}
                     </h3>
-                    <p className={`text-sm mb-6 ${isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>
+                    <p className={`text-sm mb-6 ${mutedStrong}`}>
                       {t.description}
                     </p>
 
@@ -235,15 +244,15 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                     <div className="mb-8">
                       {t.price !== null ? (
                         <div>
-                          <span className={`text-4xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          <span className={`text-4xl font-black ${text}`}>
                             ฿{t.price.toLocaleString()}
                           </span>
-                          <span className={`text-sm ml-2 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>
+                          <span className={`text-sm ml-2 ${muted}`}>
                             {t.billingPeriod}
                           </span>
                         </div>
                       ) : (
-                        <div className={`text-lg font-bold ${isDark ? 'text-accent' : 'text-accent'}`}>
+                        <div className="text-lg font-bold text-accent">
                           Custom pricing
                         </div>
                       )}
@@ -251,11 +260,7 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
 
                     {/* Current Plan Badge */}
                     {isCurrent && (
-                      <div className={`mb-6 px-3 py-2 rounded-lg text-[11px] font-bold text-center ${
-                        isDark
-                          ? 'bg-accent/20 text-accent border border-accent/30'
-                          : 'bg-accent/10 text-accent border border-accent/20'
-                      }`}>
+                      <div className={`mb-6 px-3 py-2 rounded-lg text-[11px] font-bold text-center ${currentPlanBadge}`}>
                         YOUR CURRENT PLAN
                       </div>
                     )}
@@ -268,13 +273,13 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                             f.highlight && isSelected
                               ? 'bg-accent/30 text-accent'
                               : f.highlight
-                              ? isDark ? 'bg-accent/10 text-[#8b92ad]' : 'bg-accent/5 text-slate-500'
-                              : isDark ? 'bg-[#1f2335] text-[#8b92ad]' : 'bg-slate-200 text-slate-500'
+                              ? featureFilledMuted
+                              : featureUnfilled
                           }`}>
                             <div className="w-1.5 h-1.5 rounded-full bg-current" />
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`text-sm ${isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>
+                            <span className={`text-sm ${mutedStrong}`}>
                               {f.label}
                             </span>
                           </div>
@@ -289,16 +294,14 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
 
           {/* Comparison Table */}
           {showComparison && (
-            <div className={`rounded-2xl border overflow-hidden animate-slide-up ${
-              isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'
-            }`}>
+            <div className={`rounded-2xl border overflow-hidden animate-slide-up ${surface}`}>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className={`border-b ${isDark ? 'border-[#1f2335] bg-[#0a0d14]' : 'border-slate-200 bg-slate-50'}`}>
-                      <th className={`px-6 py-4 text-left font-bold ${isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>Feature</th>
+                    <tr className={`border-b ${tableHeadBg}`}>
+                      <th className={`px-6 py-4 text-left font-bold ${mutedStrong}`}>Feature</th>
                       {tiers.map(t => (
-                        <th key={t.id} className={`px-6 py-4 text-center font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        <th key={t.id} className={`px-6 py-4 text-center font-bold ${text}`}>
                           {t.name}
                         </th>
                       ))}
@@ -313,14 +316,14 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                       { label: 'Loyalty Program', free: '✗', pro: '✓', ent: '✓' },
                       { label: 'CSV Export', free: '✗', pro: '✓', ent: '✓' },
                     ].map((row, i) => (
-                      <tr key={i} className={`border-b last:border-b-0 ${isDark ? 'border-[#1f2335]' : 'border-slate-200'}`}>
-                        <td className={`px-6 py-4 font-semibold ${isDark ? 'text-[#8b92ad]' : 'text-slate-700'}`}>
+                      <tr key={i} className={`border-b last:border-b-0 ${border}`}>
+                        <td className={`px-6 py-4 font-semibold ${mutedStrong}`}>
                           {row.label}
                         </td>
-                        <td className={`px-6 py-4 text-center ${isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>
+                        <td className={`px-6 py-4 text-center ${mutedStrong}`}>
                           {row.free}
                         </td>
-                        <td className={`px-6 py-4 text-center font-bold ${isDark ? 'text-accent' : 'text-accent'}`}>
+                        <td className="px-6 py-4 text-center font-bold text-accent">
                           {row.pro}
                         </td>
                         <td className={`px-6 py-4 text-center font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
@@ -337,10 +340,8 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
 
         {/* Payment Method Section */}
         {selectedTier !== 'free' && selectedTier !== 'enterprise' && (
-          <div className={`mb-12 rounded-3xl border p-8 ${
-            isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'
-          }`}>
-            <h3 className={`text-xl font-black mb-6 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          <div className={`mb-12 rounded-3xl border p-8 ${surface}`}>
+            <h3 className={`text-xl font-black mb-6 ${text}`}>
               Payment Method
             </h3>
             <div className="space-y-3">
@@ -349,13 +350,7 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                 { id: 'promptpay', label: 'PromptPay', desc: 'Instant bank transfer (Thailand)', icon: '🏦' },
               ].map((method: any) => (
                 <label key={method.id} className={`flex items-start gap-4 p-4 rounded-2xl cursor-pointer transition-all ${
-                  paymentMethod === method.id
-                    ? isDark
-                      ? 'bg-accent/20 border border-accent/40'
-                      : 'bg-accent/10 border border-accent/30'
-                    : isDark
-                    ? 'bg-[#0a0d14] border border-[#1f2335] hover:border-[#2a2f45]'
-                    : 'bg-slate-50 border border-slate-200 hover:border-slate-300'
+                  paymentMethod === method.id ? radioSelected : radioUnselected
                 }`}>
                   <input
                     type="radio"
@@ -366,8 +361,8 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                     className="mt-1"
                   />
                   <div className="flex-1">
-                    <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{method.label}</p>
-                    <p className={`text-sm ${isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>{method.desc}</p>
+                    <p className={`font-bold ${text}`}>{method.label}</p>
+                    <p className={`text-sm ${mutedStrong}`}>{method.desc}</p>
                   </div>
                   <span className="text-2xl">{method.icon}</span>
                 </label>
@@ -383,9 +378,7 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
             disabled={isLoading || selectedTier === tier}
             className={`flex-1 py-4 px-6 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 ${
               selectedTier === tier
-                ? isDark
-                  ? 'bg-[#1f2335] text-[#8b92ad] cursor-default'
-                  : 'bg-slate-200 text-slate-600 cursor-default'
+                ? currentPlanCtaBg
                 : selectedTier === 'enterprise'
                 ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30'
                 : 'bg-accent hover:bg-[#009900] text-white shadow-lg shadow-accent/30'
@@ -421,13 +414,11 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         </div>
 
         {/* Billing History */}
-        <div className={`rounded-3xl border p-8 ${
-          isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200'
-        }`}>
-          <h3 className={`text-xl font-black mb-6 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+        <div className={`rounded-3xl border p-8 ${surface}`}>
+          <h3 className={`text-xl font-black mb-6 ${text}`}>
             Billing History
           </h3>
-          <div className={`text-center py-12 ${isDark ? 'text-[#8b92ad]' : 'text-slate-600'}`}>
+          <div className={`text-center py-12 ${mutedStrong}`}>
             <p className="text-sm">No invoices yet. Your billing history will appear here after your first payment.</p>
           </div>
         </div>
