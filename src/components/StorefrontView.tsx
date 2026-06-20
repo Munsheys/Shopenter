@@ -34,6 +34,30 @@ function findMatchingVariant(product: any, selections: Record<string, string>): 
   ) ?? null;
 }
 
+// Lazy-loaded image with a graceful icon fallback on missing/broken src — avoids the
+// browser's native broken-image glyph when a product photo is absent or fails to load.
+function ProductImg({ src, alt, className, bg, iconColor, iconSize = 32, eager }: {
+  src?: string; alt: string; className?: string; bg: string; iconColor?: string; iconSize?: number; eager?: boolean;
+}) {
+  const [errored, setErrored] = useState(false);
+  if (!src || errored) {
+    return (
+      <div className={`flex items-center justify-center ${className ?? ''}`} style={{ background: bg }}>
+        <Package size={iconSize} style={iconColor ? { color: iconColor } : undefined} />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading={eager ? 'eager' : 'lazy'}
+      className={className}
+      onError={() => setErrored(true)}
+    />
+  );
+}
+
 export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [shopInfo, setShopInfo] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -298,10 +322,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           )}
         </div>
         <div className="p-4 space-y-4 max-w-lg mx-auto">
-          {displayImg
-            ? <img src={displayImg} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl animate-fade-in" />
-            : <div className="w-full aspect-square rounded-2xl flex items-center justify-center" style={{ background: p.inputBg }}><Package size={48} style={style.muted} /></div>
-          }
+          <ProductImg src={displayImg ?? undefined} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl animate-fade-in" bg={p.inputBg} iconColor={p.textMuted} iconSize={48} eager />
           {/* Fix 6: thumbnail buttons with aria-label and aria-pressed */}
           {imgs.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
@@ -314,7 +335,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                   className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all"
                   style={{ borderColor: !selectedVariant?.imageUrl && activeImgIdx === i ? p.accent : 'transparent', opacity: !selectedVariant?.imageUrl && activeImgIdx === i ? 1 : 0.6 }}
                 >
-                  <img src={img} alt="" className="w-full h-full object-cover animate-fade-in" />
+                  <ProductImg src={img} alt="" className="w-full h-full object-cover animate-fade-in" bg={p.inputBg} iconColor={p.textMuted} iconSize={20} />
                 </button>
               ))}
             </div>
@@ -391,17 +412,17 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       {sf.announcementText && sf.announcementEnabled && (
         <div className="px-4 py-1.5 text-xs text-center font-medium" style={{ background: announcementBg, color: sf.announcementColor === 'accent' ? accentText : '#ffffff' }}>{sf.announcementText}</div>
       )}
-      <div style={style.header} className="sticky top-0 z-10">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div style={style.header} className="sticky top-0 z-10 shadow-sm">
+        <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {/* Fix 7: logo alt text */}
             {shopInfo.shopLogoUrl
-              ? <img src={shopInfo.shopLogoUrl} alt={`${shopInfo.shopName} logo`} className="w-8 h-8 rounded-xl object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
-              : <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold" style={style.accent}>{(shopInfo.shopName || 'S')[0]}</div>
+              ? <img src={shopInfo.shopLogoUrl} alt={`${shopInfo.shopName} logo`} className="w-11 h-11 rounded-2xl object-cover shadow-sm flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />
+              : <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-sm" style={style.accent}>{(shopInfo.shopName || 'S')[0]}</div>
             }
-            <div>
-              <p className="font-bold text-sm">{shopInfo.shopName}</p>
-              {sf.shopTagline && <p className="text-xs" style={style.muted}>{sf.shopTagline}</p>}
+            <div className="min-w-0">
+              <p className="font-bold text-base leading-tight truncate">{shopInfo.shopName}</p>
+              {sf.shopTagline && <p className="text-xs mt-0.5 truncate" style={style.muted}>{sf.shopTagline}</p>}
             </div>
           </div>
           {/* Fix 2: cart button aria-label */}
@@ -409,23 +430,23 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
             <button
               onClick={() => setView('cart')}
               aria-label={`View cart, ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
-              className="relative p-2"
+              className="relative p-2 flex-shrink-0"
               style={{ color: p.textPrimary }}
             >
-              <ShoppingBag size={20} />
+              <ShoppingBag size={22} />
               <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-xs flex items-center justify-center font-bold" style={style.accent}>{cartCount}</span>
             </button>
           )}
         </div>
         {/* Fix 7: banner alt text */}
         {sf.bannerUrl && (
-          <img src={sf.bannerUrl} alt={`${shopInfo.shopName} banner`} className="w-full h-28 object-cover animate-fade-in" onError={e => (e.currentTarget.style.display = 'none')} />
+          <img src={sf.bannerUrl} alt={`${shopInfo.shopName} banner`} className="w-full h-32 object-cover animate-fade-in" loading="lazy" onError={e => (e.currentTarget.style.display = 'none')} />
         )}
         {/* Fix 3: search role and aria-labels */}
         {sf.showSearch !== false && (
-          <div className="px-4 pb-2">
-            <div role="search" className="flex items-center gap-2 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-accent/30 transition-all" style={style.input}>
-              <Search size={14} style={style.muted} />
+          <div className="px-4 pb-3">
+            <div role="search" className="flex items-center gap-2 rounded-xl px-3.5 py-3 focus-within:ring-2 focus-within:ring-accent/30 transition-all" style={style.input}>
+              <Search size={16} style={style.muted} />
               <input
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
@@ -444,23 +465,34 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         )}
         {/* Fix 4: category filter pill padding and focus-visible */}
         {sf.showCategoryFilter !== false && categories.length > 1 && (
-          <div className="flex gap-2 px-4 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-            {categories.map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)} className="flex-shrink-0 px-3 py-2.5 rounded-lg text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={style.pill(activeCategory === cat)}>{cat}</button>
-            ))}
+          <div className="pb-2.5">
+            <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-wider" style={style.muted}>Category</p>
+            <div className="flex gap-2 px-4 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              {categories.map(cat => (
+                <button key={cat} onClick={() => setActiveCategory(cat)} className="flex-shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition-transform active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={style.pill(activeCategory === cat)}>{cat}</button>
+              ))}
+            </div>
           </div>
         )}
-        {/* Fix 4: brand filter pill padding and focus-visible */}
+        {/* Fix 4: brand filter pill padding and focus-visible — secondary weight vs category to reduce visual competition */}
         {sf.showBrandFilter !== false && brands.length > 1 && (
-          <div className="flex gap-2 px-4 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-            {brands.map(b => (
-              <button key={b} onClick={() => setActiveBrand(b)} className="flex-shrink-0 px-3 py-2.5 rounded-lg text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={style.pill(activeBrand === b)}>{b}</button>
-            ))}
+          <div className="pb-3">
+            <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-wider" style={style.muted}>Brand</p>
+            <div className="flex gap-2 px-4 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              {brands.map(b => (
+                <button
+                  key={b}
+                  onClick={() => setActiveBrand(b)}
+                  className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-transform active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  style={activeBrand === b ? style.pill(true) : { background: 'transparent', borderColor: p.cardBorder, color: p.textMuted }}
+                >{b}</button>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      <div key={`${searchQuery}-${activeCategory}-${activeBrand}`} className={`p-4 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}`}>
+      <div key={`${searchQuery}-${activeCategory}-${activeBrand}`} className={`px-4 pt-4 pb-8 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-4' : 'flex flex-col gap-3'}`}>
         {filtered.map((pr, idx) => {
           // Fix 16: out-of-stock on product card
           const cardOutOfStock = pr.trackStock === true && (pr.stock ?? 0) <= 0;
@@ -473,29 +505,23 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
               {cardLayout === 'grid' ? (
                 <>
                   <div className="relative overflow-hidden">
-                    {pr.imageUrl
-                      ? <img src={pr.imageUrl} alt={pr.name} className="w-full aspect-square object-cover animate-fade-in transition-transform duration-300 group-hover:scale-105" />
-                      : <div className="w-full aspect-square flex items-center justify-center" style={{ background: p.inputBg }}><Package size={32} style={style.muted} /></div>
-                    }
+                    <ProductImg src={pr.imageUrl} alt={pr.name} className="w-full aspect-square object-cover animate-fade-in transition-transform duration-300 group-hover:scale-105" bg={p.inputBg} iconColor={p.textMuted} iconSize={32} />
                     {cardOutOfStock && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                         <span className="text-white text-xs font-bold px-2 py-1 rounded-lg bg-black/60">Out of stock</span>
                       </div>
                     )}
                   </div>
-                  <div className="p-3">
+                  <div className="p-3.5">
                     <p className="font-semibold text-sm leading-tight line-clamp-2">{pr.name}</p>
-                    {pr.brand && <p className="text-xs mt-0.5" style={style.muted}>{pr.brand}</p>}
-                    <p className="font-bold text-sm mt-1" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
+                    {pr.brand && <p className="text-xs mt-1" style={style.muted}>{pr.brand}</p>}
+                    <p className="font-bold text-sm mt-1.5" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="relative flex-shrink-0 overflow-hidden">
-                    {pr.imageUrl
-                      ? <img src={pr.imageUrl} alt={pr.name} className="w-16 h-16 rounded-xl object-cover animate-fade-in transition-transform duration-300 group-hover:scale-105" />
-                      : <div className="w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: p.inputBg }}><Package size={20} style={style.muted} /></div>
-                    }
+                    <ProductImg src={pr.imageUrl} alt={pr.name} className="w-16 h-16 rounded-xl object-cover animate-fade-in transition-transform duration-300 group-hover:scale-105" bg={p.inputBg} iconColor={p.textMuted} iconSize={20} />
                     {cardOutOfStock && (
                       <div className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
                         <span className="text-white text-xs font-bold">OOS</span>
@@ -591,10 +617,7 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
       <div className="p-4 space-y-3 max-w-lg mx-auto">
         {cart.map((item, idx) => (
           <div key={`${item.productId}-${item.variantLabel}`} data-cart-item="true" style={{ ...style.card, animationDelay: `${idx * 50}ms` }} className="rounded-2xl p-3 flex items-center gap-3 animate-slide-left">
-            {item.imageUrl
-              ? <img src={item.imageUrl} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 animate-fade-in" alt={item.name} />
-              : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: p.inputBg }}><Package size={20} style={style.muted} /></div>
-            }
+            <ProductImg src={item.imageUrl} alt={item.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 animate-fade-in" bg={p.inputBg} iconColor={p.textMuted} iconSize={20} />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm line-clamp-1">{item.name}</p>
               {item.variantLabel && <p className="text-xs" style={style.muted}>{item.variantLabel}</p>}
