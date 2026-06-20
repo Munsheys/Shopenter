@@ -240,15 +240,29 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
   // Fix 9: loading spinner with role="status"
   if (!shopInfo) return (
-    <div style={{ ...style.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div role="status" aria-label="Loading store">
-        <div aria-hidden="true" className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${p.accent}40`, borderTopColor: p.accent }} />
+    <div style={{ ...style.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} className="animate-fade-in">
+      <div className="flex items-center justify-center py-6">
+        <div role="status" aria-label="Loading store">
+          <div aria-hidden="true" className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${p.accent}40`, borderTopColor: p.accent }} />
+        </div>
+      </div>
+      {/* Skeleton placeholder grid — supplements the spinner above while products load */}
+      <div aria-hidden="true" className="p-4 max-w-2xl w-full mx-auto grid grid-cols-2 gap-3">
+        {Array.from({ length: 6 }).map((_, idx) => (
+          <div key={idx} className="rounded-2xl overflow-hidden" style={{ ...style.card, animationDelay: `${idx * 40}ms` }}>
+            <div className="w-full aspect-square skeleton-shimmer" style={{ background: p.inputBg }} />
+            <div className="p-3 space-y-2">
+              <div className="h-3 rounded skeleton-shimmer" style={{ background: p.inputBg, width: '80%' }} />
+              <div className="h-3 rounded skeleton-shimmer" style={{ background: p.inputBg, width: '40%' }} />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 
   if (view === 'payment') return (
-    <div style={style.page} className="flex items-center justify-center p-4">
+    <div style={style.page} className="flex items-center justify-center p-4 animate-fade-in">
       <div style={style.card} className="rounded-2xl p-8 w-full max-w-sm text-center">
         <CheckCircle size={48} className="mx-auto mb-4" style={{ color: p.accent }} />
         <h2 className="text-xl font-bold mb-2">Order placed!</h2>
@@ -266,7 +280,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     // Fix 16: out-of-stock detection
     const isOutOfStock = selectedProduct.trackStock === true && (selectedProduct.stock ?? 0) <= 0;
     return (
-      <div style={style.page}>
+      <div style={style.page} className="animate-fade-in">
         {/* Fix 5 & 15: back button p-3, aria-label, cart button in header */}
         <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
           <button onClick={() => setView('home')} aria-label="Back" style={{ color: p.textPrimary }} className="p-3 rounded-xl"><ChevronLeft size={20} /></button>
@@ -372,7 +386,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const announcementBg = announcementBgMap[sf.announcementColor || 'accent'] ?? p.accent;
 
   return (
-    <div style={style.page}>
+    <div style={style.page} className="animate-fade-in">
       {/* Fix 8: single announcement block — only show when enabled */}
       {sf.announcementText && sf.announcementEnabled && (
         <div className="px-4 py-1.5 text-xs text-center font-medium" style={{ background: announcementBg, color: sf.announcementColor === 'accent' ? accentText : '#ffffff' }}>{sf.announcementText}</div>
@@ -446,7 +460,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         )}
       </div>
 
-      <div className={`p-4 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}`}>
+      <div key={`${searchQuery}-${activeCategory}-${activeBrand}`} className={`p-4 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}`}>
         {filtered.map((pr, idx) => {
           // Fix 16: out-of-stock on product card
           const cardOutOfStock = pr.trackStock === true && (pr.stock ?? 0) <= 0;
@@ -500,8 +514,10 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           );
         })}
         {filtered.length === 0 && (
-          <div className={`${cardLayout === 'grid' ? 'col-span-2' : ''} py-16 text-center`}>
-            <Package size={40} className="mx-auto mb-3 opacity-30" />
+          <div className={`${cardLayout === 'grid' ? 'col-span-2' : ''} py-16 text-center animate-fade-in animate-scale-in`}>
+            <div className="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ background: `${p.accent}20` }}>
+              <Package size={28} style={{ color: p.accent }} />
+            </div>
             <p className="text-sm" style={style.muted}>No products found</p>
           </div>
         )}
@@ -566,7 +582,7 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
   const finalTotal = Math.max(0, cartTotal - totalDiscount);
 
   return (
-    <div style={style.page}>
+    <div style={style.page} className="animate-fade-in">
       {/* Fix 5: back button p-3 and aria-label */}
       <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
         <button onClick={onBack} aria-label="Back" style={{ color: p.textPrimary }} className="p-3 rounded-xl"><ChevronLeft size={20} /></button>
