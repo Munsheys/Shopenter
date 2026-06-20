@@ -68,8 +68,8 @@ export default function SignupContent() {
           <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 mb-4 flex items-start gap-2">
             <Gift size={18} className="text-accent flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-accent">Get 2 weeks free!</p>
-              <p className="text-xs text-slate-600 mt-0.5">{referrerName} invited you to Shopenter. You'll get a 2-week free trial when you sign up.</p>
+              <p className="text-sm font-semibold text-accent">Get 30 days free!</p>
+              <p className="text-xs text-slate-600 mt-0.5">{referrerName} invited you to Shopenter. You'll get a 30-day free trial when you sign up.</p>
             </div>
           </div>
         )}

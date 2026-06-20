@@ -11,7 +11,6 @@ const MerchantSchema = new mongoose.Schema({
   trialReason: { type: String, enum: ['signup', 'referral', 'affiliate_reward'], default: 'signup' },
   referralCode: { type: String, unique: true, sparse: true, lowercase: true, match: /^[a-z0-9]{12}$/ },
   referredByMerchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', default: null },
-  affiliateRewardsEarnedThisYear: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 MerchantSchema.index({ referralCode: 1 });
@@ -463,9 +462,15 @@ const AffiliateCommissionSchema = new mongoose.Schema({
   referrerMerchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   referredMerchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   referralCode: { type: String, required: true },
-  status: { type: String, enum: ['pending', 'earned', 'expired'], default: 'pending' },
+  // pending: referred merchant still in trial, hasn't paid yet
+  // converted: referred merchant paid; sitting in the anti-abuse grace window
+  // earned: stayed paid through the grace window (reward applied unless year cap was hit)
+  // reversed: canceled/downgraded during the grace window, no reward
+  // expired: never converted within the pending window
+  status: { type: String, enum: ['pending', 'converted', 'earned', 'reversed', 'expired'], default: 'pending' },
   createdAt: { type: Date, default: Date.now },
   expiresAt: { type: Date, required: true, index: true },
+  convertedAt: { type: Date, default: null },
   earnedAt: { type: Date, default: null },
   rewardAppliedAt: { type: Date, default: null },
 });

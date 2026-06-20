@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Merchant, Settings, AffiliateCommission } from '@/models';
 import { hashPassword, signMerchantToken } from '@/lib/auth';
+import { ORGANIC_TRIAL_DAYS, REFERRED_TRIAL_DAYS, PENDING_GRACE_DAYS, daysFromNow } from '@/lib/affiliate';
 
 function toSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop';
@@ -43,14 +44,19 @@ export async function POST(req: NextRequest) {
       if (!referrer) {
         return NextResponse.json({ error: 'Invalid referral code' }, { status: 400 });
       }
+      if (referrer.email === email.toLowerCase().trim()) {
+        return NextResponse.json({ error: "You can't refer yourself" }, { status: 400 });
+      }
       referrerMerchantId = referrer._id;
     }
 
     const passwordHash = await hashPassword(password);
     const slug = await generateUniqueSlug(toSlug(shopName));
 
-    // All new signups start with 2-week Pro trial
-    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
+    // Referred signups get a longer trial than organic ones — that's the actual
+    // growth lever, since it makes sharing a referral link worth more than a cold signup.
+    const trialDays = referrerMerchantId ? REFERRED_TRIAL_DAYS : ORGANIC_TRIAL_DAYS;
+    const trialEndsAt = daysFromNow(trialDays);
     const trialReason = referralCode ? 'referral' : 'signup';
 
     const merchant = await Merchant.create({
@@ -68,9 +74,10 @@ export async function POST(req: NextRequest) {
     // Bootstrap default settings for the new merchant
     await Settings.create({ merchantId: merchant._id, shopName });
 
-    // If referral, create affiliate commission record
+    // If referral, create affiliate commission record. The pending window covers
+    // the referred merchant's full trial plus a grace period to actually upgrade.
     if (referrerMerchantId && referralCode) {
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      const expiresAt = daysFromNow(trialDays + PENDING_GRACE_DAYS);
       await AffiliateCommission.create({
         referrerMerchantId,
         referredMerchantId: merchant._id,

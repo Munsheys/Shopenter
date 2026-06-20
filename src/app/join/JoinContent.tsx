@@ -56,7 +56,7 @@ export default function JoinContent() {
                   error
                 ) : (
                   <>
-                    Get <span className="font-bold text-accent">2 weeks free</span> from{' '}
+                    Get <span className="font-bold text-accent">30 days free</span> from{' '}
                     <span className="font-bold">{referrerName}</span>'s invitation
                   </>
                 )}
@@ -73,7 +73,7 @@ export default function JoinContent() {
               <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-red-700">{error}</p>
-                <p className="text-xs text-red-600 mt-1">You can still sign up for your own 2-week trial.</p>
+                <p className="text-xs text-red-600 mt-1">You can still sign up for your own 14-day trial.</p>
               </div>
             </div>
           ) : null}

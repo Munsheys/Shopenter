@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   try {
     await dbConnect();
-    const doc = await Merchant.findById(merchant.merchantId).select('email shopName slug tier paymentStatus').lean() as any;
+    const doc = await Merchant.findById(merchant.merchantId).select('email shopName slug tier paymentStatus trialEndsAt').lean() as any;
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({
       merchantId: merchant.merchantId,
@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       slug: doc.slug ?? null,
       tier: doc.tier ?? 'free',
       paymentStatus: doc.paymentStatus ?? 'trialing',
+      trialEndsAt: doc.trialEndsAt ?? null,
     });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Merchant, AffiliateCommission } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
+import { MAX_REWARDS_PER_ROLLING_YEAR } from '@/lib/affiliate';
 
 export const runtime = 'nodejs';
 
@@ -12,9 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     await dbConnect();
 
-    const m = await Merchant.findById(merchant.merchantId).select(
-      'referralCode affiliateRewardsEarnedThisYear'
-    );
+    const m = await Merchant.findById(merchant.merchantId).select('referralCode');
 
     if (!m?.referralCode) {
       return NextResponse.json(
@@ -31,8 +30,14 @@ export async function GET(req: NextRequest) {
       .lean();
 
     const pending = commissions.filter(c => c.status === 'pending');
+    const converted = commissions.filter(c => c.status === 'converted');
     const earned = commissions.filter(c => c.status === 'earned');
-    const expired = commissions.filter(c => c.status === 'expired');
+    const expiredOrReversed = commissions.filter(c => c.status === 'expired' || c.status === 'reversed');
+
+    const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
+    const rewardsEarnedThisYear = earned.filter(
+      c => c.rewardAppliedAt && new Date(c.rewardAppliedAt).getTime() >= oneYearAgo
+    ).length;
 
     return NextResponse.json({
       referralCode: m.referralCode,
@@ -40,10 +45,12 @@ export async function GET(req: NextRequest) {
       stats: {
         totalReferrals: commissions.length,
         pendingConversions: pending.length,
+        inGracePeriod: converted.length,
         earnedRewards: earned.length,
-        expiredReferrals: expired.length,
-        rewardsEarnedThisYear: m.affiliateRewardsEarnedThisYear || 0,
-        rewardCapRemaining: 12 - (m.affiliateRewardsEarnedThisYear || 0),
+        expiredReferrals: expiredOrReversed.length,
+        rewardsEarnedThisYear,
+        rewardCapRemaining: Math.max(0, MAX_REWARDS_PER_ROLLING_YEAR - rewardsEarnedThisYear),
+        rewardCapTotal: MAX_REWARDS_PER_ROLLING_YEAR,
       },
       commissions: commissions.map(c => ({
         id: c._id,
@@ -52,6 +59,7 @@ export async function GET(req: NextRequest) {
         status: c.status,
         createdAt: c.createdAt,
         expiresAt: c.expiresAt,
+        convertedAt: c.convertedAt,
         earnedAt: c.earnedAt,
         rewardAppliedAt: c.rewardAppliedAt,
         daysUntilExpiry: c.status === 'pending'

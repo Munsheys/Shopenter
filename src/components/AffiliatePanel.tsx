@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Copy, Share2, Check, AlertCircle, Loader, Users, TrendingUp, Gift, Clock } from 'lucide-react';
+import { MAX_REWARDS_PER_ROLLING_YEAR } from '@/lib/affiliate';
 
 interface AffiliateStats {
   referralCode: string;
@@ -9,17 +10,20 @@ interface AffiliateStats {
   stats: {
     totalReferrals: number;
     pendingConversions: number;
+    inGracePeriod: number;
     earnedRewards: number;
     expiredReferrals: number;
     rewardsEarnedThisYear: number;
     rewardCapRemaining: number;
+    rewardCapTotal: number;
   };
   commissions: Array<{
     id: string;
     referredMerchantId: string;
-    status: 'pending' | 'earned' | 'expired';
+    status: 'pending' | 'converted' | 'earned' | 'reversed' | 'expired';
     createdAt: string;
     expiresAt: string;
+    convertedAt: string | null;
     earnedAt: string | null;
     rewardAppliedAt: string | null;
     daysUntilExpiry: number | null;
@@ -96,7 +100,7 @@ export default function AffiliatePanel({ theme }: { theme: 'light' | 'lite' | 'd
           </div>
           <h3 className={`text-lg font-bold ${text} mb-2`}>Affiliate Program</h3>
           <p className={`text-sm ${muted} mb-6 max-w-sm mx-auto`}>
-            Generate your unique referral link to start earning 1 month of free Pro for each customer you refer who upgrades.
+            Share your link to give friends a 30-day free Pro trial. Earn 7 days of free Pro for every friend who upgrades to a paid plan.
           </p>
           <button
             onClick={async () => {
@@ -109,10 +113,12 @@ export default function AffiliatePanel({ theme }: { theme: 'light' | 'lite' | 'd
                     stats: {
                       totalReferrals: 0,
                       pendingConversions: 0,
+                      inGracePeriod: 0,
                       earnedRewards: 0,
                       expiredReferrals: 0,
                       rewardsEarnedThisYear: 0,
-                      rewardCapRemaining: 12,
+                      rewardCapRemaining: MAX_REWARDS_PER_ROLLING_YEAR,
+                      rewardCapTotal: MAX_REWARDS_PER_ROLLING_YEAR,
                     },
                     commissions: [],
                   });
@@ -140,7 +146,7 @@ export default function AffiliatePanel({ theme }: { theme: 'light' | 'lite' | 'd
     if (navigator.share) {
       navigator.share({
         title: 'Join Shopenter',
-        text: 'Get 2 weeks free Pro to manage your LINE OA store',
+        text: 'Get 30 days free Pro to manage your LINE OA store',
         url: stats.referralUrl,
       });
     } else {
@@ -192,7 +198,7 @@ export default function AffiliatePanel({ theme }: { theme: 'light' | 'lite' | 'd
           { label: 'Total Referrals', value: stats.stats.totalReferrals, icon: <Users size={16} /> },
           { label: 'Pending', value: stats.stats.pendingConversions, icon: <Clock size={16} /> },
           { label: 'Conversions', value: stats.stats.earnedRewards, icon: <TrendingUp size={16} /> },
-          { label: 'Rewards (12/yr)', value: `${stats.stats.rewardsEarnedThisYear}/${12}`, icon: <Gift size={16} /> },
+          { label: `Rewards (${stats.stats.rewardCapTotal}/yr)`, value: `${stats.stats.rewardsEarnedThisYear}/${stats.stats.rewardCapTotal}`, icon: <Gift size={16} /> },
         ].map((stat, i) => (
           <div key={i} className={`rounded-xl border p-4 ${surface}`}>
             <div className="flex items-center gap-2 mb-2">
@@ -217,7 +223,7 @@ export default function AffiliatePanel({ theme }: { theme: 'light' | 'lite' | 'd
                     ? isDark
                       ? 'bg-green-500/10 border-green-500/20'
                       : 'bg-green-50 border-green-200'
-                    : c.status === 'expired'
+                    : c.status === 'expired' || c.status === 'reversed'
                     ? isDark
                       ? 'bg-red-500/10 border-red-500/20'
                       : 'bg-red-50 border-red-200'
@@ -238,15 +244,19 @@ export default function AffiliatePanel({ theme }: { theme: 'light' | 'lite' | 'd
                       className={`text-xs font-bold px-2 py-1 rounded whitespace-nowrap ${
                         c.status === 'earned'
                           ? 'bg-green-500/20 text-green-400'
-                          : c.status === 'expired'
+                          : c.status === 'expired' || c.status === 'reversed'
                           ? 'bg-red-500/20 text-red-400'
                           : 'bg-amber-500/20 text-amber-400'
                       }`}
                     >
                       {c.status === 'pending'
                         ? `Expires in ${c.daysUntilExpiry} days`
+                        : c.status === 'converted'
+                        ? 'Upgraded — confirming'
                         : c.status === 'earned'
-                        ? 'Converted ✓'
+                        ? 'Reward earned ✓'
+                        : c.status === 'reversed'
+                        ? 'Canceled, no reward'
                         : 'Expired'}
                     </span>
                     {c.rewardAppliedAt && (
@@ -272,7 +282,7 @@ export default function AffiliatePanel({ theme }: { theme: 'light' | 'lite' | 'd
       {/* Info Box */}
       <div className={`rounded-2xl border p-4 ${isDark ? 'bg-blue-500/10 border-blue-500/20' : isLite ? 'bg-blue-50 border-blue-200' : 'bg-blue-50 border-blue-200'}`}>
         <p className={`text-xs leading-relaxed ${text}`}>
-          <strong>How it works:</strong> Share your link. When someone clicks it and signs up, they get a 2-week free Pro trial. If they upgrade to a paid plan within 30 days, you earn 1 month of free Pro. Limited to 12 rewards per calendar year.
+          <strong>How it works:</strong> Share your link. Anyone who signs up through it gets a 30-day free Pro trial — double the usual 14. If they upgrade to a paid plan and stay paid for a week, you earn 7 days of free Pro. Limited to {stats.stats.rewardCapTotal} rewards per rolling year.
         </p>
       </div>
     </div>
