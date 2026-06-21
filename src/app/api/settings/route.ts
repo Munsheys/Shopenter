@@ -37,7 +37,7 @@ const ALLOWED_FIELDS = [
   'greetingEnabled', 'greetingMessages', 'greetingCustom', 'reEngageEnabled', 'reEngageMessages', 'reEngageCustom',
   'richMenuSavedId', 'paymentMethods', 'bankAccounts', 'autoCancelHours', 'useSlipok', 'shippingPayer',
   'defaultShippingCost', 'freeShippingThreshold', 'codSurcharge', 'deliveryEstimates', 'adminAlerts',
-  'broadcastReminder', 'orderPrefix', 'autoDeliver', 'loyalty', 'lineIntentSearch', 'telegram', 'instagram'
+  'broadcastReminder', 'orderPrefix', 'autoDeliver', 'loyalty', 'lineIntentSearch', 'telegram', 'instagram', 'storefront'
 ];
 
 export async function POST(req: NextRequest) {

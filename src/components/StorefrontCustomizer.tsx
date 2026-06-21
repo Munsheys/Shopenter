@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Check, LayoutGrid, List, Eye, Save, Link, Upload, Loader2, X,
   User, Palette, LayoutDashboard, Settings2, Megaphone, Globe,
-  Wrench, Image as ImageIcon, ChevronRight, Store,
+  Wrench, Image as ImageIcon, ChevronRight, Store, SlidersHorizontal, ListCollapse
 } from 'lucide-react';
 import { PRESETS, resolvePreset } from '@/lib/storefrontPresets';
 import { getAccentText } from '@/lib/accent';
@@ -32,6 +32,13 @@ interface StorefrontConfig {
   accentGradient?: string;
   customSolids?: string[];
   customGradients?: string[];
+  // Expanded customization options
+  heroHeading: string;
+  heroDescription: string;
+  filterStyle: 'dropdowns' | 'pills';
+  paginationEnabled: boolean;
+  productsPerPage: number;
+  showFeaturedRow: boolean;
 }
 
 const DEFAULT_CONFIG: StorefrontConfig = {
@@ -42,6 +49,13 @@ const DEFAULT_CONFIG: StorefrontConfig = {
   maintenanceMode: false, maintenanceMessage: 'We will be back soon.',
   postCheckoutUrl: '', language: 'th', accentGradient: '',
   customSolids: [], customGradients: [],
+  // Expanded customization defaults
+  heroHeading: '',
+  heroDescription: '',
+  filterStyle: 'dropdowns',
+  paginationEnabled: false,
+  productsPerPage: 20,
+  showFeaturedRow: true,
 };
 
 interface Props {
@@ -88,7 +102,7 @@ function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChan
   }
 
   if (value) return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-4 transition-all duration-300">
       <img src={value} alt="logo" className={`w-20 h-20 rounded-2xl object-cover flex-shrink-0 shadow-md ${isDark ? 'border border-[#2d3555]' : 'border border-slate-200'}`} onError={e => (e.currentTarget.style.display = 'none')} />
       <div className="space-y-2">
         <p className={`text-xs font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Logo uploaded</p>
@@ -96,7 +110,7 @@ function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChan
           <button aria-label="Replace logo" onClick={() => inputRef.current?.click()} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 min-h-[36px] rounded-lg border font-medium transition-colors ${isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:text-white hover:border-[#3a3f55]' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}>
             <Upload size={11} /> Replace
           </button>
-          <button aria-label="Remove logo" onClick={() => onChange('')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 min-h-[36px] rounded-lg border font-medium transition-colors ${isDark ? 'border-red-500/20 text-red-400 hover:bg-red-500/10' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
+          <button aria-label="Remove logo" onClick={() => onChange('')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 min-h-[36px] rounded-lg border font-medium transition-colors ${isDark ? 'border-red-500/20 text-red-400 hover:bg-red-500/10' : 'border-red-200 text-red-500 hover:bg-red-55'}`}>
             <X size={11} /> Remove
           </button>
         </div>
@@ -106,7 +120,7 @@ function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChan
   );
 
   return (
-    <div>
+    <div className="transition-all duration-300">
       <button
         type="button"
         aria-label="Upload logo image"
@@ -138,7 +152,7 @@ function Toggle({ enabled, onChange, accent, label }: { enabled: boolean; onChan
       aria-checked={enabled}
       aria-label={label}
       onClick={() => onChange(!enabled)}
-      className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+      className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0 cursor-pointer"
       style={{ backgroundColor: enabled ? accent : '#374151' }}
     >
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow toggle-spring ${enabled ? 'translate-x-5' : ''}`} />
@@ -148,7 +162,7 @@ function Toggle({ enabled, onChange, accent, label }: { enabled: boolean; onChan
 
 function Card({ title, description, icon, children, isDark }: { title: string; description?: string; icon?: React.ReactNode; children: React.ReactNode; isDark: boolean }) {
   return (
-    <div className={`rounded-2xl border p-6 space-y-5 ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-sm'}`}>
+    <div className={`rounded-2xl border p-6 space-y-5 transition-all duration-300 ${isDark ? 'bg-[#161925] border-[#1f2335]' : 'bg-white border-slate-200 shadow-sm'}`}>
       {(title || description) && (
         <div className="flex items-start gap-3">
           {icon && (
@@ -162,7 +176,9 @@ function Card({ title, description, icon, children, isDark }: { title: string; d
           </div>
         </div>
       )}
-      {children}
+      <div className="animate-fade-in duration-300">
+        {children}
+      </div>
     </div>
   );
 }
@@ -196,7 +212,6 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   const dashboardAccentText = getAccentText(dashboardAccent);
   const accent = config.accentColor || '#00b900';
   const localAccentBg = config.accentGradient || accent;
-  const accentTextColor = getAccentText(accent);
 
   function set<K extends keyof StorefrontConfig>(key: K, value: StorefrontConfig[K]) {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -237,12 +252,12 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   const TABS: { id: Tab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'identity', label: 'Identity',  icon: <User size={14} />,            desc: 'Name, logo & timezone'     },
     { id: 'design',   label: 'Design',    icon: <Palette size={14} />,          desc: 'Theme & colors'            },
-    { id: 'content',  label: 'Content',   icon: <LayoutDashboard size={14} />,  desc: 'Layout & banners'          },
+    { id: 'content',  label: 'Content',   icon: <LayoutDashboard size={14} />,  desc: 'Layout & texts'          },
     { id: 'advanced', label: 'Advanced',  icon: <Settings2 size={14} />,        desc: 'URL, redirects & more'     },
   ];
 
   return (
-    <div className="flex gap-8 items-start min-h-0">
+    <div className="flex gap-8 items-start min-h-0 transition-all duration-300">
 
       {/* ── Tab sidebar ─────────────────────────────────────────────────────── */}
       <div className="w-44 flex-shrink-0 space-y-1 sticky top-4">
@@ -256,7 +271,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 aria-selected={activeTab === tab.id}
                 aria-controls={`${tab.id}-panel`}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 active:scale-95 ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 active:scale-95 cursor-pointer ${
                   active
                     ? isDark ? 'bg-white/8 border border-white/10' : 'bg-slate-100 border border-slate-200'
                     : isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
@@ -278,7 +293,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         {/* Save button */}
         <div className="pt-4">
           <button onClick={handleSave} disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 hover:opacity-90 active:scale-95 cursor-pointer"
             style={{ background: saved ? '#10b981' : dashboardAccent, color: saved ? '#ffffff' : dashboardAccentText }}>
             {saved ? <><Check size={13} className="animate-check-pop" />Saved!</> : saving ? <><Loader2 size={13} className="animate-spin" />Saving…</> : <><Save size={13} />Save</>}
           </button>
@@ -287,11 +302,11 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
       </div>
 
       {/* ── Main content ────────────────────────────────────────────────────── */}
-      <div className="flex-1 min-w-0 space-y-4">
+      <div className="flex-1 min-w-0 space-y-4 transition-all duration-300">
 
         {/* ── IDENTITY TAB ── */}
         {activeTab === 'identity' && (
-          <div id="identity-panel" role="tabpanel" className="space-y-4">
+          <div id="identity-panel" role="tabpanel" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <Card title="Shop Name & Description" description="Shown on your storefront and all outgoing LINE messages." icon={<Store size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="space-y-4">
                 <div>
@@ -327,7 +342,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
         {/* ── DESIGN TAB ── */}
         {activeTab === 'design' && (
-          <div id="design-panel" role="tabpanel" className="space-y-4">
+          <div id="design-panel" role="tabpanel" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <Card title="Theme Preset" description="Pick a base look for your storefront. You can override the accent color below." icon={<Palette size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {Object.values(PRESETS).map(preset => {
@@ -335,7 +350,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   return (
                     <button key={preset.id} onClick={() => set('preset', preset.id)}
                       aria-pressed={config.preset === preset.id}
-                      className={`relative rounded-xl border-2 overflow-hidden text-left transition-all hover-lift active:scale-95 hover:scale-[1.02] ${active ? 'shadow-lg' : 'border-transparent hover:border-white/10'}`}
+                      className={`relative rounded-xl border-2 overflow-hidden text-left transition-all hover-lift active:scale-95 hover:scale-[1.02] cursor-pointer ${active ? 'shadow-lg' : 'border-transparent hover:border-white/10'}`}
                       style={active ? { borderColor: dashboardAccent, boxShadow: `0 8px 20px -4px ${dashboardAccent}40` } : undefined}>
                       <div className="h-14 flex gap-1 p-2" style={{ background: preset.pageBg }}>
                         <div className="flex-1 rounded-md" style={{ background: preset.cardBg, border: `1px solid ${preset.cardBorder}` }} />
@@ -363,7 +378,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 <div className={`flex p-0.5 rounded-lg ${isDark ? 'bg-[#0f1117]' : 'bg-slate-100'}`}>
                   {(['solid', 'gradient'] as const).map(tab => (
                     <button key={tab} onClick={() => setAccentTab(tab)}
-                      className={`flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all capitalize ${
+                      className={`flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all capitalize cursor-pointer ${
                         accentTab === tab ? '' : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'
                       }`}
                       style={accentTab === tab ? { background: dashboardAccent, color: dashboardAccentText } : undefined}
@@ -375,7 +390,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
                 {/* ── Solid tab ── */}
                 {accentTab === 'solid' && (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2.5 animate-in fade-in duration-200">
                     <p className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Presets</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       {SC_ACCENT_PRESETS.map(color => {
@@ -383,7 +398,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                         return (
                           <button key={color} onClick={() => setAccent(color)} title={color}
                             style={{ backgroundColor: color, ...(isActive ? { outline: `2.5px solid ${color}`, outlineOffset: '3px' } : {}) }}
-                            className={`w-8 h-8 rounded-full transition-all duration-200 active:scale-90 flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-110'}`} />
+                            className={`w-8 h-8 rounded-full transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer ${isActive ? 'scale-110' : 'hover:scale-110'}`} />
                         );
                       })}
                     </div>
@@ -398,7 +413,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                             setConfig(prev => ({ ...prev, customSolids: next }));
                             setAccent('#8b5cf6');
                           }}
-                          className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition-all hover:scale-110 ${isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white' : 'bg-slate-100 text-slate-400 hover:text-slate-700'}`}
+                          className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition-all hover:scale-110 cursor-pointer ${isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white' : 'bg-slate-100 text-slate-400 hover:text-slate-700'}`}
                           title="Add custom color"
                         >+</button>
                       )}
@@ -437,7 +452,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                                   setCustomSolids(next);
                                   setConfig(prev => ({ ...prev, customSolids: next }));
                                 }}
-                                className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400 leading-none"
+                                className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400 leading-none cursor-pointer"
                                 title="Remove"
                               >×</button>
                             </div>
@@ -446,7 +461,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                       </div>
                     )}
                     {(config.accentColor || config.accentGradient) && (
-                      <button onClick={() => setAccent('')} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
+                      <button onClick={() => setAccent('')} className={`text-xs font-semibold transition-colors cursor-pointer ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
                         Reset to theme default
                       </button>
                     )}
@@ -455,7 +470,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
                 {/* ── Gradient tab ── */}
                 {accentTab === 'gradient' && (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2.5 animate-in fade-in duration-200">
                     <p className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Presets</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       {GRADIENT_PRESETS.map(preset => {
@@ -463,7 +478,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                         return (
                           <button key={preset.name} onClick={() => setAccent(preset.primary, preset.gradient)} title={preset.name}
                             style={{ background: preset.gradient, ...(isActive ? { outline: `2.5px solid ${preset.primary}`, outlineOffset: '3px' } : {}) }}
-                            className={`w-8 h-8 rounded-full transition-all duration-200 active:scale-90 flex-shrink-0 ${isActive ? 'scale-110' : 'hover:scale-110'}`} />
+                            className={`w-8 h-8 rounded-full transition-all duration-200 active:scale-90 flex-shrink-0 cursor-pointer ${isActive ? 'scale-110' : 'hover:scale-110'}`} />
                         );
                       })}
                     </div>
@@ -473,7 +488,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                       {customGrads.length < 3 && (
                         <button
                           onClick={() => setShowCustomGradBuilder(v => !v)}
-                          className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition-all hover:scale-110 ${isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white' : 'bg-slate-100 text-slate-400 hover:text-slate-700'}`}
+                          className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition-all hover:scale-110 cursor-pointer ${isDark ? 'bg-[#1f2335] text-[#8b92ad] hover:text-white' : 'bg-slate-100 text-slate-400 hover:text-slate-700'}`}
                           title="Build custom gradient"
                         >+</button>
                       )}
@@ -489,7 +504,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                                 onClick={() => setAccent(primary, css)}
                                 title="Custom gradient"
                                 style={{ background: css, ...(isActive ? { outline: `2.5px solid ${primary}`, outlineOffset: '3px' } : {}) }}
-                                className={`w-8 h-8 rounded-full transition-all duration-200 active:scale-90 ${isActive ? 'scale-110' : 'hover:scale-110'}`}
+                                className={`w-8 h-8 rounded-full transition-all duration-200 active:scale-90 cursor-pointer ${isActive ? 'scale-110' : 'hover:scale-110'}`}
                               />
                               <button
                                 onClick={() => {
@@ -497,7 +512,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                                   setCustomGrads(next);
                                   setConfig(prev => ({ ...prev, customGradients: next }));
                                 }}
-                                className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400 leading-none"
+                                className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400 leading-none cursor-pointer"
                                 title="Remove"
                               >×</button>
                             </div>
@@ -507,7 +522,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                     )}
                     {/* Builder panel */}
                     {showCustomGradBuilder && (
-                      <div className={`rounded-xl border p-3 space-y-2 ${isDark ? 'bg-[#0d0f16] border-[#1f2335]' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className={`rounded-xl border p-3 space-y-2 animate-in slide-in-from-top-2 duration-300 ${isDark ? 'bg-[#0d0f16] border-[#1f2335]' : 'bg-slate-50 border-slate-200'}`}>
                         <div className="flex items-center justify-center gap-2">
                           <label title="Start" className="w-8 h-8 rounded-full cursor-pointer relative hover:scale-105 transition-all flex-shrink-0 overflow-hidden"
                             style={{ backgroundColor: customG.c1 }}>
@@ -525,7 +540,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                               <button key={String(a.deg)}
                                 onClick={() => setCustomG(g => ({ ...g, angle: a.deg }))}
                                 title={a.deg === 'radial' ? 'Radial' : `${a.deg}°`}
-                                className={`w-6 h-6 rounded-md text-[10px] font-bold transition-all border ${
+                                className={`w-6 h-6 rounded-md text-[10px] font-bold transition-all border cursor-pointer ${
                                   customG.angle === a.deg
                                     ? 'border-transparent'
                                     : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-400 hover:text-slate-700'
@@ -552,15 +567,15 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                           <button
                             onClick={() => {
                               const gradient = customG.angle === 'radial'
-                                ? `radial-gradient(circle,${customG.c1},${customG.c2})`
-                                : `linear-gradient(${customG.angle}deg,${customG.c1},${customG.c2})`;
+                                  ? `radial-gradient(circle,${customG.c1},${customG.c2})`
+                                  : `linear-gradient(${customG.angle}deg,${customG.c1},${customG.c2})`;
                               const next = [...customGrads, gradient];
                               setCustomGrads(next);
                               setConfig(prev => ({ ...prev, customGradients: next }));
                               setAccent(customG.c1, gradient);
                               setShowCustomGradBuilder(false);
                             }}
-                            className="px-3 py-1 rounded-lg text-[10px] font-bold flex-shrink-0 hover:opacity-90 transition-opacity"
+                            className="px-3 py-1 rounded-lg text-[10px] font-bold flex-shrink-0 hover:opacity-90 transition-opacity cursor-pointer"
                             style={{ background: dashboardAccent, color: dashboardAccentText }}
                           >
                             Add
@@ -569,7 +584,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                       </div>
                     )}
                     {(config.accentColor || config.accentGradient) && (
-                      <button onClick={() => { setAccent(''); setShowCustomGradBuilder(false); }} className={`text-xs font-semibold transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
+                      <button onClick={() => { setAccent(''); setShowCustomGradBuilder(false); }} className={`text-xs font-semibold transition-colors cursor-pointer ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
                         Reset to theme default
                       </button>
                     )}
@@ -589,7 +604,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   <label htmlFor="shop-banner-url" className={lbl}>Banner Image URL</label>
                   <input id="shop-banner-url" type="url" value={config.bannerUrl} onChange={e => set('bannerUrl', e.target.value)} placeholder="https://..." className={inputCls} />
                   {config.bannerUrl && (
-                    <img src={config.bannerUrl} alt="Banner preview" className="mt-3 w-full h-24 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = 'none')} />
+                    <img src={config.bannerUrl} alt="Banner preview" className="mt-3 w-full h-24 object-cover rounded-xl animate-in fade-in duration-300" onError={e => (e.currentTarget.style.display = 'none')} />
                   )}
                 </div>
               </div>
@@ -599,7 +614,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
         {/* ── CONTENT TAB ── */}
         {activeTab === 'content' && (
-          <div id="content-panel" role="tabpanel" className="space-y-4">
+          <div id="content-panel" role="tabpanel" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <Card title="Announcement Bar" description="A banner displayed at the very top of your store." icon={<Megaphone size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -610,7 +625,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   <Toggle enabled={config.announcementEnabled} onChange={v => set('announcementEnabled', v)} accent={dashboardAccent} label="Enable announcement bar" />
                 </div>
                 {config.announcementEnabled && (
-                  <>
+                  <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
                     <input type="text" value={config.announcementText} onChange={e => set('announcementText', e.target.value)} placeholder="e.g. Free shipping on orders over ฿500 🎉" className={inputCls} />
                     <div>
                       <label className={lbl}>Banner color</label>
@@ -623,7 +638,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                             <div key={color} className="flex flex-col items-center gap-1">
                               <button onClick={() => set('announcementColor', color)}
                                 style={{ backgroundColor: bg, ...(isActive ? { outline: `2px solid ${bg}`, outlineOffset: '2px' } : {}) }}
-                                className={`w-7 h-7 rounded-full transition-all duration-200 active:scale-90 hover:scale-110 ${isActive ? 'scale-110' : ''}`}
+                                className={`w-7 h-7 rounded-full transition-all duration-200 active:scale-90 hover:scale-110 cursor-pointer ${isActive ? 'scale-110' : ''}`}
                                 title={color} />
                               <span className={`text-[10px] ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>{colorLabel}</span>
                             </div>
@@ -631,7 +646,75 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                         })}
                       </div>
                     </div>
-                  </>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <Card title="Hero Welcome Section" description="Customize the introductory titles shown in your storefront." icon={<Store size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="hero-heading" className={lbl}>Hero Main Heading</label>
+                  <input id="hero-heading" type="text" value={config.heroHeading} onChange={e => set('heroHeading', e.target.value)} placeholder="e.g. Enhance Your Collection / The Curated Merchant Showcase" className={inputCls} />
+                  <p className={`text-[10px] mt-1 ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>Defaults to theme tagline if empty</p>
+                </div>
+                <div>
+                  <label htmlFor="hero-description" className={lbl}>Hero Subtext description</label>
+                  <textarea id="hero-description" rows={3} value={config.heroDescription} onChange={e => set('heroDescription', e.target.value)} placeholder="e.g. Explore a diverse selection of high-quality goods, sourced and sold by verified independent merchants..." className={`${inputCls} resize-none`} maxLength={350} />
+                  <p className={`text-[10px] mt-1 ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>{config.heroDescription.length}/350 characters</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card title="Filtering & Navigation" description="Change filter components and settings." icon={<SlidersHorizontal size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
+              <div className="space-y-4">
+                <div>
+                  <label className={lbl}>Filters Component Style</label>
+                  <div className="flex gap-3">
+                    {([
+                      { id: 'dropdowns' as const, icon: <SlidersHorizontal size={15} />, label: 'Dropdowns', desc: 'Curated selector menus' },
+                      { id: 'pills' as const, icon: <ListCollapse size={15} />, label: 'Tags/Pills', desc: 'Horizontal scrolling pills' },
+                    ]).map(opt => (
+                      <button key={opt.id} onClick={() => set('filterStyle', opt.id)}
+                        className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          config.filterStyle === opt.id ? 'text-white shadow-md' : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:border-[#3a3f55]' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                        style={config.filterStyle === opt.id ? { backgroundColor: dashboardAccent, borderColor: dashboardAccent } : undefined}>
+                        {opt.icon}
+                        <div>
+                          <p className="text-sm font-semibold">{opt.label}</p>
+                          <p className={`text-[11px] ${config.filterStyle === opt.id ? 'text-white/70' : isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>{opt.desc}</p>
+                        </div>
+                        {config.filterStyle === opt.id && <Check size={14} className="ml-auto" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>Show 2-up Featured Row</p>
+                    <p className={`text-xs mt-0.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Displays first 2 products as double-sized highlight cards</p>
+                  </div>
+                  <Toggle enabled={config.showFeaturedRow} onChange={v => set('showFeaturedRow', v)} accent={dashboardAccent} label="Show featured row" />
+                </div>
+              </div>
+            </Card>
+
+            <Card title="Pagination Config" description="Specify whether to split items across multiple pages." icon={<List size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>Enable Store Pagination</p>
+                    <p className={`text-xs mt-0.5 ${isDark ? 'text-[#8b92ad]' : 'text-slate-500'}`}>Splits large catalogs instead of rendering all items at once</p>
+                  </div>
+                  <Toggle enabled={config.paginationEnabled} onChange={v => set('paginationEnabled', v)} accent={dashboardAccent} label="Enable pagination" />
+                </div>
+                {config.paginationEnabled && (
+                  <div className="animate-in slide-in-from-top-2 duration-300">
+                    <label htmlFor="products-per-page" className={lbl}>Products Per Page</label>
+                    <input id="products-per-page" type="number" min={2} max={100} value={config.productsPerPage} onChange={e => set('productsPerPage', Math.max(2, parseInt(e.target.value) || 20))} className={inputCls} />
+                  </div>
                 )}
               </div>
             </Card>
@@ -643,7 +726,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   { id: 'list' as const, icon: <List size={16} />, label: 'List', desc: 'One per row' },
                 ]).map(opt => (
                   <button key={opt.id} onClick={() => set('cardLayout', opt.id)}
-                    className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
+                    className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all cursor-pointer ${
                       config.cardLayout === opt.id ? 'text-white shadow-md' : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:border-[#3a3f55]' : 'border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
                     style={config.cardLayout === opt.id ? { backgroundColor: dashboardAccent, borderColor: dashboardAccent } : undefined}>
@@ -690,7 +773,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
 
         {/* ── ADVANCED TAB ── */}
         {activeTab === 'advanced' && (
-          <div id="advanced-panel" role="tabpanel" className="space-y-4">
+          <div id="advanced-panel" role="tabpanel" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <Card title="Custom Store Link" description="Your custom short URL. Customers reach your store at /shop/yourhandle instead of the long ID." icon={<Link size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
               <div className="space-y-3">
                 <div className={`flex items-center border rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-accent/30 transition-all ${isDark ? 'border-[#2a2f45]' : 'border-slate-200'}`}>
@@ -705,7 +788,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   />
                 </div>
                 <button onClick={handleSaveSlug} disabled={slugSaving || !slugInput.trim()}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 hover:opacity-90 active:scale-95 cursor-pointer"
                   style={{ backgroundColor: slugSaved ? '#10b981' : dashboardAccent }}>
                   {slugSaved ? <><Check size={14} />Handle saved</> : slugSaving ? 'Saving…' : <><Link size={14} />Apply handle</>}
                 </button>
@@ -733,7 +816,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   <Toggle enabled={config.maintenanceMode} onChange={v => set('maintenanceMode', v)} accent={dashboardAccent} label="Enable maintenance mode" />
                 </div>
                 {config.maintenanceMode && (
-                  <div className={`rounded-xl p-4 border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+                  <div className={`rounded-xl p-4 border animate-in slide-in-from-top-2 duration-300 ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
                     <p className={`text-xs font-semibold mb-3 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>⚠ Your store is currently offline</p>
                     <label htmlFor="maintenance-message" className={lbl}>Maintenance message</label>
                     <input id="maintenance-message" type="text" value={config.maintenanceMessage} onChange={e => set('maintenanceMessage', e.target.value)} placeholder="We will be back soon." className={inputCls} />
@@ -746,7 +829,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
       </div>
 
       {/* ── Preview ─────────────────────────────────────────────────────────── */}
-      <div className="w-72 flex-shrink-0 sticky top-4 space-y-3">
+      <div className="w-80 flex-shrink-0 sticky top-4 space-y-3 transition-all duration-300">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Eye size={13} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />
@@ -755,10 +838,10 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
           <p className={`text-[10px] ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>Updates instantly</p>
         </div>
 
-        <div className={`rounded-2xl overflow-hidden border ${isDark ? 'border-[#1f2335] shadow-2xl shadow-black/40' : 'border-slate-200 shadow-xl shadow-slate-200/60'}`} style={{ background: p.pageBg }}>
+        <div className={`rounded-2xl overflow-hidden border transition-all duration-500 ${isDark ? 'border-[#1f2335] shadow-2xl shadow-black/40' : 'border-slate-200 shadow-xl shadow-slate-200/60'}`} style={{ background: p.pageBg }}>
           {config.announcementEnabled && config.announcementText && (() => {
             const bannerBg = config.announcementColor === 'blue' ? '#3b82f6' : config.announcementColor === 'amber' ? '#f59e0b' : config.announcementColor === 'red' ? '#ef4444' : localAccentBg;
-            return <div className="px-4 py-1.5 text-[10px] text-center font-semibold text-white" style={{ background: bannerBg }}>{config.announcementText}</div>;
+            return <div className="px-4 py-1.5 text-[10px] text-center font-semibold text-white animate-in slide-in-from-top-1 duration-300" style={{ background: bannerBg }}>{config.announcementText}</div>;
           })()}
 
           <div className="px-4 py-3 flex items-center justify-between" style={{ background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` }}>
@@ -772,14 +855,27 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 {config.shopTagline && <p className="text-[9px]" style={{ color: p.textMuted }}>{config.shopTagline}</p>}
               </div>
             </div>
-            <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: localAccentBg }}>
-              <div className="w-3 h-3 rounded-sm bg-white/80" />
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-slate-300/30" />
+              <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ background: localAccentBg }}>
+                <div className="w-2.5 h-2.5 rounded-sm bg-white/80" />
+              </div>
             </div>
           </div>
 
-          {config.bannerUrl && <img src={config.bannerUrl} alt="banner" className="w-full h-16 object-cover" onError={e => (e.currentTarget.style.display = 'none')} />}
+          {config.bannerUrl && <img src={config.bannerUrl} alt="banner" className="w-full h-16 object-cover animate-in fade-in duration-300" onError={e => (e.currentTarget.style.display = 'none')} />}
 
-          <div className="px-3 pt-3 space-y-2">
+          {/* Hero welcome text section */}
+          <div className="px-4 pt-4 pb-2">
+            <h3 className="text-sm font-extrabold leading-tight text-left" style={{ color: p.textPrimary }}>
+              {config.heroHeading || config.shopTagline || "The Curated Merchant Showcase"}
+            </h3>
+            <p className="text-[10px] leading-snug mt-1 text-left opacity-60" style={{ color: p.textPrimary }}>
+              {config.heroDescription || config.shopDescription || "Explore a diverse selection of high-quality goods, sourced and sold by verified independent merchants."}
+            </p>
+          </div>
+
+          <div className="px-4 pt-2 space-y-2">
             {config.showSearch && (
               <div className="rounded-lg px-3 py-1.5 flex items-center gap-2" style={{ background: p.inputBg, border: `1px solid ${p.inputBorder}` }}>
                 <div className="w-2 h-2 rounded-full" style={{ background: p.textMuted }} />
@@ -787,38 +883,58 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
               </div>
             )}
             {(config.showCategoryFilter || config.showBrandFilter) && (
-              <div className="flex gap-1.5">
-                {['All', 'A', 'B', 'C'].map((t, i) => (
-                  <div key={t} className="px-2 py-0.5 rounded-md text-[10px] font-medium" style={{ background: i === 0 ? p.pillActiveBg : p.pillBg, color: i === 0 ? p.pillActiveText : p.textMuted }}>{t}</div>
-                ))}
+              <div className="flex gap-1.5 overflow-hidden">
+                {config.filterStyle === 'dropdowns' ? (
+                  <div className="flex gap-1">
+                    <div className="px-2 py-1 rounded-full text-[9px] font-bold border border-slate-300/40 bg-white" style={{ color: p.textPrimary }}>Category: All</div>
+                    <div className="px-2 py-1 rounded-full text-[9px] font-bold border border-slate-300/40 bg-white" style={{ color: p.textPrimary }}>Brand: All</div>
+                  </div>
+                ) : (
+                  ['All', 'A', 'B', 'C'].map((t, i) => (
+                    <div key={t} className="px-2 py-0.5 rounded-md text-[10px] font-medium" style={{ background: i === 0 ? p.pillActiveBg : p.pillBg, color: i === 0 ? p.pillActiveText : p.textMuted }}>{t}</div>
+                  ))
+                )}
               </div>
             )}
           </div>
 
-          <div className={`p-3 ${config.cardLayout === 'grid' ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
-            {[1, 2].map(i => (
-              <div key={i} className="rounded-xl overflow-hidden" style={{ background: p.cardBg, border: `1px solid ${p.cardBorder}` }}>
-                {config.cardLayout === 'grid' ? (
-                  <>
-                    <div className="aspect-square" style={{ background: p.inputBg }} />
-                    <div className="p-2 space-y-1.5">
-                      <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '70%' }} />
-                      <div className="h-1.5 rounded" style={{ background: localAccentBg, width: '40%' }} />
+          <div className={`p-3 transition-all duration-300 ${config.cardLayout === 'grid' ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
+            {[1, 2, 3, 4].slice(0, config.paginationEnabled ? Math.min(4, config.productsPerPage) : 4).map((i, index) => {
+              const isLargeFeatured = config.showFeaturedRow && index < 2 && config.cardLayout === 'grid';
+              return (
+                <div key={i} className={`rounded-xl overflow-hidden transition-all duration-300 ${isLargeFeatured ? 'col-span-2' : ''}`} style={{ background: p.cardBg, border: `1px solid ${p.cardBorder}` }}>
+                  {config.cardLayout === 'grid' ? (
+                    <>
+                      <div className={`w-full ${isLargeFeatured ? 'aspect-[4/3]' : 'aspect-square'}`} style={{ background: p.inputBg }} />
+                      <div className="p-2 space-y-1.5">
+                        <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '75%' }} />
+                        {isLargeFeatured && <div className="h-1 rounded" style={{ background: p.textMuted, opacity: 0.2, width: '40%' }} />}
+                        <div className="h-1.5 rounded" style={{ background: localAccentBg, width: '35%' }} />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex gap-2 p-2">
+                      <div className="w-12 h-12 rounded-lg flex-shrink-0" style={{ background: p.inputBg }} />
+                      <div className="flex-1 space-y-1.5 pt-0.5">
+                        <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '70%' }} />
+                        <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.2, width: '50%' }} />
+                        <div className="h-1.5 rounded mt-1" style={{ background: localAccentBg, width: '30%' }} />
+                      </div>
                     </div>
-                  </>
-                ) : (
-                  <div className="flex gap-2 p-2">
-                    <div className="w-12 h-12 rounded-lg flex-shrink-0" style={{ background: p.inputBg }} />
-                    <div className="flex-1 space-y-1.5 pt-0.5">
-                      <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '70%' }} />
-                      <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.2, width: '50%' }} />
-                      <div className="h-1.5 rounded mt-1" style={{ background: localAccentBg, width: '30%' }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
+
+          {/* Pagination controls preview */}
+          {config.paginationEnabled && (
+            <div className="px-4 pb-4 pt-1 flex justify-center gap-1.5">
+              <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold text-white" style={{ background: localAccentBg }}>1</span>
+              <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold bg-slate-200" style={{ color: p.textPrimary }}>2</span>
+              <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold bg-slate-200" style={{ color: p.textPrimary }}>→</span>
+            </div>
+          )}
         </div>
 
         <p className={`text-[10px] text-center ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>Approximate preview · actual storefront may vary</p>

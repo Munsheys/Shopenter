@@ -186,6 +186,12 @@ const SettingsSchema = new mongoose.Schema({
     maintenanceMessage: { type: String, default: 'We will be back soon.' },
     postCheckoutUrl: { type: String, default: '' },
     language: { type: String, enum: ['th', 'ja', 'en', 'ko', 'zh-TW'], default: 'th' },
+    heroHeading: { type: String, default: "" },
+    heroDescription: { type: String, default: "" },
+    filterStyle: { type: String, enum: ['dropdowns', 'pills'], default: 'dropdowns' },
+    paginationEnabled: { type: Boolean, default: false },
+    productsPerPage: { type: Number, default: 20 },
+    showFeaturedRow: { type: Boolean, default: true },
   }
 });
 
