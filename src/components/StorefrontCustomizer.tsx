@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import { PRESETS, resolvePreset, resolveAnnouncementColor } from '@/lib/storefrontPresets';
 import {
-  LAYOUT_SLOTS, type HeaderStyle, type HeroStyle, type CardStyle, type CornerStyle, type Density, type TypographyStyle,
+  LAYOUT_SLOTS, cardRadiusClass, controlRadiusClass, pillRadiusClass, gridGapClass, headingFontClass,
+  type HeaderStyle, type HeroStyle, type CardStyle, type CornerStyle, type Density, type TypographyStyle,
 } from '@/lib/storefrontLayouts';
 import { getAccentText } from '@/lib/accent';
 
@@ -229,6 +230,12 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   const dashboardAccentText = getAccentText(dashboardAccent);
   const accent = config.accentColor || '#00b900';
   const localAccentBg = config.accentGradient || accent;
+  // Layout slot helpers — keep the mini preview in sync with the live store's rendering rules
+  const previewCardRadius = cardRadiusClass(config.cornerStyle);
+  const previewControlRadius = controlRadiusClass(config.cornerStyle);
+  const previewPillRadius = pillRadiusClass(config.cornerStyle);
+  const previewGridGap = gridGapClass(config.density);
+  const previewHeadingFont = headingFontClass(config.typography);
 
   function set<K extends keyof StorefrontConfig>(key: K, value: StorefrontConfig[K]) {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -320,7 +327,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
       </div>
 
       {/* ── Main content ────────────────────────────────────────────────────── */}
-      <div className="flex-1 min-w-0 space-y-4 transition-all duration-300">
+      <div className="w-full max-w-[400px] flex-shrink-0 space-y-4 transition-all duration-300">
 
         {/* ── IDENTITY TAB ── */}
         {activeTab === 'identity' && (
@@ -633,32 +640,32 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         {/* ── LAYOUT TAB ── */}
         {activeTab === 'layout' && (
           <div id="layout-panel" role="tabpanel" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {LAYOUT_SLOTS.map(slot => (
-              <Card key={slot.key} title={slot.label} description={slot.description} icon={<LayoutTemplate size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {slot.options.map(opt => {
-                    const active = config[slot.key] === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => set(slot.key, opt.id as any)}
-                        aria-pressed={active}
-                        className={`flex items-start gap-2 px-4 py-3 rounded-xl border text-left transition-all cursor-pointer ${
-                          active ? 'text-white shadow-md' : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:border-[#3a3f55]' : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                        }`}
-                        style={active ? { backgroundColor: dashboardAccent, borderColor: dashboardAccent, color: dashboardAccentText } : undefined}
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold">{opt.label}</p>
-                          <p className={`text-[11px] mt-0.5 ${active ? 'opacity-80' : isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>{opt.description}</p>
-                        </div>
-                        {active && <Check size={14} className="flex-shrink-0 mt-0.5" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Card>
-            ))}
+            {LAYOUT_SLOTS.map(slot => {
+              const selectedOpt = slot.options.find(o => o.id === (config as any)[slot.key]);
+              return (
+                <Card key={slot.key} title={slot.label} description={selectedOpt?.description} icon={<LayoutTemplate size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
+                  <div className="flex flex-wrap gap-2">
+                    {slot.options.map(opt => {
+                      const active = config[slot.key] === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          title={opt.description}
+                          onClick={() => set(slot.key, opt.id as any)}
+                          aria-pressed={active}
+                          className={`px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                            active ? '' : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:border-[#3a3f55]' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                          style={active ? { backgroundColor: dashboardAccent, borderColor: dashboardAccent, color: dashboardAccentText } : undefined}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -870,7 +877,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
       </div>
 
       {/* ── Preview ─────────────────────────────────────────────────────────── */}
-      <div className="w-80 flex-shrink-0 sticky top-4 space-y-3 transition-all duration-300">
+      <div className="flex-1 min-w-0 sticky top-4 space-y-3 transition-all duration-300">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Eye size={13} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />
@@ -879,102 +886,154 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
           <p className={`text-[10px] ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>Updates instantly</p>
         </div>
 
-        <div className={`rounded-2xl overflow-hidden border transition-all duration-500 ${isDark ? 'border-[#1f2335] shadow-2xl shadow-black/40' : 'border-slate-200 shadow-xl shadow-slate-200/60'}`} style={{ background: p.pageBg }}>
-          {config.announcementEnabled && config.announcementText && (
-            <div className="px-4 py-1.5 text-[10px] text-center font-semibold text-white animate-in slide-in-from-top-1 duration-300" style={{ background: resolveAnnouncementColor(config.announcementColor, localAccentBg) }}>{config.announcementText}</div>
-          )}
-
-          <div className="px-4 py-3 flex items-center justify-between" style={{ background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` }}>
-            <div className="flex items-center gap-2">
-              {config.shopLogoUrl
-                ? <img src={config.shopLogoUrl} className="w-7 h-7 rounded-lg object-cover" alt="logo" onError={e => (e.currentTarget.style.display = 'none')} />
-                : <div className="w-7 h-7 rounded-lg" style={{ background: localAccentBg }} />
-              }
-              <div>
-                <p className="text-xs font-bold" style={{ color: p.textPrimary }}>{config.shopName || shopName || 'My Shop'}</p>
-                {config.shopTagline && <p className="text-[9px]" style={{ color: p.textMuted }}>{config.shopTagline}</p>}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-slate-300/30" />
-              <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ background: localAccentBg }}>
-                <div className="w-2.5 h-2.5 rounded-sm bg-white/80" />
-              </div>
+        <div className={`rounded-2xl overflow-hidden border transition-all duration-500 ${isDark ? 'border-[#1f2335] shadow-2xl shadow-black/40' : 'border-slate-200 shadow-xl shadow-slate-200/60'}`}>
+          {/* Browser chrome bar — frames the preview as a landscape desktop window */}
+          <div className={`h-8 flex items-center gap-1.5 px-3 flex-shrink-0 ${isDark ? 'bg-[#0a0c12] border-b border-[#1f2335]' : 'bg-slate-100 border-b border-slate-200'}`}>
+            <div className="w-2 h-2 rounded-full bg-red-400/60" />
+            <div className="w-2 h-2 rounded-full bg-amber-400/60" />
+            <div className="w-2 h-2 rounded-full bg-emerald-400/60" />
+            <div className={`ml-2 flex-1 h-4 rounded text-[9px] flex items-center px-2 truncate ${isDark ? 'bg-white/5 text-[#4a5068]' : 'bg-white text-slate-400'}`}>
+              shop/{slugInput || 'yourstore'}
             </div>
           </div>
 
-          {config.bannerUrl && <img src={config.bannerUrl} alt="banner" className="w-full h-16 object-cover animate-in fade-in duration-300" onError={e => (e.currentTarget.style.display = 'none')} />}
-
-          {/* Hero welcome text section */}
-          <div className="px-4 pt-4 pb-2">
-            <h3 className="text-sm font-extrabold leading-tight text-left" style={{ color: p.textPrimary }}>
-              {config.heroHeading || config.shopTagline || "The Curated Merchant Showcase"}
-            </h3>
-            <p className="text-[10px] leading-snug mt-1 text-left opacity-60" style={{ color: p.textPrimary }}>
-              {config.heroDescription || config.shopDescription || "Explore a diverse selection of high-quality goods, sourced and sold by verified independent merchants."}
-            </p>
-          </div>
-
-          <div className="px-4 pt-2 space-y-2">
-            {config.showSearch && (
-              <div className="rounded-lg px-3 py-1.5 flex items-center gap-2" style={{ background: p.inputBg, border: `1px solid ${p.inputBorder}` }}>
-                <div className="w-2 h-2 rounded-full" style={{ background: p.textMuted }} />
-                <div className="h-1.5 rounded flex-1" style={{ background: p.textMuted, opacity: 0.3 }} />
-              </div>
+          <div className="aspect-[16/9] overflow-y-auto" style={{ background: p.pageBg, scrollbarWidth: 'thin' }}>
+            {config.announcementEnabled && config.announcementText && (
+              <div className="px-4 py-1.5 text-[10px] text-center font-semibold text-white animate-in slide-in-from-top-1 duration-300" style={{ background: resolveAnnouncementColor(config.announcementColor, localAccentBg) }}>{config.announcementText}</div>
             )}
-            {(config.showCategoryFilter || config.showBrandFilter) && (
-              <div className="flex gap-1.5 overflow-hidden">
-                {config.filterStyle === 'dropdowns' ? (
-                  <div className="flex gap-1">
-                    <div className="px-2 py-1 rounded-full text-[9px] font-bold border border-slate-300/40 bg-white" style={{ color: p.textPrimary }}>Category: All</div>
-                    <div className="px-2 py-1 rounded-full text-[9px] font-bold border border-slate-300/40 bg-white" style={{ color: p.textPrimary }}>Brand: All</div>
-                  </div>
-                ) : (
-                  ['All', 'A', 'B', 'C'].map((t, i) => (
-                    <div key={t} className="px-2 py-0.5 rounded-md text-[10px] font-medium" style={{ background: i === 0 ? p.pillActiveBg : p.pillBg, color: i === 0 ? p.pillActiveText : p.textMuted }}>{t}</div>
-                  ))
+
+            {/* Header */}
+            <div className="relative px-4 py-3 flex items-center justify-between" style={{ background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` }}>
+              <div className={`flex items-center gap-2 ${config.headerStyle === 'logo-center' ? 'absolute left-1/2 -translate-x-1/2' : ''}`}>
+                {config.shopLogoUrl
+                  ? <img src={config.shopLogoUrl} className="w-7 h-7 rounded-lg object-cover" alt="logo" onError={e => (e.currentTarget.style.display = 'none')} />
+                  : <div className="w-7 h-7 rounded-lg" style={{ background: localAccentBg }} />
+                }
+                <p className={`text-sm leading-none ${previewHeadingFont}`} style={{ color: p.textPrimary }}>{config.shopName || shopName || 'My Shop'}</p>
+              </div>
+              {config.headerStyle === 'logo-left' && (
+                <div className="hidden sm:block text-xs font-bold" style={{ color: p.textPrimary }}>Shop</div>
+              )}
+              <div className="flex items-center gap-2.5">
+                {config.headerStyle !== 'minimal' && <div className="w-4 h-4 rounded-full" style={{ background: p.textMuted, opacity: 0.35 }} />}
+                <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ background: localAccentBg }}>
+                  <div className="w-2.5 h-2.5 rounded-sm bg-white/80" />
+                </div>
+                {config.headerStyle !== 'minimal' && <div className="w-4 h-4 rounded-full" style={{ background: p.textMuted, opacity: 0.25 }} />}
+              </div>
+            </div>
+
+            {/* Hero */}
+            {config.heroStyle === 'none' ? null : config.heroStyle === 'banner-overlay' && config.bannerUrl ? (
+              <div className="relative h-28 overflow-hidden">
+                <img src={config.bannerUrl} className="absolute inset-0 w-full h-full object-cover" alt="" onError={e => (e.currentTarget.style.display = 'none')} />
+                <div className="absolute inset-0 bg-black/45" />
+                <div className="relative h-full flex flex-col justify-end p-3">
+                  <h3 className={`text-base leading-tight text-white ${previewHeadingFont}`}>
+                    {config.heroHeading || config.shopTagline || "The Curated Merchant Showcase"}
+                  </h3>
+                </div>
+              </div>
+            ) : config.heroStyle === 'split' ? (
+              <div className="flex gap-3 p-4">
+                <div className="w-1/3 aspect-square rounded-xl flex-shrink-0 overflow-hidden" style={{ background: config.bannerUrl ? undefined : `${localAccentBg}1a` }}>
+                  {config.bannerUrl && <img src={config.bannerUrl} className="w-full h-full object-cover" alt="" onError={e => (e.currentTarget.style.display = 'none')} />}
+                </div>
+                <div className="flex-1 flex flex-col justify-center">
+                  <h3 className={`text-base leading-tight ${previewHeadingFont}`} style={{ color: p.textPrimary }}>
+                    {config.heroHeading || config.shopTagline || "The Curated Merchant Showcase"}
+                  </h3>
+                  <p className="text-[11px] leading-snug mt-1 opacity-60" style={{ color: p.textPrimary }}>
+                    {config.heroDescription || config.shopDescription || "Explore a diverse selection of high-quality goods."}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="px-4 pt-4 pb-2">
+                {config.bannerUrl && (
+                  <img src={config.bannerUrl} alt="banner" className="w-full h-20 object-cover rounded-lg mb-3 animate-in fade-in duration-300" onError={e => (e.currentTarget.style.display = 'none')} />
                 )}
+                <h3 className={`text-base leading-tight text-left ${previewHeadingFont}`} style={{ color: p.textPrimary }}>
+                  {config.heroHeading || config.shopTagline || "The Curated Merchant Showcase"}
+                </h3>
+                <p className="text-[11px] leading-snug mt-1 text-left opacity-60" style={{ color: p.textPrimary }}>
+                  {config.heroDescription || config.shopDescription || "Explore a diverse selection of high-quality goods, sourced and sold by verified independent merchants."}
+                </p>
               </div>
             )}
-          </div>
 
-          <div className={`p-3 transition-all duration-300 ${config.cardLayout === 'grid' ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
-            {[1, 2, 3, 4].slice(0, config.paginationEnabled ? Math.min(4, config.productsPerPage) : 4).map((i, index) => {
-              const isLargeFeatured = config.showFeaturedRow && index < 2 && config.cardLayout === 'grid';
-              return (
-                <div key={i} className={`rounded-xl overflow-hidden transition-all duration-300 ${isLargeFeatured ? 'col-span-2' : ''}`} style={{ background: p.cardBg, border: `1px solid ${p.cardBorder}` }}>
-                  {config.cardLayout === 'grid' ? (
+            {/* Filters */}
+            <div className="px-4 pt-2 space-y-2">
+              {config.showSearch && (
+                <div className={`${previewControlRadius} px-3 py-1.5 flex items-center gap-2 border max-w-xs`} style={{ background: p.inputBg, borderColor: p.inputBorder }}>
+                  <div className="w-2 h-2 rounded-full" style={{ background: p.textMuted }} />
+                  <div className="h-1.5 rounded flex-1" style={{ background: p.textMuted, opacity: 0.3 }} />
+                </div>
+              )}
+              {(config.showCategoryFilter || config.showBrandFilter || config.showPriceFilter) && (
+                <div className="flex gap-1.5 overflow-hidden flex-wrap">
+                  {config.filterStyle === 'dropdowns' ? (
                     <>
-                      <div className={`w-full ${isLargeFeatured ? 'aspect-[4/3]' : 'aspect-square'}`} style={{ background: p.inputBg }} />
-                      <div className="p-2 space-y-1.5">
-                        <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '75%' }} />
-                        {isLargeFeatured && <div className="h-1 rounded" style={{ background: p.textMuted, opacity: 0.2, width: '40%' }} />}
-                        <div className="h-1.5 rounded" style={{ background: localAccentBg, width: '35%' }} />
-                      </div>
+                      {config.showCategoryFilter && <div className={`px-2.5 py-1 ${previewPillRadius} text-[9px] font-bold border`} style={{ borderColor: p.inputBorder, background: p.inputBg, color: p.textPrimary }}>Category: All</div>}
+                      {config.showBrandFilter && <div className={`px-2.5 py-1 ${previewPillRadius} text-[9px] font-bold border`} style={{ borderColor: p.inputBorder, background: p.inputBg, color: p.textPrimary }}>Brand: All</div>}
+                      {config.showPriceFilter && <div className={`px-2.5 py-1 ${previewPillRadius} text-[9px] font-bold border`} style={{ borderColor: p.inputBorder, background: p.inputBg, color: p.textPrimary }}>Price: All</div>}
                     </>
                   ) : (
-                    <div className="flex gap-2 p-2">
-                      <div className="w-12 h-12 rounded-lg flex-shrink-0" style={{ background: p.inputBg }} />
-                      <div className="flex-1 space-y-1.5 pt-0.5">
-                        <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '70%' }} />
-                        <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.2, width: '50%' }} />
-                        <div className="h-1.5 rounded mt-1" style={{ background: localAccentBg, width: '30%' }} />
-                      </div>
-                    </div>
+                    ['All', 'A', 'B', 'C'].map((t, i) => (
+                      <div key={t} className={`px-2.5 py-1 ${previewPillRadius} text-[10px] font-medium`} style={{ background: i === 0 ? p.pillActiveBg : p.pillBg, color: i === 0 ? p.pillActiveText : p.textMuted }}>{t}</div>
+                    ))
                   )}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Pagination controls preview */}
-          {config.paginationEnabled && (
-            <div className="px-4 pb-4 pt-1 flex justify-center gap-1.5">
-              <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold text-white" style={{ background: localAccentBg }}>1</span>
-              <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold bg-slate-200" style={{ color: p.textPrimary }}>2</span>
-              <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold bg-slate-200" style={{ color: p.textPrimary }}>→</span>
+              )}
             </div>
-          )}
+
+            {/* Product grid — landscape: more columns than the old phone-style 2-up */}
+            <div className={`p-4 transition-all duration-300 ${config.cardLayout === 'grid' ? `grid grid-cols-4 ${previewGridGap}` : 'flex flex-col gap-2'}`}>
+              {[1, 2, 3, 4].map((i, index) => {
+                const isLargeFeatured = config.showFeaturedRow && index < 2 && config.cardLayout === 'grid';
+                const surface: React.CSSProperties = config.cardStyle === 'minimal'
+                  ? {}
+                  : config.cardStyle === 'shadow'
+                    ? { background: p.cardBg }
+                    : { background: p.cardBg, border: `1px solid ${p.cardBorder}` };
+                const surfaceClass = config.cardStyle === 'shadow' ? 'shadow-md' : '';
+                return (
+                  <div key={i} className={`${previewCardRadius} overflow-hidden transition-all duration-300 ${isLargeFeatured ? 'col-span-2' : ''} ${surfaceClass}`} style={surface}>
+                    {config.cardLayout === 'grid' ? (
+                      <>
+                        <div className="relative w-full aspect-square" style={{ background: p.inputBg }}>
+                          {config.cardStyle === 'badge' && (
+                            <span className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[7px] font-bold ${previewPillRadius}`} style={{ background: p.pillActiveBg, color: p.pillActiveText }}>Brand</span>
+                          )}
+                        </div>
+                        <div className="p-2 space-y-1.5">
+                          <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '75%' }} />
+                          <div className="h-1.5 rounded" style={{ background: localAccentBg, width: '35%' }} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex gap-2 p-2">
+                        <div className="w-12 h-12 rounded-lg flex-shrink-0" style={{ background: p.inputBg }} />
+                        <div className="flex-1 space-y-1.5 pt-0.5">
+                          <div className="h-1.5 rounded" style={{ background: p.textMuted, opacity: 0.4, width: '70%' }} />
+                          <div className="h-1.5 rounded mt-1" style={{ background: localAccentBg, width: '30%' }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Pagination controls preview */}
+            {config.paginationEnabled && (
+              <div className="px-4 pb-4 pt-1 flex justify-center gap-1.5">
+                <span className={`w-5 h-5 ${previewControlRadius} flex items-center justify-center text-[9px] font-bold text-white`} style={{ background: localAccentBg }}>1</span>
+                <span className={`w-5 h-5 ${previewControlRadius} flex items-center justify-center text-[9px] font-bold bg-slate-200`} style={{ color: p.textPrimary }}>2</span>
+                <span className={`w-5 h-5 ${previewControlRadius} flex items-center justify-center text-[9px] font-bold bg-slate-200`} style={{ color: p.textPrimary }}>→</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <p className={`text-[10px] text-center ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>Approximate preview · actual storefront may vary</p>
