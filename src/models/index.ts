@@ -388,7 +388,10 @@ const MediaFileSchema = new mongoose.Schema({
   // ObjectId is no longer enough to read another merchant's media. Legacy docs with an
   // empty token remain readable so previously-sent message URLs keep working.
   token: { type: String, default: '' },
-  data: { type: Buffer, required: true },
+  // R2 object key. Legacy docs may still have a `data` Buffer (pre-R2-migration) —
+  // the serving route falls back to that field if `r2Key` is unset.
+  r2Key: { type: String, default: '' },
+  data: { type: Buffer },
   createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 30 },
 });
 

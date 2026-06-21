@@ -346,56 +346,71 @@ export function TagSelector({
 
 // --- MultiImageUploader ---
 
+function resizeToBlob(file: File): Promise<Blob | null> {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        const max = 1000;
+        if (w > h && w > max) { h *= max / w; w = max; } else if (h > max) { w *= max / h; h = max; }
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(null); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.82);
+      };
+      img.onerror = () => resolve(null);
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadImageFile(file: File): Promise<string | null> {
+  const blob = await resizeToBlob(file);
+  if (!blob) return null;
+  const formData = new FormData();
+  formData.append('file', blob, file.name);
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.url as string;
+}
+
 export function MultiImageUploader({ images, onChange, theme = 'light' }: {
   images: string[]; onChange: (images: string[]) => void; theme?: 'light' | 'dark';
 }) {
-  function processFiles(files: File[], callback: (urls: string[]) => void) {
+  const [uploading, setUploading] = useState(false);
+
+  async function processFiles(files: File[]): Promise<string[]> {
     const results: string[] = [];
-    let done = 0;
-    if (!files.length) return;
-    files.forEach(file => {
+    for (const file of files) {
       // Fix 6: reject files over 8 MB
       if (file.size > 8 * 1024 * 1024) {
         alert(`"${file.name}" is too large (max 8 MB). Please resize and try again.`);
-        done++;
-        if (done === files.length) callback(results);
-        return;
+        continue;
       }
-      if (!file.type.startsWith('image/')) { done++; if (done === files.length) callback(results); return; }
-      const reader = new FileReader();
-      reader.onload = e => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let w = img.width, h = img.height;
-          const max = 1000;
-          if (w > h && w > max) { h *= max / w; w = max; } else if (h > max) { w *= max / h; h = max; }
-          canvas.width = w; canvas.height = h;
-          // Fix 6: null-guard canvas context
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            alert(`Could not process image "${file.name}". Skipping.`);
-            done++;
-            if (done === files.length) callback(results);
-            return;
-          }
-          ctx.drawImage(img, 0, 0, w, h);
-          results.push(canvas.toDataURL('image/jpeg', 0.82));
-          done++;
-          if (done === files.length) callback(results);
-        };
-        img.src = e.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    });
+      if (!file.type.startsWith('image/')) continue;
+      const url = await uploadImageFile(file);
+      if (url) results.push(url);
+      else alert(`Could not upload image "${file.name}". Skipping.`);
+    }
+    return results;
   }
 
   const openPicker = () => {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
-    input.onchange = (e: any) => {
+    input.onchange = async (e: any) => {
       const files = Array.from(e.target.files as FileList);
-      processFiles(files, urls => onChange([...images, ...urls]));
+      setUploading(true);
+      const urls = await processFiles(files);
+      onChange([...images, ...urls]);
+      setUploading(false);
     };
     input.click();
   };
@@ -425,13 +440,14 @@ export function MultiImageUploader({ images, onChange, theme = 'light' }: {
         ))}
         <button
           onClick={openPicker}
+          disabled={uploading}
           className={cn(
-            "w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all flex-shrink-0 cursor-pointer",
+            "w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all flex-shrink-0 cursor-pointer disabled:opacity-50",
             theme === 'dark' ? "border-[#1f2335] hover:border-accent text-[#8b92ad]" : "border-[#e2e5ef] hover:border-accent text-[#8b92ad]"
           )}
         >
           <Plus size={16} />
-          <span className="text-[9px] font-bold">Add</span>
+          <span className="text-[9px] font-bold">{uploading ? 'Uploading...' : 'Add'}</span>
         </button>
       </div>
     </div>
@@ -595,37 +611,31 @@ function OptionCard({ option, index, existingOptions, onUpdate, onRemove, theme 
 // --- ImageUploader (single image, compat for admin quick-order form) ---
 
 export function ImageUploader({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const [uploading, setUploading] = useState(false);
+
   function pickFile() {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*';
-    input.onchange = (e: any) => {
+    input.onchange = async (e: any) => {
       const file = e.target.files?.[0];
       if (!file || !file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let w = img.width, h = img.height;
-          const max = 1000;
-          if (w > h && w > max) { h *= max / w; w = max; } else if (h > max) { w *= max / h; h = max; }
-          canvas.width = w; canvas.height = h;
-          canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
-          onChange(canvas.toDataURL('image/jpeg', 0.82));
-        };
-        img.src = ev.target?.result as string;
-      };
-      reader.readAsDataURL(file);
+      setUploading(true);
+      const url = await uploadImageFile(file);
+      setUploading(false);
+      if (url) onChange(url);
+      else alert(`Could not upload image "${file.name}".`);
     };
     input.click();
   }
   return (
     <div>
       <label className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider mb-1.5 block">Product Photo</label>
-      <button type="button" onClick={pickFile} className="w-full aspect-video rounded-2xl overflow-hidden border-2 border-dashed border-[#e2e5ef] hover:border-accent/50 transition-colors bg-[#f8f9fc] flex items-center justify-center relative">
-        {value
-          ? <img src={value} className="w-full h-full object-cover" alt="product" />
-          : <span className="text-[#8b92ad] text-xs">Click to upload photo</span>
+      <button type="button" onClick={pickFile} disabled={uploading} className="w-full aspect-video rounded-2xl overflow-hidden border-2 border-dashed border-[#e2e5ef] hover:border-accent/50 transition-colors bg-[#f8f9fc] flex items-center justify-center relative disabled:opacity-50">
+        {uploading
+          ? <span className="text-[#8b92ad] text-xs">Uploading...</span>
+          : value
+            ? <img src={value} className="w-full h-full object-cover" alt="product" />
+            : <span className="text-[#8b92ad] text-xs">Click to upload photo</span>
         }
       </button>
       {value && <button type="button" onClick={() => onChange('')} className="mt-1 text-xs text-red-400 hover:text-red-600">Remove photo</button>}

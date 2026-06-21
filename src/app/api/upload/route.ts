@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { getMerchantFromRequest } from '@/lib/auth';
 import dbConnect from '@/lib/db';
 import { MediaFile } from '@/models';
+import { uploadToR2 } from '@/lib/r2';
 
 export const runtime = 'nodejs';
 
@@ -10,7 +11,7 @@ export const runtime = 'nodejs';
 // Ref: https://developers.line.biz/en/reference/messaging-api/
 // Image uses the originalContentUrl limit (10 MB). The same URL is also used as
 // previewImageUrl (LINE spec: 1 MB) — renders correctly in practice up to the
-// hosting ceiling. Separate preview generation tracked in R2 migration backlog.
+// hosting ceiling.
 const LINE_LIMIT_MB = {
   image: 10,
   video: 200,
@@ -78,12 +79,14 @@ export async function POST(req: NextRequest) {
 
   await dbConnect();
   const token = randomUUID();
+  const r2Key = `${merchant.merchantId}/${randomUUID()}`;
+  await uploadToR2(buffer, r2Key, file.type);
   const media = await MediaFile.create({
     merchantId: merchant.merchantId,
     contentType: file.type,
     filename: file.name,
     token,
-    data: buffer,
+    r2Key,
   });
 
   // Correctly build the absolute public URL across local dev, Vercel preview, and production.
