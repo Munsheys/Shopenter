@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShoppingBag, ChevronLeft, Plus, Minus, Trash2, Search, X, CheckCircle, ArrowRight, Package } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { ShoppingBag, ChevronLeft, Plus, Minus, Trash2, User, Search, X, CheckCircle, ArrowRight, Package, ChevronDown, ChevronRight } from 'lucide-react';
 import liff from '@line/liff';
 import { resolvePreset, type StorefrontPreset } from '@/lib/storefrontPresets';
 import { getAccentText } from '@/lib/accent';
 
 type CartItem = { productId: string; name: string; price: number; variantLabel?: string; qty: number; imageUrl?: string };
 type View = 'home' | 'detail' | 'cart' | 'payment';
+type PriceRange = 'all' | 'under500' | '500-1000' | '1000-3000' | 'over3000';
 
 function getProductOptions(product: any): Array<{ name: string; values: string[] }> {
   if (product?.options?.length) return product.options;
@@ -34,8 +35,6 @@ function findMatchingVariant(product: any, selections: Record<string, string>): 
   ) ?? null;
 }
 
-// Lazy-loaded image with a graceful icon fallback on missing/broken src — avoids the
-// browser's native broken-image glyph when a product photo is absent or fails to load.
 function ProductImg({ src, alt, className, bg, iconColor, iconSize = 32, eager }: {
   src?: string; alt: string; className?: string; bg: string; iconColor?: string; iconSize?: number; eager?: boolean;
 }) {
@@ -58,6 +57,60 @@ function ProductImg({ src, alt, className, bg, iconColor, iconSize = 32, eager }
   );
 }
 
+/* ─── Dropdown Filter Component ─────────────────────────────────── */
+function FilterDropdown({ label, value, options, onChange }: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selectedLabel = options.find(o => o.value === value)?.label || value;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 pl-5 pr-4 py-2.5 rounded-full border text-sm transition-all bg-white hover:border-[#3d5a3e]/30 border-[#1a1d2e]/10 shadow-sm"
+      >
+        <span className="flex flex-col items-start">
+          <span className="text-[10px] text-[#1a1d2e]/40 font-medium leading-none">{label}</span>
+          <span className="text-[#1a1d2e] font-bold text-[13px] leading-tight">{selectedLabel}</span>
+        </span>
+        <ChevronDown size={14} className={`text-[#1a1d2e]/30 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-2 bg-white rounded-2xl border border-[#1a1d2e]/8 shadow-xl z-50 min-w-[180px] py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={`w-full text-left px-5 py-2.5 text-sm transition-colors ${
+                value === opt.value
+                  ? "text-[#3d5a3e] font-bold bg-[#3d5a3e]/5"
+                  : "text-[#1a1d2e]/70 hover:bg-[#1a1d2e]/3 font-medium"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [shopInfo, setShopInfo] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -65,16 +118,20 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [view, setView] = useState<View>('home');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+  
+  // Filtering States
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeBrand, setActiveBrand] = useState('All');
+  const [priceRange, setPriceRange] = useState<PriceRange>('all');
+
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [customer, setCustomer] = useState<any>(null);
   const [isOrdering, setIsOrdering] = useState(false);
   const [qty, setQty] = useState(1);
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [notFound, setNotFound] = useState(false);
-  // Fix 14: cart toast state
   const [cartToast, setCartToast] = useState(false);
   const liffLock = useRef(false);
 
@@ -94,7 +151,6 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
-          // Support both plain profile objects (legacy) and {profile, cachedAt} shape
           if (parsed && parsed.cachedAt !== undefined) {
             if (Date.now() - parsed.cachedAt > 24 * 60 * 60 * 1000) {
               localStorage.removeItem(`liff_profile_${merchantId}`);
@@ -102,7 +158,6 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
               setCustomer(parsed.profile);
             }
           } else {
-            // Legacy cache without TTL — accept it but don't re-set
             setCustomer(parsed);
           }
         } catch { localStorage.removeItem(`liff_profile_${merchantId}`); }
@@ -121,7 +176,6 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         const prodList: any[] = Array.isArray(prods) ? prods : [];
         setProducts(prodList);
 
-        // Deep-link: open specific product if ?product= param is present
         if (urlProduct) {
           const found = prodList.find((p: any) => String(p._id) === urlProduct);
           if (found) {
@@ -150,11 +204,6 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     init();
   }, [merchantId]);
 
-  const sf = shopInfo?.storefront ?? {};
-  const p: StorefrontPreset = resolvePreset(sf.preset || 'midnight', sf.accentColor);
-  const cardLayout: 'grid' | 'list' = sf.cardLayout || 'grid';
-  const accentText = getAccentText(sf.accentColor || p.accent);
-
   const categories = useMemo(() => {
     const s = new Set<string>();
     products.forEach(pr => pr.categories?.forEach((c: string) => s.add(c)));
@@ -169,28 +218,28 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
   const filtered = useMemo(() => products.filter(pr => {
     const q = searchQuery.toLowerCase();
-    return (!q || pr.name?.toLowerCase().includes(q) || pr.brand?.toLowerCase().includes(q))
-      && (activeCategory === 'All' || pr.categories?.includes(activeCategory))
-      && (activeBrand === 'All' || pr.brand === activeBrand);
-  }), [products, searchQuery, activeCategory, activeBrand]);
+    const matchSearch = !q || pr.name?.toLowerCase().includes(q) || pr.brand?.toLowerCase().includes(q);
+    const matchCategory = activeCategory === 'All' || pr.categories?.includes(activeCategory);
+    const matchBrand = activeBrand === 'All' || pr.brand === activeBrand;
 
-  // Fix 13: memoize cartTotal and cartCount
+    // Price range filter
+    let matchPrice = true;
+    if (priceRange !== 'all') {
+      const price = pr.price || 0;
+      switch (priceRange) {
+        case 'under500': matchPrice = price < 500; break;
+        case '500-1000': matchPrice = price >= 500 && price <= 1000; break;
+        case '1000-3000': matchPrice = price >= 1000 && price <= 3000; break;
+        case 'over3000': matchPrice = price > 3000; break;
+      }
+    }
+
+    return matchSearch && matchCategory && matchBrand && matchPrice;
+  }), [products, searchQuery, activeCategory, activeBrand, priceRange]);
+
   const cartTotal = useMemo(() => cart.reduce((s, i) => s + i.price * i.qty, 0), [cart]);
   const cartCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
 
-  // Fix 18: memoize style object
-  const style = useMemo(() => ({
-    page: { background: p.pageBg, color: p.textPrimary, minHeight: '100vh' } as React.CSSProperties,
-    header: { background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` } as React.CSSProperties,
-    card: { background: p.cardBg, border: `1px solid ${p.cardBorder}` } as React.CSSProperties,
-    input: { background: p.inputBg, border: `1px solid ${p.inputBorder}`, color: p.textPrimary } as React.CSSProperties,
-    accent: { background: sf.accentGradient || p.accent, color: accentText } as React.CSSProperties,
-    pill: (active: boolean): React.CSSProperties => ({ background: active ? p.pillActiveBg : p.pillBg, color: active ? p.pillActiveText : p.textMuted }),
-    muted: { color: p.textMuted } as React.CSSProperties,
-    sub: { color: p.textSecondary } as React.CSSProperties,
-  }), [p, sf, accentText]);
-
-  // Fix 14: addToCart with toast
   function addToCart() {
     if (!selectedProduct) return;
     const variantLabel = Object.values(selections).filter(Boolean).join(' / ');
@@ -226,8 +275,6 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       });
       if (res.ok) {
         const orderData = await res.json();
-        // When inside LINE's browser, send the order summary from the customer to the OA chat
-        // so it appears in both the merchant's LINE app and the dashboard chat view
         if (isLiffClient && (customer.platform || 'line') === 'line') {
           const finalPrice = orderData.soldTHB ?? cartTotal;
           const summary = `📦 สั่งซื้อแล้ว!\n${items.map(i => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n')}\n\nรวม ฿${finalPrice.toLocaleString()}`;
@@ -242,315 +289,460 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
     } finally { setIsOrdering(false); }
   }
 
+  const isOutOfStock = (p: any) => {
+    if (p.stock === 0) return true;
+    if (p.trackStock && p.stock !== undefined && p.stock <= 0) return true;
+    return false;
+  };
+
+  const getVariantDot = (p: any) => {
+    const colors = (p.variants || []).flatMap((v: any) => v.colors || []).filter(Boolean);
+    if (!colors.length) return null;
+    const colorMap: Record<string, string> = {
+      'black': '#1a1d2e', 'white': '#ffffff', 'red': '#c44b4b', 'blue': '#4b6bc4',
+      'green': '#4b8c4b', 'pink': '#d4a0a0', 'beige': '#c8b89a', 'gray': '#8b8b8b',
+      'grey': '#8b8b8b', 'navy': '#2c3e6b', 'brown': '#8b6b4b', 'cream': '#e8dcc8',
+    };
+    const c = colors[0].toLowerCase();
+    return colorMap[c] || '#c8b89a';
+  };
+
   if (notFound) return (
-    <div style={style.page} className="flex items-center justify-center">
+    <div className="min-h-screen bg-[#f0ede8] text-[#1a1d2e] flex items-center justify-center font-sans">
       <div className="text-center p-8">
-        <Package size={48} className="mx-auto mb-4 opacity-30" />
+        <Package size={48} className="mx-auto mb-4 opacity-30 text-[#1a1d2e]" />
         <h1 className="text-xl font-bold mb-2">Store not found</h1>
-        <p style={style.muted} className="text-sm">This store link may be invalid or no longer exists.</p>
+        <p className="text-sm opacity-50">This store link may be invalid or no longer exists.</p>
       </div>
     </div>
   );
+
+  const sf = shopInfo?.storefront ?? {};
 
   if (shopInfo && sf.maintenanceMode) return (
-    <div style={style.page} className="flex items-center justify-center min-h-screen">
+    <div className="min-h-screen bg-[#f0ede8] text-[#1a1d2e] flex items-center justify-center font-sans">
       <div className="text-center p-8 max-w-sm">
-        <div className="text-5xl mb-4">🔧</div>
+        <div className="text-5xl mb-4 text-[#1a1d2e]">🔧</div>
         <h1 className="text-xl font-bold mb-2">{shopInfo.shopName || 'Store'}</h1>
-        <p style={style.muted} className="text-sm">{sf.maintenanceMessage || 'We will be back soon.'}</p>
+        <p className="text-sm opacity-50">{sf.maintenanceMessage || 'We will be back soon.'}</p>
       </div>
     </div>
   );
 
-  // Fix 9: loading spinner with role="status"
   if (!shopInfo) return (
-    <div style={{ ...style.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} className="animate-fade-in">
-      <div className="flex items-center justify-center py-6">
-        <div role="status" aria-label="Loading store">
-          <div aria-hidden="true" className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${p.accent}40`, borderTopColor: p.accent }} />
-        </div>
-      </div>
-      {/* Skeleton placeholder grid — supplements the spinner above while products load */}
-      <div aria-hidden="true" className="p-4 max-w-2xl w-full mx-auto grid grid-cols-2 gap-3">
-        {Array.from({ length: 6 }).map((_, idx) => (
-          <div key={idx} className="rounded-2xl overflow-hidden" style={{ ...style.card, animationDelay: `${idx * 40}ms` }}>
-            <div className="w-full aspect-square skeleton-shimmer" style={{ background: p.inputBg }} />
-            <div className="p-3 space-y-2">
-              <div className="h-3 rounded skeleton-shimmer" style={{ background: p.inputBg, width: '80%' }} />
-              <div className="h-3 rounded skeleton-shimmer" style={{ background: p.inputBg, width: '40%' }} />
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="min-h-screen bg-[#f0ede8] flex items-center justify-center font-sans">
+      <div className="w-10 h-10 border-2 border-[#3d5a3e]/20 border-t-[#3d5a3e] rounded-full animate-spin" />
     </div>
   );
-
-  if (view === 'payment') return (
-    <div style={style.page} className="flex items-center justify-center p-4 animate-fade-in">
-      <div style={style.card} className="rounded-2xl p-8 w-full max-w-sm text-center">
-        <CheckCircle size={48} className="mx-auto mb-4" style={{ color: p.accent }} />
-        <h2 className="text-xl font-bold mb-2">Order placed!</h2>
-        <p style={style.muted} className="text-sm mb-6">We'll contact you when your order is ready for payment.</p>
-        <button onClick={() => setView('home')} style={style.accent} className="w-full rounded-xl py-3 font-semibold text-sm">Continue shopping</button>
-      </div>
-    </div>
-  );
-
-  if (view === 'detail' && selectedProduct) {
-    const productOptions = getProductOptions(selectedProduct);
-    const allSelected = productOptions.every(o => selections[o.name]);
-    const imgs: string[] = selectedProduct.images?.length ? selectedProduct.images : (selectedProduct.imageUrl ? [selectedProduct.imageUrl] : []);
-    const displayImg = selectedVariant?.imageUrl || imgs[activeImgIdx] || imgs[0] || null;
-    // Fix 16: out-of-stock detection
-    const isOutOfStock = selectedProduct.trackStock === true && (selectedProduct.stock ?? 0) <= 0;
-    return (
-      <div style={style.page} className="animate-fade-in">
-        {/* Fix 5 & 15: back button p-3, aria-label, cart button in header */}
-        <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
-          <button onClick={() => setView('home')} aria-label="Back" style={{ color: p.textPrimary }} className="p-3 rounded-xl"><ChevronLeft size={20} /></button>
-          <span className="font-semibold text-sm flex-1">{selectedProduct.name}</span>
-          {cartCount > 0 && (
-            <button
-              onClick={() => setView('cart')}
-              aria-label={`View cart, ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
-              className="relative p-2"
-              style={{ color: p.textPrimary }}
-            >
-              <ShoppingBag size={20} />
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-xs flex items-center justify-center font-bold" style={style.accent}>{cartCount}</span>
-            </button>
-          )}
-        </div>
-        <div className="p-4 space-y-4 max-w-lg mx-auto">
-          <ProductImg src={displayImg ?? undefined} alt={selectedProduct.name} className="w-full aspect-square object-cover rounded-2xl animate-fade-in" bg={p.inputBg} iconColor={p.textMuted} iconSize={48} eager />
-          {/* Fix 6: thumbnail buttons with aria-label and aria-pressed */}
-          {imgs.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {imgs.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveImgIdx(i)}
-                  aria-label={`View image ${i + 1}`}
-                  aria-pressed={activeImgIdx === i}
-                  className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all"
-                  style={{ borderColor: !selectedVariant?.imageUrl && activeImgIdx === i ? p.accent : 'transparent', opacity: !selectedVariant?.imageUrl && activeImgIdx === i ? 1 : 0.6 }}
-                >
-                  <ProductImg src={img} alt="" className="w-full h-full object-cover animate-fade-in" bg={p.inputBg} iconColor={p.textMuted} iconSize={20} />
-                </button>
-              ))}
-            </div>
-          )}
-          <div>
-            <h2 className="text-lg font-bold">{selectedProduct.name}</h2>
-            {selectedProduct.brand && <p className="text-sm" style={style.muted}>{selectedProduct.brand}</p>}
-            <p key={selectedVariant?._id ?? 'base'} className="text-xl font-bold mt-1 animate-scale-in" style={{ color: p.accent }}>฿{(selectedVariant?.price ?? selectedProduct.price).toLocaleString()}</p>
-            {selectedProduct.description && <p className="text-sm mt-2" style={style.sub}>{selectedProduct.description}</p>}
-          </div>
-          {productOptions.map(option => (
-            <div key={option.name}>
-              <p className="text-sm font-medium mb-2">{option.name}</p>
-              <div className="flex flex-wrap gap-2">
-                {option.values.map(val => (
-                  <button key={val}
-                    onClick={() => {
-                      const next = { ...selections, [option.name]: val };
-                      setSelections(next);
-                      setSelectedVariant(findMatchingVariant(selectedProduct, next));
-                    }}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium" style={style.pill(selections[option.name] === val)}>{val}</button>
-                ))}
-              </div>
-            </div>
-          ))}
-          {/* Fix 1: qty stepper touch targets w-8 h-8 -> w-11 h-11 */}
-          <div className="flex items-center gap-3">
-            <p className="text-sm font-medium">Qty</p>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setQty(q => Math.max(1, q - 1))} style={style.card} className="w-11 h-11 rounded-lg flex items-center justify-center"><Minus size={14} /></button>
-              <span key={qty} className="w-6 text-center font-semibold animate-scale-in">{qty}</span>
-              <button onClick={() => setQty(q => q + 1)} style={style.card} className="w-11 h-11 rounded-lg flex items-center justify-center"><Plus size={14} /></button>
-            </div>
-          </div>
-          {/* Fix 16: disable add-to-cart and show out-of-stock */}
-          {isOutOfStock ? (
-            <button disabled style={{ background: '#ccc', color: '#fff' }} className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 opacity-60">
-              Out of stock
-            </button>
-          ) : (
-            <button onClick={addToCart} disabled={!allSelected} style={allSelected ? style.accent : { background: '#ccc', color: '#fff' }} className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              <ShoppingBag size={16} /> {allSelected ? 'Add to cart' : 'Select options'}
-            </button>
-          )}
-        </div>
-        {/* Fix 14: cart toast */}
-        {cartToast && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium text-white z-50 animate-toast" style={{ background: p.accent }}>Added to cart</div>
-        )}
-      </div>
-    );
-  }
-
-  if (view === 'cart') return (
-    <CartView p={p} style={style} cart={cart} cartTotal={cartTotal} customer={customer} isOrdering={isOrdering}
-      merchantId={merchantId}
-      onBack={() => setView('home')}
-      onRemove={(key: string) => setCart(prev => prev.filter(i => `${i.productId}-${i.variantLabel}` !== key))}
-      onQtyChange={(key: string, delta: number) => setCart(prev => prev.map(i => `${i.productId}-${i.variantLabel}` === key ? { ...i, qty: Math.max(1, i.qty + delta) } : i))}
-      onOrder={placeOrder}
-    />
-  );
-
-  const announcementBgMap: Record<string, string> = {
-    blue:   '#3b82f6', amber: '#f59e0b', red: '#ef4444',
-    accent: sf.accentGradient || p.accent,
-  };
-  const announcementBg = announcementBgMap[sf.announcementColor || 'accent'] ?? p.accent;
 
   return (
-    <div style={style.page} className="animate-fade-in">
-      {/* Fix 8: single announcement block — only show when enabled */}
-      {sf.announcementText && sf.announcementEnabled && (
-        <div className="px-4 py-1.5 text-xs text-center font-medium" style={{ background: announcementBg, color: sf.announcementColor === 'accent' ? accentText : '#ffffff' }}>{sf.announcementText}</div>
-      )}
-      <div style={style.header} className="sticky top-0 z-10 shadow-sm">
-        <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Fix 7: logo alt text */}
-            {shopInfo.shopLogoUrl
-              ? <img src={shopInfo.shopLogoUrl} alt={`${shopInfo.shopName} logo`} className="w-11 h-11 rounded-2xl object-cover shadow-sm flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />
-              : <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-sm" style={style.accent}>{(shopInfo.shopName || 'S')[0]}</div>
-            }
-            <div className="min-w-0">
-              <p className="font-bold text-base leading-tight truncate">{shopInfo.shopName}</p>
-              {sf.shopTagline && <p className="text-xs mt-0.5 truncate" style={style.muted}>{sf.shopTagline}</p>}
-            </div>
-          </div>
-          {/* Fix 2: cart button aria-label */}
-          {cartCount > 0 && (
+    <div className="min-h-screen bg-[#f0ede8] text-[#1a1d2e] font-sans selection:bg-[#3d5a3e]/15">
+      {/* ═══ HEADER ═══════════════════════════════════════════════════ */}
+      <header className="sticky top-0 z-50 bg-[#f0ede8]/92 backdrop-blur-xl border-b border-[#1a1d2e]/6">
+        <div className="flex items-center justify-between max-w-[1400px] mx-auto px-5 sm:px-8 py-3 sm:py-4">
+
+          {/* Logo / Brand */}
+          <button onClick={() => setView('home')} className="flex items-center gap-2.5 min-w-0">
+            <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#1a1d2e] leading-none">
+              {shopInfo.shopName}
+            </span>
+          </button>
+
+          {/* Center Nav (desktop) */}
+          <nav className="hidden lg:flex items-center gap-8">
+            <button onClick={() => setView('home')} className="text-sm font-bold text-[#1a1d2e] underline underline-offset-4 decoration-[#3d5a3e] decoration-2">Shop</button>
+            <span className="text-sm font-medium text-[#1a1d2e]/35 cursor-default">Collections</span>
+            <span className="text-sm font-medium text-[#1a1d2e]/35 cursor-default flex items-center gap-1">Explore <ArrowRight size={12} /></span>
+            <span className="text-[#1a1d2e]/15 text-lg leading-none">•••</span>
+          </nav>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-3 sm:gap-5">
+            {/* Search toggle */}
             <button
-              onClick={() => setView('cart')}
-              aria-label={`View cart, ${cartCount} item${cartCount !== 1 ? 's' : ''}`}
-              className="relative p-2 flex-shrink-0"
-              style={{ color: p.textPrimary }}
+              onClick={() => setSearchOpen(!searchOpen)}
+              className="flex items-center gap-1.5 text-[#1a1d2e]/70 hover:text-[#1a1d2e] transition-colors"
             >
-              <ShoppingBag size={22} />
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-xs flex items-center justify-center font-bold" style={style.accent}>{cartCount}</span>
+              <Search size={18} />
+              <span className="hidden sm:inline text-sm font-medium">Search</span>
             </button>
-          )}
+
+            {/* Cart */}
+            <button
+              onClick={() => {
+                if (cart.length > 0) setView('cart');
+              }}
+              className="flex items-center gap-1.5 text-[#1a1d2e]/70 hover:text-[#1a1d2e] transition-colors"
+            >
+              <ShoppingBag size={18} />
+              <span className="text-sm font-bold">Cart {cartCount > 0 && cartCount}</span>
+            </button>
+
+            {/* Account */}
+            {customer ? (
+              <div className="flex items-center gap-2">
+                {customer.pictureUrl ? (
+                  <img src={customer.pictureUrl} className="w-8 h-8 rounded-full border border-[#1a1d2e]/10 object-cover" alt="" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[#1a1d2e]/5 border border-[#1a1d2e]/10 flex items-center justify-center">
+                    <User size={14} className="text-[#1a1d2e]/40" />
+                  </div>
+                )}
+                <span className="hidden sm:inline text-sm font-medium text-[#1a1d2e]/70 truncate max-w-[100px]">{customer.displayName}</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => liff.login()}
+                className="flex items-center gap-1.5 text-[#1a1d2e]/70 hover:text-[#1a1d2e] transition-colors"
+              >
+                <User size={18} />
+                <span className="hidden sm:inline text-sm font-medium">My Account</span>
+              </button>
+            )}
+          </div>
         </div>
-        {/* Fix 7: banner alt text */}
-        {sf.bannerUrl && (
-          <img src={sf.bannerUrl} alt={`${shopInfo.shopName} banner`} className="w-full h-32 object-cover animate-fade-in" loading="lazy" onError={e => (e.currentTarget.style.display = 'none')} />
-        )}
-        {/* Fix 3: search role and aria-labels */}
-        {sf.showSearch !== false && (
-          <div className="px-4 pb-3">
-            <div role="search" className="flex items-center gap-2 rounded-xl px-3.5 py-3 focus-within:ring-2 focus-within:ring-accent/30 transition-all" style={style.input}>
-              <Search size={16} style={style.muted} />
+
+        {/* Search bar (expandable) */}
+        {searchOpen && (
+          <div className="border-t border-[#1a1d2e]/5 px-5 sm:px-8 py-3 animate-in slide-in-from-top-2 fade-in duration-200">
+            <div className="max-w-[1400px] mx-auto relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1a1d2e]/30" size={18} />
               <input
+                autoFocus
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search products..."
-                aria-label="Search products"
-                className="flex-1 bg-transparent text-sm outline-none"
-                style={{ color: p.textPrimary }}
+                className="w-full bg-white border border-[#1a1d2e]/10 rounded-xl pl-11 pr-10 py-3 text-sm text-[#1a1d2e] placeholder-[#1a1d2e]/25 focus:border-[#3d5a3e]/40 outline-none transition-all"
               />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} aria-label="Clear search" className="p-3">
-                  <X size={14} style={style.muted} />
-                </button>
-              )}
+              <button onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1a1d2e]/30 hover:text-[#1a1d2e]/60">
+                <X size={18} />
+              </button>
             </div>
           </div>
         )}
-        {/* Fix 4: category filter pill padding and focus-visible */}
-        {sf.showCategoryFilter !== false && categories.length > 1 && (
-          <div className="pb-2.5">
-            <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-wider" style={style.muted}>Category</p>
-            <div className="flex gap-2 px-4 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              {categories.map(cat => (
-                <button key={cat} onClick={() => setActiveCategory(cat)} className="flex-shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition-transform active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={style.pill(activeCategory === cat)}>{cat}</button>
-              ))}
-            </div>
-          </div>
-        )}
-        {/* Fix 4: brand filter pill padding and focus-visible — secondary weight vs category to reduce visual competition */}
-        {sf.showBrandFilter !== false && brands.length > 1 && (
-          <div className="pb-3">
-            <p className="px-4 pb-1.5 text-[10px] font-bold uppercase tracking-wider" style={style.muted}>Brand</p>
-            <div className="flex gap-2 px-4 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              {brands.map(b => (
-                <button
-                  key={b}
-                  onClick={() => setActiveBrand(b)}
-                  className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-transform active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                  style={activeBrand === b ? style.pill(true) : { background: 'transparent', borderColor: p.cardBorder, color: p.textMuted }}
-                >{b}</button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      </header>
 
-      <div key={`${searchQuery}-${activeCategory}-${activeBrand}`} className={`px-4 pt-4 pb-8 max-w-2xl mx-auto ${cardLayout === 'grid' ? 'grid grid-cols-2 gap-4' : 'flex flex-col gap-3'}`}>
-        {filtered.map((pr, idx) => {
-          // Fix 16: out-of-stock on product card
-          const cardOutOfStock = pr.trackStock === true && (pr.stock ?? 0) <= 0;
-          return (
-            <button key={pr._id}
-              onClick={() => { setSelectedProduct(pr); setSelectedVariant(null); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
-              className={`rounded-2xl overflow-hidden text-left transition-all active:scale-95 hover-lift group animate-scale-in ${cardLayout === 'list' ? 'flex gap-3 p-3' : ''}`}
-              style={{ ...style.card, animationDelay: `${idx * 40}ms` }}
-            >
-              {cardLayout === 'grid' ? (
-                <>
-                  <div className="relative overflow-hidden">
-                    <ProductImg src={pr.imageUrl} alt={pr.name} className="w-full aspect-square object-cover animate-fade-in transition-transform duration-300 group-hover:scale-105" bg={p.inputBg} iconColor={p.textMuted} iconSize={32} />
-                    {cardOutOfStock && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="text-white text-xs font-bold px-2 py-1 rounded-lg bg-black/60">Out of stock</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3.5">
-                    <p className="font-semibold text-sm leading-tight line-clamp-2">{pr.name}</p>
-                    {pr.brand && <p className="text-xs mt-1" style={style.muted}>{pr.brand}</p>}
-                    <p className="font-bold text-sm mt-1.5" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="relative flex-shrink-0 overflow-hidden">
-                    <ProductImg src={pr.imageUrl} alt={pr.name} className="w-16 h-16 rounded-xl object-cover animate-fade-in transition-transform duration-300 group-hover:scale-105" bg={p.inputBg} iconColor={p.textMuted} iconSize={20} />
-                    {cardOutOfStock && (
-                      <div className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">OOS</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 py-1">
-                    <p className="font-semibold text-sm line-clamp-2">{pr.name}</p>
-                    {pr.brand && <p className="text-xs mt-0.5" style={style.muted}>{pr.brand}</p>}
-                    <p className="font-bold text-sm mt-1" style={{ color: p.accent }}>฿{pr.price.toLocaleString()}</p>
-                    {cardOutOfStock && <p className="text-xs font-medium mt-0.5" style={{ color: '#ef4444' }}>Out of stock</p>}
-                  </div>
-                </>
-              )}
-            </button>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div className={`${cardLayout === 'grid' ? 'col-span-2' : ''} py-16 text-center animate-fade-in animate-scale-in`}>
-            <div className="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center" style={{ background: `${p.accent}20` }}>
-              <Package size={28} style={{ color: p.accent }} />
-            </div>
-            <p className="text-sm" style={style.muted}>No products found</p>
+      {/* Announcement bar (if enabled) */}
+      {sf.announcementText && sf.announcementEnabled && (
+        <div className="px-4 py-2 text-xs text-center font-bold text-white bg-[#3d5a3e]">{sf.announcementText}</div>
+      )}
+
+      {/* ═══ HOME VIEW ════════════════════════════════════════════════ */}
+      {view === 'home' && (
+        <main className="max-w-[1400px] mx-auto px-5 sm:px-8 pt-10 sm:pt-14 pb-32">
+
+          {/* Hero heading */}
+          <div className="mb-8 sm:mb-10">
+            <h2 className="text-[clamp(2rem,5vw,3.5rem)] font-extrabold text-[#1a1d2e] leading-[1.1] tracking-tight max-w-3xl">
+              {sf.shopTagline || "The Curated Merchant Showcase"}
+            </h2>
+            <p className="text-[#1a1d2e]/50 text-base sm:text-lg mt-3 max-w-2xl leading-relaxed font-medium">
+              {shopInfo.description || "Explore a diverse selection of high-quality goods, sourced and sold by verified independent merchants. Discover unique and essential products for every lifestyle. Reliable. Authentic. Unique."}
+            </p>
           </div>
-        )}
-      </div>
-      {/* Fix 14: toast shown on home view after navigating back */}
+
+          {/* Filter Dropdowns Row */}
+          <div className="flex flex-wrap gap-3 mb-10 sm:mb-12">
+            <FilterDropdown
+              label="Category"
+              value={activeCategory}
+              options={categories.map(c => ({ value: c, label: c }))}
+              onChange={setActiveCategory}
+            />
+            <FilterDropdown
+              label="Brand"
+              value={activeBrand}
+              options={brands.map(b => ({ value: b, label: b }))}
+              onChange={(val) => { setActiveBrand(val); setActiveCategory('All'); }}
+            />
+            <FilterDropdown
+              label="Price"
+              value={priceRange}
+              options={[
+                { value: 'all', label: 'All Prices' },
+                { value: 'under500', label: 'Under ฿500' },
+                { value: '500-1000', label: '฿500 – ฿1,000' },
+                { value: '1000-3000', label: '฿1,000 – ฿3,000' },
+                { value: 'over3000', label: 'Over ฿3,000' },
+              ]}
+              onChange={(val) => setPriceRange(val as PriceRange)}
+            />
+          </div>
+
+          {/* Product Grid */}
+          {filtered.length === 0 ? (
+            <div className="text-center py-24">
+              <Package size={48} className="mx-auto mb-4 text-[#1a1d2e]/10" />
+              <p className="font-bold text-[#1a1d2e]/35 text-sm">No items match your selection</p>
+              <button
+                onClick={() => { setActiveBrand('All'); setActiveCategory('All'); setSearchQuery(''); setPriceRange('all'); }}
+                className="mt-4 text-[#3d5a3e] text-sm font-bold underline underline-offset-4"
+              >
+                Clear all filters
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* First row: 2 large cards */}
+              {filtered.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {filtered.slice(0, 2).map((p: any) => (
+                    <button
+                      key={p._id}
+                      onClick={() => { setSelectedProduct(p); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
+                      className="group text-left w-full"
+                    >
+                      <div className="relative">
+                        {getVariantDot(p) && (
+                          <div className="flex justify-center mb-2">
+                            <div className="w-3 h-3 rounded-full border border-[#1a1d2e]/10" style={{ backgroundColor: getVariantDot(p)! }} />
+                          </div>
+                        )}
+                        <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-[#e4e0db] relative">
+                          {p.imageUrl ? (
+                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10">
+                              <Package size={48} />
+                            </div>
+                          )}
+                          {isOutOfStock(p) && (
+                            <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm text-[#1a1d2e]/70 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-[#1a1d2e]/5">
+                              <Package size={12} />
+                              Out of Stock
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3.5 px-0.5">
+                        <p className="font-bold text-[15px] sm:text-base text-[#1a1d2e] leading-snug mb-0.5 group-hover:text-[#3d5a3e] transition-colors line-clamp-2">
+                          {p.name}
+                        </p>
+                        {p.brand && (
+                          <p className="text-[13px] text-[#1a1d2e]/40 font-medium">By {p.brand}</p>
+                        )}
+                        <p className="text-[#1a1d2e] font-extrabold text-base mt-1">
+                          ฿{p.price?.toLocaleString()}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Remaining rows: 4-column grid */}
+              {filtered.length > 2 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                  {filtered.slice(2).map((p: any) => (
+                    <button
+                      key={p._id}
+                      onClick={() => { setSelectedProduct(p); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
+                      className="group text-left w-full"
+                    >
+                      <div className="relative">
+                        {getVariantDot(p) && (
+                          <div className="flex justify-center mb-2">
+                            <div className="w-2.5 h-2.5 rounded-full border border-[#1a1d2e]/10" style={{ backgroundColor: getVariantDot(p)! }} />
+                          </div>
+                        )}
+                        <div className="aspect-square w-full rounded-2xl overflow-hidden bg-[#e4e0db] relative">
+                          {p.imageUrl ? (
+                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10">
+                              <Package size={32} />
+                            </div>
+                          )}
+                          {isOutOfStock(p) && (
+                            <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm text-[#1a1d2e]/70 text-[11px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 border border-[#1a1d2e]/5">
+                              <Package size={10} />
+                              Out of Stock
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 px-0.5">
+                        <p className="font-bold text-sm text-[#1a1d2e] leading-snug mb-0.5 group-hover:text-[#3d5a3e] transition-colors line-clamp-2">
+                          {p.name}
+                        </p>
+                        {p.brand && (
+                          <p className="text-[12px] text-[#1a1d2e]/40 font-medium">By {p.brand}</p>
+                        )}
+                        <p className="text-[#1a1d2e] font-extrabold text-sm mt-0.5">
+                          ฿{p.price?.toLocaleString()}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      )}
+
+      {/* ═══ DETAIL VIEW ══════════════════════════════════════════════ */}
+      {view === 'detail' && selectedProduct && (
+        <div className="max-w-[1400px] mx-auto min-h-screen bg-[#f0ede8] animate-in fade-in slide-in-from-bottom-4 duration-500 pb-40">
+          {/* Back bar */}
+          <div className="sticky top-16 sm:top-[60px] z-40 bg-[#f0ede8]/85 backdrop-blur-md px-5 sm:px-8 py-3 flex items-center justify-between">
+            <button onClick={() => setView('home')} className="flex items-center gap-2 text-sm font-bold text-[#1a1d2e]/60 hover:text-[#1a1d2e] transition-colors">
+              <ChevronLeft size={18} />
+              <span>Back</span>
+            </button>
+            <div className="w-10" />
+          </div>
+
+          <div className="lg:flex lg:gap-12 xl:gap-16 lg:px-8 lg:pt-6">
+            {/* Images */}
+            <div className="px-5 mb-8 lg:w-1/2 lg:flex lg:flex-col lg:items-end">
+              <div className="rounded-2xl overflow-hidden w-full aspect-square lg:max-w-[520px] bg-[#e4e0db]">
+                {selectedVariant?.imageUrl || selectedProduct.imageUrl ? (
+                  <img src={selectedVariant?.imageUrl || selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10">
+                    <Package size={80} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="px-5 sm:px-8 lg:w-1/2 lg:flex lg:flex-col lg:justify-center">
+              {selectedProduct.brand && (
+                <p className="text-[13px] font-semibold text-[#1a1d2e]/40 mb-2">By {selectedProduct.brand}</p>
+              )}
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#1a1d2e] mb-4 tracking-tight leading-tight">
+                {selectedProduct.name}
+              </h2>
+              {selectedProduct.description && (
+                <p className="text-[#1a1d2e]/50 text-base sm:text-lg leading-relaxed mb-6 lg:mb-8 font-medium max-w-xl">
+                  {selectedProduct.description}
+                </p>
+              )}
+              <div className="flex items-baseline gap-2 mb-8 lg:mb-10">
+                <span className="text-3xl sm:text-4xl font-extrabold text-[#1a1d2e]">
+                  ฿{(selectedVariant?.price ?? selectedProduct.price)?.toLocaleString()}
+                </span>
+              </div>
+
+              {/* N-Dimensional Option Selector */}
+              {getProductOptions(selectedProduct).map((option) => (
+                <div key={option.name} className="mb-6 text-left">
+                  <p className="text-xs font-bold text-[#1a1d2e]/35 uppercase tracking-wider mb-3">
+                    {option.name}
+                  </p>
+                  <div className="flex flex-wrap gap-2.5">
+                    {option.values.map(val => (
+                      <button
+                        key={val}
+                        onClick={() => {
+                          const next = { ...selections, [option.name]: val };
+                          setSelections(next);
+                          setSelectedVariant(findMatchingVariant(selectedProduct, next));
+                        }}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all ${
+                          selections[option.name] === val
+                            ? "bg-[#1a1d2e] border-[#1a1d2e] text-white"
+                            : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/60 hover:border-[#3d5a3e]/30 hover:text-[#1a1d2e]"
+                        }`}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Quantity */}
+              <div className="flex items-center justify-between bg-white rounded-2xl p-4 lg:p-5 mb-8 lg:mb-10 lg:max-w-sm border border-[#1a1d2e]/8">
+                <span className="text-xs font-bold text-[#1a1d2e]/40 uppercase tracking-wider">Quantity</span>
+                <div className="flex items-center gap-6">
+                  <button
+                    onClick={() => setQty(q => Math.max(1, q - 1))}
+                    className="w-9 h-9 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e]/50 hover:bg-[#f0ede8] transition-all"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span className="font-extrabold text-xl text-[#1a1d2e] w-6 text-center">{qty}</span>
+                  <button
+                    onClick={() => setQty(q => q + 1)}
+                    className="w-9 h-9 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e]/50 hover:bg-[#f0ede8] transition-all"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Add to Cart button */}
+              <div className="lg:max-w-sm">
+                {isOutOfStock(selectedProduct) ? (
+                  <button
+                    disabled
+                    className="w-full bg-[#1a1d2e]/20 text-[#1a1d2e]/40 py-4 rounded-2xl font-bold text-base cursor-not-allowed"
+                  >
+                    Out of Stock
+                  </button>
+                ) : (
+                  <button
+                    onClick={addToCart}
+                    disabled={getProductOptions(selectedProduct).some(o => !selections[o.name])}
+                    className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-4 rounded-2xl font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                  >
+                    <ShoppingBag size={20} />
+                    Add to Cart
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ PAYMENT VIEW ═════════════════════════════════════════════ */}
+      {view === 'payment' && (
+        <div className="max-w-3xl mx-auto px-6 pt-20 pb-32 text-center animate-in zoom-in-95 duration-700">
+          <div className="w-16 h-16 bg-[#3d5a3e]/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#3d5a3e]/15">
+            <CheckCircle className="text-[#3d5a3e]" size={32} />
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1a1d2e] mb-2 tracking-tight">Order Confirmed</h2>
+          <p className="text-[#1a1d2e]/50 text-sm sm:text-base font-medium mb-10">
+            Thank you for your order. We'll contact you when your order is ready for payment.
+          </p>
+          <button
+            onClick={() => setView('home')}
+            className="w-full max-w-md mx-auto bg-white border border-[#1a1d2e]/10 text-[#1a1d2e] py-4 rounded-2xl font-bold text-sm hover:bg-[#1a1d2e]/3 transition-all flex items-center justify-center gap-2"
+          >
+            Continue Shopping
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* ═══ CART VIEW ═══════════════════════════════════════════════ */}
+      {view === 'cart' && (
+        <CartView
+          p={resolvePreset(sf.preset || 'midnight')}
+          style={{
+            page: {}, card: {}, input: {}, accent: {}, pill: () => ({}), muted: {}, sub: {}
+          }}
+          cart={cart}
+          cartTotal={cartTotal}
+          customer={customer}
+          isOrdering={isOrdering}
+          merchantId={merchantId}
+          onBack={() => setView('home')}
+          onRemove={(key: string) => setCart(prev => prev.filter(i => `${i.productId}-${i.variantLabel}` !== key))}
+          onQtyChange={(key: string, delta: number) => setCart(prev => prev.map(i => `${i.productId}-${i.variantLabel}` === key ? { ...i, qty: Math.max(1, i.qty + delta) } : i))}
+          onOrder={placeOrder}
+        />
+      )}
+
+      {/* Toast popup */}
       {cartToast && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium text-white z-50 animate-toast" style={{ background: p.accent }}>Added to cart</div>
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl text-sm font-bold text-white z-50 animate-toast bg-[#3d5a3e]">
+          Added to cart
+        </div>
       )}
     </div>
   );
@@ -608,138 +800,126 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
   const finalTotal = Math.max(0, cartTotal - totalDiscount);
 
   return (
-    <div style={style.page} className="animate-fade-in">
-      {/* Fix 5: back button p-3 and aria-label */}
-      <div style={style.header} className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3">
-        <button onClick={onBack} aria-label="Back" style={{ color: p.textPrimary }} className="p-3 rounded-xl"><ChevronLeft size={20} /></button>
-        <span className="font-semibold text-sm">Cart ({cart.length} items)</span>
+    <div className="animate-fade-in max-w-lg mx-auto p-4 space-y-4 pb-24">
+      <div className="flex items-center gap-3 py-2">
+        <button onClick={onBack} aria-label="Back" className="p-2 rounded-xl text-[#1a1d2e] hover:bg-[#1a1d2e]/5"><ChevronLeft size={20} /></button>
+        <span className="font-extrabold text-lg">Your Cart</span>
       </div>
-      <div className="p-4 space-y-3 max-w-lg mx-auto">
-        {cart.map((item, idx) => (
-          <div key={`${item.productId}-${item.variantLabel}`} data-cart-item="true" style={{ ...style.card, animationDelay: `${idx * 50}ms` }} className="rounded-2xl p-3 flex items-center gap-3 animate-slide-left">
-            <ProductImg src={item.imageUrl} alt={item.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 animate-fade-in" bg={p.inputBg} iconColor={p.textMuted} iconSize={20} />
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm line-clamp-1">{item.name}</p>
-              {item.variantLabel && <p className="text-xs" style={style.muted}>{item.variantLabel}</p>}
-              <p className="font-bold text-sm" style={{ color: p.accent }}>฿{(item.price * item.qty).toLocaleString()}</p>
+
+      {cart.map((item, idx) => (
+        <div key={`${item.productId}-${item.variantLabel}`} className="bg-white rounded-2xl p-4 flex items-center gap-4 border border-[#1a1d2e]/8">
+          <ProductImg src={item.imageUrl} alt={item.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" bg="#f0ede8" />
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm sm:text-base text-[#1a1d2e] truncate">{item.name}</p>
+            {item.variantLabel && <p className="text-xs text-[#1a1d2e]/40">{item.variantLabel}</p>}
+            <p className="font-extrabold text-sm sm:text-base mt-1 text-[#3d5a3e]">฿{(item.price * item.qty).toLocaleString()}</p>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 bg-[#f0ede8] rounded-xl px-2.5 py-1.5 border border-[#1a1d2e]/5">
+              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, -1)} className="text-[#1a1d2e]/40 hover:text-[#1a1d2e]"><Minus size={12} /></button>
+              <span className="w-5 text-center text-sm font-bold">{item.qty}</span>
+              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, 1)} className="text-[#1a1d2e]/40 hover:text-[#1a1d2e]"><Plus size={12} /></button>
             </div>
-            {/* Fix 1: cart row qty buttons w-7 h-7 -> w-10 h-10; trash w-7 h-7 -> w-10 h-10 */}
-            <div className="flex items-center gap-1">
-              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, -1)} style={style.card} className="w-10 h-10 rounded-lg flex items-center justify-center"><Minus size={12} /></button>
-              <span className="w-5 text-center text-sm font-semibold">{item.qty}</span>
-              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, 1)} style={style.card} className="w-10 h-10 rounded-lg flex items-center justify-center"><Plus size={12} /></button>
+            <button onClick={() => onRemove(`${item.productId}-${item.variantLabel}`)} className="text-red-500 hover:text-red-700 transition-colors p-1"><Trash2 size={14} /></button>
+          </div>
+        </div>
+      ))}
+
+      {/* Coupon input */}
+      <div className="bg-white rounded-2xl p-4 border border-[#1a1d2e]/8">
+        <label htmlFor="coupon-code" className="text-sm font-bold text-[#1a1d2e]/60 mb-2 block">Coupon Code</label>
+        <div className="flex gap-2">
+          <input
+            id="coupon-code"
+            type="text"
+            value={couponInput}
+            onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponResult(null); setCouponError(''); }}
+            placeholder="Enter coupon code"
+            className="flex-1 bg-[#f0ede8] border border-[#1a1d2e]/10 rounded-xl px-3 py-2 text-sm outline-none font-bold tracking-wider"
+          />
+          <button
+            onClick={validateCoupon}
+            disabled={!couponInput.trim() || validatingCoupon}
+            className="bg-[#1a1d2e] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 whitespace-nowrap"
+          >
+            {validatingCoupon ? '...' : couponResult ? '✓ Applied' : 'Apply'}
+          </button>
+        </div>
+        {couponResult && <p className="text-xs mt-1.5 font-medium text-[#3d5a3e]">-฿{couponResult.discount.toLocaleString()} ({couponResult.description})</p>}
+        {couponError && <p className="text-xs mt-1.5 text-red-500">{couponError}</p>}
+      </div>
+
+      {/* Loyalty Points */}
+      {loyalty && loyalty.points >= loyalty.minRedeemPoints && (
+        <div className="bg-white rounded-2xl p-4 border border-[#1a1d2e]/8">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-[#1a1d2e]">Loyalty Points</p>
+              <p className="text-xs text-[#1a1d2e]/40 mt-0.5">You have {loyalty.points.toLocaleString()} pts · {loyalty.redeemRate} pts = ฿1</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {usePoints && <span className="text-xs font-bold text-[#3d5a3e]">-฿{pointsDiscount.toLocaleString()}</span>}
               <button
-                onClick={(e) => {
-                  const el = (e.currentTarget as HTMLElement).closest('[data-cart-item]');
-                  if (el) {
-                    el.classList.add('animate-cart-exit');
-                    setTimeout(() => onRemove(`${item.productId}-${item.variantLabel}`), 280);
-                  } else {
-                    onRemove(`${item.productId}-${item.variantLabel}`);
-                  }
-                }}
-                className="w-10 h-10 ml-1 rounded-lg flex items-center justify-center"
-                style={{ color: '#ef4444' }}
-              ><Trash2 size={12} /></button>
+                onClick={() => setUsePoints(v => !v)}
+                role="switch"
+                aria-checked={usePoints}
+                className={`relative w-11 h-6 rounded-full transition-colors ${usePoints ? 'bg-[#3d5a3e]' : 'bg-[#1a1d2e]/10'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${usePoints ? 'translate-x-5' : ''}`} />
+              </button>
             </div>
           </div>
-        ))}
-
-        {/* Fix 11: Coupon input label */}
-        <div style={style.card} className="rounded-2xl p-4">
-          <label htmlFor="coupon-code" className="text-sm font-medium mb-2 block">Coupon Code</label>
-          <div className="flex gap-2">
-            <input
-              id="coupon-code"
-              type="text"
-              value={couponInput}
-              onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponResult(null); setCouponError(''); }}
-              placeholder="Enter coupon code"
-              style={{ ...style.input, flex: 1, borderRadius: '0.75rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem', outline: 'none', fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: '0.1em' }}
-            />
-            <button
-              onClick={validateCoupon}
-              disabled={!couponInput.trim() || validatingCoupon}
-              style={couponResult ? { background: '#00b900', color: '#fff' } : style.accent}
-              className="px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 whitespace-nowrap"
-            >
-              {validatingCoupon ? '...' : couponResult ? '✓ Applied' : 'Apply'}
-            </button>
-          </div>
-          {couponResult && <p className="text-xs mt-1.5 font-medium" style={{ color: '#00b900' }}>-฿{couponResult.discount.toLocaleString()} ({couponResult.description})</p>}
-          {couponError && <p className="text-xs mt-1.5" style={{ color: '#ef4444' }}>{couponError}</p>}
         </div>
+      )}
 
-        {/* Fix 12: Loyalty points toggle ARIA */}
-        {loyalty && loyalty.points >= loyalty.minRedeemPoints && (
-          <div style={style.card} className="rounded-2xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Loyalty Points</p>
-                <p className="text-xs mt-0.5" style={style.muted}>You have {loyalty.points.toLocaleString()} pts · {loyalty.redeemRate} pts = ฿1</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {usePoints && <span className="text-xs font-bold" style={{ color: '#00b900' }}>-฿{pointsDiscount.toLocaleString()}</span>}
-                <button
-                  onClick={() => setUsePoints(v => !v)}
-                  role="switch"
-                  aria-checked={usePoints}
-                  aria-label="Use loyalty points for discount"
-                  style={usePoints ? { background: '#00b900' } : style.card}
-                  className="relative w-11 h-6 rounded-full transition-colors"
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${usePoints ? 'translate-x-5' : ''}`} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Fix 10: Delivery address label and textarea id */}
-        <div style={style.card} className="rounded-2xl p-4">
-          <label htmlFor="delivery-address" className="text-sm font-medium mb-2 block">Delivery address</label>
-          <textarea id="delivery-address" value={address} onChange={e => setAddress(e.target.value)} rows={3} placeholder="Enter your delivery address..."
-            style={{ ...style.input, resize: 'none' as const, width: '100%', borderRadius: '0.75rem', padding: '0.75rem', fontSize: '0.875rem', outline: 'none', display: 'block' }} />
-        </div>
-
-        <div style={style.card} className="rounded-2xl p-4 space-y-1.5">
-          <div className="flex items-center justify-between text-sm">
-            <span style={style.muted}>Subtotal</span>
-            <span>฿{cartTotal.toLocaleString()}</span>
-          </div>
-          {totalDiscount > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <span style={{ color: '#00b900' }}>Discount</span>
-              <span style={{ color: '#00b900' }}>-฿{totalDiscount.toLocaleString()}</span>
-            </div>
-          )}
-          <div className="flex items-center justify-between font-bold">
-            <span>Total</span>
-            <span className="text-lg" style={{ color: p.accent }}>฿{finalTotal.toLocaleString()}</span>
-          </div>
-        </div>
-
-        {!customer && (
-          <div className="rounded-xl p-3 text-sm text-center" style={{ background: `${p.accent}20`, color: p.accent }}>
-            Please open this store from your messaging app to place an order
-          </div>
-        )}
-        {orderError && (
-          <div className="rounded-xl p-3 text-sm text-center" style={{ background: '#fee2e2', color: '#dc2626' }}>
-            {orderError}
-          </div>
-        )}
-        <button disabled={!customer || !address.trim() || isOrdering || cart.length === 0}
-          onClick={async () => {
-            setOrderError('');
-            const err = await onOrder(address, couponResult?.code, usePoints && loyalty ? pointsToUse : undefined);
-            if (err) setOrderError(err);
-          }}
-          style={style.accent}
-          className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-          {isOrdering ? 'Placing order...' : <><ArrowRight size={16} /> Place order</>}
-        </button>
+      {/* Delivery Address */}
+      <div className="bg-white rounded-2xl p-4 border border-[#1a1d2e]/8">
+        <label htmlFor="delivery-address" className="text-sm font-bold text-[#1a1d2e]/60 mb-2 block">Delivery Address</label>
+        <textarea
+          id="delivery-address"
+          value={address}
+          onChange={e => setAddress(e.target.value)}
+          rows={3}
+          placeholder="Enter your delivery address..."
+          className="w-full bg-[#f0ede8] border border-[#1a1d2e]/10 rounded-xl p-3 text-sm outline-none"
+        />
       </div>
+
+      {/* Totals */}
+      <div className="bg-white rounded-2xl p-4 border border-[#1a1d2e]/8 space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-[#1a1d2e]/50 font-bold">Subtotal</span>
+          <span className="font-bold">฿{cartTotal.toLocaleString()}</span>
+        </div>
+        {totalDiscount > 0 && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-[#3d5a3e] font-bold">Discount</span>
+            <span className="text-[#3d5a3e] font-bold">-฿{totalDiscount.toLocaleString()}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between font-extrabold pt-2 border-t border-[#1a1d2e]/8">
+          <span>Total</span>
+          <span className="text-lg text-[#3d5a3e]">฿{finalTotal.toLocaleString()}</span>
+        </div>
+      </div>
+
+      {orderError && (
+        <div className="rounded-xl p-3 text-sm text-center bg-red-100 text-red-700 font-bold">
+          {orderError}
+        </div>
+      )}
+
+      <button
+        disabled={!customer || !address.trim() || isOrdering || cart.length === 0}
+        onClick={async () => {
+          setOrderError('');
+          const err = await onOrder(address, couponResult?.code, usePoints && loyalty ? pointsToUse : undefined);
+          if (err) setOrderError(err);
+        }}
+        className="w-full bg-[#1a1d2e] disabled:opacity-50 text-white py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+      >
+        {isOrdering ? 'Placing order...' : <><ArrowRight size={16} /> Place order</>}
+      </button>
     </div>
   );
 }
