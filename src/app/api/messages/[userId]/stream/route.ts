@@ -5,6 +5,9 @@ import { getMerchantFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const maxDuration = 60;
+
+const MAX_STREAM_MS = 50_000;
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const merchant = getMerchantFromRequest(req);
@@ -37,10 +40,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
         }
       }, 2000);
 
-      req.signal.addEventListener('abort', () => {
+      const stop = () => {
         clearInterval(interval);
+        clearTimeout(maxTimer);
         try { controller.close(); } catch {}
-      });
+      };
+      const maxTimer = setTimeout(stop, MAX_STREAM_MS);
+
+      req.signal.addEventListener('abort', stop);
     }
   });
 
