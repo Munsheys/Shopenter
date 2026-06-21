@@ -422,8 +422,9 @@ export async function POST(req: Request) {
             }
           }
 
-          // SlipOK payment verification (uses push — independent of reply token)
-          if (matchedSettings?.useSlipok && matchedSettings?.slipokApiKey && matchedSettings?.slipokBranchId) {
+          // SlipOK payment verification — temporarily disabled (work in progress), merchants confirm payment manually for now
+          const SLIPOK_ENABLED = false;
+          if (SLIPOK_ENABLED && matchedSettings?.useSlipok && matchedSettings?.slipokApiKey && matchedSettings?.slipokBranchId) {
             try {
               const imgRes = await fetch(`https://api-data.line.me/v2/bot/message/${event.message.id}/content`, {
                 headers: { Authorization: `Bearer ${channelAccessToken}` }

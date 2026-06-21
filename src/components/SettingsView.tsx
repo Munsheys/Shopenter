@@ -26,15 +26,16 @@ function CopyButton({ value, 'aria-label': ariaLabel }: { value: string; 'aria-l
   );
 }
 
-function Toggle({ enabled, onChange, isDark, label }: { enabled: boolean; onChange: (v: boolean) => void; isDark?: boolean; label?: string }) {
+function Toggle({ enabled, onChange, isDark, label, disabled }: { enabled: boolean; onChange: (v: boolean) => void; isDark?: boolean; label?: string; disabled?: boolean }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={enabled}
       aria-label={label}
-      onClick={() => onChange(!enabled)}
-      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${enabled ? 'bg-accent' : isDark ? 'bg-[#2a2f45]' : 'bg-slate-300'}`}
+      disabled={disabled}
+      onClick={() => !disabled && onChange(!enabled)}
+      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${enabled ? 'bg-accent' : isDark ? 'bg-[#2a2f45]' : 'bg-slate-300'}`}
     >
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow toggle-spring ${enabled ? 'translate-x-5' : ''}`} />
     </button>
@@ -1532,20 +1533,23 @@ export default function SettingsView({
                 </div>
 
                 {/* Slip Verification */}
-                <div className={`rounded-2xl p-6 space-y-5 ${K.surface}`}>
+                <div className={`rounded-2xl p-6 space-y-5 ${K.surface} opacity-60`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-start gap-2.5">
-                      <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0 mt-1.5" />
+                      <div className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />
                       <div>
-                        <p className={`text-sm font-semibold ${K.text}`}>SlipOK — Automatic Slip Verification</p>
-                        <p className={`text-xs mt-0.5 ${K.muted}`}>When a customer sends a transfer slip in chat, it is verified and the order is marked paid automatically.</p>
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm font-semibold ${K.text}`}>SlipOK — Automatic Slip Verification</p>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>Work in progress</span>
+                        </div>
+                        <p className={`text-xs mt-0.5 ${K.muted}`}>Temporarily disabled while we improve slip verification accuracy. Please confirm payments manually for now — we'll bring this back soon.</p>
                       </div>
                     </div>
-                    <Toggle enabled={!!settings.useSlipok} onChange={v => set('useSlipok', v)} isDark={isDark} />
+                    <Toggle enabled={false} onChange={() => {}} isDark={isDark} disabled />
                   </div>
 
                   <div className={`rounded-xl p-4 space-y-2 text-xs ${isDark ? 'bg-blue-500/5 border border-blue-500/15' : 'bg-blue-50 border border-blue-100'}`}>
-                    <p className={`font-semibold ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>How it works</p>
+                    <p className={`font-semibold ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>How it works (coming back soon)</p>
                     <p className={K.muted}>SlipOK reads the transfer amount from the slip image and automatically matches it to your pending orders — then sends your Payment Confirmation Message without any manual effort.</p>
                     <p className={`${K.muted} mt-1`}>
                       You need your own{' '}
@@ -1557,25 +1561,18 @@ export default function SettingsView({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className={`text-xs font-medium ${K.muted}`}>Branch ID</label>
-                      <input type="text" value={settings.slipokBranchId || ''} onChange={e => set('slipokBranchId', e.target.value)} placeholder="e.g. SLIP-XXXXX" className={inputCls} autoComplete="off" />
+                      <input disabled type="text" value={settings.slipokBranchId || ''} onChange={e => set('slipokBranchId', e.target.value)} placeholder="e.g. SLIP-XXXXX" className={`${inputCls} cursor-not-allowed`} autoComplete="off" />
                     </div>
                     <div className="space-y-1.5">
                       <label className={`text-xs font-medium ${K.muted}`}>API Key</label>
-                      <input type="password" value={settings.slipokApiKey || ''} onChange={e => set('slipokApiKey', e.target.value)} placeholder="Your SlipOK API key..." className={inputCls} autoComplete="new-password" />
+                      <input disabled type="password" value={settings.slipokApiKey || ''} onChange={e => set('slipokApiKey', e.target.value)} placeholder="Your SlipOK API key..." className={`${inputCls} cursor-not-allowed`} autoComplete="new-password" />
                     </div>
                   </div>
 
-                  {settings.useSlipok && settings.slipokApiKey && settings.slipokBranchId ? (
-                    <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs ${isDark ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border border-emerald-200 text-emerald-800'}`}>
-                      <Check size={13} className="flex-shrink-0" />
-                      SlipOK is active. Slip images sent in LINE chat will be verified automatically.
-                    </div>
-                  ) : settings.useSlipok ? (
-                    <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-                      <AlertTriangle size={13} className="flex-shrink-0" />
-                      Enter your Branch ID and API Key above, then save to activate slip verification.
-                    </div>
-                  ) : null}
+                  <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                    <AlertTriangle size={13} className="flex-shrink-0" />
+                    Slip verification is paused for everyone right now. Orders paid by bank transfer need to be confirmed manually in Orders.
+                  </div>
                 </div>
 
                 {/* Payment Confirmation Message */}
