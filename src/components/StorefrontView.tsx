@@ -1,9 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { ShoppingBag, ChevronLeft, Plus, Minus, Trash2, User, Search, X, CheckCircle, ArrowRight, Package, ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { ShoppingBag, ChevronLeft, Plus, Minus, Trash2, User, Search, X, CheckCircle, ArrowRight, Package, ChevronDown } from 'lucide-react';
 import liff from '@line/liff';
-import { resolvePreset, type StorefrontPreset } from '@/lib/storefrontPresets';
+import { resolvePreset, resolveAnnouncementColor, type StorefrontPreset } from '@/lib/storefrontPresets';
+import {
+  cardRadiusClass, controlRadiusClass, pillRadiusClass, gridGapClass, sectionGapClass, headingFontClass,
+  type HeaderStyle, type HeroStyle, type CardStyle,
+} from '@/lib/storefrontLayouts';
 import { getAccentText } from '@/lib/accent';
 
 type CartItem = { productId: string; name: string; price: number; variantLabel?: string; qty: number; imageUrl?: string };
@@ -57,12 +61,22 @@ function ProductImg({ src, alt, className, bg, iconColor, iconSize = 32, eager }
   );
 }
 
+const PRICE_RANGE_OPTIONS: { value: PriceRange; label: string }[] = [
+  { value: 'all', label: 'All Prices' },
+  { value: 'under500', label: 'Under ฿500' },
+  { value: '500-1000', label: '฿500 – ฿1,000' },
+  { value: '1000-3000', label: '฿1,000 – ฿3,000' },
+  { value: 'over3000', label: 'Over ฿3,000' },
+];
+
 /* ─── Dropdown Filter Component ─────────────────────────────────── */
-function FilterDropdown({ label, value, options, onChange }: {
+function FilterDropdown({ label, value, options, onChange, p, radius }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (val: string) => void;
+  p: StorefrontPreset;
+  radius: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -81,26 +95,24 @@ function FilterDropdown({ label, value, options, onChange }: {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 pl-5 pr-4 py-2.5 rounded-full border text-sm transition-all bg-white hover:border-[#3d5a3e]/30 border-[#1a1d2e]/10 shadow-sm cursor-pointer"
+        className={`flex items-center gap-2 pl-5 pr-4 py-2.5 ${radius} border text-sm transition-all shadow-sm cursor-pointer`}
+        style={{ background: p.inputBg, borderColor: p.inputBorder }}
       >
         <span className="flex flex-col items-start">
-          <span className="text-[10px] text-[#1a1d2e]/40 font-medium leading-none">{label}</span>
-          <span className="text-[#1a1d2e] font-bold text-[13px] leading-tight">{selectedLabel}</span>
+          <span className="text-[10px] font-medium leading-none" style={{ color: p.textMuted }}>{label}</span>
+          <span className="font-bold text-[13px] leading-tight" style={{ color: p.textPrimary }}>{selectedLabel}</span>
         </span>
-        <ChevronDown size={14} className={`text-[#1a1d2e]/30 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} style={{ color: p.textMuted }} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 bg-white rounded-2xl border border-[#1a1d2e]/8 shadow-xl z-50 min-w-[180px] py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className={`absolute top-full left-0 mt-2 ${cardRadiusClass('soft')} border shadow-xl z-50 min-w-[180px] py-2 animate-in fade-in slide-in-from-top-2 duration-200`} style={{ background: p.cardBg, borderColor: p.cardBorder }}>
           {options.map(opt => (
             <button
               key={opt.value}
               onClick={() => { onChange(opt.value); setOpen(false); }}
-              className={`w-full text-left px-5 py-2.5 text-sm transition-colors cursor-pointer ${
-                value === opt.value
-                  ? "text-[#3d5a3e] font-bold bg-[#3d5a3e]/5"
-                  : "text-[#1a1d2e]/70 hover:bg-[#1a1d2e]/3 font-medium"
-              }`}
+              className="w-full text-left px-5 py-2.5 text-sm transition-colors cursor-pointer font-medium"
+              style={value === opt.value ? { color: p.accent, fontWeight: 700, background: `${p.accent}0d` } : { color: p.textSecondary }}
             >
               {opt.label}
             </button>
@@ -118,14 +130,14 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [view, setView] = useState<View>('home');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
-  
+
   // Filtering States
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeBrand, setActiveBrand] = useState('All');
   const [priceRange, setPriceRange] = useState<PriceRange>('all');
-  
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -249,11 +261,26 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const cartCount = useMemo(() => cart.reduce((s, i) => s + i.qty, 0), [cart]);
 
   const sf = shopInfo?.storefront ?? {};
-  
+
+  // Theme + layout slots — every store can look structurally different from these independent controls
+  const p = resolvePreset(sf.preset || 'linen', sf.accentColor);
+  const localAccentBg = sf.accentGradient || p.accent;
+  const accentText = p.accentText;
+  const cardRadius = cardRadiusClass(sf.cornerStyle || 'soft');
+  const controlRadius = controlRadiusClass(sf.cornerStyle || 'soft');
+  const pillRadius = pillRadiusClass(sf.cornerStyle || 'soft');
+  const gridGap = gridGapClass(sf.density || 'comfortable');
+  const sectionGap = sectionGapClass(sf.density || 'comfortable');
+  const headingFont = headingFontClass(sf.typography || 'modern');
+  const headerStyle: HeaderStyle = sf.headerStyle || 'logo-left';
+  const heroStyle: HeroStyle = sf.heroStyle || 'classic';
+  const cardStyle: CardStyle = sf.cardStyle || 'bordered';
+  const showPriceFilter = sf.showPriceFilter !== false;
+
   // Pagination values
   const paginationEnabled = sf.paginationEnabled ?? false;
   const productsPerPage = sf.productsPerPage ?? 20;
-  
+
   const paginatedProducts = useMemo(() => {
     if (!paginationEnabled) return filtered;
     return filtered.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage);
@@ -331,9 +358,9 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   };
 
   if (notFound) return (
-    <div className="min-h-screen bg-[#f0ede8] text-[#1a1d2e] flex items-center justify-center font-sans">
+    <div className="min-h-screen flex items-center justify-center font-sans" style={{ background: p.pageBg, color: p.textPrimary }}>
       <div className="text-center p-8">
-        <Package size={48} className="mx-auto mb-4 opacity-30 text-[#1a1d2e]" />
+        <Package size={48} className="mx-auto mb-4 opacity-30" />
         <h1 className="text-xl font-bold mb-2">Store not found</h1>
         <p className="text-sm opacity-50">This store link may be invalid or no longer exists.</p>
       </div>
@@ -341,9 +368,9 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   );
 
   if (shopInfo && sf.maintenanceMode) return (
-    <div className="min-h-screen bg-[#f0ede8] text-[#1a1d2e] flex items-center justify-center font-sans">
+    <div className="min-h-screen flex items-center justify-center font-sans" style={{ background: p.pageBg, color: p.textPrimary }}>
       <div className="text-center p-8 max-w-sm">
-        <div className="text-5xl mb-4 text-[#1a1d2e]">🔧</div>
+        <div className="text-5xl mb-4">🔧</div>
         <h1 className="text-xl font-bold mb-2">{shopInfo.shopName || 'Store'}</h1>
         <p className="text-sm opacity-50">{sf.maintenanceMessage || 'We will be back soon.'}</p>
       </div>
@@ -351,94 +378,148 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   );
 
   if (!shopInfo) return (
-    <div className="min-h-screen bg-[#f0ede8] flex items-center justify-center font-sans">
-      <div className="w-10 h-10 border-2 border-[#3d5a3e]/20 border-t-[#3d5a3e] rounded-full animate-spin" />
+    <div className="min-h-screen flex items-center justify-center font-sans" style={{ background: p.pageBg }}>
+      <div className="w-10 h-10 rounded-full animate-spin" style={{ border: `2px solid ${p.accent}33`, borderTopColor: p.accent }} />
     </div>
   );
 
-  const filterStyle = sf.filterStyle || 'dropdowns';
   const showFeaturedRow = sf.showFeaturedRow !== false;
+  const filterStyle = sf.filterStyle || 'dropdowns';
+
+  const priceFilterDropdown = showPriceFilter && (
+    <FilterDropdown label="Price" value={priceRange} options={PRICE_RANGE_OPTIONS} onChange={val => setPriceRange(val as PriceRange)} p={p} radius="rounded-full" />
+  );
+
+  const priceFilterPills = showPriceFilter && (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 ml-1" style={{ color: `${p.textMuted}` }}>Price</p>
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        {PRICE_RANGE_OPTIONS.map(opt => {
+          const active = priceRange === opt.value;
+          return (
+            <button key={opt.value} onClick={() => setPriceRange(opt.value)}
+              className={`flex-shrink-0 px-4 py-2 ${pillRadius} text-xs font-semibold transition-all cursor-pointer border`}
+              style={active ? { background: p.pillActiveBg, color: p.pillActiveText, borderColor: p.pillActiveBg } : { background: p.pillBg, color: p.textMuted, borderColor: p.inputBorder }}>
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  function cardSurfaceStyle(): React.CSSProperties {
+    if (cardStyle === 'minimal') return {};
+    if (cardStyle === 'shadow') return { background: p.cardBg };
+    return { background: p.cardBg, border: `1px solid ${p.cardBorder}` };
+  }
+  const cardSurfaceClass = cardStyle === 'shadow' ? 'shadow-md hover:shadow-lg transition-shadow' : '';
+
+  function BrandLabel({ product, overlay }: { product: any; overlay?: boolean }) {
+    if (!product.brand) return null;
+    if (cardStyle === 'badge') {
+      if (!overlay) return null;
+      return (
+        <span className={`absolute top-2.5 left-2.5 px-2.5 py-1 text-[10px] font-bold ${pillRadius}`} style={{ background: p.pillActiveBg, color: p.pillActiveText }}>
+          {product.brand}
+        </span>
+      );
+    }
+    if (overlay) return null;
+    return <p className="text-[12px] font-medium" style={{ color: p.textMuted }}>By {product.brand}</p>;
+  }
 
   return (
-    <div className="min-h-screen bg-[#f0ede8] text-[#1a1d2e] font-sans selection:bg-[#3d5a3e]/15">
+    <div className="min-h-screen font-sans selection:opacity-80" style={{ background: p.pageBg, color: p.textPrimary }}>
       {/* ═══ HEADER ═══════════════════════════════════════════════════ */}
-      <header className="sticky top-0 z-50 bg-[#f0ede8]/92 backdrop-blur-xl border-b border-[#1a1d2e]/6">
-        <div className="flex items-center justify-between max-w-[1400px] mx-auto px-5 sm:px-8 py-3 sm:py-4">
+      <header className="sticky top-0 z-50 backdrop-blur-xl border-b" style={{ background: `${p.headerBg}eb`, borderColor: p.headerBorder }}>
+        <div className="relative flex items-center justify-between max-w-[1400px] mx-auto px-5 sm:px-8 py-3 sm:py-4">
 
           {/* Logo / Brand */}
-          <button onClick={() => setView('home')} className="flex items-center gap-2.5 min-w-0 cursor-pointer">
-            <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#1a1d2e] leading-none">
+          <button
+            onClick={() => setView('home')}
+            className={`flex items-center gap-2.5 min-w-0 cursor-pointer ${headerStyle === 'logo-center' ? 'absolute left-1/2 -translate-x-1/2' : ''}`}
+          >
+            {shopInfo.shopLogoUrl ? (
+              <img src={shopInfo.shopLogoUrl} alt={shopInfo.shopName} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />
+            ) : null}
+            <span className={`text-xl sm:text-2xl leading-none truncate ${headingFont}`} style={{ color: p.textPrimary }}>
               {shopInfo.shopName}
             </span>
           </button>
 
-          {/* Center Nav (desktop) */}
-          <nav className="hidden lg:flex items-center gap-8">
-            <button onClick={() => setView('home')} className="text-sm font-bold text-[#1a1d2e] underline underline-offset-4 decoration-[#3d5a3e] decoration-2 cursor-pointer bg-transparent border-0">Shop</button>
-            <span className="text-sm font-medium text-[#1a1d2e]/35 cursor-default">Collections</span>
-            <span className="text-sm font-medium text-[#1a1d2e]/35 cursor-default flex items-center gap-1">Explore <ArrowRight size={12} /></span>
-            <span className="text-[#1a1d2e]/15 text-lg leading-none">•••</span>
-          </nav>
+          {headerStyle !== 'minimal' && headerStyle === 'logo-left' && (
+            <nav className="hidden lg:flex items-center gap-8">
+              <span className="text-sm font-bold underline underline-offset-4 decoration-2" style={{ color: p.textPrimary, textDecorationColor: p.accent }}>Shop</span>
+            </nav>
+          )}
 
           {/* Right Actions */}
           <div className="flex items-center gap-3 sm:gap-5">
-            {/* Search toggle */}
-            <button
-              onClick={() => setSearchOpen(!searchOpen)}
-              className="flex items-center gap-1.5 text-[#1a1d2e]/70 hover:text-[#1a1d2e] transition-colors cursor-pointer"
-            >
-              <Search size={18} />
-              <span className="hidden sm:inline text-sm font-medium">Search</span>
-            </button>
+            {headerStyle !== 'minimal' && (
+              <button
+                onClick={() => setSearchOpen(!searchOpen)}
+                className="flex items-center gap-1.5 transition-colors cursor-pointer"
+                style={{ color: p.textMuted }}
+              >
+                <Search size={18} />
+                <span className="hidden sm:inline text-sm font-medium">Search</span>
+              </button>
+            )}
 
             {/* Cart */}
             <button
               onClick={() => {
                 if (cart.length > 0) setView('cart');
               }}
-              className="flex items-center gap-1.5 text-[#1a1d2e]/70 hover:text-[#1a1d2e] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 transition-colors cursor-pointer"
+              style={{ color: p.textMuted }}
             >
               <ShoppingBag size={18} />
-              <span className="text-sm font-bold">Cart {cartCount > 0 && cartCount}</span>
+              <span className="text-sm font-bold" style={{ color: p.textPrimary }}>Cart {cartCount > 0 && cartCount}</span>
             </button>
 
             {/* Account */}
-            {customer ? (
-              <div className="flex items-center gap-2">
-                {customer.pictureUrl ? (
-                  <img src={customer.pictureUrl} className="w-8 h-8 rounded-full border border-[#1a1d2e]/10 object-cover" alt="" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-[#1a1d2e]/5 border border-[#1a1d2e]/10 flex items-center justify-center">
-                    <User size={14} className="text-[#1a1d2e]/40" />
-                  </div>
-                )}
-                <span className="hidden sm:inline text-sm font-medium text-[#1a1d2e]/70 truncate max-w-[100px]">{customer.displayName}</span>
-              </div>
-            ) : (
-              <button
-                onClick={() => liff.login()}
-                className="flex items-center gap-1.5 text-[#1a1d2e]/70 hover:text-[#1a1d2e] transition-colors cursor-pointer"
-              >
-                <User size={18} />
-                <span className="hidden sm:inline text-sm font-medium">My Account</span>
-              </button>
+            {headerStyle !== 'minimal' && (
+              customer ? (
+                <div className="flex items-center gap-2">
+                  {customer.pictureUrl ? (
+                    <img src={customer.pictureUrl} className="w-8 h-8 rounded-full object-cover" style={{ border: `1px solid ${p.cardBorder}` }} alt="" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: p.inputBg, border: `1px solid ${p.cardBorder}` }}>
+                      <User size={14} style={{ color: p.textMuted }} />
+                    </div>
+                  )}
+                  <span className="hidden sm:inline text-sm font-medium truncate max-w-[100px]" style={{ color: p.textMuted }}>{customer.displayName}</span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => liff.login()}
+                  className="flex items-center gap-1.5 transition-colors cursor-pointer"
+                  style={{ color: p.textMuted }}
+                >
+                  <User size={18} />
+                  <span className="hidden sm:inline text-sm font-medium">My Account</span>
+                </button>
+              )
             )}
           </div>
         </div>
 
         {/* Search bar (expandable) */}
         {searchOpen && (
-          <div className="border-t border-[#1a1d2e]/5 px-5 sm:px-8 py-3 animate-in slide-in-from-top-2 fade-in duration-200">
+          <div className="border-t px-5 sm:px-8 py-3 animate-in slide-in-from-top-2 fade-in duration-200" style={{ borderColor: p.headerBorder }}>
             <div className="max-w-[1400px] mx-auto relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1a1d2e]/30" size={18} />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2" size={18} style={{ color: p.textMuted }} />
               <input
                 autoFocus
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search products..."
-                className="w-full bg-white border border-[#1a1d2e]/10 rounded-xl pl-11 pr-10 py-3 text-sm text-[#1a1d2e] placeholder-[#1a1d2e]/25 focus:border-[#3d5a3e]/40 outline-none transition-all"
+                className={`w-full pl-11 pr-10 py-3 text-sm border ${controlRadius} outline-none transition-all`}
+                style={{ background: p.inputBg, borderColor: p.inputBorder, color: p.textPrimary }}
               />
-              <button onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1a1d2e]/30 hover:text-[#1a1d2e]/60 cursor-pointer">
+              <button onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer" style={{ color: p.textMuted }}>
                 <X size={18} />
               </button>
             </div>
@@ -448,33 +529,82 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
       {/* Announcement bar (if enabled) */}
       {sf.announcementText && sf.announcementEnabled && (
-        <div className="px-4 py-2 text-xs text-center font-bold text-white bg-[#3d5a3e]">{sf.announcementText}</div>
+        <div className="px-4 py-2 text-xs text-center font-bold" style={{ background: resolveAnnouncementColor(sf.announcementColor, localAccentBg), color: accentText }}>{sf.announcementText}</div>
       )}
 
       {/* ═══ HOME VIEW ════════════════════════════════════════════════ */}
       {view === 'home' && (
         <main className="max-w-[1400px] mx-auto px-5 sm:px-8 pt-10 sm:pt-14 pb-32">
 
-          {/* Hero heading */}
-          <div className="mb-8 sm:mb-10">
-            <h2 className="text-[clamp(2rem,5vw,3.5rem)] font-extrabold text-[#1a1d2e] leading-[1.1] tracking-tight max-w-3xl">
-              {sf.heroHeading || sf.shopTagline || "The Curated Merchant Showcase"}
-            </h2>
-            <p className="text-[#1a1d2e]/50 text-base sm:text-lg mt-3 max-w-2xl leading-relaxed font-medium">
-              {sf.heroDescription || shopInfo.shopDescription || "Explore a diverse selection of high-quality goods, sourced and sold by verified independent merchants. Discover unique and essential products for every lifestyle. Reliable. Authentic. Unique."}
-            </p>
-          </div>
+          {/* Hero section */}
+          {heroStyle !== 'none' && heroStyle === 'classic' && (
+            <div className={sectionGap}>
+              <h2 className={`text-[clamp(2rem,5vw,3.5rem)] leading-[1.1] max-w-3xl ${headingFont}`} style={{ color: p.textPrimary }}>
+                {sf.heroHeading || sf.shopTagline || "The Curated Merchant Showcase"}
+              </h2>
+              <p className="text-base sm:text-lg mt-3 max-w-2xl leading-relaxed font-medium opacity-60" style={{ color: p.textPrimary }}>
+                {sf.heroDescription || shopInfo.shopDescription || "Explore a diverse selection of high-quality goods, sourced and sold by verified independent merchants. Discover unique and essential products for every lifestyle. Reliable. Authentic. Unique."}
+              </p>
+            </div>
+          )}
+
+          {heroStyle === 'banner-overlay' && sf.bannerUrl && (
+            <div className={`relative w-full h-72 sm:h-96 ${cardRadius} overflow-hidden ${sectionGap}`}>
+              <img src={sf.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/45" />
+              <div className="relative h-full flex flex-col justify-end p-6 sm:p-10">
+                <h2 className={`text-[clamp(1.75rem,4.5vw,3rem)] leading-[1.1] max-w-2xl text-white ${headingFont}`}>
+                  {sf.heroHeading || sf.shopTagline || "The Curated Merchant Showcase"}
+                </h2>
+                <p className="text-sm sm:text-base mt-2 max-w-xl leading-relaxed font-medium text-white/80">
+                  {sf.heroDescription || shopInfo.shopDescription || "Explore a diverse selection of high-quality goods."}
+                </p>
+              </div>
+            </div>
+          )}
+          {heroStyle === 'banner-overlay' && !sf.bannerUrl && (
+            <div className={sectionGap}>
+              <h2 className={`text-[clamp(2rem,5vw,3.5rem)] leading-[1.1] max-w-3xl ${headingFont}`} style={{ color: p.textPrimary }}>
+                {sf.heroHeading || sf.shopTagline || "The Curated Merchant Showcase"}
+              </h2>
+              <p className="text-base sm:text-lg mt-3 max-w-2xl leading-relaxed font-medium opacity-60" style={{ color: p.textPrimary }}>
+                {sf.heroDescription || shopInfo.shopDescription || "Explore a diverse selection of high-quality goods, sourced and sold by verified independent merchants."}
+              </p>
+            </div>
+          )}
+
+          {heroStyle === 'split' && (
+            <div className={`flex flex-col sm:flex-row gap-6 sm:gap-10 items-stretch ${sectionGap}`}>
+              <div className={`w-full sm:w-1/2 aspect-[4/3] sm:aspect-auto ${cardRadius} overflow-hidden flex-shrink-0`} style={{ background: sf.bannerUrl ? undefined : `${localAccentBg}1a` }}>
+                {sf.bannerUrl ? (
+                  <img src={sf.bannerUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center"><Package size={48} style={{ color: p.textMuted }} /></div>
+                )}
+              </div>
+              <div className="w-full sm:w-1/2 flex flex-col justify-center">
+                <h2 className={`text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.1] ${headingFont}`} style={{ color: p.textPrimary }}>
+                  {sf.heroHeading || sf.shopTagline || "The Curated Merchant Showcase"}
+                </h2>
+                <p className="text-base mt-3 leading-relaxed font-medium opacity-60" style={{ color: p.textPrimary }}>
+                  {sf.heroDescription || shopInfo.shopDescription || "Explore a diverse selection of high-quality goods, sourced and sold by verified independent merchants."}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Filters styling row */}
           {filterStyle === 'dropdowns' ? (
             /* Dropdowns style */
-            <div className="flex flex-wrap gap-3 mb-10 sm:mb-12">
+            <div className={`flex flex-wrap gap-3 ${sectionGap}`}>
               {sf.showCategoryFilter !== false && categories.length > 1 && (
                 <FilterDropdown
                   label="Category"
                   value={activeCategory}
                   options={categories.map(c => ({ value: c, label: c }))}
                   onChange={setActiveCategory}
+                  p={p}
+                  radius="rounded-full"
                 />
               )}
               {sf.showBrandFilter !== false && brands.length > 1 && (
@@ -483,35 +613,25 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                   value={activeBrand}
                   options={brands.map(b => ({ value: b, label: b }))}
                   onChange={(val) => { setActiveBrand(val); setActiveCategory('All'); }}
+                  p={p}
+                  radius="rounded-full"
                 />
               )}
-              <FilterDropdown
-                label="Price"
-                value={priceRange}
-                options={[
-                  { value: 'all', label: 'All Prices' },
-                  { value: 'under500', label: 'Under ฿500' },
-                  { value: '500-1000', label: '฿500 – ฿1,000' },
-                  { value: '1000-3000', label: '฿1,000 – ฿3,000' },
-                  { value: 'over3000', label: 'Over ฿3,000' },
-                ]}
-                onChange={(val) => setPriceRange(val as PriceRange)}
-              />
+              {priceFilterDropdown}
             </div>
           ) : (
             /* Tag Pills Style */
-            <div className="space-y-4 mb-10 sm:mb-12">
+            <div className={`space-y-4 ${sectionGap}`}>
               {sf.showCategoryFilter !== false && categories.length > 1 && (
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a1d2e]/45 mb-1.5 ml-1">Category</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 ml-1" style={{ color: p.textMuted }}>Category</p>
                   <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                     {categories.map(cat => {
                       const active = activeCategory === cat;
                       return (
                         <button key={cat} onClick={() => setActiveCategory(cat)}
-                          className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                            active ? 'bg-[#1a1d2e] text-white' : 'bg-white text-[#1a1d2e]/60 border border-[#1a1d2e]/10'
-                          }`}>
+                          className={`flex-shrink-0 px-4 py-2 ${pillRadius} text-xs font-semibold transition-all cursor-pointer border`}
+                          style={active ? { background: p.pillActiveBg, color: p.pillActiveText, borderColor: p.pillActiveBg } : { background: p.pillBg, color: p.textMuted, borderColor: p.inputBorder }}>
                           {cat}
                         </button>
                       );
@@ -521,15 +641,14 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
               )}
               {sf.showBrandFilter !== false && brands.length > 1 && (
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a1d2e]/45 mb-1.5 ml-1">Brand</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 ml-1" style={{ color: p.textMuted }}>Brand</p>
                   <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                     {brands.map(b => {
                       const active = activeBrand === b;
                       return (
                         <button key={b} onClick={() => { setActiveBrand(b); setActiveCategory('All'); }}
-                          className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                            active ? 'bg-[#1a1d2e] text-white' : 'bg-white text-[#1a1d2e]/60 border border-[#1a1d2e]/10'
-                          }`}>
+                          className={`flex-shrink-0 px-4 py-2 ${pillRadius} text-xs font-semibold transition-all cursor-pointer border`}
+                          style={active ? { background: p.pillActiveBg, color: p.pillActiveText, borderColor: p.pillActiveBg } : { background: p.pillBg, color: p.textMuted, borderColor: p.inputBorder }}>
                           {b}
                         </button>
                       );
@@ -537,17 +656,19 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                   </div>
                 </div>
               )}
+              {priceFilterPills}
             </div>
           )}
 
           {/* Product Grid */}
           {paginatedProducts.length === 0 ? (
             <div className="text-center py-24">
-              <Package size={48} className="mx-auto mb-4 text-[#1a1d2e]/10" />
-              <p className="font-bold text-[#1a1d2e]/35 text-sm">No items match your selection</p>
+              <Package size={48} className="mx-auto mb-4 opacity-10" style={{ color: p.textPrimary }} />
+              <p className="font-bold text-sm opacity-35" style={{ color: p.textPrimary }}>No items match your selection</p>
               <button
                 onClick={() => { setActiveBrand('All'); setActiveCategory('All'); setSearchQuery(''); setPriceRange('all'); }}
-                className="mt-4 text-[#3d5a3e] text-sm font-bold underline underline-offset-4 cursor-pointer bg-transparent border-0"
+                className="mt-4 text-sm font-bold underline underline-offset-4 cursor-pointer bg-transparent border-0"
+                style={{ color: p.accent }}
               >
                 Clear all filters
               </button>
@@ -557,35 +678,35 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
               {sf.cardLayout === 'list' ? (
                 /* List view layout */
                 <div className="flex flex-col gap-4">
-                  {paginatedProducts.map((p: any) => (
+                  {paginatedProducts.map((pr: any) => (
                     <button
-                      key={p._id}
-                      onClick={() => { setSelectedProduct(p); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
-                      className="group flex gap-4 p-4 rounded-2xl bg-white border border-[#1a1d2e]/8 text-left transition-all active:scale-[0.99] cursor-pointer"
+                      key={pr._id}
+                      onClick={() => { setSelectedProduct(pr); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
+                      className={`group flex gap-4 p-4 ${cardRadius} text-left transition-all active:scale-[0.99] cursor-pointer ${cardSurfaceClass}`}
+                      style={cardSurfaceStyle()}
                     >
-                      <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 overflow-hidden bg-[#e4e0db] rounded-xl">
-                        {p.imageUrl ? (
-                          <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                      <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 overflow-hidden rounded-xl" style={{ background: p.inputBg }}>
+                        {pr.imageUrl ? (
+                          <img src={pr.imageUrl} alt={pr.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10">
+                          <div className="w-full h-full flex items-center justify-center opacity-10" style={{ color: p.textPrimary }}>
                             <Package size={24} />
                           </div>
                         )}
-                        {isOutOfStock(p) && (
+                        {isOutOfStock(pr) && (
                           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                             <span className="text-white text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/60">OOS</span>
                           </div>
                         )}
+                        <BrandLabel product={pr} overlay />
                       </div>
                       <div className="flex-1 min-w-0 self-center">
-                        <p className="font-bold text-sm sm:text-base text-[#1a1d2e] leading-snug truncate group-hover:text-[#3d5a3e]">
-                          {p.name}
+                        <p className="font-bold text-sm sm:text-base leading-snug truncate" style={{ color: p.textPrimary }}>
+                          {pr.name}
                         </p>
-                        {p.brand && (
-                          <p className="text-[12px] text-[#1a1d2e]/40 font-medium">By {p.brand}</p>
-                        )}
-                        <p className="text-[#1a1d2e] font-extrabold text-sm sm:text-base mt-1">
-                          ฿{p.price?.toLocaleString()}
+                        <BrandLabel product={pr} />
+                        <p className="font-extrabold text-sm sm:text-base mt-1" style={{ color: p.accent }}>
+                          ฿{pr.price?.toLocaleString()}
                         </p>
                       </div>
                     </button>
@@ -596,44 +717,43 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                 <div className="space-y-6">
                   {/* First row: 2 large cards (if enabled) */}
                   {showFeaturedRow && paginatedProducts.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      {paginatedProducts.slice(0, 2).map((p: any) => (
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridGap}`}>
+                      {paginatedProducts.slice(0, 2).map((pr: any) => (
                         <button
-                          key={p._id}
-                          onClick={() => { setSelectedProduct(p); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
+                          key={pr._id}
+                          onClick={() => { setSelectedProduct(pr); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
                           className="group text-left w-full cursor-pointer"
                         >
                           <div className="relative">
-                            {getVariantDot(p) && (
+                            {getVariantDot(pr) && (
                               <div className="flex justify-center mb-2">
-                                <div className="w-3 h-3 rounded-full border border-[#1a1d2e]/10" style={{ backgroundColor: getVariantDot(p)! }} />
+                                <div className="w-3 h-3 rounded-full border" style={{ backgroundColor: getVariantDot(pr)!, borderColor: p.cardBorder }} />
                               </div>
                             )}
-                            <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-[#e4e0db] relative">
-                              {p.imageUrl ? (
-                                <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                            <div className={`aspect-[4/3] w-full ${cardRadius} overflow-hidden relative`} style={{ background: p.inputBg }}>
+                              {pr.imageUrl ? (
+                                <img src={pr.imageUrl} alt={pr.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10">
+                                <div className="w-full h-full flex items-center justify-center opacity-10" style={{ color: p.textPrimary }}>
                                   <Package size={48} />
                                 </div>
                               )}
-                              {isOutOfStock(p) && (
-                                <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm text-[#1a1d2e]/70 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-[#1a1d2e]/5">
+                              {isOutOfStock(pr) && (
+                                <div className="absolute bottom-4 right-4 backdrop-blur-sm text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5" style={{ background: `${p.cardBg}e6`, color: p.textMuted }}>
                                   <Package size={12} />
                                   Out of Stock
                                 </div>
                               )}
+                              <BrandLabel product={pr} overlay />
                             </div>
                           </div>
                           <div className="mt-3.5 px-0.5">
-                            <p className="font-bold text-[15px] sm:text-base text-[#1a1d2e] leading-snug mb-0.5 group-hover:text-[#3d5a3e] transition-colors line-clamp-2">
-                              {p.name}
+                            <p className="font-bold text-[15px] sm:text-base leading-snug mb-0.5 transition-colors line-clamp-2" style={{ color: p.textPrimary }}>
+                              {pr.name}
                             </p>
-                            {p.brand && (
-                              <p className="text-[13px] text-[#1a1d2e]/40 font-medium">By {p.brand}</p>
-                            )}
-                            <p className="text-[#1a1d2e] font-extrabold text-base mt-1">
-                              ฿{p.price?.toLocaleString()}
+                            <BrandLabel product={pr} />
+                            <p className="font-extrabold text-base mt-1" style={{ color: p.accent }}>
+                              ฿{pr.price?.toLocaleString()}
                             </p>
                           </div>
                         </button>
@@ -643,44 +763,43 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
                   {/* Remaining or uniform Grid rows */}
                   {(!showFeaturedRow || paginatedProducts.length > 2) && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                      {paginatedProducts.slice(showFeaturedRow ? 2 : 0).map((p: any) => (
+                    <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 ${gridGap}`}>
+                      {paginatedProducts.slice(showFeaturedRow ? 2 : 0).map((pr: any) => (
                         <button
-                          key={p._id}
-                          onClick={() => { setSelectedProduct(p); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
+                          key={pr._id}
+                          onClick={() => { setSelectedProduct(pr); setSelections({}); setQty(1); setActiveImgIdx(0); setView('detail'); }}
                           className="group text-left w-full cursor-pointer"
                         >
                           <div className="relative">
-                            {getVariantDot(p) && (
+                            {getVariantDot(pr) && (
                               <div className="flex justify-center mb-2">
-                                <div className="w-2.5 h-2.5 rounded-full border border-[#1a1d2e]/10" style={{ backgroundColor: getVariantDot(p)! }} />
+                                <div className="w-2.5 h-2.5 rounded-full border" style={{ backgroundColor: getVariantDot(pr)!, borderColor: p.cardBorder }} />
                               </div>
                             )}
-                            <div className="aspect-square w-full rounded-2xl overflow-hidden bg-[#e4e0db] relative">
-                              {p.imageUrl ? (
-                                <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                            <div className={`aspect-square w-full ${cardRadius} overflow-hidden relative`} style={{ background: p.inputBg }}>
+                              {pr.imageUrl ? (
+                                <img src={pr.imageUrl} alt={pr.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10">
+                                <div className="w-full h-full flex items-center justify-center opacity-10" style={{ color: p.textPrimary }}>
                                   <Package size={32} />
                                 </div>
                               )}
-                              {isOutOfStock(p) && (
-                                <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm text-[#1a1d2e]/70 text-[11px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 border border-[#1a1d2e]/5">
+                              {isOutOfStock(pr) && (
+                                <div className="absolute bottom-3 right-3 backdrop-blur-sm text-[11px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1" style={{ background: `${p.cardBg}e6`, color: p.textMuted }}>
                                   <Package size={10} />
                                   Out of Stock
                                 </div>
                               )}
+                              <BrandLabel product={pr} overlay />
                             </div>
                           </div>
                           <div className="mt-3 px-0.5">
-                            <p className="font-bold text-sm text-[#1a1d2e] leading-snug mb-0.5 group-hover:text-[#3d5a3e] transition-colors line-clamp-2">
-                              {p.name}
+                            <p className="font-bold text-sm leading-snug mb-0.5 transition-colors line-clamp-2" style={{ color: p.textPrimary }}>
+                              {pr.name}
                             </p>
-                            {p.brand && (
-                              <p className="text-[12px] text-[#1a1d2e]/40 font-medium">By {p.brand}</p>
-                            )}
-                            <p className="text-[#1a1d2e] font-extrabold text-sm mt-0.5">
-                              ฿{p.price?.toLocaleString()}
+                            <BrandLabel product={pr} />
+                            <p className="font-extrabold text-sm mt-0.5" style={{ color: p.accent }}>
+                              ฿{pr.price?.toLocaleString()}
                             </p>
                           </div>
                         </button>
@@ -696,7 +815,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage(c => Math.max(1, c - 1))}
-                    className="w-10 h-10 rounded-xl bg-white border border-[#1a1d2e]/10 text-sm font-bold flex items-center justify-center disabled:opacity-30 cursor-pointer hover:bg-slate-50 transition-all"
+                    className={`w-10 h-10 ${controlRadius} border text-sm font-bold flex items-center justify-center disabled:opacity-30 cursor-pointer transition-all`}
+                    style={{ background: p.cardBg, borderColor: p.cardBorder, color: p.textPrimary }}
                   >
                     ←
                   </button>
@@ -704,11 +824,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                     <button
                       key={idx}
                       onClick={() => setCurrentPage(idx + 1)}
-                      className={`w-10 h-10 rounded-xl text-sm font-bold flex items-center justify-center cursor-pointer transition-all ${
-                        currentPage === idx + 1
-                          ? "bg-[#1a1d2e] text-white shadow-md shadow-black/10 scale-105"
-                          : "bg-white border border-[#1a1d2e]/10 text-[#1a1d2e]/60 hover:bg-slate-50"
-                      }`}
+                      className={`w-10 h-10 ${controlRadius} text-sm font-bold flex items-center justify-center cursor-pointer transition-all ${currentPage === idx + 1 ? 'shadow-md scale-105' : 'border'}`}
+                      style={currentPage === idx + 1 ? { background: localAccentBg, color: accentText } : { background: p.cardBg, borderColor: p.cardBorder, color: p.textMuted }}
                     >
                       {idx + 1}
                     </button>
@@ -716,7 +833,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                   <button
                     disabled={currentPage === totalPages}
                     onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))}
-                    className="w-10 h-10 rounded-xl bg-white border border-[#1a1d2e]/10 text-sm font-bold flex items-center justify-center disabled:opacity-30 cursor-pointer hover:bg-slate-50 transition-all"
+                    className={`w-10 h-10 ${controlRadius} border text-sm font-bold flex items-center justify-center disabled:opacity-30 cursor-pointer transition-all`}
+                    style={{ background: p.cardBg, borderColor: p.cardBorder, color: p.textPrimary }}
                   >
                     →
                   </button>
@@ -729,10 +847,10 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
       {/* ═══ DETAIL VIEW ══════════════════════════════════════════════ */}
       {view === 'detail' && selectedProduct && (
-        <div className="max-w-[1400px] mx-auto min-h-screen bg-[#f0ede8] animate-in fade-in slide-in-from-bottom-4 duration-500 pb-40">
+        <div className="max-w-[1400px] mx-auto min-h-screen animate-in fade-in slide-in-from-bottom-4 duration-500 pb-40" style={{ background: p.pageBg }}>
           {/* Back bar */}
-          <div className="sticky top-16 sm:top-[60px] z-40 bg-[#f0ede8]/85 backdrop-blur-md px-5 sm:px-8 py-3 flex items-center justify-between">
-            <button onClick={() => setView('home')} className="flex items-center gap-2 text-sm font-bold text-[#1a1d2e]/60 hover:text-[#1a1d2e] transition-colors cursor-pointer bg-transparent border-0">
+          <div className="sticky top-16 sm:top-[60px] z-40 backdrop-blur-md px-5 sm:px-8 py-3 flex items-center justify-between" style={{ background: `${p.pageBg}d9` }}>
+            <button onClick={() => setView('home')} className="flex items-center gap-2 text-sm font-bold transition-colors cursor-pointer bg-transparent border-0" style={{ color: p.textMuted }}>
               <ChevronLeft size={18} />
               <span>Back</span>
             </button>
@@ -742,11 +860,11 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           <div className="lg:flex lg:gap-12 xl:gap-16 lg:px-8 lg:pt-6">
             {/* Images */}
             <div className="px-5 mb-8 lg:w-1/2 lg:flex lg:flex-col lg:items-end">
-              <div className="rounded-2xl overflow-hidden w-full aspect-square lg:max-w-[520px] bg-[#e4e0db]">
+              <div className={`${cardRadius} overflow-hidden w-full aspect-square lg:max-w-[520px]`} style={{ background: p.inputBg }}>
                 {selectedVariant?.imageUrl || selectedProduct.imageUrl ? (
                   <img src={selectedVariant?.imageUrl || selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[#1a1d2e]/10">
+                  <div className="w-full h-full flex items-center justify-center opacity-10" style={{ color: p.textPrimary }}>
                     <Package size={80} />
                   </div>
                 )}
@@ -756,18 +874,18 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
             {/* Info */}
             <div className="px-5 sm:px-8 lg:w-1/2 lg:flex lg:flex-col lg:justify-center">
               {selectedProduct.brand && (
-                <p className="text-[13px] font-semibold text-[#1a1d2e]/40 mb-2">By {selectedProduct.brand}</p>
+                <p className="text-[13px] font-semibold mb-2 opacity-40" style={{ color: p.textPrimary }}>By {selectedProduct.brand}</p>
               )}
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#1a1d2e] mb-4 tracking-tight leading-tight">
+              <h2 className={`text-3xl sm:text-4xl lg:text-5xl mb-4 leading-tight ${headingFont}`} style={{ color: p.textPrimary }}>
                 {selectedProduct.name}
               </h2>
               {selectedProduct.description && (
-                <p className="text-[#1a1d2e]/50 text-base sm:text-lg leading-relaxed mb-6 lg:mb-8 font-medium max-w-xl">
+                <p className="text-base sm:text-lg leading-relaxed mb-6 lg:mb-8 font-medium max-w-xl opacity-50" style={{ color: p.textPrimary }}>
                   {selectedProduct.description}
                 </p>
               )}
               <div className="flex items-baseline gap-2 mb-8 lg:mb-10">
-                <span className="text-3xl sm:text-4xl font-extrabold text-[#1a1d2e]">
+                <span className="text-3xl sm:text-4xl font-extrabold" style={{ color: p.accent }}>
                   ฿{(selectedVariant?.price ?? selectedProduct.price)?.toLocaleString()}
                 </span>
               </div>
@@ -775,45 +893,47 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
               {/* N-Dimensional Option Selector */}
               {getProductOptions(selectedProduct).map((option) => (
                 <div key={option.name} className="mb-6 text-left">
-                  <p className="text-xs font-bold text-[#1a1d2e]/35 uppercase tracking-wider mb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider mb-3 opacity-35" style={{ color: p.textPrimary }}>
                     {option.name}
                   </p>
                   <div className="flex flex-wrap gap-2.5">
-                    {option.values.map(val => (
-                      <button
-                        key={val}
-                        onClick={() => {
-                          const next = { ...selections, [option.name]: val };
-                          setSelections(next);
-                          setSelectedVariant(findMatchingVariant(selectedProduct, next));
-                        }}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
-                          selections[option.name] === val
-                            ? "bg-[#1a1d2e] border-[#1a1d2e] text-white"
-                            : "bg-white border-[#1a1d2e]/10 text-[#1a1d2e]/60 hover:border-[#3d5a3e]/30 hover:text-[#1a1d2e]"
-                        }`}
-                      >
-                        {val}
-                      </button>
-                    ))}
+                    {option.values.map(val => {
+                      const active = selections[option.name] === val;
+                      return (
+                        <button
+                          key={val}
+                          onClick={() => {
+                            const next = { ...selections, [option.name]: val };
+                            setSelections(next);
+                            setSelectedVariant(findMatchingVariant(selectedProduct, next));
+                          }}
+                          className={`px-5 py-2.5 ${controlRadius} text-sm font-bold border transition-all cursor-pointer`}
+                          style={active ? { background: p.textPrimary, borderColor: p.textPrimary, color: p.pageBg } : { background: p.cardBg, borderColor: p.cardBorder, color: p.textMuted }}
+                        >
+                          {val}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
 
               {/* Quantity */}
-              <div className="flex items-center justify-between bg-white rounded-2xl p-4 lg:p-5 mb-8 lg:mb-10 lg:max-w-sm border border-[#1a1d2e]/8">
-                <span className="text-xs font-bold text-[#1a1d2e]/40 uppercase tracking-wider">Quantity</span>
+              <div className={`flex items-center justify-between ${cardRadius} p-4 lg:p-5 mb-8 lg:mb-10 lg:max-w-sm border`} style={{ background: p.cardBg, borderColor: p.cardBorder }}>
+                <span className="text-xs font-bold uppercase tracking-wider opacity-40" style={{ color: p.textPrimary }}>Quantity</span>
                 <div className="flex items-center gap-6">
                   <button
                     onClick={() => setQty(q => Math.max(1, q - 1))}
-                    className="w-9 h-9 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e]/50 hover:bg-[#f0ede8] transition-all cursor-pointer"
+                    className="w-9 h-9 rounded-full border flex items-center justify-center transition-all cursor-pointer"
+                    style={{ borderColor: p.cardBorder, color: p.textMuted }}
                   >
                     <Minus size={14} />
                   </button>
-                  <span className="font-extrabold text-xl text-[#1a1d2e] w-6 text-center">{qty}</span>
+                  <span className="font-extrabold text-xl w-6 text-center" style={{ color: p.textPrimary }}>{qty}</span>
                   <button
                     onClick={() => setQty(q => q + 1)}
-                    className="w-9 h-9 rounded-full border border-[#1a1d2e]/10 flex items-center justify-center text-[#1a1d2e]/50 hover:bg-[#f0ede8] transition-all cursor-pointer"
+                    className="w-9 h-9 rounded-full border flex items-center justify-center transition-all cursor-pointer"
+                    style={{ borderColor: p.cardBorder, color: p.textMuted }}
                   >
                     <Plus size={14} />
                   </button>
@@ -825,7 +945,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                 {isOutOfStock(selectedProduct) ? (
                   <button
                     disabled
-                    className="w-full bg-[#1a1d2e]/20 text-[#1a1d2e]/40 py-4 rounded-2xl font-bold text-base cursor-not-allowed"
+                    className={`w-full py-4 ${controlRadius} font-bold text-base cursor-not-allowed opacity-30`}
+                    style={{ background: p.textPrimary, color: p.pageBg }}
                   >
                     Out of Stock
                   </button>
@@ -833,7 +954,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
                   <button
                     onClick={addToCart}
                     disabled={getProductOptions(selectedProduct).some(o => !selections[o.name])}
-                    className="w-full bg-[#1a1d2e] disabled:opacity-20 text-white py-4 rounded-2xl font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-3 cursor-pointer"
+                    className={`w-full py-4 ${controlRadius} font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-20`}
+                    style={{ background: localAccentBg, color: accentText }}
                   >
                     <ShoppingBag size={20} />
                     Add to Cart
@@ -848,30 +970,41 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       {/* ═══ PAYMENT VIEW ═════════════════════════════════════════════ */}
       {view === 'payment' && (
         <div className="max-w-3xl mx-auto px-6 pt-20 pb-32 text-center animate-in zoom-in-95 duration-700">
-          <div className="w-16 h-16 bg-[#3d5a3e]/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#3d5a3e]/15">
-            <CheckCircle className="text-[#3d5a3e]" size={32} />
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 border" style={{ background: `${p.accent}1a`, borderColor: `${p.accent}33` }}>
+            <CheckCircle style={{ color: p.accent }} size={32} />
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1a1d2e] mb-2 tracking-tight">Order Confirmed</h2>
-          <p className="text-[#1a1d2e]/50 text-sm sm:text-base font-medium mb-10">
+          <h2 className={`text-3xl sm:text-4xl mb-2 leading-tight ${headingFont}`} style={{ color: p.textPrimary }}>Order Confirmed</h2>
+          <p className="text-sm sm:text-base font-medium mb-10 opacity-50" style={{ color: p.textPrimary }}>
             Thank you for your order. We'll contact you when your order is ready for payment.
           </p>
-          <button
-            onClick={() => setView('home')}
-            className="w-full max-w-md mx-auto bg-white border border-[#1a1d2e]/10 text-[#1a1d2e] py-4 rounded-2xl font-bold text-sm hover:bg-[#1a1d2e]/3 transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            Continue Shopping
-            <ArrowRight size={16} />
-          </button>
+          {sf.postCheckoutUrl ? (
+            <a
+              href={sf.postCheckoutUrl}
+              className={`w-full max-w-md mx-auto py-4 ${controlRadius} font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer`}
+              style={{ background: localAccentBg, color: accentText }}
+            >
+              Continue
+              <ArrowRight size={16} />
+            </a>
+          ) : (
+            <button
+              onClick={() => setView('home')}
+              className={`w-full max-w-md mx-auto border py-4 ${controlRadius} font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer`}
+              style={{ background: p.cardBg, borderColor: p.cardBorder, color: p.textPrimary }}
+            >
+              Continue Shopping
+              <ArrowRight size={16} />
+            </button>
+          )}
         </div>
       )}
 
       {/* ═══ CART VIEW ═══════════════════════════════════════════════ */}
       {view === 'cart' && (
         <CartView
-          p={resolvePreset(sf.preset || 'midnight')}
-          style={{
-            page: {}, card: {}, input: {}, accent: {}, pill: () => ({}), muted: {}, sub: {}
-          }}
+          p={p}
+          controlRadius={controlRadius}
+          cardRadius={cardRadius}
           cart={cart}
           cartTotal={cartTotal}
           customer={customer}
@@ -886,7 +1019,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
 
       {/* Toast popup */}
       {cartToast && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl text-sm font-bold text-white z-50 animate-toast bg-[#3d5a3e]">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl text-sm font-bold z-50 animate-toast" style={{ background: localAccentBg, color: accentText }}>
           Added to cart
         </div>
       )}
@@ -894,8 +1027,8 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   );
 }
 
-function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId, onBack, onRemove, onQtyChange, onOrder }: {
-  p: StorefrontPreset; style: any; cart: CartItem[]; cartTotal: number; customer: any;
+function CartView({ p, controlRadius, cardRadius, cart, cartTotal, customer, isOrdering, merchantId, onBack, onRemove, onQtyChange, onOrder }: {
+  p: StorefrontPreset; controlRadius: string; cardRadius: string; cart: CartItem[]; cartTotal: number; customer: any;
   isOrdering: boolean; merchantId: string; onBack: () => void; onRemove: (key: string) => void;
   onQtyChange: (key: string, delta: number) => void; onOrder: (address: string, couponCode?: string, redeemPoints?: number) => Promise<string | null>;
 }) {
@@ -946,25 +1079,25 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
   const finalTotal = Math.max(0, cartTotal - totalDiscount);
 
   return (
-    <div className="animate-fade-in max-w-lg mx-auto p-4 space-y-4 pb-24">
+    <div className="animate-fade-in max-w-lg mx-auto p-4 space-y-4 pb-24" style={{ background: p.pageBg, color: p.textPrimary }}>
       <div className="flex items-center gap-3 py-2">
-        <button onClick={onBack} aria-label="Back" className="p-2 rounded-xl text-[#1a1d2e] hover:bg-[#1a1d2e]/5 cursor-pointer"><ChevronLeft size={20} /></button>
+        <button onClick={onBack} aria-label="Back" className="p-2 rounded-xl cursor-pointer" style={{ color: p.textPrimary }}><ChevronLeft size={20} /></button>
         <span className="font-extrabold text-lg">Your Cart</span>
       </div>
 
-      {cart.map((item, idx) => (
-        <div key={`${item.productId}-${item.variantLabel}`} className="bg-white rounded-2xl p-4 flex items-center gap-4 border border-[#1a1d2e]/8">
-          <ProductImg src={item.imageUrl} alt={item.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" bg="#f0ede8" />
+      {cart.map((item) => (
+        <div key={`${item.productId}-${item.variantLabel}`} className={`${cardRadius} p-4 flex items-center gap-4 border`} style={{ background: p.cardBg, borderColor: p.cardBorder }}>
+          <ProductImg src={item.imageUrl} alt={item.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" bg={p.inputBg} />
           <div className="flex-1 min-w-0 text-left">
-            <p className="font-bold text-sm sm:text-base text-[#1a1d2e] truncate">{item.name}</p>
-            {item.variantLabel && <p className="text-xs text-[#1a1d2e]/40">{item.variantLabel}</p>}
-            <p className="font-extrabold text-sm sm:text-base mt-1 text-[#3d5a3e]">฿{(item.price * item.qty).toLocaleString()}</p>
+            <p className="font-bold text-sm sm:text-base truncate" style={{ color: p.textPrimary }}>{item.name}</p>
+            {item.variantLabel && <p className="text-xs" style={{ color: p.textMuted }}>{item.variantLabel}</p>}
+            <p className="font-extrabold text-sm sm:text-base mt-1" style={{ color: p.accent }}>฿{(item.price * item.qty).toLocaleString()}</p>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2 bg-[#f0ede8] rounded-xl px-2.5 py-1.5 border border-[#1a1d2e]/5">
-              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, -1)} className="text-[#1a1d2e]/40 hover:text-[#1a1d2e] cursor-pointer"><Minus size={12} /></button>
-              <span className="w-5 text-center text-sm font-bold">{item.qty}</span>
-              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, 1)} className="text-[#1a1d2e]/40 hover:text-[#1a1d2e] cursor-pointer"><Plus size={12} /></button>
+            <div className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 border" style={{ background: p.inputBg, borderColor: p.inputBorder }}>
+              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, -1)} className="cursor-pointer" style={{ color: p.textMuted }}><Minus size={12} /></button>
+              <span className="w-5 text-center text-sm font-bold" style={{ color: p.textPrimary }}>{item.qty}</span>
+              <button onClick={() => onQtyChange(`${item.productId}-${item.variantLabel}`, 1)} className="cursor-pointer" style={{ color: p.textMuted }}><Plus size={12} /></button>
             </div>
             <button onClick={() => onRemove(`${item.productId}-${item.variantLabel}`)} className="text-red-500 hover:text-red-700 transition-colors p-1 cursor-pointer"><Trash2 size={14} /></button>
           </div>
@@ -972,8 +1105,8 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
       ))}
 
       {/* Coupon input */}
-      <div className="bg-white rounded-2xl p-4 border border-[#1a1d2e]/8">
-        <label htmlFor="coupon-code" className="text-sm font-bold text-[#1a1d2e]/60 mb-2 block text-left">Coupon Code</label>
+      <div className={`${cardRadius} p-4 border`} style={{ background: p.cardBg, borderColor: p.cardBorder }}>
+        <label htmlFor="coupon-code" className="text-sm font-bold mb-2 block text-left" style={{ color: p.textMuted }}>Coupon Code</label>
         <div className="flex gap-2">
           <input
             id="coupon-code"
@@ -981,35 +1114,38 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
             value={couponInput}
             onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponResult(null); setCouponError(''); }}
             placeholder="Enter coupon code"
-            className="flex-1 bg-[#f0ede8] border border-[#1a1d2e]/10 rounded-xl px-3 py-2 text-sm outline-none font-bold tracking-wider"
+            className={`flex-1 ${controlRadius} px-3 py-2 text-sm outline-none font-bold tracking-wider border`}
+            style={{ background: p.inputBg, borderColor: p.inputBorder, color: p.textPrimary }}
           />
           <button
             onClick={validateCoupon}
             disabled={!couponInput.trim() || validatingCoupon}
-            className="bg-[#1a1d2e] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 whitespace-nowrap cursor-pointer"
+            className={`px-4 py-2 ${controlRadius} text-sm font-bold disabled:opacity-50 whitespace-nowrap cursor-pointer`}
+            style={{ background: p.textPrimary, color: p.pageBg }}
           >
             {validatingCoupon ? '...' : couponResult ? '✓ Applied' : 'Apply'}
           </button>
         </div>
-        {couponResult && <p className="text-xs mt-1.5 font-medium text-[#3d5a3e] text-left">-฿{couponResult.discount.toLocaleString()} ({couponResult.description})</p>}
+        {couponResult && <p className="text-xs mt-1.5 font-medium text-left" style={{ color: p.accent }}>-฿{couponResult.discount.toLocaleString()} ({couponResult.description})</p>}
         {couponError && <p className="text-xs mt-1.5 text-red-500 text-left">{couponError}</p>}
       </div>
 
       {/* Loyalty Points */}
       {loyalty && loyalty.points >= loyalty.minRedeemPoints && (
-        <div className="bg-white rounded-2xl p-4 border border-[#1a1d2e]/8">
+        <div className={`${cardRadius} p-4 border`} style={{ background: p.cardBg, borderColor: p.cardBorder }}>
           <div className="flex items-center justify-between">
             <div className="text-left">
-              <p className="text-sm font-bold text-[#1a1d2e]">Loyalty Points</p>
-              <p className="text-xs text-[#1a1d2e]/40 mt-0.5">You have {loyalty.points.toLocaleString()} pts · {loyalty.redeemRate} pts = ฿1</p>
+              <p className="text-sm font-bold" style={{ color: p.textPrimary }}>Loyalty Points</p>
+              <p className="text-xs mt-0.5" style={{ color: p.textMuted }}>You have {loyalty.points.toLocaleString()} pts · {loyalty.redeemRate} pts = ฿1</p>
             </div>
             <div className="flex items-center gap-2">
-              {usePoints && <span className="text-xs font-bold text-[#3d5a3e]">-฿{pointsDiscount.toLocaleString()}</span>}
+              {usePoints && <span className="text-xs font-bold" style={{ color: p.accent }}>-฿{pointsDiscount.toLocaleString()}</span>}
               <button
                 onClick={() => setUsePoints(v => !v)}
                 role="switch"
                 aria-checked={usePoints}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${usePoints ? 'bg-[#3d5a3e]' : 'bg-[#1a1d2e]/10'}`}
+                className="relative w-11 h-6 rounded-full transition-colors cursor-pointer"
+                style={{ background: usePoints ? p.accent : `${p.textMuted}30` }}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${usePoints ? 'translate-x-5' : ''}`} />
               </button>
@@ -1019,33 +1155,34 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
       )}
 
       {/* Delivery Address */}
-      <div className="bg-white rounded-2xl p-4 border border-[#1a1d2e]/8">
-        <label htmlFor="delivery-address" className="text-sm font-bold text-[#1a1d2e]/60 mb-2 block text-left">Delivery Address</label>
+      <div className={`${cardRadius} p-4 border`} style={{ background: p.cardBg, borderColor: p.cardBorder }}>
+        <label htmlFor="delivery-address" className="text-sm font-bold mb-2 block text-left" style={{ color: p.textMuted }}>Delivery Address</label>
         <textarea
           id="delivery-address"
           value={address}
           onChange={e => setAddress(e.target.value)}
           rows={3}
           placeholder="Enter your delivery address..."
-          className="w-full bg-[#f0ede8] border border-[#1a1d2e]/10 rounded-xl p-3 text-sm outline-none"
+          className={`w-full ${controlRadius} p-3 text-sm outline-none border`}
+          style={{ background: p.inputBg, borderColor: p.inputBorder, color: p.textPrimary }}
         />
       </div>
 
       {/* Totals */}
-      <div className="bg-white rounded-2xl p-4 border border-[#1a1d2e]/8 space-y-2">
+      <div className={`${cardRadius} p-4 border space-y-2`} style={{ background: p.cardBg, borderColor: p.cardBorder }}>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-[#1a1d2e]/50 font-bold">Subtotal</span>
-          <span className="font-bold">฿{cartTotal.toLocaleString()}</span>
+          <span className="font-bold" style={{ color: p.textMuted }}>Subtotal</span>
+          <span className="font-bold" style={{ color: p.textPrimary }}>฿{cartTotal.toLocaleString()}</span>
         </div>
         {totalDiscount > 0 && (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-[#3d5a3e] font-bold">Discount</span>
-            <span className="text-[#3d5a3e] font-bold">-฿{totalDiscount.toLocaleString()}</span>
+            <span className="font-bold" style={{ color: p.accent }}>Discount</span>
+            <span className="font-bold" style={{ color: p.accent }}>-฿{totalDiscount.toLocaleString()}</span>
           </div>
         )}
-        <div className="flex items-center justify-between font-extrabold pt-2 border-t border-[#1a1d2e]/8">
-          <span>Total</span>
-          <span className="text-lg text-[#3d5a3e]">฿{finalTotal.toLocaleString()}</span>
+        <div className="flex items-center justify-between font-extrabold pt-2 border-t" style={{ borderColor: p.cardBorder }}>
+          <span style={{ color: p.textPrimary }}>Total</span>
+          <span className="text-lg" style={{ color: p.accent }}>฿{finalTotal.toLocaleString()}</span>
         </div>
       </div>
 
@@ -1062,7 +1199,8 @@ function CartView({ p, style, cart, cartTotal, customer, isOrdering, merchantId,
           const err = await onOrder(address, couponResult?.code, usePoints && loyalty ? pointsToUse : undefined);
           if (err) setOrderError(err);
         }}
-        className="w-full bg-[#1a1d2e] disabled:opacity-50 text-white py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 cursor-pointer"
+        className={`w-full disabled:opacity-50 py-4 ${controlRadius} font-bold text-sm flex items-center justify-center gap-2 cursor-pointer`}
+        style={{ background: p.accent, color: p.accentText }}
       >
         {isOrdering ? 'Placing order...' : <><ArrowRight size={16} /> Place order</>}
       </button>

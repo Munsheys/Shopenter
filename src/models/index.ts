@@ -167,7 +167,7 @@ const SettingsSchema = new mongoose.Schema({
     reEngageCustom:        { type: Boolean }, // if absent/false → uses defaultReEngageMessage
   },
   storefront: {
-    preset: { type: String, default: 'midnight' },
+    preset: { type: String, default: 'linen' },
     shopTagline: { type: String, default: "" },
     logoUrl: { type: String, default: "" },
     bannerUrl: { type: String, default: "" },
@@ -179,6 +179,7 @@ const SettingsSchema = new mongoose.Schema({
     showBrandFilter: { type: Boolean, default: true },
     showCategoryFilter: { type: Boolean, default: true },
     showSearch: { type: Boolean, default: true },
+    showPriceFilter: { type: Boolean, default: true },
     announcementText: { type: String, default: "" },
     announcementEnabled: { type: Boolean, default: false },
     announcementColor: { type: String, default: 'blue' },
@@ -192,6 +193,13 @@ const SettingsSchema = new mongoose.Schema({
     paginationEnabled: { type: Boolean, default: false },
     productsPerPage: { type: Number, default: 20 },
     showFeaturedRow: { type: Boolean, default: true },
+    // Layout slots — independent customizable parts, mix & match for a distinct look
+    headerStyle: { type: String, enum: ['logo-left', 'logo-center', 'minimal'], default: 'logo-left' },
+    heroStyle: { type: String, enum: ['classic', 'banner-overlay', 'split', 'none'], default: 'classic' },
+    cardStyle: { type: String, enum: ['minimal', 'bordered', 'shadow', 'badge'], default: 'bordered' },
+    cornerStyle: { type: String, enum: ['sharp', 'soft', 'round'], default: 'soft' },
+    density: { type: String, enum: ['compact', 'comfortable', 'spacious'], default: 'comfortable' },
+    typography: { type: String, enum: ['modern', 'editorial', 'bold'], default: 'modern' },
   }
 });
 

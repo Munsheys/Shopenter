@@ -4,9 +4,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Check, LayoutGrid, List, Eye, Save, Link, Upload, Loader2, X,
   User, Palette, LayoutDashboard, Settings2, Megaphone, Globe,
-  Wrench, Image as ImageIcon, ChevronRight, Store, SlidersHorizontal, ListCollapse
+  Wrench, Image as ImageIcon, ChevronRight, Store, SlidersHorizontal, ListCollapse,
+  LayoutTemplate,
 } from 'lucide-react';
-import { PRESETS, resolvePreset } from '@/lib/storefrontPresets';
+import { PRESETS, resolvePreset, resolveAnnouncementColor } from '@/lib/storefrontPresets';
+import {
+  LAYOUT_SLOTS, type HeaderStyle, type HeroStyle, type CardStyle, type CornerStyle, type Density, type TypographyStyle,
+} from '@/lib/storefrontLayouts';
 import { getAccentText } from '@/lib/accent';
 
 interface StorefrontConfig {
@@ -22,13 +26,13 @@ interface StorefrontConfig {
   showBrandFilter: boolean;
   showCategoryFilter: boolean;
   showSearch: boolean;
+  showPriceFilter: boolean;
   announcementText: string;
   announcementEnabled: boolean;
   announcementColor: string;
   maintenanceMode: boolean;
   maintenanceMessage: string;
   postCheckoutUrl: string;
-  language: string;
   accentGradient?: string;
   customSolids?: string[];
   customGradients?: string[];
@@ -39,15 +43,22 @@ interface StorefrontConfig {
   paginationEnabled: boolean;
   productsPerPage: number;
   showFeaturedRow: boolean;
+  // Layout slots — independent customizable parts (see storefrontLayouts.ts)
+  headerStyle: HeaderStyle;
+  heroStyle: HeroStyle;
+  cardStyle: CardStyle;
+  cornerStyle: CornerStyle;
+  density: Density;
+  typography: TypographyStyle;
 }
 
 const DEFAULT_CONFIG: StorefrontConfig = {
   shopName: '', shopDescription: '', shopLogoUrl: '', shopTimezone: 'Asia/Bangkok',
-  preset: 'midnight', shopTagline: '', bannerUrl: '', accentColor: '',
-  cardLayout: 'grid', showBrandFilter: true, showCategoryFilter: true, showSearch: true,
+  preset: 'linen', shopTagline: '', bannerUrl: '', accentColor: '',
+  cardLayout: 'grid', showBrandFilter: true, showCategoryFilter: true, showSearch: true, showPriceFilter: true,
   announcementText: '', announcementEnabled: false, announcementColor: 'accent',
   maintenanceMode: false, maintenanceMessage: 'We will be back soon.',
-  postCheckoutUrl: '', language: 'th', accentGradient: '',
+  postCheckoutUrl: '', accentGradient: '',
   customSolids: [], customGradients: [],
   // Expanded customization defaults
   heroHeading: '',
@@ -56,6 +67,12 @@ const DEFAULT_CONFIG: StorefrontConfig = {
   paginationEnabled: false,
   productsPerPage: 20,
   showFeaturedRow: true,
+  headerStyle: 'logo-left',
+  heroStyle: 'classic',
+  cardStyle: 'bordered',
+  cornerStyle: 'soft',
+  density: 'comfortable',
+  typography: 'modern',
 };
 
 interface Props {
@@ -68,7 +85,7 @@ interface Props {
   onSaveSlug: (slug: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
-type Tab = 'identity' | 'design' | 'content' | 'advanced';
+type Tab = 'identity' | 'design' | 'layout' | 'content' | 'advanced';
 
 const GRADIENT_PRESETS = [
   { name: 'Sunset',  gradient: 'linear-gradient(135deg,#f97316,#ef4444)', primary: '#f97316' },
@@ -252,7 +269,8 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   const TABS: { id: Tab; label: string; icon: React.ReactNode; desc: string }[] = [
     { id: 'identity', label: 'Identity',  icon: <User size={14} />,            desc: 'Name, logo & timezone'     },
     { id: 'design',   label: 'Design',    icon: <Palette size={14} />,          desc: 'Theme & colors'            },
-    { id: 'content',  label: 'Content',   icon: <LayoutDashboard size={14} />,  desc: 'Layout & texts'          },
+    { id: 'layout',   label: 'Layout',    icon: <LayoutTemplate size={14} />,   desc: 'Mix & match structure'     },
+    { id: 'content',  label: 'Content',   icon: <LayoutDashboard size={14} />,  desc: 'Filters & texts'          },
     { id: 'advanced', label: 'Advanced',  icon: <Settings2 size={14} />,        desc: 'URL, redirects & more'     },
   ];
 
@@ -612,6 +630,38 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
           </div>
         )}
 
+        {/* ── LAYOUT TAB ── */}
+        {activeTab === 'layout' && (
+          <div id="layout-panel" role="tabpanel" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {LAYOUT_SLOTS.map(slot => (
+              <Card key={slot.key} title={slot.label} description={slot.description} icon={<LayoutTemplate size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {slot.options.map(opt => {
+                    const active = config[slot.key] === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => set(slot.key, opt.id as any)}
+                        aria-pressed={active}
+                        className={`flex items-start gap-2 px-4 py-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          active ? 'text-white shadow-md' : isDark ? 'border-[#2a2f45] text-[#8b92ad] hover:border-[#3a3f55]' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                        style={active ? { backgroundColor: dashboardAccent, borderColor: dashboardAccent, color: dashboardAccentText } : undefined}
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold">{opt.label}</p>
+                          <p className={`text-[11px] mt-0.5 ${active ? 'opacity-80' : isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>{opt.description}</p>
+                        </div>
+                        {active && <Check size={14} className="flex-shrink-0 mt-0.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
         {/* ── CONTENT TAB ── */}
         {activeTab === 'content' && (
           <div id="content-panel" role="tabpanel" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -747,6 +797,7 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   { key: 'showSearch' as const,         label: 'Search bar',           desc: 'Search box at the top' },
                   { key: 'showCategoryFilter' as const, label: 'Category filters',     desc: 'Filter pills by category' },
                   { key: 'showBrandFilter' as const,    label: 'Brand filters',        desc: 'Filter pills by brand' },
+                  { key: 'showPriceFilter' as const,    label: 'Price filter',         desc: 'Filter by price range' },
                 ]).map(({ key, label, desc }) => (
                   <div key={key} className={`flex items-center justify-between py-3 px-4 rounded-xl border ${isDark ? 'border-[#1f2335] bg-white/3' : 'border-slate-100 bg-slate-50/50'}`}>
                     <div>
@@ -757,16 +808,6 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                   </div>
                 ))}
               </div>
-            </Card>
-
-            <Card title="Storefront Language" description="Language shown to customers. Translations are applied when available." icon={<Globe size={15} className={isDark ? 'text-[#8b92ad]' : 'text-slate-500'} />} isDark={isDark}>
-              <select value={config.language} onChange={e => set('language', e.target.value)} className={inputCls} style={{ maxWidth: '280px' }}>
-                <option value="th">🇹🇭 Thai (ภาษาไทย)</option>
-                <option value="ja">🇯🇵 Japanese (日本語)</option>
-                <option value="en">🇬🇧 English</option>
-                <option value="ko">🇰🇷 Korean (한국어)</option>
-                <option value="zh-TW">🇹🇼 Traditional Chinese (繁體中文)</option>
-              </select>
             </Card>
           </div>
         )}
@@ -839,10 +880,9 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
         </div>
 
         <div className={`rounded-2xl overflow-hidden border transition-all duration-500 ${isDark ? 'border-[#1f2335] shadow-2xl shadow-black/40' : 'border-slate-200 shadow-xl shadow-slate-200/60'}`} style={{ background: p.pageBg }}>
-          {config.announcementEnabled && config.announcementText && (() => {
-            const bannerBg = config.announcementColor === 'blue' ? '#3b82f6' : config.announcementColor === 'amber' ? '#f59e0b' : config.announcementColor === 'red' ? '#ef4444' : localAccentBg;
-            return <div className="px-4 py-1.5 text-[10px] text-center font-semibold text-white animate-in slide-in-from-top-1 duration-300" style={{ background: bannerBg }}>{config.announcementText}</div>;
-          })()}
+          {config.announcementEnabled && config.announcementText && (
+            <div className="px-4 py-1.5 text-[10px] text-center font-semibold text-white animate-in slide-in-from-top-1 duration-300" style={{ background: resolveAnnouncementColor(config.announcementColor, localAccentBg) }}>{config.announcementText}</div>
+          )}
 
           <div className="px-4 py-3 flex items-center justify-between" style={{ background: p.headerBg, borderBottom: `1px solid ${p.headerBorder}` }}>
             <div className="flex items-center gap-2">
