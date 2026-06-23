@@ -10,6 +10,7 @@ import UpgradePrompt from '@/components/UpgradePrompt';
 import UnsavedChangesModal from '@/components/UnsavedChangesModal';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import OnboardingChecklist from '@/components/OnboardingChecklist';
 
 const ProductManagement    = dynamic(() => import('@/components/ProductManagement'),    { ssr: false });
 const SettingsView         = dynamic(() => import('@/components/SettingsView'),         { ssr: false });
@@ -600,6 +601,20 @@ export default function DashboardPage() {
         )}
         <div className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
+            <div className="overflow-auto">
+              <div className="p-4 md:p-6 max-w-7xl mx-auto">
+                <OnboardingChecklist
+                  settings={settings}
+                  products={[]}
+                  orders={[]}
+                  onNavigate={(tab, section) => {
+                    setActiveTab(tab as Tab);
+                    if (section) setSettingsScroll({ section, id: Date.now() });
+                  }}
+                  theme={theme}
+                />
+              </div>
+            </div>
             <CustomersView theme={theme} onLimitHit={handleLimitHit} jumpToUserId={jumpToUserId} onJumpConsumed={() => setJumpToUserId(null)} jumpToOrderId={jumpToOrderId} onJumpOrderConsumed={() => setJumpToOrderId(null)} onOrderMutated={() => { setOrdersRefreshKey(k => k + 1); setReportsRefreshKey(k => k + 1); }} />
           </ErrorBoundary>
         </div>

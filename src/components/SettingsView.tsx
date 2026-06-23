@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import NumberStepper from '@/components/NumberStepper';
 import { getAccentText } from '@/lib/accent';
+import FieldWithHint from '@/components/FieldWithHint';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1141,22 +1142,38 @@ export default function SettingsView({
                     <p className={`text-xs mt-1 ${K.muted}`}>Use credentials from your <strong>Messaging API</strong> channel only — not a LINE Login channel.</p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                      <label className={lbl}>Channel Secret <span className={`normal-case font-normal ${K.muted}`}>(Basic Settings tab)</span></label>
-                      <div className="relative">
-                        <input type={showSecret ? 'text' : 'password'} value={settings.lineChannelSecret || ''} onChange={e => set('lineChannelSecret', e.target.value)} placeholder="32-character hex string" className={inputMono} autoComplete="new-password" />
-                        <button type="button" aria-label={showSecret ? 'Hide channel secret' : 'Show channel secret'} onClick={() => setShowSecret(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 ${K.muted} hover:text-white transition-colors`}>{showSecret ? <EyeOff size={15} /> : <Eye size={15} />}</button>
-                      </div>
-                      <p className={hint}>Verifies webhook requests from LINE</p>
-                    </div>
-                    <div>
-                      <label className={lbl}>Channel Access Token <span className={`normal-case font-normal ${K.muted}`}>(Messaging API tab)</span></label>
-                      <div className="relative">
-                        <input type={showToken ? 'text' : 'password'} value={settings.lineChannelAccessToken || ''} onChange={e => set('lineChannelAccessToken', e.target.value)} placeholder="Long-lived access token" className={inputMono} autoComplete="new-password" />
-                        <button type="button" aria-label={showToken ? 'Hide channel access token' : 'Show channel access token'} onClick={() => setShowToken(v => !v)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 ${K.muted} hover:text-white transition-colors`}>{showToken ? <EyeOff size={15} /> : <Eye size={15} />}</button>
-                      </div>
-                      <p className={hint}>Authorises messages, broadcasts, Rich Menu</p>
-                    </div>
+                    <FieldWithHint
+                      label="Channel Secret"
+                      value={settings.lineChannelSecret || ''}
+                      onChange={e => set('lineChannelSecret', e)}
+                      hint="Found in LINE Developers → Your Channel → Basic Settings tab"
+                      formatHint="32 alphanumeric characters"
+                      example="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+                      link="https://developers.line.biz/console/"
+                      linkLabel="Open LINE Developers Console"
+                      isDark={isDark}
+                      isLite={isLite}
+                      placeholder="32-character hex string"
+                      type="password"
+                      showPassword={showSecret}
+                      onTogglePassword={() => setShowSecret(v => !v)}
+                    />
+                    <FieldWithHint
+                      label="Channel Access Token"
+                      value={settings.lineChannelAccessToken || ''}
+                      onChange={e => set('lineChannelAccessToken', e)}
+                      hint="Create in LINE Developers → Messaging API tab → Issue Token (expires 30 days)"
+                      formatHint="Long alphanumeric string starting with numbers"
+                      example="...7GHIJKLMNOP..."
+                      link="https://developers.line.biz/console/"
+                      linkLabel="Open LINE Developers Console"
+                      isDark={isDark}
+                      isLite={isLite}
+                      placeholder="Long-lived access token"
+                      type="password"
+                      showPassword={showToken}
+                      onTogglePassword={() => setShowToken(v => !v)}
+                    />
                   </div>
                   <div className={`px-4 py-3 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
                     <strong>Note:</strong> Fields appear empty for security — saved values are never returned. Leave blank to keep current value; type to update.

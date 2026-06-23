@@ -64,6 +64,11 @@ export default function SignupContent() {
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Create your store</h1>
         <p className="text-gray-600 mb-6 text-sm">Start selling on LINE OA in minutes</p>
 
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
+          <p className="text-sm font-semibold text-amber-900">✓ 30 days free. No credit card required.</p>
+          <p className="text-xs text-amber-700 mt-1">Pro plan: ฿299/month after trial. Cancel anytime.</p>
+        </div>
+
         {referrerName && (
           <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 mb-4 flex items-start gap-2">
             <Gift size={18} className="text-accent flex-shrink-0 mt-0.5" />

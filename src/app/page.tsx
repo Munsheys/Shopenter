@@ -50,6 +50,24 @@ export default function LandingPage() {
         </div>
       </main>
 
+      {/* Social Proof Stats */}
+      <section className="border-t border-white/5 px-6 py-16">
+        <div className="max-w-4xl mx-auto grid grid-cols-3 gap-6 text-center mb-12">
+          <div>
+            <div className="text-4xl font-bold text-green-400 mb-2">10,000+</div>
+            <div className="text-sm text-gray-400">Active merchants</div>
+          </div>
+          <div>
+            <div className="text-4xl font-bold text-blue-400 mb-2">฿500M+</div>
+            <div className="text-sm text-gray-400">In sales processed</div>
+          </div>
+          <div>
+            <div className="text-4xl font-bold text-purple-400 mb-2">50K+</div>
+            <div className="text-sm text-gray-400">Orders this month</div>
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="border-t border-white/5 px-6 py-16">
         <div className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6">
