@@ -15,6 +15,8 @@ export default function SignupContent() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [referrerName, setReferrerName] = useState<string | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
 
   useEffect(() => {
     if (referralCode) {
@@ -38,6 +40,10 @@ export default function SignupContent() {
     setError('');
     if (form.password.length < 8) {
       setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (!agreedToTerms || !agreedToPrivacy) {
+      setError('You must agree to the Terms of Service and Privacy Policy.');
       return;
     }
     setLoading(true);
@@ -129,9 +135,43 @@ export default function SignupContent() {
               </button>
             </div>
           </div>
+
+          <div className="space-y-3 border-t border-gray-200 pt-4">
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={e => setAgreedToTerms(e.target.checked)}
+                className="mt-1 w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                required
+              />
+              <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                I agree to the{' '}
+                <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline font-medium">
+                  Terms of Service
+                </a>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={agreedToPrivacy}
+                onChange={e => setAgreedToPrivacy(e.target.checked)}
+                className="mt-1 w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                required
+              />
+              <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                I agree to the{' '}
+                <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline font-medium">
+                  Privacy Policy
+                </a>
+              </span>
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !agreedToTerms || !agreedToPrivacy}
             className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold rounded-lg px-4 py-3 text-sm transition flex items-center justify-center gap-2 min-h-[44px]"
           >
             {loading ? (

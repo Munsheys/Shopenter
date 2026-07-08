@@ -544,6 +544,67 @@ const AuditLogSchema = new mongoose.Schema({
 AuditLogSchema.index({ merchantId: 1, timestamp: -1 });
 AuditLogSchema.index({ action: 1, timestamp: -1 });
 
+const AbuseReportSchema = new mongoose.Schema({
+  reporterEmail: { type: String, required: true, lowercase: true }, // Can be merchant or user
+  reportedMerchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  violationType: {
+    type: String,
+    enum: [
+      'prohibited_items', 'fraud', 'harassment', 'ip_violation', 'platform_manipulation',
+      'data_abuse', 'account_abuse', 'payment_abuse', 'technical_abuse', 'illegal_content',
+      'hate_speech', 'chargeback_fraud', 'other'
+    ],
+    required: true
+  },
+  description: { type: String, required: true },
+  evidence: { type: [String], default: [] }, // URLs or descriptions of evidence
+  status: {
+    type: String,
+    enum: ['open', 'investigating', 'warning_issued', 'suspended', 'terminated', 'dismissed'],
+    default: 'open',
+    index: true
+  },
+  severity: {
+    type: String,
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'medium',
+    index: true
+  },
+  actionTaken: {
+    type: String,
+    enum: ['none', 'warning', 'suspension', 'termination'],
+    default: 'none'
+  },
+  actionDetails: String,
+  investigatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', sparse: true },
+  notes: String,
+  createdAt: { type: Date, default: Date.now, index: true },
+  resolvedAt: { type: Date, default: null },
+});
+AbuseReportSchema.index({ reportedMerchantId: 1, status: 1 });
+AbuseReportSchema.index({ severity: 1, status: 1 });
+AbuseReportSchema.index({ createdAt: -1 });
+
+const ViolationHistorySchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true, unique: true },
+  violationCount: { type: Number, default: 0 },
+  currentLevel: { type: String, enum: ['none', 'warning', 'suspended', 'terminated'], default: 'none' },
+  warnings: { type: Number, default: 0 },
+  suspensions: { type: Number, default: 0 },
+  suspensionExpiresAt: { type: Date, default: null },
+  lastViolationAt: { type: Date, default: null },
+  violations: [
+    {
+      reportId: { type: mongoose.Schema.Types.ObjectId, ref: 'AbuseReport' },
+      type: String,
+      date: { type: Date, default: Date.now },
+      action: String
+    }
+  ],
+  updatedAt: { type: Date, default: Date.now }
+});
+ViolationHistorySchema.index({ currentLevel: 1, suspensionExpiresAt: 1 });
+
 export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
@@ -564,3 +625,5 @@ export const Fulfilment = mongoose.models.Fulfilment || mongoose.model('Fulfilme
 export const AffiliateCommission = mongoose.models.AffiliateCommission || mongoose.model('AffiliateCommission', AffiliateCommissionSchema);
 export const FailedLoginAttempt = mongoose.models.FailedLoginAttempt || mongoose.model('FailedLoginAttempt', FailedLoginAttemptSchema);
 export const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', AuditLogSchema);
+export const AbuseReport = mongoose.models.AbuseReport || mongoose.model('AbuseReport', AbuseReportSchema);
+export const ViolationHistory = mongoose.models.ViolationHistory || mongoose.model('ViolationHistory', ViolationHistorySchema);

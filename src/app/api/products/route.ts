@@ -4,6 +4,8 @@ import { Product, Merchant } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
 import { ProductSchema } from '@/lib/validation';
+import { validateCsrfMiddleware } from '@/lib/csrf';
+import { logAudit } from '@/lib/auditLog';
 
 export const runtime = 'nodejs';
 
@@ -21,6 +23,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // CSRF validation
+  const csrfCheck = validateCsrfMiddleware(req);
+  if (!csrfCheck.valid) {
+    return NextResponse.json({ error: csrfCheck.error }, { status: 403 });
+  }
+
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -54,8 +62,33 @@ export async function POST(req: NextRequest) {
     }
 
     const product = await Product.create({ ...validation.data, merchantId: merchant.merchantId });
+
+    // Audit log
+    await logAudit(
+      {
+        merchantId: merchant.merchantId,
+        action: 'product_create',
+        resource: 'product',
+        resourceId: product._id.toString(),
+        changes: { after: { name: product.name, price: product.price } },
+        status: 'success'
+      },
+      req
+    );
+
     return NextResponse.json(product, { status: 201 });
-  } catch {
+  } catch (error) {
+    // Audit log failure
+    await logAudit(
+      {
+        merchantId: merchant.merchantId,
+        action: 'product_create',
+        resource: 'product',
+        status: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      },
+      req
+    );
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   }
 }

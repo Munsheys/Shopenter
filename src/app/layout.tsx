@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Prompt } from "next/font/google";
 import "./globals.css";
+import Footer from "@/components/Footer";
 
 const promptFont = Prompt({
   weight: ['300', '400', '600', '700', '800'],
@@ -44,7 +45,10 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${promptFont.variable} font-sans h-full antialiased`}
     >
-      <body suppressHydrationWarning className="min-h-full flex flex-col">{children}</body>
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
+        {children}
+        <Footer />
+      </body>
     </html>
   );
 }
