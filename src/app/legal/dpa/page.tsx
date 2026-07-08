@@ -17,6 +17,8 @@ export default function DpaPage() {
         <p className="text-gray-600 text-sm mb-8">Effective Date: July 1, 2026 • Applies to: GDPR, Thai PDPA, CCPA</p>
 
         <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+          <p>This DPA is entered into between you and <strong>Shopenter Limited (company registration pending)</strong> ("Shopenter", "we", "us"), a company organized in Thailand.</p>
+
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Overview</h2>
           <p>This Data Processing Agreement (DPA) governs how Shopenter processes personal data on behalf of merchants under GDPR, Thai PDPA, CCPA, and other data protection laws.</p>
 
@@ -100,12 +102,11 @@ export default function DpaPage() {
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Vercel (hosting) — US/EU</li>
             <li>MongoDB Atlas (database) — US/Singapore/EU</li>
-            <li>AWS S3 (file storage) — US/Singapore</li>
-            <li>Google Analytics (analytics) — US</li>
-            <li>Cloudflare (DDoS protection) — Global</li>
-            <li>SendGrid (email delivery) — US</li>
-            <li>Sentry (error tracking) — US</li>
+            <li>Cloudflare R2 (file storage) — Global</li>
+            <li>Omise (subscription payment processing) — Thailand</li>
+            <li>LINE (login and messaging) — Global</li>
           </ul>
+          <p className="mt-4">We only list sub-processors that are actually integrated. As we add error monitoring, email delivery, or analytics providers, this list will be updated at least 30 days before they go live, per the notice process below.</p>
 
           <p className="mt-4"><strong>Sub-processor changes:</strong></p>
           <ul className="list-disc list-inside space-y-2 ml-4">
@@ -204,10 +205,8 @@ export default function DpaPage() {
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">11. Audit Rights</h2>
           <p><strong>You may:</strong></p>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Request audit reports (anonymized)</li>
-            <li>Request SOC 2 compliance documentation</li>
-            <li>Request ISO 27001 certification status</li>
-            <li>Conduct security assessments (cost: ฿2,500/hour)</li>
+            <li>Request a summary of our security practices</li>
+            <li>Request to conduct a security assessment — scope, timing, and any associated cost are agreed in writing before the assessment begins</li>
           </ul>
 
           <p className="mt-4"><strong>Audit timing:</strong></p>
@@ -218,13 +217,7 @@ export default function DpaPage() {
           </ul>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">12. Compliance & Certifications</h2>
-          <ul className="list-disc list-inside space-y-2 ml-4">
-            <li><strong>SOC 2 Type II:</strong> Annually audited</li>
-            <li><strong>ISO 27001:</strong> Planned 2026</li>
-            <li><strong>GDPR Compliance:</strong> Full compliance</li>
-            <li><strong>Thai PDPA:</strong> Full compliance</li>
-            <li><strong>CCPA/CPRA:</strong> Full compliance</li>
-          </ul>
+          <p>We do not currently hold SOC 2 or ISO 27001 certification. We design our data handling to align with GDPR, Thai PDPA, and CCPA principles as described throughout this DPA; this is a good-faith alignment, not a third-party certification. If we obtain formal certification in the future, this section will be updated.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">13. Term & Termination</h2>
           <p><strong>Duration:</strong> Effective immediately, continues while platform is used</p>

@@ -15,6 +15,9 @@ export default function LandingPage() {
           <span className="font-bold text-lg tracking-tight">Shopenter</span>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/pricing" className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-2">
+            Pricing
+          </Link>
           <Link href="/login" className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-2">
             Sign in
           </Link>
@@ -90,7 +93,7 @@ export default function LandingPage() {
                 name: 'Pro',
                 price: '299',
                 desc: 'For growing stores',
-                features: ['500 products', '10,000 orders/month', '50 campaigns', 'Discount codes', 'Loyalty program', 'CSV export'],
+                features: ['500 products', '10,000 orders/month', '50 campaigns', 'Discount codes', 'Loyalty program'],
                 highlighted: true
               },
               {
@@ -104,7 +107,7 @@ export default function LandingPage() {
                 <h3 className="text-xl font-semibold text-white mb-2">{tier.name}</h3>
                 <p className="text-gray-400 text-sm mb-6">{tier.desc}</p>
                 <div className="mb-6">
-                  <span className="text-3xl font-bold text-white">${tier.price}</span>
+                  <span className="text-3xl font-bold text-white">{tier.price === 'Custom' ? 'Custom' : `฿${tier.price}`}</span>
                   {tier.price !== 'Custom' && <span className="text-gray-400 text-sm">/month</span>}
                 </div>
                 <ul className="space-y-3 mb-8">
@@ -114,9 +117,15 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href={tier.name === 'Enterprise' ? '/contact' : '/signup'} className={`block text-center py-3 rounded-xl font-semibold transition-colors ${tier.highlighted ? 'bg-green-500 hover:bg-green-400 text-white' : 'border border-white/20 text-white hover:bg-white/5'}`}>
-                  {tier.name === 'Enterprise' ? 'Contact sales' : 'Get started'}
-                </Link>
+                {tier.name === 'Enterprise' ? (
+                  <a href="mailto:sales@shopenter.app" className="block text-center py-3 rounded-xl font-semibold transition-colors border border-white/20 text-white hover:bg-white/5">
+                    Contact sales
+                  </a>
+                ) : (
+                  <Link href="/signup" className={`block text-center py-3 rounded-xl font-semibold transition-colors ${tier.highlighted ? 'bg-green-500 hover:bg-green-400 text-white' : 'border border-white/20 text-white hover:bg-white/5'}`}>
+                    Get started
+                  </Link>
+                )}
               </div>
             ))}
           </div>

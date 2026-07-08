@@ -14,7 +14,12 @@ export type AuditAction =
   | 'order_update'
   | 'account_deletion_requested'
   | 'account_deletion_cancelled'
-  | 'account_deleted';
+  | 'account_deleted'
+  | 'subscription_started'
+  | 'subscription_renewed'
+  | 'subscription_canceled'
+  | 'subscription_charge_failed'
+  | 'subscription_downgraded';
 
 export type AuditResource = 'merchant' | 'product' | 'order' | 'customer' | 'settings' | 'none';
 

@@ -17,6 +17,8 @@ export default function MerchantAgreementPage() {
         <p className="text-gray-600 text-sm mb-8">Effective Date: July 1, 2026 • Last Updated: June 28, 2026</p>
 
         <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+          <p>This Agreement is entered into between you and <strong>Shopenter Limited (company registration pending)</strong> ("Shopenter", "we", "us"), a company organized in Thailand.</p>
+
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Registration Requirements</h2>
           <p>To register as a merchant, you must:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
@@ -31,10 +33,10 @@ export default function MerchantAgreementPage() {
 
           <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">Free Tier</h3>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Duration: 7-day trial (expires automatically)</li>
+            <li>Duration: 14-day trial, then continues on Free tier limits</li>
             <li>Products: Up to 10</li>
-            <li>Customers: Up to 100</li>
-            <li>Orders: Up to 50/month</li>
+            <li>Orders: Up to 100/month</li>
+            <li>Auto-replies: Up to 3</li>
             <li>Features: Basic dashboard, LINE integration</li>
             <li>Support: Help center only</li>
           </ul>
@@ -42,43 +44,33 @@ export default function MerchantAgreementPage() {
           <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">Pro Tier</h3>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Price: ฿299/month</li>
-            <li>Products: Unlimited</li>
-            <li>Orders: Unlimited</li>
-            <li>Features: Advanced dashboard, analytics, API access</li>
+            <li>Products: Up to 500</li>
+            <li>Orders: Up to 10,000/month</li>
+            <li>Auto-replies: Up to 100</li>
+            <li>Features: Discount codes, loyalty program, affiliate program</li>
             <li>Support: Email (24-hour response)</li>
-            <li>Billing: Month-to-month (cancel anytime)</li>
+            <li>Billing: Month-to-month via card (cancel anytime)</li>
           </ul>
 
           <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">Enterprise Tier</h3>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Price: Custom (typically ฿5,000+/month)</li>
+            <li>Products, orders, auto-replies: Unlimited</li>
             <li>Features: All Pro features + custom integrations</li>
             <li>Support: Priority email + phone (4-hour response)</li>
-            <li>Billing: Annual prepayment</li>
+            <li>Billing: Arranged individually (contact sales)</li>
             <li>Commitment: 12-month minimum</li>
           </ul>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">3. Pricing & Payment</h2>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li><strong>Billing Cycle:</strong> Pro monthly (in advance), Enterprise annual</li>
-            <li><strong>Payment Methods:</strong> Credit card, bank transfer, other (upon request)</li>
-            <li><strong>Invoices:</strong> Emailed monthly, 7-year retention</li>
+            <li><strong>Billing Cycle:</strong> Pro tier bills monthly in advance to your card via our payment processor, Omise. Enterprise billing is arranged individually.</li>
+            <li><strong>Payment Methods:</strong> Credit/debit card (Pro). Enterprise may arrange other methods on request.</li>
+            <li><strong>Receipts:</strong> Available in your dashboard for each successful charge.</li>
           </ul>
 
           <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">Payment Failure</h3>
-          <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Day 1-3: Email reminder + 3-day grace period</li>
-            <li>Day 4-7: Account restricted (can't add products)</li>
-            <li>Day 8-14: Services suspended</li>
-            <li>Day 15+: Account data deleted</li>
-          </ul>
-
-          <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">Late Payment</h3>
-          <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Interest: 1.5% per month on unpaid balance</li>
-            <li>Collection fees: ฿500-2,000</li>
-            <li>Action: Legal collection, credit reporting, account suspension</li>
-          </ul>
+          <p>If a recurring charge fails, we retry for a short grace period. If it still hasn't succeeded by the end of that window, your account automatically reverts to the Free tier — no service suspension, no debt, no collections action. Your data is retained under Free tier limits and you can upgrade again anytime once you update your payment method.</p>
 
           <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">Price Increases</h3>
           <ul className="list-disc list-inside space-y-2 ml-4">

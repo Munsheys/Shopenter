@@ -35,6 +35,10 @@ interface Merchant {
   tier?: Tier;
   paymentStatus?: string;
   trialEndsAt?: string | null;
+  subscriptionStatus?: string;
+  nextBillingDate?: string | null;
+  paymentMethodBrand?: string | null;
+  paymentMethodLast4?: string | null;
 }
 
 const TIER_BADGE_COLORS: Record<string, string> = {
@@ -648,9 +652,17 @@ export default function DashboardPage() {
 
         <div className={activeTab === 'billing' ? 'flex-1 overflow-auto pb-16 md:pb-0 view-enter' : 'hidden'}>
           <ErrorBoundary>
-            <BillingSetupView theme={theme} tier={merchant?.tier || 'free'} onTierChange={(newTier) => {
-              setMerchant((prev) => prev ? { ...prev, tier: newTier as any } : null);
-            }} />
+            <BillingSetupView
+              theme={theme}
+              tier={merchant?.tier || 'free'}
+              subscriptionStatus={merchant?.subscriptionStatus}
+              nextBillingDate={merchant?.nextBillingDate}
+              paymentMethodBrand={merchant?.paymentMethodBrand}
+              paymentMethodLast4={merchant?.paymentMethodLast4}
+              onSubscriptionChange={(update) => {
+                setMerchant((prev) => prev ? { ...prev, ...update, tier: update.tier as Tier } : null);
+              }}
+            />
           </ErrorBoundary>
         </div>
 

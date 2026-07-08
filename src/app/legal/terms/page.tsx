@@ -17,11 +17,17 @@ export default function TermsPage() {
         <p className="text-gray-600 text-sm mb-8">Effective Date: July 1, 2026 • Last Updated: June 28, 2026</p>
 
         <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+          <p>These Terms are entered into between you and <strong>Shopenter Limited (company registration pending)</strong> ("Shopenter", "we", "us"), a company organized in Thailand.</p>
+
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Account Registration & Eligibility</h2>
           <p>To use Shopenter, you must be at least 18 years old and operate a legal business. You represent that all information you provide is true, complete, and accurate. We reserve the right to verify your business and request documentation.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">2. Service Description</h2>
-          <p>Shopenter provides a platform for merchants to manage their LINE Official Account store, including product listings, order management, customer communication, and payment processing. We do not store payment card data—all payments use PromptPay exclusively.</p>
+          <p>Shopenter provides a platform for merchants to manage their LINE Official Account store, including product listings, order management, and customer communication. There are two separate payment flows:</p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li><strong>Your Shopenter subscription</strong> is billed to your card through our payment processor, Omise. We do not store your full card number.</li>
+            <li><strong>Payments from your customers for their orders</strong> (e.g. via PromptPay) go directly between you and your customer — Shopenter is not a party to that transaction and does not process, hold, or take a cut of it.</li>
+          </ul>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">3. Acceptable Use Policy</h2>
           <p>You agree not to:</p>
@@ -35,18 +41,13 @@ export default function TermsPage() {
           <p>See our complete <Link href="/legal/aup" className="text-green-600 hover:underline">Acceptable Use Policy</Link> for details.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">4. Pricing & Billing</h2>
-          <p><strong>Free Tier:</strong> 7-day trial, expires automatically</p>
-          <p><strong>Pro Tier:</strong> ฿299/month, auto-renews (cancel anytime)</p>
+          <p><strong>Free Tier:</strong> 14-day trial, then continues on Free tier limits unless you upgrade</p>
+          <p><strong>Pro Tier:</strong> ฿299/month, auto-renews via card (cancel anytime)</p>
           <p><strong>Enterprise:</strong> Custom pricing, 12-month minimum</p>
           <p>All prices in Thai Baht. We notify you 30 days before price increases. Your current price locks in for 12 months.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">5. Payments & Failed Transactions</h2>
-          <p>If your payment fails:</p>
-          <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>3 days: Update payment method or account restricted</li>
-            <li>7 days: Services suspended</li>
-            <li>14 days: Account data deleted</li>
-          </ul>
+          <p>If a recurring charge to your card fails, we retry for a short grace period. If it still hasn't succeeded by the end of that window, your account automatically reverts to the Free tier — no service suspension, no debt, no collections. You keep your data and can upgrade again anytime once you update your payment method.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">6. Refunds</h2>
           <p>Shopenter subscriptions are <strong>non-refundable</strong> once paid. Exceptions (14-day window):</p>
@@ -75,7 +76,7 @@ export default function TermsPage() {
           </ul>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">9. Service Level Agreement (SLA)</h2>
-          <p>We target 99.9% uptime. If we fall below this monthly, Pro tier merchants receive a 10% credit, Enterprise receives custom remediation.</p>
+          <p>We target high platform uptime. If you experience a major outage, contact <a href="mailto:support@shopenter.app" className="text-green-600 hover:underline">support@shopenter.app</a> — remediation, including service credits where appropriate, is evaluated case by case. Enterprise customers may negotiate a formal SLA with specific remediation terms.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">10. Chargeback Fraud</h2>
           <p>If you file a chargeback for items you received:</p>

@@ -21,6 +21,13 @@ const MerchantSchema = new mongoose.Schema({
   acceptedTermsVersion: { type: String, default: null },
   deletionRequestedAt: { type: Date, default: null },
   deletionScheduledFor: { type: Date, default: null, index: true },
+  // Omise subscription billing (Merchant -> Shopenter)
+  omiseCustomerId: { type: String, default: null },
+  subscriptionStatus: { type: String, enum: ['none', 'active', 'past_due', 'canceled'], default: 'none' },
+  nextBillingDate: { type: Date, default: null },
+  pastDueSince: { type: Date, default: null },
+  paymentMethodBrand: { type: String, default: null },
+  paymentMethodLast4: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 MerchantSchema.index({ referralCode: 1 });
@@ -520,7 +527,7 @@ const AuditLogSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   action: {
     type: String,
-    enum: ['login', 'logout', 'api_call', 'data_export', 'settings_change', 'product_create', 'product_update', 'product_delete', 'order_create', 'order_update', 'account_deletion_requested', 'account_deletion_cancelled', 'account_deleted'],
+    enum: ['login', 'logout', 'api_call', 'data_export', 'settings_change', 'product_create', 'product_update', 'product_delete', 'order_create', 'order_update', 'account_deletion_requested', 'account_deletion_cancelled', 'account_deleted', 'subscription_started', 'subscription_renewed', 'subscription_canceled', 'subscription_charge_failed', 'subscription_downgraded'],
     required: true,
     index: true
   },

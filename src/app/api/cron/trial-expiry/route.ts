@@ -14,11 +14,11 @@ async function rewardsEarnedInRollingYear(referrerMerchantId: any): Promise<numb
   });
 }
 
-// Returns whether the reward was actually applied. There's no real billing
-// integration yet, so the only safe way to grant "free Pro time" is via the
-// trial mechanism — which only makes sense for a referrer who isn't already
-// a genuine paying customer (otherwise the next expiry sweep would wrongly
-// downgrade them to free once the bonus period lapses).
+// Returns whether the reward was actually applied. Rewards are granted as
+// "free Pro time" via the trial mechanism rather than a real refund/credit,
+// which only makes sense for a referrer who isn't already a genuine paying
+// customer (otherwise the next expiry sweep would wrongly downgrade them to
+// free once the bonus period lapses).
 async function applyReferrerReward(referrerMerchantId: any): Promise<boolean> {
   const referrer = await Merchant.findById(referrerMerchantId);
   if (!referrer) return false;

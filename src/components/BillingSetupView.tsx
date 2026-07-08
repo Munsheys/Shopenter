@@ -6,17 +6,29 @@ import { CreditCard, Check, AlertCircle, Loader, Zap, Package, Users, TrendingUp
 interface BillingSetupProps {
   theme: 'light' | 'lite' | 'dark';
   tier: string;
-  onTierChange?: (tier: string) => void;
+  subscriptionStatus?: string;
+  nextBillingDate?: string | null;
+  paymentMethodBrand?: string | null;
+  paymentMethodLast4?: string | null;
+  onSubscriptionChange?: (update: { tier: string; subscriptionStatus?: string; nextBillingDate?: string | null; paymentMethodBrand?: string | null; paymentMethodLast4?: string | null }) => void;
 }
 
-export default function BillingSetupView({ theme, tier = 'free', onTierChange }: BillingSetupProps) {
+export default function BillingSetupView({
+  theme,
+  tier = 'free',
+  subscriptionStatus,
+  nextBillingDate,
+  paymentMethodBrand,
+  paymentMethodLast4,
+  onSubscriptionChange,
+}: BillingSetupProps) {
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedTier, setSelectedTier] = useState(tier);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'promptpay'>('card');
   const [showComparison, setShowComparison] = useState(false);
+  const [card, setCard] = useState({ name: '', number: '', expMonth: '', expYear: '', cvc: '' });
 
   const surface = isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-slate-200';
   const text = isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-slate-900';
@@ -66,7 +78,6 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
         { icon: <Zap size={16} />, label: '50 campaigns', highlight: true },
         { icon: <Users size={16} />, label: 'Discount codes', highlight: true },
         { icon: <Package size={16} />, label: 'Loyalty program', highlight: true },
-        { icon: <Package size={16} />, label: 'CSV export', highlight: true },
         { icon: <Users size={16} />, label: 'Priority support', highlight: true },
       ],
       limits: { products: 500, ordersPerMonth: 10000, campaigns: 50 },
@@ -91,14 +102,61 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
     },
   ];
 
+  const handleDowngradeToFree = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/billing/cancel', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to cancel subscription');
+      // No refund/proration — access continues on the current tier until the
+      // already-paid period ends, then the billing cycle cron drops it to Free.
+      onSubscriptionChange?.({ tier, subscriptionStatus: data.subscriptionStatus, nextBillingDate: data.accessUntil });
+    } catch (err: any) {
+      setError(err.message || 'Failed to cancel subscription');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const tokenizeCard = async (): Promise<string> => {
+    const publicKey = process.env.NEXT_PUBLIC_OMISE_PUBLIC_KEY;
+    if (!publicKey) throw new Error('Payments are not configured yet. Please contact support.');
+
+    const res = await fetch('https://vault.omise.co/tokens', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + btoa(`${publicKey}:`),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        'card[name]': card.name,
+        'card[number]': card.number.replace(/\s+/g, ''),
+        'card[expiration_month]': card.expMonth,
+        'card[expiration_year]': card.expYear,
+        'card[security_code]': card.cvc,
+      }),
+    });
+    const token = await res.json();
+    if (!res.ok || token.object === 'error') {
+      throw new Error(token.message || 'Card details were rejected. Please check and try again.');
+    }
+    return token.id;
+  };
+
   const handleUpgrade = async () => {
     if (selectedTier === 'free') {
-      onTierChange?.(selectedTier);
+      await handleDowngradeToFree();
       return;
     }
 
     if (selectedTier === 'enterprise') {
-      alert('Please contact sales@shopenter.com for Enterprise pricing');
+      alert('Please contact sales@shopenter.app for Enterprise pricing');
+      return;
+    }
+
+    if (!card.name || !card.number || !card.expMonth || !card.expYear || !card.cvc) {
+      setError('Enter your full card details to upgrade.');
       return;
     }
 
@@ -106,16 +164,23 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
     setError('');
 
     try {
+      const omiseCardToken = await tokenizeCard();
+
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier: selectedTier, paymentMethod }),
+        body: JSON.stringify({ tier: selectedTier, omiseCardToken }),
       });
 
-      if (!res.ok) throw new Error('Failed to initiate payment');
-      const { paymentUrl } = await res.json();
-      if (paymentUrl) window.location.href = paymentUrl;
-      else onTierChange?.(selectedTier);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to charge your card');
+
+      onSubscriptionChange?.({
+        tier: data.tier,
+        subscriptionStatus: data.subscriptionStatus,
+        nextBillingDate: data.nextBillingDate,
+      });
+      setCard({ name: '', number: '', expMonth: '', expYear: '', cvc: '' });
     } catch (err: any) {
       setError(err.message || 'Failed to upgrade tier');
     } finally {
@@ -312,7 +377,6 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
                       { label: 'Campaigns', free: '2', pro: '50', ent: 'Unlimited' },
                       { label: 'Discount Codes', free: '✗', pro: '✓', ent: '✓' },
                       { label: 'Loyalty Program', free: '✗', pro: '✓', ent: '✓' },
-                      { label: 'CSV Export', free: '✗', pro: '✓', ent: '✓' },
                     ].map((row, i) => (
                       <tr key={i} className={`border-b last:border-b-0`}>
                         <td className={`px-4 py-3 text-xs font-semibold ${mutedStrong}`}>
@@ -336,35 +400,56 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
           )}
         </div>
 
-        {/* Payment Method Section */}
-        {selectedTier !== 'free' && selectedTier !== 'enterprise' && (
+        {/* Card Details Section */}
+        {selectedTier !== 'free' && selectedTier !== 'enterprise' && selectedTier !== tier && (
           <div className={`mb-6 rounded-2xl border p-4 ${surface}`}>
-            <h4 className={`text-base font-black mb-3 ${text}`}>
-              Payment Method
+            <h4 className={`text-base font-black mb-3 flex items-center gap-2 ${text}`}>
+              <CreditCard size={18} /> Card Details
             </h4>
-            <div className="space-y-3">
-              {[
-                { id: 'card', label: 'Credit/Debit Card', desc: 'Visa, Mastercard, American Express', icon: '💳' },
-                { id: 'promptpay', label: 'PromptPay', desc: 'Instant bank transfer (Thailand)', icon: '🏦' },
-              ].map((method: any) => (
-                <label key={method.id} className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all ${
-                  paymentMethod === method.id ? radioSelected : radioUnselected
-                }`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value={method.id}
-                    checked={paymentMethod === method.id}
-                    onChange={(e) => setPaymentMethod(e.target.value as any)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-semibold text-sm ${text}`}>{method.label}</p>
-                    <p className={`text-xs ${mutedStrong}`}>{method.desc}</p>
-                  </div>
-                  <span className="text-lg flex-shrink-0">{method.icon}</span>
-                </label>
-              ))}
+            <p className={`text-xs mb-4 ${mutedStrong}`}>Billed monthly via our payment processor, Omise. We never see or store your full card number.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input
+                type="text"
+                placeholder="Name on card"
+                value={card.name}
+                onChange={(e) => setCard({ ...card, name: e.target.value })}
+                className={`sm:col-span-2 px-3 py-2 rounded-xl text-sm border ${radioUnselected} ${text}`}
+              />
+              <input
+                type="text"
+                placeholder="Card number"
+                inputMode="numeric"
+                value={card.number}
+                onChange={(e) => setCard({ ...card, number: e.target.value })}
+                className={`sm:col-span-2 px-3 py-2 rounded-xl text-sm border ${radioUnselected} ${text}`}
+              />
+              <input
+                type="text"
+                placeholder="MM"
+                inputMode="numeric"
+                maxLength={2}
+                value={card.expMonth}
+                onChange={(e) => setCard({ ...card, expMonth: e.target.value })}
+                className={`px-3 py-2 rounded-xl text-sm border ${radioUnselected} ${text}`}
+              />
+              <input
+                type="text"
+                placeholder="YYYY"
+                inputMode="numeric"
+                maxLength={4}
+                value={card.expYear}
+                onChange={(e) => setCard({ ...card, expYear: e.target.value })}
+                className={`px-3 py-2 rounded-xl text-sm border ${radioUnselected} ${text}`}
+              />
+              <input
+                type="text"
+                placeholder="CVC"
+                inputMode="numeric"
+                maxLength={4}
+                value={card.cvc}
+                onChange={(e) => setCard({ ...card, cvc: e.target.value })}
+                className={`sm:col-span-2 px-3 py-2 rounded-xl text-sm border ${radioUnselected} ${text}`}
+              />
             </div>
           </div>
         )}
@@ -411,14 +496,38 @@ export default function BillingSetupView({ theme, tier = 'free', onTierChange }:
           </button>
         </div>
 
-        {/* Billing History */}
+        {/* Subscription Status */}
         <div className={`rounded-2xl border p-4 ${surface}`}>
           <h4 className={`text-base font-black mb-3 ${text}`}>
-            Billing History
+            Subscription Status
           </h4>
-          <div className={`text-center py-6 ${mutedStrong}`}>
-            <p className="text-xs">No invoices yet. Your billing history will appear here after your first payment.</p>
-          </div>
+          {subscriptionStatus && subscriptionStatus !== 'none' ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className={mutedStrong}>Status</span>
+                <span className={`font-semibold capitalize ${text}`}>{subscriptionStatus.replace('_', ' ')}</span>
+              </div>
+              {paymentMethodBrand && paymentMethodLast4 && (
+                <div className="flex justify-between">
+                  <span className={mutedStrong}>Card on file</span>
+                  <span className={`font-semibold ${text}`}>{paymentMethodBrand} •••• {paymentMethodLast4}</span>
+                </div>
+              )}
+              {nextBillingDate && (
+                <div className="flex justify-between">
+                  <span className={mutedStrong}>Next charge</span>
+                  <span className={`font-semibold ${text}`}>{new Date(nextBillingDate).toLocaleDateString()}</span>
+                </div>
+              )}
+              {subscriptionStatus === 'past_due' && (
+                <p className="text-xs text-red-500 mt-2">Your last charge failed. We'll retry automatically — update your card above to avoid reverting to the Free tier.</p>
+              )}
+            </div>
+          ) : (
+            <div className={`text-center py-6 ${mutedStrong}`}>
+              <p className="text-xs">You&apos;re on the Free tier — no active subscription.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

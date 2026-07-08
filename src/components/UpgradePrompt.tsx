@@ -12,16 +12,14 @@ const FEATURE_INFO: Record<string, { label: string; icon: React.ReactNode; descr
   ordersPerMonth: { label: 'Monthly Orders',        icon: <Package size={20} />,     description: 'Process unlimited orders per month' },
   discountCodes:  { label: 'Discount Codes',        icon: <Tag size={20} />,         description: 'Create coupon codes for your customers' },
   loyalty:        { label: 'Loyalty Points',        icon: <Star size={20} />,        description: 'Reward customers with a loyalty points program' },
-  csvExport:      { label: 'CSV Export',            icon: <Package size={20} />,     description: 'Export orders and customers as CSV files' },
 };
 
 const PRO_FEATURES = [
-  'Unlimited products (up to 500)',
+  'Up to 500 products',
   'Unlimited broadcast campaigns',
-  'Unlimited auto-reply rules',
+  'Up to 100 auto-reply rules',
   'Discount codes & coupons',
   'Loyalty points program',
-  'CSV export for orders & customers',
 ];
 
 interface UpgradePromptProps {
@@ -131,7 +129,7 @@ export default function UpgradePrompt({ feature, limit, current, onClose, theme 
             </button>
           </div>
           <p className={`text-center text-[11px] mt-3 ${isDark ? 'text-[#8b92ad]' : 'text-[#6b7280]'}`}>
-            Contact support to upgrade your plan
+            Upgrade instantly by card — cancel anytime
           </p>
         </div>
       </div>

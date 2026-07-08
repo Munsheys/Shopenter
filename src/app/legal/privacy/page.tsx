@@ -17,6 +17,8 @@ export default function PrivacyPage() {
         <p className="text-gray-600 text-sm mb-8">Effective Date: July 1, 2026 • Last Updated: June 28, 2026</p>
 
         <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+          <p>This Privacy Policy is issued by <strong>Shopenter Limited (company registration pending)</strong> ("Shopenter", "we", "us"), a company organized in Thailand.</p>
+
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Overview</h2>
           <p>Shopenter takes your privacy seriously. This policy explains what data we collect, how we use it, who we share it with, and your rights.</p>
 
@@ -24,8 +26,7 @@ export default function PrivacyPage() {
           <p><strong>Data You Provide:</strong></p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Account info (name, email, shop name, phone)</li>
-            <li>Business info (tax ID, business license)</li>
-            <li>Payment methods (processed by payment provider)</li>
+            <li>Payment methods (processed by our payment provider, Omise — we do not store your full card number)</li>
             <li>Product listings and descriptions</li>
             <li>Customer data (names, emails, delivery addresses, order history)</li>
           </ul>
@@ -58,13 +59,12 @@ export default function PrivacyPage() {
           <p><strong>Shared With (for service delivery):</strong></p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Vercel (hosting)</li>
-            <li>MongoDB (database)</li>
-            <li>AWS (file storage)</li>
-            <li>Google Analytics (anonymized usage)</li>
-            <li>Cloudflare (security)</li>
-            <li>SendGrid (email delivery)</li>
-            <li>LINE (account linking)</li>
+            <li>MongoDB Atlas (database)</li>
+            <li>Cloudflare R2 (file storage)</li>
+            <li>Omise (subscription payment processing)</li>
+            <li>LINE (login and messaging)</li>
           </ul>
+          <p className="mt-4">We only list providers we actually use. This list will be updated as we add others (e.g. error monitoring, analytics), with notice per our <Link href="/legal/dpa" className="text-green-600 hover:underline">Data Processing Agreement</Link>.</p>
           <p className="mt-4"><strong>NOT Shared With:</strong></p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Third-party advertisers</li>
@@ -84,12 +84,12 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">6. Security</h2>
           <p>We protect your data with:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>AES-256 encryption in transit and at rest</li>
-            <li>bcrypt password hashing (12 rounds)</li>
-            <li>Regular security audits</li>
-            <li>24/7 monitoring</li>
-            <li>SOC 2 Type II compliance</li>
+            <li>TLS encryption in transit</li>
+            <li>Encryption at rest for sensitive stored credentials</li>
+            <li>bcrypt password hashing</li>
+            <li>Regular internal security review</li>
           </ul>
+          <p className="mt-4">We do not currently hold SOC 2 or ISO 27001 certification. See our <Link href="/legal/dpa" className="text-green-600 hover:underline">Data Processing Agreement</Link> §12 for details.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">7. Your Privacy Rights</h2>
           <p><strong>You have the right to:</strong></p>
@@ -104,12 +104,7 @@ export default function PrivacyPage() {
           <p className="mt-4">To exercise these rights, email <a href="mailto:privacy@shopenter.app" className="text-green-600 hover:underline">privacy@shopenter.app</a></p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">8. Cookies</h2>
-          <p>We use cookies for:</p>
-          <ul className="list-disc list-inside space-y-2 ml-4">
-            <li><strong>Necessary:</strong> Login, CSRF protection (required)</li>
-            <li><strong>Analytics:</strong> Google Analytics (optional, max 7 days)</li>
-            <li><strong>Marketing:</strong> Pixel tracking (optional, requires opt-in)</li>
-          </ul>
+          <p>We currently use only <strong>necessary cookies</strong> — for login sessions and security — which don't require consent under GDPR/PDPA. We do not currently use analytics or marketing cookies. If we add any in the future, our cookie banner will ask for your opt-in consent before they're set, and this section will be updated to describe them.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">9. International Data Transfers</h2>
           <p><strong>Where Data is Stored:</strong></p>

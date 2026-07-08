@@ -3,7 +3,6 @@ export const TIER_LIMITS = {
     products: 10,
     ordersPerMonth: 100,
     autoReplies: 3,
-    csvExport: false,
     discountCodes: false,
     loyalty: false,
     affiliateProgram: false,
@@ -12,7 +11,6 @@ export const TIER_LIMITS = {
     products: 500,
     ordersPerMonth: 10000,
     autoReplies: 100,
-    csvExport: true,
     discountCodes: true,
     loyalty: true,
     affiliateProgram: true,
@@ -21,7 +19,6 @@ export const TIER_LIMITS = {
     products: -1,
     ordersPerMonth: -1,
     autoReplies: -1,
-    csvExport: true,
     discountCodes: true,
     loyalty: true,
     affiliateProgram: true,
@@ -30,6 +27,16 @@ export const TIER_LIMITS = {
 
 export type Tier = keyof typeof TIER_LIMITS;
 export type TierFeature = keyof typeof TIER_LIMITS.free;
+
+// Only 'pro' is self-serve/card-billed via Omise. Enterprise pricing is arranged
+// individually and activated manually, not through the checkout flow.
+export const TIER_PRICE_THB: Partial<Record<Tier, number>> = {
+  pro: 299,
+};
+
+// How long a merchant can stay past_due (after a failed recurring charge)
+// before the cron auto-downgrades them to the free tier.
+export const BILLING_GRACE_PERIOD_DAYS = 3;
 
 export function checkCountLimit(
   tier: Tier,
@@ -45,7 +52,7 @@ export function checkCountLimit(
 
 export function checkBooleanFeature(
   tier: Tier,
-  feature: 'csvExport' | 'discountCodes' | 'loyalty' | 'affiliateProgram'
+  feature: 'discountCodes' | 'loyalty' | 'affiliateProgram'
 ): boolean {
   const limits = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
   return Boolean(limits[feature]);

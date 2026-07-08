@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Prompt } from "next/font/google";
 import "./globals.css";
 import Footer from "@/components/Footer";
+import CookieConsentBanner from "@/components/CookieConsentBanner";
 
 const promptFont = Prompt({
   weight: ['300', '400', '600', '700', '800'],
@@ -48,6 +49,7 @@ export default function RootLayout({
       <body suppressHydrationWarning className="min-h-full flex flex-col">
         {children}
         <Footer />
+        <CookieConsentBanner />
       </body>
     </html>
   );

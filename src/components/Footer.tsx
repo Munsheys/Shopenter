@@ -93,7 +93,7 @@ export default function Footer() {
         {/* Divider */}
         <div className="border-t border-gray-800 pt-8">
           <p className="text-sm text-gray-400 text-center">
-            © {new Date().getFullYear()} Shopenter Limited. All rights reserved. |
+            © {new Date().getFullYear()} Shopenter Limited (company registration pending). All rights reserved. |
             <a href="/.well-known/security.txt" className="text-gray-300 hover:text-white ml-2">
               Security
             </a>

@@ -17,6 +17,8 @@ export default function AupPage() {
         <p className="text-gray-600 text-sm mb-8">Effective Date: July 1, 2026 • Last Updated: June 28, 2026</p>
 
         <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+          <p>This policy is issued by <strong>Shopenter Limited (company registration pending)</strong> and forms part of our <Link href="/legal/terms" className="text-green-600 hover:underline">Terms of Service</Link>.</p>
+
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Purpose</h2>
           <p>This policy defines prohibited conduct on Shopenter. Violations may result in account suspension or termination without refund.</p>
 
