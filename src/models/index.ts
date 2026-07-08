@@ -19,6 +19,8 @@ const MerchantSchema = new mongoose.Schema({
   lastLoginMethod: { type: String, enum: ['email', 'line_oauth'], default: null },
   acceptedTermsAt: { type: Date, default: null },
   acceptedTermsVersion: { type: String, default: null },
+  deletionRequestedAt: { type: Date, default: null },
+  deletionScheduledFor: { type: Date, default: null, index: true },
   createdAt: { type: Date, default: Date.now }
 });
 MerchantSchema.index({ referralCode: 1 });
@@ -518,7 +520,7 @@ const AuditLogSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   action: {
     type: String,
-    enum: ['login', 'logout', 'api_call', 'data_export', 'settings_change', 'product_create', 'product_update', 'product_delete', 'order_create', 'order_update'],
+    enum: ['login', 'logout', 'api_call', 'data_export', 'settings_change', 'product_create', 'product_update', 'product_delete', 'order_create', 'order_update', 'account_deletion_requested', 'account_deletion_cancelled', 'account_deleted'],
     required: true,
     index: true
   },

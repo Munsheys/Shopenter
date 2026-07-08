@@ -11,7 +11,10 @@ export type AuditAction =
   | 'product_update'
   | 'product_delete'
   | 'order_create'
-  | 'order_update';
+  | 'order_update'
+  | 'account_deletion_requested'
+  | 'account_deletion_cancelled'
+  | 'account_deleted';
 
 export type AuditResource = 'merchant' | 'product' | 'order' | 'customer' | 'settings' | 'none';
 
@@ -49,12 +52,17 @@ export async function logAudit(
   req?: NextRequest
 ): Promise<void> {
   try {
+    const timestamp = new Date();
     const auditEntry = {
       ...entry,
       ip: entry.ip || (req ? getClientIp(req) : undefined),
       userAgent: entry.userAgent || req?.headers.get('user-agent'),
       resource: entry.resource || 'none',
-      timestamp: new Date(),
+      timestamp,
+      // The schema's TTL index adds its own 7-year offset to this field's value,
+      // so this must be the creation time itself, not timestamp + 7 years.
+      // Left null (the schema default), the TTL monitor never matches the doc.
+      retentionExpiresAt: timestamp,
     };
 
     await AuditLog.create(auditEntry);

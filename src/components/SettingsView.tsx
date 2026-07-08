@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { ALL_CURRENCIES } from '@/components/ProductManagement';
 import {
   Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check,
   ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle, Bell,
-  Building2, ChevronRight, Send, Camera,
+  Building2, ChevronRight, Send, Camera, Download, Trash2, ShieldAlert,
 } from 'lucide-react';
 import NumberStepper from '@/components/NumberStepper';
 import { getAccentText } from '@/lib/accent';
@@ -43,7 +44,7 @@ function Toggle({ enabled, onChange, isDark, label, disabled }: { enabled: boole
 }
 
 
-type SectionId = 'general' | 'line' | 'telegram' | 'instagram' | 'payment' | 'shipping' | 'notifications';
+type SectionId = 'general' | 'line' | 'telegram' | 'instagram' | 'payment' | 'shipping' | 'notifications' | 'account';
 
 interface LineStatus {
   configured: boolean;
@@ -241,6 +242,7 @@ export default function SettingsView({
   onDirtyChange?: (isDirty: boolean) => void;
   refreshTrigger?: number;
 }) {
+  const router = useRouter();
   const isDark = theme === 'dark';
   const isLite = theme === 'lite';
   const guideSurface = isDark ? 'bg-[#1a1d2e] border-[#1f2335]' : isLite ? 'bg-white border-slate-200' : 'bg-white border-[#e2e5ef]';
@@ -280,6 +282,13 @@ export default function SettingsView({
   const [lineStatus,   setLineStatus]   = useState<LineStatus | null>(null);
   const [checkingLine, setCheckingLine] = useState(false);
   const [merchantPlan, setMerchantPlan] = useState<{ tier: string; paymentStatus: string } | null>(null);
+  const [deletionScheduledFor, setDeletionScheduledFor] = useState<string | null>(null);
+  const [merchantShopName, setMerchantShopName] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
+  const [accountActionError, setAccountActionError] = useState('');
 
   const [showTgToken,       setShowTgToken]       = useState(false);
   const [tgActivating,      setTgActivating]      = useState(false);
@@ -307,7 +316,12 @@ export default function SettingsView({
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(setSettings).catch(() => {});
-    fetch('/api/merchant/me').then(r => r.ok ? r.json() : null).then(d => { if (d) setMerchantPlan({ tier: d.tier, paymentStatus: d.paymentStatus }); }).catch(() => {});
+    fetch('/api/merchant/me').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d) return;
+      setMerchantPlan({ tier: d.tier, paymentStatus: d.paymentStatus });
+      setDeletionScheduledFor(d.deletionScheduledFor ?? null);
+      setMerchantShopName(d.shopName ?? '');
+    }).catch(() => {});
     setWebhookUrl(`${window.location.origin}/api/webhook`);
     checkLine();
   }, [checkLine, refreshTrigger]);
@@ -344,7 +358,7 @@ export default function SettingsView({
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
       const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 24;
       container.scrollTo({ top, behavior: 'smooth' });
-      const sectionIds: SectionId[] = ['general', 'line', 'telegram', 'payment', 'shipping', 'notifications'];
+      const sectionIds: SectionId[] = ['general', 'line', 'telegram', 'payment', 'shipping', 'notifications', 'account'];
       const section = sectionIds.find(s => id === s || id.startsWith(s + '-')) ?? 'general';
       setActiveSection(section);
       scrollTimeoutRef.current = setTimeout(() => { isScrollingRef.current = false; }, 600);
@@ -354,7 +368,7 @@ export default function SettingsView({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const ids: SectionId[] = ['general', 'line', 'telegram', 'payment', 'shipping', 'notifications'];
+    const ids: SectionId[] = ['general', 'line', 'telegram', 'payment', 'shipping', 'notifications', 'account'];
     const observerCallback = (entries: IntersectionObserverEntry[]) => {
       if (isScrollingRef.current) return;
       const visible = entries.filter(e => e.isIntersecting).map(e => e.target.id as SectionId);
@@ -508,6 +522,75 @@ export default function SettingsView({
   const localAccentBg = settings?.dashboardAccentGradient || 'var(--accent)';
   const accentTextColor = getAccentText(settings?.dashboardAccent || '#00b900');
 
+  async function handleExportData() {
+    setIsExporting(true);
+    setAccountActionError('');
+    try {
+      const res = await fetch('/api/merchant/export');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAccountActionError(data.error || 'Failed to export data');
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="(.+)"/);
+      const filename = match?.[1] || 'shopenter-export.json';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setAccountActionError('Network error while exporting data');
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setIsDeletingAccount(true);
+    setAccountActionError('');
+    try {
+      const res = await fetch('/api/merchant/account/delete-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmShopName: deleteConfirmText }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAccountActionError(data.error || 'Failed to schedule account deletion');
+        return;
+      }
+      localStorage.removeItem('dash_merchant');
+      localStorage.removeItem('dash_settings');
+      router.push('/login');
+    } catch {
+      setAccountActionError('Network error while scheduling deletion');
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }
+
+  async function handleCancelDeletion() {
+    setIsCancellingDeletion(true);
+    setAccountActionError('');
+    try {
+      const res = await fetch('/api/merchant/account/cancel-deletion', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAccountActionError(data.error || 'Failed to cancel deletion');
+        return;
+      }
+      setDeletionScheduledFor(null);
+      setDeleteConfirmText('');
+    } catch {
+      setAccountActionError('Network error while cancelling deletion');
+    } finally {
+      setIsCancellingDeletion(false);
+    }
+  }
+
   const inputCls  = `w-full rounded-xl px-4 py-3 text-sm border transition-colors focus-glow ${K.inp}`;
   const inputMono = `${inputCls} font-mono text-xs pr-12`;
   const lbl       = `block text-xs font-bold uppercase tracking-widest mb-2 ${K.muted}`;
@@ -524,6 +607,7 @@ export default function SettingsView({
     { id: 'payment',       label: 'Payment',       icon: <Zap           size={14} />, desc: 'Methods, SlipOK & loyalty'  },
     { id: 'shipping',      label: 'Shipping',      icon: <Package       size={14} />, desc: 'Rates & companies'          },
     { id: 'notifications', label: 'Notifications', icon: <Bell          size={14} />, desc: 'Alerts & templates'         },
+    { id: 'account',       label: 'Account',       icon: <ShieldAlert   size={14} />, desc: 'Export data & delete account' },
   ];
 
   const isSettingsLoading = !settings;
@@ -1847,6 +1931,93 @@ export default function SettingsView({
                   )}
                 </div>
 
+              </div>
+
+              {/* ── Account: data export & deletion ─────────────────────────── */}
+              <div id="account" className="space-y-6 animate-scale-in">
+                <div className={`flex items-center gap-2 ${hlCls('account')}`}>
+                  <ShieldAlert size={15} className="text-accent" />
+                  <h2 className={`text-base font-bold ${K.text}`}>Account</h2>
+                </div>
+
+                {accountActionError && (
+                  <div role="alert" className="px-4 py-3 rounded-xl text-xs bg-red-500/10 border border-red-500/20 text-red-500">
+                    {accountActionError}
+                  </div>
+                )}
+
+                {deletionScheduledFor && (
+                  <div className={`rounded-2xl p-6 space-y-3 border ${isDark ? 'bg-red-500/10 border-red-500/30' : 'bg-red-50 border-red-200'}`}>
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle size={15} className="text-red-500" />
+                      <p className="text-sm font-bold text-red-500">Account scheduled for deletion</p>
+                    </div>
+                    <p className={`text-xs ${K.muted}`}>
+                      Your account and all data will be permanently deleted on{' '}
+                      <strong>{new Date(deletionScheduledFor).toLocaleDateString()}</strong>. Export your data before then if you need it — after deletion, recovery is not possible.
+                    </p>
+                    <button
+                      disabled={isCancellingDeletion}
+                      onClick={handleCancelDeletion}
+                      className="px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-2"
+                      style={{ background: 'var(--accent-gradient)' }}
+                    >
+                      {isCancellingDeletion ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                      Cancel deletion
+                    </button>
+                  </div>
+                )}
+
+                {/* Export data */}
+                <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
+                  <div>
+                    <p className={`text-sm font-semibold ${K.text}`}>Export your data</p>
+                    <p className={`text-xs mt-1 ${K.muted}`}>
+                      Download a complete copy of your products, customers, and orders as a JSON file. Free, available anytime.
+                    </p>
+                  </div>
+                  <button
+                    disabled={isExporting}
+                    onClick={handleExportData}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors disabled:opacity-50 ${isDark ? 'border-[#1f2335] text-white hover:border-accent' : 'border-slate-200 text-slate-700 hover:border-accent'}`}
+                  >
+                    {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    {isExporting ? 'Preparing export...' : 'Download my data'}
+                  </button>
+                </div>
+
+                {/* Danger zone: delete account */}
+                {!deletionScheduledFor && (
+                  <div className={`rounded-2xl p-6 space-y-4 border ${isDark ? 'border-red-500/20' : 'border-red-200'}`}>
+                    <div>
+                      <p className="text-sm font-semibold text-red-500">Delete account</p>
+                      <p className={`text-xs mt-1 ${K.muted}`}>
+                        This permanently deletes your shop, products, customers, and orders after a 30-day grace period. You can cancel anytime before then. This cannot be undone after the grace period ends.
+                      </p>
+                    </div>
+                    <div>
+                      <label className={lbl}>
+                        Type your shop name (<span className={K.text}>{merchantShopName}</span>) to confirm
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteConfirmText}
+                        onChange={e => setDeleteConfirmText(e.target.value)}
+                        placeholder={merchantShopName}
+                        className={inputCls}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <button
+                      disabled={isDeletingAccount || deleteConfirmText.trim().toLowerCase() !== merchantShopName.trim().toLowerCase()}
+                      onClick={handleDeleteAccount}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
+                    >
+                      {isDeletingAccount ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      Delete my account
+                    </button>
+                  </div>
+                )}
               </div>
 
               </>
