@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const MerchantSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  passwordHash: { type: String, required: true },
+  passwordHash: { type: String, required: false }, // Null for LINE OAuth users
   shopName: { type: String, required: true },
   slug: { type: String, unique: true, sparse: true, lowercase: true },
   tier: { type: String, enum: ['free', 'pro', 'enterprise'], default: 'free' },
@@ -11,10 +11,17 @@ const MerchantSchema = new mongoose.Schema({
   trialReason: { type: String, enum: ['signup', 'referral', 'affiliate_reward'], default: 'signup' },
   referralCode: { type: String, unique: true, sparse: true, lowercase: true, match: /^[a-z0-9]{12}$/ },
   referredByMerchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', default: null },
+  // LINE OAuth fields
+  lineUserId: { type: String, unique: true, sparse: true, index: true }, // LINE User ID
+  lineAccessToken: { type: String, default: '' }, // Encrypted if sensitive
+  authMethod: { type: String, enum: ['email', 'line_oauth'], default: 'email' },
+  lastLoginAt: { type: Date, default: null },
+  lastLoginMethod: { type: String, enum: ['email', 'line_oauth'], default: null },
   createdAt: { type: Date, default: Date.now }
 });
 MerchantSchema.index({ referralCode: 1 });
 MerchantSchema.index({ referredByMerchantId: 1 });
+MerchantSchema.index({ lineUserId: 1 });
 
 const NotificationSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
