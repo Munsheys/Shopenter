@@ -7,6 +7,7 @@ import { enqueueCustomerUpdate } from '@/lib/customerQueue';
 import { notifyMerchant } from '@/lib/notifyMerchant';
 import { searchProducts } from '@/lib/intentSearch';
 import { awardLoyaltyForOrder } from '@/lib/loyalty';
+import { buildGreetingMessages, buildReEngageMessages, buildStorefrontUrl } from '@/lib/engagementMessages';
 
 export const runtime = 'nodejs';
 
@@ -165,6 +166,10 @@ export async function POST(req: Request) {
     // Pre-load auto-reply rules once per webhook payload (shared across events)
     const autoReplyRules = await AutoReply.find({ merchantId, isActive: true }).sort({ priority: 1 }).lean();
 
+    // Resolve the storefront URL once per payload (shared across events) for greeting/re-engage links
+    const merchantForLink = await Merchant.findById(merchantId).select('slug').lean() as any;
+    const storefrontUrl = buildStorefrontUrl(merchantForLink?.slug, merchantId);
+
     for (const event of events) {
       const userId = event.source?.userId;
       if (!userId || userId === 'Udeadbeefdeadbeefdeadbeefdeadbeef') continue;
@@ -205,16 +210,7 @@ export async function POST(req: Request) {
 
         // Send greeting if enabled, using reply token (free)
         if (matchedSettings?.greetingEnabled && event.replyToken) {
-          const useCustom = matchedSettings?.greetingCustom === true ||
-            (matchedSettings?.greetingCustom == null && (matchedSettings?.greetingMessages?.length ?? 0) > 0);
-          let greetingMsgs: any[];
-          if (useCustom && matchedSettings?.greetingMessages?.length > 0) {
-            greetingMsgs = matchedSettings.greetingMessages.slice(0, 5).map(toLineMessage);
-          } else {
-            const shopName = matchedSettings?.shopName || 'Our Shop';
-            const defaultText = (matchedSettings as any)?.defaultWelcomeMessage?.trim() || `Welcome to ${shopName}! 🛍️`;
-            greetingMsgs = [{ type: 'text', text: defaultText }];
-          }
+          const greetingMsgs = buildGreetingMessages(matchedSettings as any, storefrontUrl);
           let greetingSent = false;
           try {
             await client.replyMessage({ replyToken: event.replyToken, messages: greetingMsgs });
@@ -299,16 +295,7 @@ export async function POST(req: Request) {
           // Re-engagement message after 24h absence
           const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
           if (prevLastSeen && prevLastSeen < twentyFourHoursAgo && matchedSettings?.reEngageEnabled && event.replyToken) {
-            const useCustom = (matchedSettings as any)?.reEngageCustom === true ||
-              ((matchedSettings as any)?.reEngageCustom == null && (matchedSettings?.reEngageMessages?.length ?? 0) > 0);
-            let reEngageMsgs: any[];
-            if (useCustom && matchedSettings?.reEngageMessages?.length > 0) {
-              reEngageMsgs = matchedSettings.reEngageMessages.slice(0, 5).map(toLineMessage);
-            } else {
-              const shopName = matchedSettings?.shopName || 'Our Shop';
-              const defaultText = (matchedSettings as any)?.defaultReEngageMessage?.trim() || `Welcome back to ${shopName}! 👋 We've missed you.`;
-              reEngageMsgs = [{ type: 'text', text: defaultText }];
-            }
+            const reEngageMsgs = buildReEngageMessages(matchedSettings as any, storefrontUrl);
             try {
               await client.replyMessage({ replyToken: event.replyToken, messages: reEngageMsgs });
               const logTexts = reEngageMsgs.map((m: any) => m.text || blockToLogText(m)).filter(Boolean);

@@ -655,6 +655,29 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [defaultSaving, setDefaultSaving] = useState(false);
   const [defaultSaved, setDefaultSaved] = useState(false);
 
+  // Greeting / re-engage test-send
+  const [testSending, setTestSending] = useState<'greeting' | 'reengage' | null>(null);
+  const [testResult, setTestResult] = useState<{ kind: 'greeting' | 'reengage'; ok: boolean; message: string } | null>(null);
+
+  async function sendTestMessage(kind: 'greeting' | 'reengage') {
+    setTestSending(kind);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/greeting/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind }),
+      });
+      const data = await res.json();
+      setTestResult({ kind, ok: res.ok, message: res.ok ? 'Test message sent to your Admin LINE ID' : (data.error || 'Failed to send test message') });
+    } catch {
+      setTestResult({ kind, ok: false, message: 'Network error' });
+    } finally {
+      setTestSending(null);
+      setTimeout(() => setTestResult(null), 4000);
+    }
+  }
+
   // Smart search test
   const [searchTestQuery, setSearchTestQuery] = useState('');
   const [searchTestResult, setSearchTestResult] = useState<{ tokens: string[]; products: any[] } | null>(null);
@@ -1610,18 +1633,40 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                   </button>
                 </div>
               </div>
-              <button
-                disabled={defaultSaving}
-                onClick={async () => {
-                  setDefaultSaving(true);
-                  await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ defaultWelcomeMessage: defaultWelcome.message, defaultWelcomeStorefrontLink: defaultWelcome.storefrontLink, defaultReEngageMessage: defaultReEngage.message, defaultReEngageStorefrontLink: defaultReEngage.storefrontLink }) });
-                  setDefaultSaving(false); setDefaultSaved(true); setTimeout(() => setDefaultSaved(false), 2000);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
-                style={{ background: 'var(--accent-gradient)' }}
-              >
-                {defaultSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{defaultSaved ? 'Saved!' : 'Save Defaults'}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  disabled={defaultSaving}
+                  onClick={async () => {
+                    setDefaultSaving(true);
+                    await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ defaultWelcomeMessage: defaultWelcome.message, defaultWelcomeStorefrontLink: defaultWelcome.storefrontLink, defaultReEngageMessage: defaultReEngage.message, defaultReEngageStorefrontLink: defaultReEngage.storefrontLink }) });
+                    setDefaultSaving(false); setDefaultSaved(true); setTimeout(() => setDefaultSaved(false), 2000);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                  style={{ background: 'var(--accent-gradient)' }}
+                >
+                  {defaultSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{defaultSaved ? 'Saved!' : 'Save Defaults'}
+                </button>
+                <button
+                  disabled={testSending === 'greeting'}
+                  onClick={() => sendTestMessage('greeting')}
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border transition-colors disabled:opacity-50 ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent' : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:border-accent'}`}
+                >
+                  {testSending === 'greeting' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                  Test welcome
+                </button>
+                <button
+                  disabled={testSending === 'reengage'}
+                  onClick={() => sendTestMessage('reengage')}
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border transition-colors disabled:opacity-50 ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent' : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:border-accent'}`}
+                >
+                  {testSending === 'reengage' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                  Test re-engagement
+                </button>
+                {(testResult?.kind === 'greeting' || testResult?.kind === 'reengage') && (
+                  <span className={`text-xs ${testResult.ok ? 'text-emerald-500' : 'text-red-500'}`}>{testResult.message}</span>
+                )}
+              </div>
+              <p className={`text-[10px] ${k.muted}`}>Test messages are sent to your Admin LINE ID (set in Settings) using whichever message is currently active — default or, if a LINE override is enabled, the custom one.</p>
             </div>
 
             {/* ── Per-platform overrides ── */}
@@ -1676,6 +1721,19 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                           <Info size={11} className={`${k.muted} mt-0.5 flex-shrink-0`} />
                           <p className={`text-[11px] ${k.muted}`}>To include a storefront link, add an Image block with a URI action or embed the URL in a Text block.</p>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            disabled={testSending === 'greeting'}
+                            onClick={() => sendTestMessage('greeting')}
+                            className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent' : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:border-accent'}`}
+                          >
+                            {testSending === 'greeting' ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                            Send test to my Admin LINE ID
+                          </button>
+                          {testResult?.kind === 'greeting' && (
+                            <span className={`text-[11px] ${testResult.ok ? 'text-emerald-500' : 'text-red-500'}`}>{testResult.message}</span>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>
@@ -1692,12 +1750,31 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                       </button>
                     </div>
                     {lineReEngage.enabled && (
-                      <BlockComposer
-                        blocks={lineReEngage.messages.length > 0 ? lineReEngage.messages : [{ type: 'text', text: '' }]}
-                        onChange={msgs => setLineReEngage(r => ({ ...r, messages: msgs }))}
-                        isDark={isDark}
-                        isLite={isLite}
-                      />
+                      <>
+                        <BlockComposer
+                          blocks={lineReEngage.messages.length > 0 ? lineReEngage.messages : [{ type: 'text', text: '' }]}
+                          onChange={msgs => setLineReEngage(r => ({ ...r, messages: msgs }))}
+                          isDark={isDark}
+                          isLite={isLite}
+                        />
+                        <div className={`flex items-start gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-[#161925]' : 'bg-white'}`}>
+                          <Info size={11} className={`${k.muted} mt-0.5 flex-shrink-0`} />
+                          <p className={`text-[11px] ${k.muted}`}>To include a storefront link, add an Image block with a URI action or embed the URL in a Text block.</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            disabled={testSending === 'reengage'}
+                            onClick={() => sendTestMessage('reengage')}
+                            className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white hover:border-accent' : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:border-accent'}`}
+                          >
+                            {testSending === 'reengage' ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                            Send test to my Admin LINE ID
+                          </button>
+                          {testResult?.kind === 'reengage' && (
+                            <span className={`text-[11px] ${testResult.ok ? 'text-emerald-500' : 'text-red-500'}`}>{testResult.message}</span>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
 

@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const limitCheck = await checkAuthLimit(ip);
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too many login attempts. Please try again later.', retryAfter: limitCheck.retryAfter },
+        { status: 429, headers: { 'Retry-After': String(limitCheck.retryAfter) } }
+      );
+    }
+
     const channelId = process.env.LINE_CHANNEL_ID;
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app'}/api/auth/line/callback`;
 

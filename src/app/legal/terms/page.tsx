@@ -52,7 +52,7 @@ export default function TermsPage() {
           <p>Shopenter subscriptions are <strong>non-refundable</strong> once paid. Exceptions (14-day window):</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Billing errors</li>
-            <li>Major service outages (>72 hours)</li>
+            <li>Major service outages ({'>'}72 hours)</li>
             <li>Fraud (unauthorized charges)</li>
           </ul>
 

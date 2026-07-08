@@ -4,7 +4,6 @@ import { Product, Merchant } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
 import { ProductSchema } from '@/lib/validation';
-import { validateCsrfMiddleware } from '@/lib/csrf';
 import { logAudit } from '@/lib/auditLog';
 
 export const runtime = 'nodejs';
@@ -23,12 +22,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // CSRF validation
-  const csrfCheck = validateCsrfMiddleware(req);
-  if (!csrfCheck.valid) {
-    return NextResponse.json({ error: csrfCheck.error }, { status: 403 });
-  }
-
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -57,7 +50,7 @@ export async function POST(req: NextRequest) {
     // Validate input with Zod
     const validation = ProductSchema.safeParse(body);
     if (!validation.success) {
-      const errors = validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+      const errors = validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`);
       return NextResponse.json({ error: errors.join('; ') }, { status: 400 });
     }
 

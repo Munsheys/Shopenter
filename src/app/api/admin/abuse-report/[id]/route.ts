@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { AbuseReport, Merchant, ViolationHistory } from '@/models';
-import { getMerchantFromRequest } from '@/lib/auth';
-import { validateCsrfMiddleware } from '@/lib/csrf';
+import { AbuseReport, ViolationHistory } from '@/models';
+import { verifyAdmin } from '@/lib/adminAuth';
 
 export const runtime = 'nodejs';
 
@@ -13,17 +12,13 @@ export const runtime = 'nodejs';
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const csrfCheck = validateCsrfMiddleware(req);
-  if (!csrfCheck.valid) {
-    return NextResponse.json({ error: csrfCheck.error }, { status: 403 });
-  }
-
-  const merchant = getMerchantFromRequest(req);
-  if (!merchant) {
+  if (!verifyAdmin(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const { id } = await params;
 
   try {
     await dbConnect();
@@ -51,13 +46,12 @@ export async function PATCH(
 
     // Update report
     const report = await AbuseReport.findByIdAndUpdate(
-      params.id,
+      id,
       {
         status,
         actionTaken,
         actionDetails,
         notes,
-        investigatorId: merchant.merchantId,
         resolvedAt: status && ['warning_issued', 'suspended', 'terminated', 'dismissed'].includes(status) ? new Date() : null,
       },
       { new: true }
@@ -122,19 +116,19 @@ export async function PATCH(
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const merchant = getMerchantFromRequest(req);
-  if (!merchant) {
+  if (!verifyAdmin(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const { id } = await params;
 
   try {
     await dbConnect();
 
-    const report = await AbuseReport.findById(params.id)
+    const report = await AbuseReport.findById(id)
       .populate('reportedMerchantId', 'shopName email')
-      .populate('investigatorId', 'shopName email')
       .lean();
 
     if (!report) {

@@ -4,19 +4,8 @@ import { Merchant, Settings, AffiliateCommission } from '@/models';
 import { hashPassword, signMerchantToken } from '@/lib/auth';
 import { ORGANIC_TRIAL_DAYS, REFERRED_TRIAL_DAYS, PENDING_GRACE_DAYS, daysFromNow } from '@/lib/affiliate';
 import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
-
-function toSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop';
-}
-
-async function generateUniqueSlug(base: string): Promise<string> {
-  let slug = base;
-  let i = 2;
-  while (await Merchant.findOne({ slug })) {
-    slug = `${base}-${i++}`;
-  }
-  return slug;
-}
+import { toSlug, generateUniqueSlug } from '@/lib/slug';
+import { CURRENT_TERMS_VERSION } from '@/lib/legal';
 
 export const runtime = 'nodejs';
 
@@ -47,7 +36,7 @@ export async function POST(req: NextRequest) {
     const { SignupSchema } = await import('@/lib/validation');
     const validation = SignupSchema.safeParse(body);
     if (!validation.success) {
-      const errors = validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+      const errors = validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`);
       return NextResponse.json({ error: errors.join('; ') }, { status: 400 });
     }
 
@@ -92,6 +81,8 @@ export async function POST(req: NextRequest) {
       trialEndsAt,
       trialReason,
       referredByMerchantId: referrerMerchantId,
+      acceptedTermsAt: new Date(),
+      acceptedTermsVersion: CURRENT_TERMS_VERSION,
     });
 
     // Bootstrap default settings for the new merchant

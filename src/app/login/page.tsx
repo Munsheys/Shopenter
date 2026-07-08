@@ -1,9 +1,16 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import LineLoginButton from '@/components/LineLoginButton';
+
+const LINE_ERROR_MESSAGES: Record<string, string> = {
+  email_exists: 'An account with this email already exists — sign in with your password instead.',
+  line_auth_failed: 'LINE sign-in failed. Please try again or use your email and password.',
+  access_denied: 'LINE sign-in was cancelled.',
+};
 
 function LoginForm() {
   const router = useRouter();
@@ -16,6 +23,13 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const errorCode = searchParams.get('error');
+    if (errorCode) {
+      setError(LINE_ERROR_MESSAGES[errorCode] || 'Something went wrong signing in with LINE. Please try again.');
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,6 +60,20 @@ function LoginForm() {
         {error && (
           <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">{error}</div>
         )}
+
+        <LineLoginButton variant="primary" size="md" className="w-full mb-2" label="Sign in with LINE" />
+        <p className="text-xs text-gray-500 text-center mb-5">
+          By continuing with LINE you agree to our{' '}
+          <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline">Terms of Service</a>
+          {' '}and{' '}
+          <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline">Privacy Policy</a>
+        </p>
+
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400 font-medium">or continue with email</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

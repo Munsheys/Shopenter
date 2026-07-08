@@ -92,7 +92,7 @@ export default function MerchantAgreementPage() {
           <p className="mt-4"><strong>Exceptions (14-day window):</strong></p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Billing errors (double charge, wrong amount)</li>
-            <li>Major service failure (platform down >72 hours)</li>
+            <li>Major service failure (platform down {'>'}72 hours)</li>
             <li>Fraud (unauthorized charges)</li>
           </ul>
           <p className="mt-4"><strong>Your customer refunds:</strong> YOU manage refunds to your customers. We don't process them. You're liable for refund promises.</p>

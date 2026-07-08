@@ -17,6 +17,8 @@ const MerchantSchema = new mongoose.Schema({
   authMethod: { type: String, enum: ['email', 'line_oauth'], default: 'email' },
   lastLoginAt: { type: Date, default: null },
   lastLoginMethod: { type: String, enum: ['email', 'line_oauth'], default: null },
+  acceptedTermsAt: { type: Date, default: null },
+  acceptedTermsVersion: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 MerchantSchema.index({ referralCode: 1 });
@@ -545,7 +547,7 @@ AuditLogSchema.index({ merchantId: 1, timestamp: -1 });
 AuditLogSchema.index({ action: 1, timestamp: -1 });
 
 const AbuseReportSchema = new mongoose.Schema({
-  reporterEmail: { type: String, required: true, lowercase: true }, // Can be merchant or user
+  reporterEmail: { type: String, required: false, lowercase: true, default: '' }, // Optional — anonymous reports allowed
   reportedMerchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   violationType: {
     type: String,

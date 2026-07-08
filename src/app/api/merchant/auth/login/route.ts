@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const { LoginSchema } = await import('@/lib/validation');
     const validation = LoginSchema.safeParse(body);
     if (!validation.success) {
-      const errors = validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+      const errors = validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`);
       return NextResponse.json({ error: errors.join('; ') }, { status: 400 });
     }
 

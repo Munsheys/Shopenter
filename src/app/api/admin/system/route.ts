@@ -2,18 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import { Merchant, Product, Order, Feedback, Settings, Message, Customer } from '@/models';
+import { verifyAdmin } from '@/lib/adminAuth';
 
 export const runtime = 'nodejs';
-
-function verifyAdmin(req: NextRequest) {
-  const secret = req.headers.get('x-admin-secret');
-  const masterSecret = process.env.ADMIN_SECRET;
-  
-  if (!masterSecret || secret !== masterSecret) {
-    return false;
-  }
-  return true;
-}
 
 export async function GET(req: NextRequest) {
   if (!verifyAdmin(req)) {

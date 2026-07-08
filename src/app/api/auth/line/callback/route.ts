@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import dbConnect from '@/lib/db';
-import { Merchant, Settings, AuditLog } from '@/models';
+import { Merchant, Settings } from '@/models';
 import { signMerchantToken } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLog';
+import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
+import { toSlug, generateUniqueSlug } from '@/lib/slug';
+import { ORGANIC_TRIAL_DAYS, daysFromNow } from '@/lib/affiliate';
+import { CURRENT_TERMS_VERSION } from '@/lib/legal';
 
 export const runtime = 'nodejs';
+
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app';
 
 interface LineIdToken {
   iss: string;
@@ -19,6 +25,12 @@ interface LineIdToken {
 
 export async function GET(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const limitCheck = await checkAuthLimit(ip);
+    if (!limitCheck.allowed) {
+      return NextResponse.redirect(`${BASE_URL}/login?error=rate_limited`);
+    }
+
     const code = req.nextUrl.searchParams.get('code');
     const state = req.nextUrl.searchParams.get('state');
     const error = req.nextUrl.searchParams.get('error');
@@ -27,9 +39,7 @@ export async function GET(req: NextRequest) {
     // Handle LINE errors
     if (error) {
       console.error(`[line-callback] Error from LINE: ${error} - ${errorDescription}`);
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app'}/login?error=${error}`
-      );
+      return NextResponse.redirect(`${BASE_URL}/login?error=${error}`);
     }
 
     if (!code || !state) {
@@ -51,7 +61,7 @@ export async function GET(req: NextRequest) {
 
     const channelId = process.env.LINE_CHANNEL_ID;
     const channelSecret = process.env.LINE_CHANNEL_SECRET;
-    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app'}/api/auth/line/callback`;
+    const redirectUri = `${BASE_URL}/api/auth/line/callback`;
 
     if (!channelId || !channelSecret) {
       return NextResponse.json(
@@ -90,31 +100,25 @@ export async function GET(req: NextRequest) {
       scope: string;
     };
 
-    // Verify and decode ID token
+    // Verify ID token signature (LINE Login v2.1 ID tokens are HS256-signed with the channel secret)
     let userInfo: LineIdToken & { email?: string; name?: string; picture?: string };
     try {
-      // LINE ID tokens are signed with LINE's public key
-      // In production, you should verify the signature
-      // For now, we'll decode without verification (trusting LINE's TLS)
-      const decoded = jwt.decode(tokenData.id_token, { complete: true });
+      const verified = jwt.verify(tokenData.id_token, channelSecret, {
+        algorithms: ['HS256'],
+        audience: channelId,
+        issuer: 'https://access.line.me',
+      });
 
-      if (!decoded?.payload) {
-        throw new Error('Invalid ID token');
-      }
+      userInfo = verified as LineIdToken & { email?: string; name?: string; picture?: string };
 
-      userInfo = decoded.payload as LineIdToken & { email?: string; name?: string; picture?: string };
-
-      // Verify nonce
+      // Verify nonce (replay protection)
       const cookieNonce = req.cookies.get('line_auth_nonce')?.value;
       if (!cookieNonce || cookieNonce !== userInfo.nonce) {
         throw new Error('Nonce mismatch');
       }
     } catch (err) {
-      console.error('[line-callback] Failed to decode ID token:', err);
-      return NextResponse.json(
-        { error: 'Failed to verify ID token' },
-        { status: 403 }
-      );
+      console.error('[line-callback] Failed to verify ID token:', err);
+      return NextResponse.redirect(`${BASE_URL}/login?error=line_auth_failed`);
     }
 
     await dbConnect();
@@ -124,27 +128,33 @@ export async function GET(req: NextRequest) {
     let merchant = await Merchant.findOne({ lineUserId });
 
     if (!merchant) {
+      // Check for an existing email-based account before creating a new one —
+      // never silently link a LINE identity onto someone else's account.
+      const normalizedEmail = userInfo.email ? userInfo.email.toLowerCase().trim() : `${lineUserId}@line.local`;
+      const existingByEmail = await Merchant.findOne({ email: normalizedEmail });
+      if (existingByEmail) {
+        console.warn(`[line-callback] Email collision for ${normalizedEmail} — refusing to auto-link`);
+        return NextResponse.redirect(`${BASE_URL}/login?error=email_exists&method=line`);
+      }
+
       // New merchant - create account
-      // Generate default shop name and slug
       const defaultShopName = userInfo.name || `Shop ${lineUserId.slice(-6)}`;
-      const slug = defaultShopName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 50);
+      const slug = await generateUniqueSlug(toSlug(defaultShopName));
 
       merchant = await Merchant.create({
         lineUserId,
-        email: userInfo.email || `${lineUserId}@line.com`,
+        email: normalizedEmail,
         passwordHash: null, // No password for LINE OAuth users
         shopName: defaultShopName,
-        slug: slug || 'shop',
+        slug,
         tier: 'pro',
         paymentStatus: 'trialing',
-        trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 day trial
+        trialEndsAt: daysFromNow(ORGANIC_TRIAL_DAYS),
         trialReason: 'signup',
         authMethod: 'line_oauth',
         lineAccessToken: tokenData.access_token,
+        acceptedTermsAt: new Date(),
+        acceptedTermsVersion: CURRENT_TERMS_VERSION,
       });
 
       // Create default settings
@@ -178,9 +188,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Redirect to dashboard
-    const res = NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app'}/dashboard`
-    );
+    const res = NextResponse.redirect(`${BASE_URL}/dashboard`);
 
     // Set auth cookie
     res.cookies.set('merchant_token', token, {

@@ -6,8 +6,8 @@ export const SignupSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   shopName: z.string().min(1, 'Shop name is required').max(255),
   referralCode: z.string().optional(),
-  agreedToTerms: z.boolean().default(true),
-  agreedToPrivacy: z.boolean().default(true),
+  agreedToTerms: z.literal(true, 'You must agree to the Terms of Service'),
+  agreedToPrivacy: z.literal(true, 'You must agree to the Privacy Policy'),
 });
 
 export const LoginSchema = z.object({
@@ -86,7 +86,7 @@ export async function parseRequestBody<T>(
     const result = schema.safeParse(body);
 
     if (!result.success) {
-      const errors = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+      const errors = result.error.issues.map(e => `${e.path.join('.')}: ${e.message}`);
       return { error: errors.join('; ') };
     }
 

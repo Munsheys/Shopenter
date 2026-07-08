@@ -6,16 +6,23 @@ interface LineLoginButtonProps {
   variant?: 'primary' | 'secondary';
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  disabled?: boolean;
+  label?: string;
+  loadingLabel?: string;
 }
 
 export default function LineLoginButton({
   variant = 'primary',
   size = 'md',
   className = '',
+  disabled = false,
+  label = 'Sign in with LINE',
+  loadingLabel = 'Redirecting...',
 }: LineLoginButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLineLogin = () => {
+    if (disabled) return;
     setIsLoading(true);
     // Redirect to LINE OAuth authorization endpoint
     window.location.href = '/api/auth/line/authorize';
@@ -35,7 +42,7 @@ export default function LineLoginButton({
   return (
     <button
       onClick={handleLineLogin}
-      disabled={isLoading}
+      disabled={disabled || isLoading}
       className={`
         inline-flex items-center justify-center gap-2 font-medium rounded-lg
         transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed
@@ -52,7 +59,7 @@ export default function LineLoginButton({
       >
         <path d="M12 2C6.48 2 2 5.58 2 10c0 2.54 1.19 4.85 3.15 6.37.09 2.85-1.4 5.57-2.05 6.29.56.42 2.36 1.42 5.5-.66 1.02.22 2.08.34 3.4.34 5.52 0 10-3.58 10-8 0-4.42-4.48-8-10-8z" />
       </svg>
-      {isLoading ? 'Redirecting...' : 'Sign in with LINE'}
+      {isLoading ? loadingLabel : label}
     </button>
   );
 }

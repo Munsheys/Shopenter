@@ -126,7 +126,13 @@ function FilterDropdown({ label, value, options, onChange, p, radius }: {
 export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [shopInfo, setShopInfo] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem(`cart_${merchantId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [view, setView] = useState<View>('home');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
@@ -149,6 +155,14 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [notFound, setNotFound] = useState(false);
   const [cartToast, setCartToast] = useState(false);
   const liffLock = useRef(false);
+
+  // Persist cart across refreshes / the LINE login redirect at checkout
+  useEffect(() => {
+    try {
+      if (cart.length > 0) localStorage.setItem(`cart_${merchantId}`, JSON.stringify(cart));
+      else localStorage.removeItem(`cart_${merchantId}`);
+    } catch { /* storage unavailable */ }
+  }, [cart, merchantId]);
 
   // Non-LINE platforms embed identity in URL params; LINE uses LIFF
   useEffect(() => {
@@ -206,7 +220,9 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
         if (!isNonLinePlatform && info.liffId && !liffLock.current) {
           liffLock.current = true;
           try {
-            await liff.init({ liffId: info.liffId, withLoginOnExternalBrowser: true });
+            // withLoginOnExternalBrowser is deliberately false: customers browse and
+            // add to cart as guests, and only log in with LINE when they check out.
+            await liff.init({ liffId: info.liffId, withLoginOnExternalBrowser: false });
             if (liff.isLoggedIn()) {
               const profile = await liff.getProfile();
               setCustomer(profile);
@@ -306,11 +322,25 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   }
 
   async function placeOrder(address: string, couponCode?: string, redeemPoints?: number): Promise<string | null> {
-    if (!customer) return 'Please open this store from your messaging app to place an order';
+    if (!customer) {
+      // Guest checkout: log in with LINE on demand rather than forcing it on page load.
+      // The cart is already persisted to localStorage, so it survives the redirect.
+      if (shopInfo?.liffId) {
+        try {
+          liff.login({ redirectUri: window.location.href });
+        } catch { /* ignore — falls through to the generic error below */ }
+        return null;
+      }
+      return 'Please open this store from your messaging app to place an order';
+    }
     setIsOrdering(true);
     try {
       const items = cart.map(i => ({ productId: i.productId, name: i.name, variantLabel: i.variantLabel, price: i.price, qty: i.qty, imageUrl: i.imageUrl }));
       const isLiffClient = liff.isInClient?.() ?? false;
+      let liffIdToken: string | undefined;
+      if (isLiffClient || liff.isLoggedIn?.()) {
+        try { liffIdToken = liff.getIDToken() ?? undefined; } catch { /* not available in this context */ }
+      }
       const res = await fetch(`/api/storefront/${merchantId}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -321,6 +351,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           couponCode: couponCode || undefined,
           redeemPoints: redeemPoints || undefined,
           isLiffClient,
+          liffIdToken,
         })
       });
       if (res.ok) {
@@ -1014,6 +1045,7 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
           onRemove={(key: string) => setCart(prev => prev.filter(i => `${i.productId}-${i.variantLabel}` !== key))}
           onQtyChange={(key: string, delta: number) => setCart(prev => prev.map(i => `${i.productId}-${i.variantLabel}` === key ? { ...i, qty: Math.max(1, i.qty + delta) } : i))}
           onOrder={placeOrder}
+          hasLiff={!!shopInfo?.liffId}
         />
       )}
 
@@ -1027,10 +1059,11 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
   );
 }
 
-function CartView({ p, controlRadius, cardRadius, cart, cartTotal, customer, isOrdering, merchantId, onBack, onRemove, onQtyChange, onOrder }: {
+function CartView({ p, controlRadius, cardRadius, cart, cartTotal, customer, isOrdering, merchantId, onBack, onRemove, onQtyChange, onOrder, hasLiff }: {
   p: StorefrontPreset; controlRadius: string; cardRadius: string; cart: CartItem[]; cartTotal: number; customer: any;
   isOrdering: boolean; merchantId: string; onBack: () => void; onRemove: (key: string) => void;
   onQtyChange: (key: string, delta: number) => void; onOrder: (address: string, couponCode?: string, redeemPoints?: number) => Promise<string | null>;
+  hasLiff: boolean;
 }) {
   const [address, setAddress] = useState('');
   const [couponInput, setCouponInput] = useState('');
@@ -1193,7 +1226,7 @@ function CartView({ p, controlRadius, cardRadius, cart, cartTotal, customer, isO
       )}
 
       <button
-        disabled={!customer || !address.trim() || isOrdering || cart.length === 0}
+        disabled={(!customer && !hasLiff) || !address.trim() || isOrdering || cart.length === 0}
         onClick={async () => {
           setOrderError('');
           const err = await onOrder(address, couponResult?.code, usePoints && loyalty ? pointsToUse : undefined);
@@ -1202,7 +1235,11 @@ function CartView({ p, controlRadius, cardRadius, cart, cartTotal, customer, isO
         className={`w-full disabled:opacity-50 py-4 ${controlRadius} font-bold text-sm flex items-center justify-center gap-2 cursor-pointer`}
         style={{ background: p.accent, color: p.accentText }}
       >
-        {isOrdering ? 'Placing order...' : <><ArrowRight size={16} /> Place order</>}
+        {isOrdering
+          ? 'Placing order...'
+          : !customer
+            ? <><ArrowRight size={16} /> Log in with LINE to order</>
+            : <><ArrowRight size={16} /> Place order</>}
       </button>
     </div>
   );
