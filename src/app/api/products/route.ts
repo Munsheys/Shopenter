@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import { Product, Merchant } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
+import { ProductSchema } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 
@@ -38,14 +39,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
-      return NextResponse.json({ error: 'Product name is required' }, { status: 400 });
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
     }
-    if (typeof body.price !== 'number' || body.price < 0) {
-      return NextResponse.json({ error: 'Price must be a non-negative number' }, { status: 400 });
+
+    // Validate input with Zod
+    const validation = ProductSchema.safeParse(body);
+    if (!validation.success) {
+      const errors = validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+      return NextResponse.json({ error: errors.join('; ') }, { status: 400 });
     }
-    const product = await Product.create({ ...body, merchantId: merchant.merchantId });
+
+    const product = await Product.create({ ...validation.data, merchantId: merchant.merchantId });
     return NextResponse.json(product, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });

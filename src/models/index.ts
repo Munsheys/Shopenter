@@ -494,6 +494,49 @@ const AffiliateCommissionSchema = new mongoose.Schema({
 AffiliateCommissionSchema.index({ referrerMerchantId: 1, status: 1 });
 AffiliateCommissionSchema.index({ referredMerchantId: 1, status: 1 });
 
+const FailedLoginAttemptSchema = new mongoose.Schema({
+  email: { type: String, required: true, lowercase: true, index: true },
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', index: true, sparse: true },
+  ip: { type: String, required: true },
+  userAgent: String,
+  reason: { type: String, enum: ['invalid_email', 'invalid_password'], required: true },
+  timestamp: { type: Date, default: Date.now, expires: 24 * 60 * 60 }, // Auto-delete after 24h
+});
+FailedLoginAttemptSchema.index({ email: 1, timestamp: -1 });
+FailedLoginAttemptSchema.index({ merchantId: 1, timestamp: -1 });
+
+const AuditLogSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  action: {
+    type: String,
+    enum: ['login', 'logout', 'api_call', 'data_export', 'settings_change', 'product_create', 'product_update', 'product_delete', 'order_create', 'order_update'],
+    required: true,
+    index: true
+  },
+  resource: {
+    type: String,
+    enum: ['merchant', 'product', 'order', 'customer', 'settings', 'none'],
+    default: 'none'
+  },
+  resourceId: String,
+  changes: {
+    before: mongoose.Schema.Types.Mixed,
+    after: mongoose.Schema.Types.Mixed
+  },
+  ip: String,
+  userAgent: String,
+  status: {
+    type: String,
+    enum: ['success', 'failed'],
+    default: 'success'
+  },
+  errorMessage: String,
+  timestamp: { type: Date, default: Date.now, index: true },
+  retentionExpiresAt: { type: Date, default: null, expires: 7 * 365 * 24 * 60 * 60 }, // 7 years
+});
+AuditLogSchema.index({ merchantId: 1, timestamp: -1 });
+AuditLogSchema.index({ action: 1, timestamp: -1 });
+
 export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
 export const Merchant = mongoose.models.Merchant || mongoose.model('Merchant', MerchantSchema);
 export const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
@@ -512,3 +555,5 @@ export const LoyaltyTransaction = mongoose.models.LoyaltyTransaction || mongoose
 export const ProcessedSlip = mongoose.models.ProcessedSlip || mongoose.model('ProcessedSlip', ProcessedSlipSchema);
 export const Fulfilment = mongoose.models.Fulfilment || mongoose.model('Fulfilment', FulfilmentSchema);
 export const AffiliateCommission = mongoose.models.AffiliateCommission || mongoose.model('AffiliateCommission', AffiliateCommissionSchema);
+export const FailedLoginAttempt = mongoose.models.FailedLoginAttempt || mongoose.model('FailedLoginAttempt', FailedLoginAttemptSchema);
+export const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', AuditLogSchema);

@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import { Merchant, Settings, AffiliateCommission } from '@/models';
 import { hashPassword, signMerchantToken } from '@/lib/auth';
 import { ORGANIC_TRIAL_DAYS, REFERRED_TRIAL_DAYS, PENDING_GRACE_DAYS, daysFromNow } from '@/lib/affiliate';
+import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
 
 function toSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'shop';
@@ -21,14 +22,36 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, shopName, referralCode } = await req.json();
+    const ip = getClientIp(req);
 
-    if (!email || !password || !shopName) {
-      return NextResponse.json({ error: 'email, password, and shopName are required' }, { status: 400 });
+    // Rate limit check
+    const limitCheck = await checkAuthLimit(ip);
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too many signup attempts. Please try again later.', retryAfter: limitCheck.retryAfter },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(limitCheck.retryAfter) }
+        }
+      );
     }
-    if (password.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
     }
+
+    // Validate input with Zod
+    const { SignupSchema } = await import('@/lib/validation');
+    const validation = SignupSchema.safeParse(body);
+    if (!validation.success) {
+      const errors = validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+      return NextResponse.json({ error: errors.join('; ') }, { status: 400 });
+    }
+
+    const { email, password, shopName, referralCode } = validation.data;
 
     await dbConnect();
 
