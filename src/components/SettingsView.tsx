@@ -522,11 +522,11 @@ export default function SettingsView({
   const localAccentBg = settings?.dashboardAccentGradient || 'var(--accent)';
   const accentTextColor = getAccentText(settings?.dashboardAccent || '#00b900');
 
-  async function handleExportData() {
+  async function handleExportData(format: 'json' | 'csv') {
     setIsExporting(true);
     setAccountActionError('');
     try {
-      const res = await fetch('/api/merchant/export');
+      const res = await fetch(`/api/merchant/export?format=${format}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setAccountActionError(data.error || 'Failed to export data');
@@ -535,7 +535,7 @@ export default function SettingsView({
       const blob = await res.blob();
       const disposition = res.headers.get('Content-Disposition') || '';
       const match = disposition.match(/filename="(.+)"/);
-      const filename = match?.[1] || 'shopenter-export.json';
+      const filename = match?.[1] || `shopenter-export.${format}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = filename;
@@ -1973,17 +1973,27 @@ export default function SettingsView({
                   <div>
                     <p className={`text-sm font-semibold ${K.text}`}>Export your data</p>
                     <p className={`text-xs mt-1 ${K.muted}`}>
-                      Download a complete copy of your products, customers, and orders as a JSON file. Free, available anytime.
+                      Download a complete copy of your products, customers, and orders. Free, available anytime, for any plan.
                     </p>
                   </div>
-                  <button
-                    disabled={isExporting}
-                    onClick={handleExportData}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors disabled:opacity-50 ${isDark ? 'border-[#1f2335] text-white hover:border-accent' : 'border-slate-200 text-slate-700 hover:border-accent'}`}
-                  >
-                    {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                    {isExporting ? 'Preparing export...' : 'Download my data'}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      disabled={isExporting}
+                      onClick={() => handleExportData('json')}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors disabled:opacity-50 ${isDark ? 'border-[#1f2335] text-white hover:border-accent' : 'border-slate-200 text-slate-700 hover:border-accent'}`}
+                    >
+                      {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                      {isExporting ? 'Preparing export...' : 'Download as JSON'}
+                    </button>
+                    <button
+                      disabled={isExporting}
+                      onClick={() => handleExportData('csv')}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors disabled:opacity-50 ${isDark ? 'border-[#1f2335] text-white hover:border-accent' : 'border-slate-200 text-slate-700 hover:border-accent'}`}
+                    >
+                      {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                      {isExporting ? 'Preparing export...' : 'Download as CSV'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Danger zone: delete account */}
