@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   try {
     await dbConnect();
-    const doc = await Merchant.findById(merchant.merchantId).select('email shopName slug tier paymentStatus trialEndsAt deletionScheduledFor subscriptionStatus nextBillingDate paymentMethodBrand paymentMethodLast4').lean() as any;
+    const doc = await Merchant.findById(merchant.merchantId).select('email shopName slug tier paymentStatus trialEndsAt deletionScheduledFor deletionReason subscriptionStatus nextBillingDate paymentMethodBrand paymentMethodLast4 proTrialUsedAt').lean() as any;
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({
       merchantId: merchant.merchantId,
@@ -22,10 +22,12 @@ export async function GET(req: NextRequest) {
       paymentStatus: doc.paymentStatus ?? 'trialing',
       trialEndsAt: doc.trialEndsAt ?? null,
       deletionScheduledFor: doc.deletionScheduledFor ?? null,
+      deletionReason: doc.deletionReason ?? null,
       subscriptionStatus: doc.subscriptionStatus ?? 'none',
       nextBillingDate: doc.nextBillingDate ?? null,
       paymentMethodBrand: doc.paymentMethodBrand ?? null,
       paymentMethodLast4: doc.paymentMethodLast4 ?? null,
+      proTrialUsedAt: doc.proTrialUsedAt ?? null,
     });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

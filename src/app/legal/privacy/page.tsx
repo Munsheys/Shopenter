@@ -76,6 +76,7 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">5. Data Retention</h2>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li><strong>Active Account:</strong> Data kept as long as you use Shopenter</li>
+            <li><strong>Inactivity:</strong> no login for 3 months schedules deletion on the same 30-day timeline as a self-requested deletion (below), with a LINE notification from Shopenter&apos;s own official account before it happens. Logging in cancels it automatically.</li>
             <li><strong>After Deletion:</strong> 30 days to export, then permanent deletion</li>
             <li><strong>Audit Logs:</strong> 7 years (legal requirement)</li>
             <li><strong>Backups:</strong> 30 days (disaster recovery)</li>

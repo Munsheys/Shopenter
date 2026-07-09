@@ -21,6 +21,11 @@ const MerchantSchema = new mongoose.Schema({
   acceptedTermsVersion: { type: String, default: null },
   deletionRequestedAt: { type: Date, default: null },
   deletionScheduledFor: { type: Date, default: null, index: true },
+  // 'inactivity' means the system scheduled this (no login in 3 months), not the merchant.
+  // Distinguishes the two so login can auto-cancel an inactivity deletion without touching
+  // one the merchant deliberately requested themselves.
+  deletionReason: { type: String, enum: ['merchant_requested', 'inactivity'], default: null },
+  inactivityWarningStage: { type: Number, default: 0 }, // 0 = none sent yet, increments per reminder
   // Omise subscription billing (Merchant -> Shopenter)
   omiseCustomerId: { type: String, default: null },
   subscriptionStatus: { type: String, enum: ['none', 'active', 'past_due', 'canceled'], default: 'none' },
@@ -28,11 +33,15 @@ const MerchantSchema = new mongoose.Schema({
   pastDueSince: { type: Date, default: null },
   paymentMethodBrand: { type: String, default: null },
   paymentMethodLast4: { type: String, default: null },
+  // Card-required Pro trial (separate from the automatic no-card referral trial).
+  // One per merchant — tracked so the trial can't be repeatedly restarted.
+  proTrialUsedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 MerchantSchema.index({ referralCode: 1 });
 MerchantSchema.index({ referredByMerchantId: 1 });
 MerchantSchema.index({ lineUserId: 1 });
+MerchantSchema.index({ lastLoginAt: 1 });
 
 const NotificationSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
@@ -527,7 +536,7 @@ const AuditLogSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   action: {
     type: String,
-    enum: ['login', 'logout', 'api_call', 'data_export', 'settings_change', 'product_create', 'product_update', 'product_delete', 'order_create', 'order_update', 'account_deletion_requested', 'account_deletion_cancelled', 'account_deleted', 'subscription_started', 'subscription_renewed', 'subscription_canceled', 'subscription_charge_failed', 'subscription_downgraded'],
+    enum: ['login', 'logout', 'api_call', 'data_export', 'settings_change', 'product_create', 'product_update', 'product_delete', 'order_create', 'order_update', 'account_deletion_requested', 'account_deletion_cancelled', 'account_deleted', 'subscription_started', 'subscription_renewed', 'subscription_canceled', 'subscription_charge_failed', 'subscription_downgraded', 'trial_started', 'inactivity_deletion_scheduled', 'inactivity_deletion_cancelled'],
     required: true,
     index: true
   },

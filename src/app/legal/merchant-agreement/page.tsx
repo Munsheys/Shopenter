@@ -33,7 +33,8 @@ export default function MerchantAgreementPage() {
 
           <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">Free Tier</h3>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Duration: 14-day trial, then continues on Free tier limits</li>
+            <li>Duration: the default for every account — no expiry, no card required</li>
+            <li>From Free, you may start a 14-day Pro trial (requires adding a card; auto-converts to paid Pro unless cancelled). Referral signups may instead get an automatic no-card trial.</li>
             <li>Products: Up to 10</li>
             <li>Orders: Up to 100/month</li>
             <li>Auto-replies: Up to 3</li>
@@ -99,6 +100,7 @@ export default function MerchantAgreementPage() {
             <li>Audit logs kept 7 years (legal requirement)</li>
             <li>Recovery impossible after deletion</li>
           </ul>
+          <p className="mt-4"><strong>Inactivity:</strong> no login for 3 months (any tier) schedules your account for deletion on the same 30-day timeline above, with a LINE notification sent from Shopenter&apos;s own official account. Logging in before the deletion date cancels it automatically.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">6. Data Security</h2>
           <p>We protect your data with:</p>

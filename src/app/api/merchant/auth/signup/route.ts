@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Merchant, Settings, AffiliateCommission } from '@/models';
 import { hashPassword, signMerchantToken } from '@/lib/auth';
-import { ORGANIC_TRIAL_DAYS, REFERRED_TRIAL_DAYS, PENDING_GRACE_DAYS, daysFromNow } from '@/lib/affiliate';
+import { REFERRED_TRIAL_DAYS, PENDING_GRACE_DAYS, daysFromNow } from '@/lib/affiliate';
 import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
 import { toSlug, generateUniqueSlug } from '@/lib/slug';
 import { CURRENT_TERMS_VERSION } from '@/lib/legal';
@@ -65,21 +65,23 @@ export async function POST(req: NextRequest) {
     const passwordHash = await hashPassword(password);
     const slug = await generateUniqueSlug(toSlug(shopName));
 
-    // Referred signups get a longer trial than organic ones — that's the actual
-    // growth lever, since it makes sharing a referral link worth more than a cold signup.
-    const trialDays = referrerMerchantId ? REFERRED_TRIAL_DAYS : ORGANIC_TRIAL_DAYS;
-    const trialEndsAt = daysFromNow(trialDays);
-    const trialReason = referralCode ? 'referral' : 'signup';
+    // Organic signups start on Free (no card, no trial) — Pro trial is now an explicit
+    // opt-in that requires a card (see /api/billing/start-trial). Referred signups keep
+    // the automatic no-card trial as the actual growth lever, since it makes sharing a
+    // referral link worth more than a cold signup.
+    const isReferred = Boolean(referrerMerchantId);
+    const trialDays = REFERRED_TRIAL_DAYS;
+    const trialEndsAt = isReferred ? daysFromNow(trialDays) : null;
 
     const merchant = await Merchant.create({
       email: email.toLowerCase().trim(),
       passwordHash,
       shopName,
       slug,
-      tier: 'pro',
-      paymentStatus: 'trialing',
+      tier: isReferred ? 'pro' : 'free',
+      paymentStatus: isReferred ? 'trialing' : 'paid',
       trialEndsAt,
-      trialReason,
+      trialReason: isReferred ? 'referral' : 'signup',
       referredByMerchantId: referrerMerchantId,
       acceptedTermsAt: new Date(),
       acceptedTermsVersion: CURRENT_TERMS_VERSION,

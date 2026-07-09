@@ -51,6 +51,10 @@ export async function GET(req: NextRequest) {
           merchant.nextBillingDate = daysFromNow(30);
           merchant.pastDueSince = null;
           merchant.subscriptionStatus = 'active';
+          // Covers the card-required trial converting to a real paid subscription at
+          // trial end, as well as ordinary renewals (already 'paid', a no-op there).
+          merchant.paymentStatus = 'paid';
+          merchant.trialEndsAt = null;
           await merchant.save();
           await logAudit({ merchantId: merchant._id.toString(), action: 'subscription_renewed', resource: 'merchant', status: 'success' });
           renewed++;

@@ -41,7 +41,8 @@ export default function TermsPage() {
           <p>See our complete <Link href="/legal/aup" className="text-green-600 hover:underline">Acceptable Use Policy</Link> for details.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">4. Pricing & Billing</h2>
-          <p><strong>Free Tier:</strong> 14-day trial, then continues on Free tier limits unless you upgrade</p>
+          <p><strong>Free Tier:</strong> the default for every account — no card required, no expiry.</p>
+          <p><strong>Pro Trial:</strong> from Free, you can start a 14-day Pro trial, which requires adding a card upfront. You won&apos;t be charged during the trial; if you don&apos;t cancel, we automatically charge your card and continue you on Pro when the trial ends. (Signups from a referral link may instead receive an automatic trial with no card required, as a referral incentive.)</p>
           <p><strong>Pro Tier:</strong> ฿299/month, auto-renews via card (cancel anytime)</p>
           <p><strong>Enterprise:</strong> Custom pricing, 12-month minimum</p>
           <p>All prices in Thai Baht. We notify you 30 days before price increases. Your current price locks in for 12 months.</p>
@@ -92,6 +93,7 @@ export default function TermsPage() {
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">12. Data Ownership & Deletion</h2>
           <p>You own your product listings, customer data, and order history. You can export anytime for free. After account deletion, we permanently delete your data after 30 days. Audit logs are kept 7 years for legal compliance.</p>
+          <p className="mt-4"><strong>Inactivity:</strong> if you haven&apos;t logged in for 3 months (any tier), we send you a LINE notification and schedule your account for deletion on the same 30-day timeline as a self-requested deletion. Logging in at any point before then cancels it automatically — no action needed beyond signing back in. This LINE notification comes from Shopenter&apos;s own official account, not the one connected to your store, so it reaches you even if something is wrong with your own channel.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">13. Privacy & Data Protection</h2>
           <p>See our <Link href="/legal/privacy" className="text-green-600 hover:underline">Privacy Policy</Link> and <Link href="/legal/dpa" className="text-green-600 hover:underline">Data Processing Agreement</Link> for details on how we collect, use, and protect your data under GDPR, Thai PDPA, and CCPA.</p>

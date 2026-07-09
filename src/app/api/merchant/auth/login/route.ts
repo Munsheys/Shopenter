@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db';
 import { Merchant, FailedLoginAttempt } from '@/models';
 import { comparePassword, signMerchantToken } from '@/lib/auth';
 import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
+import { clearInactivityDeletion } from '@/lib/inactivity';
+import { logAudit } from '@/lib/auditLog';
 
 export const runtime = 'nodejs';
 
@@ -86,6 +88,14 @@ export async function POST(req: NextRequest) {
       merchantId: merchant._id,
       timestamp: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
     });
+
+    merchant.lastLoginAt = new Date();
+    merchant.lastLoginMethod = 'email';
+    const cancelledInactivityDeletion = clearInactivityDeletion(merchant);
+    await merchant.save();
+    if (cancelledInactivityDeletion) {
+      await logAudit({ merchantId: merchant._id.toString(), action: 'inactivity_deletion_cancelled', resource: 'merchant', status: 'success' }, req);
+    }
 
     const token = signMerchantToken({ merchantId: merchant._id.toString(), email: merchant.email });
 

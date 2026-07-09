@@ -46,9 +46,11 @@ export async function GET(req: NextRequest) {
     await dbConnect();
     const now = new Date();
 
-    // Trials that ran out without converting roll down to the free tier.
+    // Trials that ran out without converting roll down to the free tier. Only for
+    // no-card trials (referral) — card-backed trials (omiseCustomerId set) are handled
+    // by the billing-cycle cron instead, which attempts the real charge at trial end.
     const expiredTrials = await Merchant.updateMany(
-      { paymentStatus: 'trialing', trialEndsAt: { $lt: now } },
+      { paymentStatus: 'trialing', trialEndsAt: { $lt: now }, omiseCustomerId: null },
       { $set: { paymentStatus: 'paid', tier: 'free', trialEndsAt: null } }
     );
 

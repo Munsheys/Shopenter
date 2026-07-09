@@ -4,13 +4,26 @@
  * key — no card data ever touches our server; card tokens come from
  * Omise.js running client-side with the publishable key.
  *
- * Omise doesn't sign webhook payloads with a shared secret the way Stripe
- * does, so `getChargeById` is used to re-fetch the charge server-side by ID
- * before trusting a webhook body, rather than trusting the payload directly.
+ * Correction from an earlier version of this file: Omise DOES sign webhooks
+ * (Omise-Signature / Omise-Signature-Timestamp headers, HMAC-SHA256 with a
+ * base64-encoded webhook secret, dual signatures during a 24h rotation
+ * window). We couldn't confirm the exact signed-payload concatenation format
+ * against live docs (blocked by network restrictions in this environment),
+ * so `getChargeById` re-fetches the charge server-side by ID before trusting
+ * anything in the webhook body — that's correct regardless of the signature
+ * format and doesn't depend on getting it right. Signature verification can
+ * be added as a fast-path on top of this once confirmed against a real
+ * account's webhook secret.
  *
- * Verify field/endpoint names against https://www.omise.co/api-guide before
- * going live — this was written against the publicly documented v2 API but
- * not tested against a live Omise account.
+ * Omise also has a native Schedules API (POST /schedules) for recurring
+ * charges — but it's documented as disabled for 3DS-enabled accounts, which
+ * Thai card-present compliance increasingly requires. We deliberately kept
+ * our own cron (billing-cycle) driving renewals instead, since it works the
+ * same regardless of whether 3DS ends up enabled on the account.
+ *
+ * Verify field/endpoint names against https://docs.omise.co before going
+ * live — this was written against publicly documented API shapes but not
+ * tested against a live Omise account.
  */
 
 const OMISE_API_BASE = 'https://api.omise.com';

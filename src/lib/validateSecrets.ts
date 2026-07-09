@@ -33,7 +33,8 @@ export function validateSecrets() {
       'Encryption key': process.env.ENCRYPTION_KEY,
       'Omise secret key (merchant subscription billing)': process.env.OMISE_SECRET_KEY,
       'Omise public key (merchant subscription billing)': process.env.NEXT_PUBLIC_OMISE_PUBLIC_KEY,
-      'Cron secret (billing/trial/purge crons)': process.env.CRON_SECRET,
+      'Cron secret (billing/trial/purge/inactivity crons)': process.env.CRON_SECRET,
+      'Shopenter LINE channel token (inactivity-deletion notices)': process.env.SHOPENTER_LINE_CHANNEL_ACCESS_TOKEN,
     };
 
     Object.entries(optionalSecrets).forEach(([name, value]) => {

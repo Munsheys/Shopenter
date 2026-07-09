@@ -39,6 +39,7 @@ interface Merchant {
   nextBillingDate?: string | null;
   paymentMethodBrand?: string | null;
   paymentMethodLast4?: string | null;
+  proTrialUsedAt?: string | null;
 }
 
 const TIER_BADGE_COLORS: Record<string, string> = {
@@ -659,6 +660,7 @@ export default function DashboardPage() {
               nextBillingDate={merchant?.nextBillingDate}
               paymentMethodBrand={merchant?.paymentMethodBrand}
               paymentMethodLast4={merchant?.paymentMethodLast4}
+              proTrialUsedAt={merchant?.proTrialUsedAt}
               onSubscriptionChange={(update) => {
                 setMerchant((prev) => prev ? { ...prev, ...update, tier: update.tier as Tier } : null);
               }}

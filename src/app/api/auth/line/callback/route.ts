@@ -6,8 +6,8 @@ import { signMerchantToken } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLog';
 import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
 import { toSlug, generateUniqueSlug } from '@/lib/slug';
-import { ORGANIC_TRIAL_DAYS, daysFromNow } from '@/lib/affiliate';
 import { CURRENT_TERMS_VERSION } from '@/lib/legal';
+import { clearInactivityDeletion } from '@/lib/inactivity';
 
 export const runtime = 'nodejs';
 
@@ -147,10 +147,10 @@ export async function GET(req: NextRequest) {
         passwordHash: null, // No password for LINE OAuth users
         shopName: defaultShopName,
         slug,
-        tier: 'pro',
-        paymentStatus: 'trialing',
-        trialEndsAt: daysFromNow(ORGANIC_TRIAL_DAYS),
-        trialReason: 'signup',
+        // Free by default — Pro trial is now an explicit opt-in that requires a card
+        // (see /api/billing/start-trial), matching the email signup flow.
+        tier: 'free',
+        paymentStatus: 'paid',
         authMethod: 'line_oauth',
         lineAccessToken: tokenData.access_token,
         acceptedTermsAt: new Date(),
@@ -166,11 +166,14 @@ export async function GET(req: NextRequest) {
       console.log(`[line-callback] New merchant created: ${merchant._id}`);
     } else {
       // Existing merchant - update access token and last login
-      await Merchant.findByIdAndUpdate(merchant._id, {
-        lineAccessToken: tokenData.access_token,
-        lastLoginAt: new Date(),
-        lastLoginMethod: 'line_oauth',
-      });
+      merchant.lineAccessToken = tokenData.access_token;
+      merchant.lastLoginAt = new Date();
+      merchant.lastLoginMethod = 'line_oauth';
+      const cancelled = clearInactivityDeletion(merchant);
+      await merchant.save();
+      if (cancelled) {
+        await logAudit({ merchantId: merchant._id.toString(), action: 'inactivity_deletion_cancelled', resource: 'merchant', status: 'success' }, req);
+      }
     }
 
     // Log successful login

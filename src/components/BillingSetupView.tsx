@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CreditCard, Check, AlertCircle, Loader, Zap, Package, Users, TrendingUp, ArrowRight, ChevronDown } from 'lucide-react';
+import { CreditCard, Check, AlertCircle, Loader, Zap, Package, Users, TrendingUp, ArrowRight, ChevronDown, Info } from 'lucide-react';
 
 interface BillingSetupProps {
   theme: 'light' | 'lite' | 'dark';
@@ -10,7 +10,8 @@ interface BillingSetupProps {
   nextBillingDate?: string | null;
   paymentMethodBrand?: string | null;
   paymentMethodLast4?: string | null;
-  onSubscriptionChange?: (update: { tier: string; subscriptionStatus?: string; nextBillingDate?: string | null; paymentMethodBrand?: string | null; paymentMethodLast4?: string | null }) => void;
+  proTrialUsedAt?: string | null;
+  onSubscriptionChange?: (update: { tier: string; subscriptionStatus?: string; nextBillingDate?: string | null; paymentMethodBrand?: string | null; paymentMethodLast4?: string | null; trialEndsAt?: string | null }) => void;
 }
 
 export default function BillingSetupView({
@@ -20,6 +21,7 @@ export default function BillingSetupView({
   nextBillingDate,
   paymentMethodBrand,
   paymentMethodLast4,
+  proTrialUsedAt,
   onSubscriptionChange,
 }: BillingSetupProps) {
   const isDark = theme === 'dark';
@@ -29,6 +31,7 @@ export default function BillingSetupView({
   const [selectedTier, setSelectedTier] = useState(tier);
   const [showComparison, setShowComparison] = useState(false);
   const [card, setCard] = useState({ name: '', number: '', expMonth: '', expYear: '', cvc: '' });
+  const [showCancelInfo, setShowCancelInfo] = useState(false);
 
   const surface = isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-slate-200';
   const text = isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-slate-900';
@@ -144,6 +147,8 @@ export default function BillingSetupView({
     return token.id;
   };
 
+  const isTrialEligible = tier === 'free' && !proTrialUsedAt;
+
   const handleUpgrade = async () => {
     if (selectedTier === 'free') {
       await handleDowngradeToFree();
@@ -156,7 +161,7 @@ export default function BillingSetupView({
     }
 
     if (!card.name || !card.number || !card.expMonth || !card.expYear || !card.cvc) {
-      setError('Enter your full card details to upgrade.');
+      setError('Enter your full card details to continue.');
       return;
     }
 
@@ -165,20 +170,22 @@ export default function BillingSetupView({
 
     try {
       const omiseCardToken = await tokenizeCard();
+      const startingTrial = selectedTier === 'pro' && isTrialEligible;
 
-      const res = await fetch('/api/billing/checkout', {
+      const res = await fetch(startingTrial ? '/api/billing/start-trial' : '/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier: selectedTier, omiseCardToken }),
+        body: JSON.stringify(startingTrial ? { omiseCardToken } : { tier: selectedTier, omiseCardToken }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to charge your card');
+      if (!res.ok) throw new Error(data.error || (startingTrial ? 'Failed to start trial' : 'Failed to charge your card'));
 
       onSubscriptionChange?.({
         tier: data.tier,
         subscriptionStatus: data.subscriptionStatus,
         nextBillingDate: data.nextBillingDate,
+        trialEndsAt: data.trialEndsAt,
       });
       setCard({ name: '', number: '', expMonth: '', expYear: '', cvc: '' });
     } catch (err: any) {
@@ -406,7 +413,11 @@ export default function BillingSetupView({
             <h4 className={`text-base font-black mb-3 flex items-center gap-2 ${text}`}>
               <CreditCard size={18} /> Card Details
             </h4>
-            <p className={`text-xs mb-4 ${mutedStrong}`}>Billed monthly via our payment processor, Omise. We never see or store your full card number.</p>
+            <p className={`text-xs mb-4 ${mutedStrong}`}>
+              {selectedTier === 'pro' && isTrialEligible
+                ? "You won't be charged today. Your 14-day free trial starts now, and we'll automatically charge ฿299/month via Omise when it ends, unless you cancel first."
+                : 'Billed monthly via our payment processor, Omise. We never see or store your full card number.'}
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input
                 type="text"
@@ -455,7 +466,7 @@ export default function BillingSetupView({
         )}
 
         {/* CTA Button */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-6">
           <button
             onClick={handleUpgrade}
             disabled={isLoading || selectedTier === tier}
@@ -480,12 +491,17 @@ export default function BillingSetupView({
             ) : selectedTier === 'free' ? (
               <>
                 <ArrowRight size={16} />
-                Downgrade to Free
+                Cancel Plan
               </>
             ) : selectedTier === 'enterprise' ? (
               <>
                 <CreditCard size={16} />
                 Contact Sales
+              </>
+            ) : selectedTier === 'pro' && isTrialEligible ? (
+              <>
+                <Zap size={16} />
+                Start 14-Day Free Trial
               </>
             ) : (
               <>
@@ -494,6 +510,24 @@ export default function BillingSetupView({
               </>
             )}
           </button>
+
+          {selectedTier === 'free' && selectedTier !== tier && (
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowCancelInfo(v => !v)}
+                aria-label="What happens when I cancel?"
+                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${chipBg}`}
+              >
+                <Info size={16} />
+              </button>
+              {showCancelInfo && (
+                <div className={`absolute bottom-full right-0 mb-2 w-64 p-3 rounded-xl border shadow-xl text-xs z-10 ${surface} ${mutedStrong}`}>
+                  Cancelling stops auto-renewal — it doesn&apos;t end your plan right away. You keep every Pro perk until your current billing period ends, then it reverts to Free automatically. No refund for the unused part of the period, no data loss.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Subscription Status */}
