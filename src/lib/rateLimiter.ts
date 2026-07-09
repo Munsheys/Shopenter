@@ -1,23 +1,41 @@
-import { RateLimiterMemory } from 'rate-limiter-flexible';
+import { RateLimiterMemory, RateLimiterRedis } from 'rate-limiter-flexible';
+import Redis from 'ioredis';
 
-// Rate limiters for different operations
-export const authLimiter = new RateLimiterMemory({
-  points: 5,                    // 5 attempts
-  duration: 15 * 60,            // Per 15 minutes
-  blockDuration: 15 * 60,       // Lock for 15 minutes
-});
+// In-memory limiters only work correctly on a single instance — Vercel runs multiple
+// concurrent serverless instances, so a 5-attempts/15-min limit was actually
+// ~5×N attempts in production. When REDIS_URL is configured (e.g. Upstash's TCP
+// endpoint, ioredis-compatible), rate limits are shared across all instances instead.
+// Falls back to the old in-memory behavior if REDIS_URL isn't set, rather than
+// breaking auth/API routes outright.
+const redisUrl = process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL;
 
-export const apiLimiter = new RateLimiterMemory({
-  points: 100,                  // 100 requests
-  duration: 60,                 // Per minute
-  blockDuration: 60,            // Lock for 1 minute
-});
+let redisClient: Redis | null = null;
+if (redisUrl) {
+  redisClient = new Redis(redisUrl, {
+    maxRetriesPerRequest: 1, // fail fast rather than hang a request on a flaky connection
+    enableOfflineQueue: false,
+  });
+  redisClient.on('error', (err) => console.error('[rateLimiter] Redis connection error:', err.message));
+} else {
+  console.warn('[rateLimiter] REDIS_URL not set — using in-memory rate limiting (per-instance only, not shared across serverless instances)');
+}
 
-export const uploadLimiter = new RateLimiterMemory({
-  points: 10,                   // 10 uploads
-  duration: 60 * 60,            // Per hour
-  blockDuration: 60 * 60,       // Lock for 1 hour
-});
+function makeLimiter(keyPrefix: string, points: number, duration: number, blockDuration: number) {
+  const memoryFallback = new RateLimiterMemory({ points, duration, blockDuration });
+  if (!redisClient) return memoryFallback;
+  return new RateLimiterRedis({
+    storeClient: redisClient,
+    keyPrefix,
+    points,
+    duration,
+    blockDuration,
+    insuranceLimiter: memoryFallback, // used automatically if Redis is unreachable
+  });
+}
+
+export const authLimiter = makeLimiter('rl_auth', 5, 15 * 60, 15 * 60);
+export const apiLimiter = makeLimiter('rl_api', 100, 60, 60);
+export const uploadLimiter = makeLimiter('rl_upload', 10, 60 * 60, 60 * 60);
 
 /**
  * Rate limit by IP address for auth endpoints

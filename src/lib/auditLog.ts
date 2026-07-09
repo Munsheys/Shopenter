@@ -12,6 +12,7 @@ export type AuditAction =
   | 'product_delete'
   | 'order_create'
   | 'order_update'
+  | 'order_delete'
   | 'account_deletion_requested'
   | 'account_deletion_cancelled'
   | 'account_deleted'

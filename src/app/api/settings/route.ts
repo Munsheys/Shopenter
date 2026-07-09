@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
+import { logAudit } from '@/lib/auditLog';
 
 export const runtime = 'nodejs';
 
@@ -120,7 +121,19 @@ export async function POST(req: NextRequest) {
       { $set: update },
       { upsert: true, new: true, runValidators: true }
     );
-    return NextResponse.json(s);
+
+    // Field names only — never log secret values (defeats the point of encrypting them at rest).
+    await logAudit(
+      { merchantId: merchant.merchantId, action: 'settings_change', resource: 'settings', changes: { after: { fieldsChanged: Object.keys(update) } }, status: 'success' },
+      req
+    );
+
+    const settings = s.toObject();
+    // Same as GET — never echo platform-level secrets back to the client.
+    delete settings.lineChannelAccessToken;
+    delete settings.lineChannelSecret;
+    delete settings.adminSecret;
+    return NextResponse.json(settings);
   } catch (err: any) {
     return NextResponse.json({ error: `Failed to update settings: ${err.message || 'Unknown error'}` }, { status: 400 });
   }

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { maybeEncrypt, maybeDecrypt } from '@/lib/encryption';
 
 const MerchantSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -230,6 +231,64 @@ const SettingsSchema = new mongoose.Schema({
   }
 });
 
+// Transparent encryption at rest for platform credentials (LINE/Telegram/Instagram/SlipOK).
+// Centralized here rather than at each of the ~20 call sites that read/write Settings, so
+// every read/write path gets it automatically. No-ops (stores/returns plaintext) if
+// ENCRYPTION_KEY isn't configured, rather than breaking every settings read/write —
+// see src/lib/encryption.ts maybeEncrypt/maybeDecrypt.
+const ENCRYPTED_SETTINGS_FIELDS = [
+  'lineChannelAccessToken',
+  'lineChannelSecret',
+  'slipokApiKey',
+  'telegram.botToken',
+  'instagram.pageAccessToken',
+] as const;
+
+function getAtPath(obj: any, path: string): any {
+  return path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
+}
+function setAtPath(obj: any, path: string, value: any) {
+  const keys = path.split('.');
+  const last = keys.pop()!;
+  const target = keys.reduce((o, k) => (o[k] = o[k] ?? {}, o[k]), obj);
+  target[last] = value;
+}
+
+(SettingsSchema.pre as any)('save', function (this: any, next: (err?: Error) => void) {
+  for (const field of ENCRYPTED_SETTINGS_FIELDS) {
+    if (this.isModified(field)) {
+      const value = getAtPath(this, field);
+      if (typeof value === 'string' && value) setAtPath(this, field, maybeEncrypt(value));
+    }
+  }
+  next();
+});
+
+(SettingsSchema.pre as any)('findOneAndUpdate', function (this: any, next: (err?: Error) => void) {
+  const update: any = this.getUpdate();
+  const target = update?.$set ?? update;
+  if (target) {
+    for (const field of ENCRYPTED_SETTINGS_FIELDS) {
+      const value = getAtPath(target, field);
+      if (typeof value === 'string' && value) setAtPath(target, field, maybeEncrypt(value));
+    }
+  }
+  next();
+});
+
+function decryptSettingsDoc(doc: any) {
+  if (!doc) return;
+  for (const field of ENCRYPTED_SETTINGS_FIELDS) {
+    const value = getAtPath(doc, field);
+    if (typeof value === 'string' && value) setAtPath(doc, field, maybeDecrypt(value));
+  }
+}
+
+SettingsSchema.post(['find', 'findOne', 'findOneAndUpdate'], function (result) {
+  if (Array.isArray(result)) result.forEach(decryptSettingsDoc);
+  else decryptSettingsDoc(result);
+});
+
 const ProductSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   name: { type: String, required: true },
@@ -378,7 +437,10 @@ const CampaignSchema = new mongoose.Schema({
   name: { type: String, default: '' },
   deliveryMode: { type: String, enum: ['instant', 'queued'], required: true },
   messages: { type: [MessageBlockSchema], default: [] },
-  status: { type: String, enum: ['active', 'paused', 'completed', 'cancelled'], default: 'active' },
+  // 'sending'/'failed' are instant-broadcast states (fan-out queued as BroadcastJob docs,
+  // drained by the broadcast-worker cron); 'active'/'paused'/'cancelled' belong to the
+  // separate queued-delivery-mode flow.
+  status: { type: String, enum: ['active', 'paused', 'completed', 'cancelled', 'sending', 'failed'], default: 'active' },
   // Instant-specific
   audience: { type: String, enum: ['all', 'active_30d', 'active_60d', 'ordered', 'never_ordered', 'high_value'], default: 'all' },
   recipientCount: { type: Number, default: 0 },
@@ -391,6 +453,24 @@ const CampaignSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 CampaignSchema.index({ merchantId: 1, status: 1 });
+
+// Queued fan-out batches for instant broadcasts — decouples the actual per-recipient
+// sending from the request/response cycle so a large audience can't time out the
+// initiating request. Drained by the broadcast-worker cron.
+const BroadcastJobSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', required: true, index: true },
+  platform: { type: String, enum: ['line', 'telegram'], required: true },
+  recipients: { type: [String], required: true },
+  messages: { type: mongoose.Schema.Types.Mixed, default: [] }, // LINE message blocks
+  imageUrl: { type: String, default: '' },   // Telegram
+  caption: { type: String, default: '' },    // Telegram
+  status: { type: String, enum: ['pending', 'done', 'failed'], default: 'pending', index: true },
+  sentCount: { type: Number, default: 0 },
+  failedCount: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now },
+});
+BroadcastJobSchema.index({ status: 1, createdAt: 1 });
 
 // Auto-reply keyword rules (webhook-based, replaces LINE's native auto-reply)
 const AutoReplySchema = new mongoose.Schema({
@@ -419,7 +499,13 @@ const MediaFileSchema = new mongoose.Schema({
   // the serving route falls back to that field if `r2Key` is unset.
   r2Key: { type: String, default: '' },
   data: { type: Buffer },
-  createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 30 },
+  // No TTL: this endpoint serves permanent content (product photos, storefront banners)
+  // as well as anything ephemeral, and a blanket 30-day expiry was silently breaking the
+  // permanent ones — the Mongo pointer record would vanish while the R2 object stayed,
+  // orphaned and unreachable. Full cleanup on account deletion is already handled by
+  // /api/cron/purge-deleted-accounts; per-image cleanup when a product image is replaced/
+  // removed on an otherwise-active account is not yet built (tracked as a follow-up).
+  createdAt: { type: Date, default: Date.now },
 });
 
 // Merchant opinions/bug reports schema
@@ -536,7 +622,7 @@ const AuditLogSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
   action: {
     type: String,
-    enum: ['login', 'logout', 'api_call', 'data_export', 'settings_change', 'product_create', 'product_update', 'product_delete', 'order_create', 'order_update', 'account_deletion_requested', 'account_deletion_cancelled', 'account_deleted', 'subscription_started', 'subscription_renewed', 'subscription_canceled', 'subscription_charge_failed', 'subscription_downgraded', 'trial_started', 'inactivity_deletion_scheduled', 'inactivity_deletion_cancelled'],
+    enum: ['login', 'logout', 'api_call', 'data_export', 'settings_change', 'product_create', 'product_update', 'product_delete', 'order_create', 'order_update', 'account_deletion_requested', 'account_deletion_cancelled', 'account_deleted', 'subscription_started', 'subscription_renewed', 'subscription_canceled', 'subscription_charge_failed', 'subscription_downgraded', 'trial_started', 'inactivity_deletion_scheduled', 'inactivity_deletion_cancelled', 'order_delete'],
     required: true,
     index: true
   },
@@ -563,6 +649,17 @@ const AuditLogSchema = new mongoose.Schema({
 });
 AuditLogSchema.index({ merchantId: 1, timestamp: -1 });
 AuditLogSchema.index({ action: 1, timestamp: -1 });
+
+// Per-person admin accounts. ADMIN_SECRET (src/lib/adminAuth.ts) remains as an emergency
+// break-glass fallback, but day-to-day admin access should go through here so individual
+// access can be revoked/rotated without resetting one shared secret for everyone.
+const AdminUserSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  passwordHash: { type: String, required: true },
+  role: { type: String, enum: ['owner', 'admin'], default: 'admin' },
+  lastLoginAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now },
+});
 
 const AbuseReportSchema = new mongoose.Schema({
   reporterEmail: { type: String, required: false, lowercase: true, default: '' }, // Optional — anonymous reports allowed
@@ -647,3 +744,5 @@ export const FailedLoginAttempt = mongoose.models.FailedLoginAttempt || mongoose
 export const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', AuditLogSchema);
 export const AbuseReport = mongoose.models.AbuseReport || mongoose.model('AbuseReport', AbuseReportSchema);
 export const ViolationHistory = mongoose.models.ViolationHistory || mongoose.model('ViolationHistory', ViolationHistorySchema);
+export const AdminUser = mongoose.models.AdminUser || mongoose.model('AdminUser', AdminUserSchema);
+export const BroadcastJob = mongoose.models.BroadcastJob || mongoose.model('BroadcastJob', BroadcastJobSchema);

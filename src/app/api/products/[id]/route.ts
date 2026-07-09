@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import { Product, Settings } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { notifyMerchant } from '@/lib/notifyMerchant';
+import { logAudit } from '@/lib/auditLog';
 
 export const runtime = 'nodejs';
 
@@ -57,6 +58,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    await logAudit(
+      { merchantId: merchant.merchantId, action: 'product_update', resource: 'product', resourceId: id, status: 'success' },
+      req
+    );
+
     return NextResponse.json(product);
   } catch {
     return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });
@@ -72,6 +78,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { id } = await params;
     const product = await Product.findOneAndDelete({ _id: id, merchantId: merchant.merchantId });
     if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+
+    await logAudit(
+      { merchantId: merchant.merchantId, action: 'product_delete', resource: 'product', resourceId: id, changes: { before: { name: product.name, price: product.price } }, status: 'success' },
+      req
+    );
+
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 });

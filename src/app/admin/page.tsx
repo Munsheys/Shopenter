@@ -90,6 +90,8 @@ export default function AdminPage() {
   const [passcode, setPasscode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
 
   // Data state
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -193,6 +195,43 @@ export default function AdminPage() {
     e.preventDefault();
     if (!passcode.trim() || verifying) return;
     verifySecret(passcode.trim());
+  };
+
+  // Per-admin account login: sets an httpOnly session cookie, then loads the
+  // dashboard the same way verifySecret does (verifyAdmin() accepts either path).
+  const handleAccountLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminEmail.trim() || !adminPassword || verifying) return;
+    setVerifying(true);
+    setLoginError('');
+    try {
+      const loginRes = await fetch('/api/admin/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: adminEmail.trim(), password: adminPassword }),
+      });
+      if (!loginRes.ok) {
+        const data = await loginRes.json().catch(() => ({}));
+        setLoginError(data.error || 'Invalid email or password.');
+        return;
+      }
+      const res = await fetch('/api/admin/system');
+      if (res.ok) {
+        const data = await res.json();
+        setMetrics(data.metrics);
+        setInfra(data.infra ?? null);
+        setMerchants(data.merchants);
+        setFeedbacks(data.feedbacks);
+        setIsAuthenticated(true);
+        setAdminPassword('');
+      } else {
+        setLoginError('Signed in, but failed to load dashboard data.');
+      }
+    } catch {
+      setLoginError('Network error. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const handleLogout = () => {
@@ -536,6 +575,38 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
               )}
             </button>
             <p className="text-[10px] text-[#8b92ad] mt-2">Session clears when you close this tab</p>
+          </form>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[#1f2335]" />
+            <span className="text-[10px] text-[#8b92ad] font-bold uppercase tracking-wider">or sign in</span>
+            <div className="flex-1 h-px bg-[#1f2335]" />
+          </div>
+
+          <form onSubmit={handleAccountLogin} className="space-y-4">
+            <input
+              type="email"
+              value={adminEmail}
+              onChange={e => setAdminEmail(e.target.value)}
+              placeholder="Admin email"
+              autoComplete="username"
+              className="w-full bg-[#0f1117] border border-[#1f2335] rounded-2xl py-3 px-5 text-sm outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/30 transition-all text-white"
+            />
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={e => setAdminPassword(e.target.value)}
+              placeholder="Password"
+              autoComplete="current-password"
+              className="w-full bg-[#0f1117] border border-[#1f2335] rounded-2xl py-3 px-5 text-sm outline-none focus:border-[#00b900] focus:ring-1 focus:ring-[#00b900]/30 transition-all text-white"
+            />
+            <button
+              type="submit"
+              disabled={!adminEmail.trim() || !adminPassword || verifying}
+              className="w-full bg-[#1f2335] text-white py-3 rounded-2xl font-bold hover:bg-[#292d45] active:scale-98 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <User size={15} /> Sign in with admin account
+            </button>
           </form>
 
           <p className="text-[10px] text-[#8b92ad] text-center leading-relaxed px-4">

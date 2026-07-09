@@ -4,6 +4,7 @@ import { Order, Settings, Message, Fulfilment } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { awardLoyaltyForOrder } from '@/lib/loyalty';
 import { sendLineMessage, sendFlexMessage, buildOrderStatusFlex, interpolateTemplate } from '@/lib/platforms/line';
+import { logAudit } from '@/lib/auditLog';
 
 export const runtime = 'nodejs';
 
@@ -103,6 +104,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    await logAudit(
+      { merchantId: merchant.merchantId, action: 'order_update', resource: 'order', resourceId: id, changes: { before: { status: before.status }, after: { status: order?.status } }, status: 'success' },
+      req
+    );
+
     return NextResponse.json(order);
   } catch {
     return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
@@ -119,6 +125,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const order = await Order.findOneAndDelete({ _id: id, merchantId: merchant.merchantId });
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     await Fulfilment.deleteMany({ orderId: id });
+
+    await logAudit(
+      { merchantId: merchant.merchantId, action: 'order_delete', resource: 'order', resourceId: id, status: 'success' },
+      req
+    );
+
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: 'Failed to delete order' }, { status: 500 });

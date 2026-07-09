@@ -4,6 +4,7 @@ import { Order, Settings, Merchant, Fulfilment } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
 import { sendLineMessage } from '@/lib/platforms/line';
+import { logAudit } from '@/lib/auditLog';
 
 export const runtime = 'nodejs';
 
@@ -104,6 +105,11 @@ export async function POST(req: NextRequest) {
       const alertMsg = `🛍️ New order: ${prefix}${shortId}\n${productText}\n฿${body.soldTHB || 0}`;
       sendLineMessage(settings.lineChannelAccessToken, settings.adminLineId, alertMsg).catch(() => {});
     }
+
+    await logAudit(
+      { merchantId: merchant.merchantId, action: 'order_create', resource: 'order', resourceId: order._id.toString(), status: 'success' },
+      req
+    );
 
     return NextResponse.json(order, { status: 201 });
   } catch {

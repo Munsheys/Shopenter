@@ -37,9 +37,11 @@ interface PlatformStatus {
 }
 
 interface BroadcastResult {
-  results: Record<string, { sent: number; failed: number; postId?: string; postType?: string; error?: string }>;
+  campaignId?: string;
+  results: Record<string, { sent?: number; failed?: number; queued?: boolean; postId?: string; postType?: string; error?: string }>;
   total: number;
   platforms: string[];
+  message?: string;
 }
 
 interface Campaign {
@@ -47,7 +49,7 @@ interface Campaign {
   name: string;
   deliveryMode: 'instant' | 'queued';
   messages: LineBlock[];
-  status: 'active' | 'paused' | 'completed' | 'cancelled';
+  status: 'active' | 'paused' | 'completed' | 'cancelled' | 'sending' | 'failed';
   audience?: string;
   recipientCount?: number;
   sentAt?: string;
@@ -1301,7 +1303,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                 {bResult.platforms.map(p => {
                   const r = bResult.results[p];
                   const isIg = p === 'instagram';
-                  const ok = !r.error && (isIg ? r.sent === 1 : r.failed === 0);
+                  const ok = !r.error && (isIg ? r.sent === 1 : (r.queued || r.failed === 0));
                   return (
                     <div key={p} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${ok ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-amber-500/10 border border-amber-500/20'}`}>
                       {ok ? <Check size={13} className="text-emerald-400 flex-shrink-0" /> : <AlertTriangle size={13} className="text-amber-400 flex-shrink-0" />}
@@ -1309,7 +1311,9 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                       <span className={`text-xs ${ok ? 'text-emerald-400' : 'text-amber-400'}`}>
                         {isIg
                           ? (ok ? `Post published (${r.postType ?? bIgPostType})` : r.error ?? 'Failed to publish')
-                          : (ok ? `Sent to ${r.sent} customers` : `${r.sent} sent · ${r.failed} failed`)
+                          : r.queued
+                          ? 'Queued — sending in the background'
+                          : (ok ? `Sent to ${r.sent} customers` : `${r.sent ?? 0} sent · ${r.failed ?? 0} failed`)
                         }
                       </span>
                     </div>

@@ -35,6 +35,7 @@ export function validateSecrets() {
       'Omise public key (merchant subscription billing)': process.env.NEXT_PUBLIC_OMISE_PUBLIC_KEY,
       'Cron secret (billing/trial/purge/inactivity crons)': process.env.CRON_SECRET,
       'Shopenter LINE channel token (inactivity-deletion notices)': process.env.SHOPENTER_LINE_CHANNEL_ACCESS_TOKEN,
+      'Redis URL (shared rate limiting across serverless instances)': process.env.REDIS_URL,
     };
 
     Object.entries(optionalSecrets).forEach(([name, value]) => {

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMerchantFromRequest } from '@/lib/auth';
 import dbConnect from '@/lib/db';
-import { Settings, Customer, Order, Campaign } from '@/models';
-import { randomUUID } from 'crypto';
+import { Settings, Customer, Order, Campaign, BroadcastJob } from '@/models';
 import mongoose from 'mongoose';
-import { sendTelegramMessage, sendTelegramPhotoWithKeyboard } from '@/lib/platforms/telegram';
 import { createInstagramPost, createInstagramStory } from '@/lib/platforms/instagram';
 
 export const runtime = 'nodejs';
+
+const LINE_CHUNK = 500;     // LINE multicast API's own per-call recipient cap
+const TELEGRAM_CHUNK = 30;  // Telegram has no batch endpoint — kept small so one job stays fast
 
 async function resolveAudience(merchantId: string, audience: string): Promise<string[]> {
   if (audience === 'active_30d' || audience === 'active_60d') {
@@ -37,6 +38,22 @@ async function resolveAudience(merchantId: string, audience: string): Promise<st
   return customers.map((c: any) => c.userId);
 }
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Creates the Campaign + queues per-recipient fan-out as BroadcastJob batches, then
+ * returns immediately — actual sending happens in the broadcast-worker cron. This is
+ * what makes "instant" broadcasts to a large audience not time out the request (see
+ * the Phase 4h note in the launch-readiness plan): LINE/Telegram sends used to run
+ * fully synchronously in this route with no maxDuration override.
+ *
+ * Instagram isn't a per-recipient fan-out (a single post/story), so it still runs
+ * synchronously here — that's already fast.
+ */
 export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -72,13 +89,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No selected platforms are configured' }, { status: 400 });
   }
 
-  // Build LINE messages array from unified content
   const lineMessages: any[] = [];
   if (imageUrl) lineMessages.push({ type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl });
   if (caption.trim()) lineMessages.push({ type: 'text', text: caption });
   lineMessages.push(...lineExtraBlocks);
 
-  // Instagram doesn't use customer list — it's a single post
   const nonIgPlatforms = requestedPlatforms.filter(p => p !== 'instagram');
   const userIds = nonIgPlatforms.length > 0 ? await resolveAudience(merchant.merchantId, audience) : [];
 
@@ -87,100 +102,68 @@ export async function POST(req: NextRequest) {
     name,
     deliveryMode: 'instant',
     messages: lineMessages,
-    status: 'sending',
+    status: nonIgPlatforms.length > 0 ? 'sending' : 'completed',
     audience,
     recipientCount: 0,
     totalTargeted: userIds.length,
     sentAt: new Date(),
-    platforms: requestedPlatforms,
   });
 
-  const results: Record<string, { sent: number; failed: number; postId?: string; postType?: string; error?: string }> = {};
-  let totalSent = 0;
-  let totalFailed = 0;
-  const CHUNK = 500;
+  const results: Record<string, { sent?: number; failed?: number; queued?: boolean; postId?: string; postType?: string; error?: string }> = {};
 
-  for (const platform of requestedPlatforms) {
-    let sent = 0;
-    let failed = 0;
+  if (requestedPlatforms.includes('line') && userIds.length > 0) {
+    const batches = chunk(userIds, LINE_CHUNK);
+    await BroadcastJob.insertMany(batches.map(recipients => ({
+      merchantId: merchant.merchantId,
+      campaignId: campaign._id,
+      platform: 'line',
+      recipients,
+      messages: lineMessages,
+    })));
+    results.line = { queued: true };
+  }
 
-    if (platform === 'line') {
-      const token = settings?.lineChannelAccessToken?.trim();
-      for (let i = 0; i < userIds.length; i += CHUNK) {
-        const chunk = userIds.slice(i, i + CHUNK);
-        const retryKey = randomUUID();
-        try {
-          const res = await fetch('https://api.line.me/v2/bot/message/multicast', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-              'X-Line-Retry-Key': retryKey,
-            },
-            body: JSON.stringify({ to: chunk, messages: lineMessages }),
-          });
-          if (res.ok) {
-            sent += chunk.length;
-          } else {
-            failed += chunk.length;
-            console.error('[line multicast]', await res.text());
-          }
-        } catch (err) {
-          failed += chunk.length;
-          console.error('[line error]', err);
-        }
-        if (i + CHUNK < userIds.length) await new Promise(r => setTimeout(r, 100));
-      }
+  if (requestedPlatforms.includes('telegram') && userIds.length > 0) {
+    const batches = chunk(userIds, TELEGRAM_CHUNK);
+    await BroadcastJob.insertMany(batches.map(recipients => ({
+      merchantId: merchant.merchantId,
+      campaignId: campaign._id,
+      platform: 'telegram',
+      recipients,
+      imageUrl: imageUrl || '',
+      caption,
+    })));
+    results.telegram = { queued: true };
+  }
 
-    } else if (platform === 'telegram') {
-      const token = settings?.telegram?.botToken?.trim();
-      for (const userId of userIds) {
-        try {
-          const success = imageUrl
-            ? await sendTelegramPhotoWithKeyboard(token, userId, imageUrl, caption, [])
-            : await sendTelegramMessage(token, userId, caption);
-          if (success) sent++;
-          else failed++;
-        } catch { failed++; }
-      }
+  if (requestedPlatforms.includes('instagram')) {
+    const token = settings?.instagram?.pageAccessToken?.trim();
+    const igAccountId = settings?.instagram?.igAccountId?.trim();
 
-    } else if (platform === 'instagram') {
-      const token = settings?.instagram?.pageAccessToken?.trim();
-      const igAccountId = settings?.instagram?.igAccountId?.trim();
-
-      if (!imageUrl) {
-        results['instagram'] = { sent: 0, failed: 1, error: 'Image required for Instagram post' };
-        totalFailed++;
-        continue;
-      }
-
+    if (!imageUrl) {
+      results.instagram = { sent: 0, failed: 1, error: 'Image required for Instagram post' };
+    } else {
       try {
         const result = igPostType === 'story'
           ? await createInstagramStory(token, igAccountId, imageUrl)
           : await createInstagramPost(token, igAccountId, imageUrl, caption);
 
-        if (result.success) {
-          sent = 1;
-          results['instagram'] = { sent: 1, failed: 0, postId: result.postId, postType: igPostType };
-        } else {
-          results['instagram'] = { sent: 0, failed: 1 };
-        }
+        results.instagram = result.success
+          ? { sent: 1, failed: 0, postId: result.postId, postType: igPostType }
+          : { sent: 0, failed: 1 };
       } catch {
-        results['instagram'] = { sent: 0, failed: 1 };
+        results.instagram = { sent: 0, failed: 1 };
       }
-      totalSent += sent;
-      continue;
     }
-
-    results[platform] = { sent, failed };
-    totalSent += sent;
-    totalFailed += failed;
   }
 
-  await Campaign.findByIdAndUpdate(campaign._id, {
-    status: totalSent === 0 ? 'failed' : 'completed',
-    recipientCount: totalSent,
+  return NextResponse.json({
+    campaignId: campaign._id,
+    results,
+    total: userIds.length,
+    platforms: requestedPlatforms,
+    message: nonIgPlatforms.length > 0
+      ? 'Broadcast queued — delivery happens in the background, check back for the final count.'
+      : 'Broadcast sent.',
   });
-
-  return NextResponse.json({ results, total: userIds.length, platforms: requestedPlatforms });
 }

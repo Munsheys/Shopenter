@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
     if (cancelledInactivityDeletion) {
       await logAudit({ merchantId: merchant._id.toString(), action: 'inactivity_deletion_cancelled', resource: 'merchant', status: 'success' }, req);
     }
+    await logAudit({ merchantId: merchant._id.toString(), action: 'login', resource: 'merchant', status: 'success' }, req);
 
     const token = signMerchantToken({ merchantId: merchant._id.toString(), email: merchant.email });
 
