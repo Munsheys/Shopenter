@@ -71,6 +71,23 @@ export async function checkApiLimit(merchantId: string): Promise<{ allowed: bool
 }
 
 /**
+ * Rate limit by merchant ID for uploads. Guards against abuse (a compromised account or
+ * runaway script hammering R2 storage), not normal usage — 10/hour was never actually wired
+ * up before now, despite being defined.
+ */
+export async function checkUploadLimit(merchantId: string): Promise<{ allowed: boolean; retryAfter?: number }> {
+  try {
+    await uploadLimiter.consume(merchantId);
+    return { allowed: true };
+  } catch (err: any) {
+    return {
+      allowed: false,
+      retryAfter: Math.ceil(err.msBeforeNext / 1000)
+    };
+  }
+}
+
+/**
  * Get IP address from request
  */
 export function getClientIp(req: any): string {

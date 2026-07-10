@@ -7,6 +7,13 @@ import { createInstagramPost, createInstagramStory } from '@/lib/platforms/insta
 
 export const runtime = 'nodejs';
 
+// The broadcast-worker cron (vercel.json) is scheduled every 5 minutes, but Vercel's
+// Hobby plan only runs crons once/day — on Hobby, a "broadcast" would actually take up
+// to 24 hours to deliver, which isn't broadcast at all. Manual toggle: there's no
+// programmatic way to detect which Vercel plan a deployment is on, so this is an
+// explicit env var you flip once you've upgraded, rather than automatic detection.
+const BROADCAST_ENABLED = process.env.BROADCAST_ENABLED === 'true';
+
 const LINE_CHUNK = 500;     // LINE multicast API's own per-call recipient cap
 const TELEGRAM_CHUNK = 30;  // Telegram has no batch endpoint — kept small so one job stays fast
 
@@ -57,6 +64,13 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!BROADCAST_ENABLED) {
+    return NextResponse.json(
+      { error: 'Broadcasting is temporarily unavailable while we finish upgrading delivery infrastructure. Please check back soon.' },
+      { status: 503 }
+    );
+  }
 
   const body = await req.json();
   const {

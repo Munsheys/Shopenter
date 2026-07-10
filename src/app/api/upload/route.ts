@@ -4,6 +4,7 @@ import { getMerchantFromRequest } from '@/lib/auth';
 import dbConnect from '@/lib/db';
 import { MediaFile } from '@/models';
 import { uploadToR2 } from '@/lib/r2';
+import { checkUploadLimit } from '@/lib/rateLimiter';
 
 export const runtime = 'nodejs';
 
@@ -51,6 +52,14 @@ function limitReason(kind: MediaKind): string {
 export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const limitCheck = await checkUploadLimit(merchant.merchantId);
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      { error: 'Too many uploads. Please try again later.', retryAfter: limitCheck.retryAfter },
+      { status: 429, headers: { 'Retry-After': String(limitCheck.retryAfter) } }
+    );
+  }
 
   let formData: FormData;
   try {

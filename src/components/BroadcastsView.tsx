@@ -623,6 +623,11 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [richMenus, setRichMenus] = useState<RichMenu[]>([]);
   const [defaultRichMenuId, setDefaultRichMenuId] = useState<string | null>(null);
 
+  // Mirrors the server-side BROADCAST_ENABLED gate in /api/broadcasts/instant — surfaces the
+  // restriction proactively instead of only after a failed send. Requires NEXT_PUBLIC_BROADCAST_ENABLED
+  // to match the server's BROADCAST_ENABLED (no client-only bypass; the server still enforces this).
+  const broadcastEnabled = process.env.NEXT_PUBLIC_BROADCAST_ENABLED === 'true';
+
   // Broadcast form
   const [bCaption, setBCaption] = useState('');
   const [bImageUrl, setBImageUrl] = useState('');
@@ -1113,6 +1118,13 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                 <p className={`text-xs ${k.muted}`}>Send to all customers across platforms instantly</p>
               </div>
             </div>
+
+            {!broadcastEnabled && (
+              <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs ${isDark ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                <Info size={14} className="flex-shrink-0 mt-0.5" />
+                <span>Broadcasting is temporarily unavailable while delivery infrastructure is upgraded. You can still draft a message below, but sending is disabled for now.</span>
+              </div>
+            )}
 
             {/* Platform selector */}
             <div>

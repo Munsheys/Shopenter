@@ -5,6 +5,7 @@ import { comparePassword, signMerchantToken } from '@/lib/auth';
 import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
 import { clearInactivityDeletion } from '@/lib/inactivity';
 import { logAudit } from '@/lib/auditLog';
+import { pushShopenterLineMessage } from '@/lib/shopenterLine';
 
 export const runtime = 'nodejs';
 
@@ -74,10 +75,16 @@ export async function POST(req: NextRequest) {
         timestamp: { $gte: new Date(Date.now() - 15 * 60 * 1000) }
       });
 
-      // Notify merchant after 3 failed attempts
+      // Notify merchant after 3 failed attempts — LINE only, per policy (never email; email-only
+      // merchants who haven't linked LINE can't be reached by Shopenter through any channel yet).
       if (recentFails === 3) {
         console.log(`[SECURITY] 3 failed login attempts for ${merchant.email} from ${ip}`);
-        // TODO: Send email alert to merchant
+        if (merchant.lineUserId) {
+          pushShopenterLineMessage(
+            merchant.lineUserId,
+            `Security alert: 3 failed login attempts on your Shopenter account (${merchant.shopName}) in the last 15 minutes. If this wasn't you, consider changing your password.`
+          ).catch(() => {});
+        }
       }
 
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
