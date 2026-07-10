@@ -2,19 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Merchant, MediaFile, Product, Settings, AutoReply, Campaign } from '@/models';
 import { deleteFromR2 } from '@/lib/r2';
+import { INACTIVITY_THRESHOLD_DAYS } from '@/lib/inactivity';
 
 export const runtime = 'nodejs';
 
-const INACTIVITY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Only deletes media that's both (a) not referenced by anything currently in use, and
- * (b) belongs to a merchant who's been inactive 30+ days — an actively-used account never
- * has its media touched here, even if a given upload isn't attached to a product yet (they
- * might be mid-edit). This is separate from the full account purge (90-day inactivity +
- * 30-day grace, src/app/api/cron/inactivity-check), which is a much longer timeline and
- * deletes everything, not just unused media.
+ * (b) belongs to a merchant who's been inactive 3+ months (same threshold as the full
+ * account-inactivity policy, src/lib/inactivity.ts) — an actively-used account never has
+ * its media touched here, even if a given upload isn't attached to a product yet (they
+ * might be mid-edit). Unlike the full account purge (src/app/api/cron/inactivity-check),
+ * which additionally waits a 30-day grace period before deleting everything, this only
+ * ever touches media nothing currently references — nothing "in use" is ever at risk.
  */
 function extractMediaId(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
   try {
     await dbConnect();
     const now = new Date();
-    const inactivityCutoff = new Date(now.getTime() - INACTIVITY_DAYS * DAY_MS);
+    const inactivityCutoff = new Date(now.getTime() - INACTIVITY_THRESHOLD_DAYS * DAY_MS);
 
     const inactiveMerchants = await Merchant.find({
       $or: [

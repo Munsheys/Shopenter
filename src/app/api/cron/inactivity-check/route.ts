@@ -21,6 +21,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Merchants with no lineUserId (email-only, never linked LINE) can't be
  * reached this way — skipped here rather than silently deleted with zero
  * notification reaching them. Flagged in the response for manual review.
+ * Same principle if SHOPENTER_LINE_CHANNEL_ACCESS_TOKEN itself is missing/invalid: nothing
+ * gets scheduled or advanced until a push actually confirms delivery — self-heals once the
+ * token is configured correctly, rather than silently scheduling deletions no one was warned about.
  */
 export async function GET(req: NextRequest) {
   const secret = req.headers.get('x-cron-secret') ?? req.nextUrl.searchParams.get('secret');
@@ -44,6 +47,7 @@ export async function GET(req: NextRequest) {
 
     let scheduled = 0;
     let skippedNoLine = 0;
+    let skippedPushFailed = 0;
 
     for (const merchant of newlyInactive) {
       if (!merchant.lineUserId) {
@@ -53,16 +57,26 @@ export async function GET(req: NextRequest) {
       }
 
       const scheduledFor = new Date(now.getTime() + GRACE_PERIOD_DAYS * DAY_MS);
+
+      // Confirm the warning actually sent before starting the deletion clock — if
+      // SHOPENTER_LINE_CHANNEL_ACCESS_TOKEN is missing/invalid, this fails for everyone, and
+      // we don't want to silently schedule deletions nobody was ever notified about. Safe to
+      // just retry tomorrow: deletionScheduledFor stays null, so this merchant is picked up
+      // by this same query again on the next run.
+      const delivered = await pushShopenterLineMessage(
+        merchant.lineUserId,
+        `Hi ${merchant.shopName}, your Shopenter account has been inactive for a while. To keep your shop and data, just log in before ${scheduledFor.toISOString().slice(0, 10)} — after that, your data will be permanently deleted. Logging in cancels this automatically.`
+      );
+      if (!delivered) {
+        skippedPushFailed++;
+        continue;
+      }
+
       merchant.deletionRequestedAt = now;
       merchant.deletionScheduledFor = scheduledFor;
       merchant.deletionReason = 'inactivity';
       merchant.inactivityWarningStage = 1;
       await merchant.save();
-
-      await pushShopenterLineMessage(
-        merchant.lineUserId,
-        `Hi ${merchant.shopName}, your Shopenter account has been inactive for a while. To keep your shop and data, just log in before ${scheduledFor.toISOString().slice(0, 10)} — after that, your data will be permanently deleted. Logging in cancels this automatically.`
-      );
 
       await logAudit({ merchantId: merchant._id.toString(), action: 'inactivity_deletion_scheduled', resource: 'merchant', status: 'success' });
       scheduled++;
@@ -86,9 +100,13 @@ export async function GET(req: NextRequest) {
       }
 
       if (nextStageMessage) {
-        await merchant.save();
-        await pushShopenterLineMessage(merchant.lineUserId, nextStageMessage);
-        remindersSent++;
+        // Same principle as stage 1: only advance the stage (so it isn't re-sent) once we
+        // know it actually delivered. A failed push just means we retry tomorrow.
+        const delivered = await pushShopenterLineMessage(merchant.lineUserId, nextStageMessage);
+        if (delivered) {
+          await merchant.save();
+          remindersSent++;
+        }
       }
     }
 
@@ -96,6 +114,7 @@ export async function GET(req: NextRequest) {
       message: 'Inactivity check cron completed',
       scheduled,
       skippedNoLine,
+      skippedPushFailed,
       remindersSent,
       timestamp: new Date().toISOString(),
     });

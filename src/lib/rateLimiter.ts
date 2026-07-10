@@ -35,7 +35,11 @@ function makeLimiter(keyPrefix: string, points: number, duration: number, blockD
 
 export const authLimiter = makeLimiter('rl_auth', 5, 15 * 60, 15 * 60);
 export const apiLimiter = makeLimiter('rl_api', 100, 60, 60);
-export const uploadLimiter = makeLimiter('rl_upload', 10, 60 * 60, 60 * 60);
+// 10/5min, not 10/hour — real product-setup sessions upload in bursts. This still caps abuse
+// (endless rapid-fire uploads), it just doesn't punish a merchant photographing a batch of
+// products in one sitting. blockDuration matches the window so a burst doesn't earn an
+// hour-long lockout.
+export const uploadLimiter = makeLimiter('rl_upload', 10, 5 * 60, 5 * 60);
 
 /**
  * Rate limit by IP address for auth endpoints
