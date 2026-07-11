@@ -1,7 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
-import { CreditCard, Check, AlertCircle, Loader, Zap, Package, Users, TrendingUp, ArrowRight, ChevronDown, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CreditCard, Check, AlertCircle, Loader, Zap, Package, Users, TrendingUp, ArrowRight, ChevronDown, Info, Receipt } from 'lucide-react';
+
+interface BillingReceiptItem {
+  omiseChargeId: string;
+  tier: string;
+  amountTHB: number;
+  periodStart: string;
+  periodEnd: string;
+  cardBrand?: string;
+  cardLast4?: string;
+  createdAt: string;
+}
 
 interface BillingSetupProps {
   theme: 'light' | 'lite' | 'dark';
@@ -32,6 +43,14 @@ export default function BillingSetupView({
   const [showComparison, setShowComparison] = useState(false);
   const [card, setCard] = useState({ name: '', number: '', expMonth: '', expYear: '', cvc: '' });
   const [showCancelInfo, setShowCancelInfo] = useState(false);
+  const [receipts, setReceipts] = useState<BillingReceiptItem[]>([]);
+
+  useEffect(() => {
+    fetch('/api/billing/receipts')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.receipts) setReceipts(data.receipts); })
+      .catch(() => {});
+  }, []);
 
   const surface = isDark ? 'bg-[#161925] border-[#1f2335]' : isLite ? 'bg-[#e7ecf3] border-[#cdd3dd]' : 'bg-white border-slate-200';
   const text = isDark ? 'text-white' : isLite ? 'text-[#2f3744]' : 'text-slate-900';
@@ -563,6 +582,31 @@ export default function BillingSetupView({
             </div>
           )}
         </div>
+
+        {/* Receipt history — interim record of every successful charge; not a formal Thai
+            tax invoice (that format/numbering is a separate accountant deliverable). */}
+        {receipts.length > 0 && (
+          <div className={`rounded-2xl border p-4 mt-4 ${surface}`}>
+            <h4 className={`text-base font-black mb-3 flex items-center gap-2 ${text}`}>
+              <Receipt size={16} />
+              Receipts
+            </h4>
+            <div className="space-y-2">
+              {receipts.map(r => (
+                <div key={r.omiseChargeId} className={`flex items-center justify-between text-sm py-2 border-b last:border-b-0 ${isDark ? 'border-[#1f2335]' : isLite ? 'border-[#cdd3dd]' : 'border-slate-100'}`}>
+                  <div>
+                    <p className={`font-semibold capitalize ${text}`}>{r.tier} plan</p>
+                    <p className={`text-xs ${mutedStrong}`}>
+                      {new Date(r.createdAt).toLocaleDateString()}
+                      {r.cardBrand && r.cardLast4 ? ` · ${r.cardBrand} •••• ${r.cardLast4}` : ''}
+                    </p>
+                  </div>
+                  <span className={`font-bold ${text}`}>฿{r.amountTHB.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

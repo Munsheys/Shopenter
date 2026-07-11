@@ -126,6 +126,9 @@ function FilterDropdown({ label, value, options, onChange, p, radius }: {
 export default function StorefrontView({ merchantId }: { merchantId: string }) {
   const [shopInfo, setShopInfo] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
+  // Set right after a successful checkout so the confirmation screen can link to the
+  // order-status page. Cleared implicitly by navigating away (not persisted).
+  const [lastOrderLink, setLastOrderLink] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -356,9 +359,14 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
       });
       if (res.ok) {
         const orderData = await res.json();
+        const trackingUrl = shopInfo?.slug && orderData._id && orderData.orderToken
+          ? `${window.location.origin}/shop/${shopInfo.slug}/order/${orderData._id}?t=${orderData.orderToken}`
+          : null;
+        setLastOrderLink(trackingUrl);
         if (isLiffClient && (customer.platform || 'line') === 'line') {
           const finalPrice = orderData.soldTHB ?? cartTotal;
-          const summary = `📦 สั่งซื้อแล้ว!\n${items.map(i => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n')}\n\nรวม ฿${finalPrice.toLocaleString()}`;
+          const trackingLine = trackingUrl ? `\n\n📍 Track: ${trackingUrl}` : '';
+          const summary = `📦 สั่งซื้อแล้ว!\n${items.map(i => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n')}\n\nรวม ฿${finalPrice.toLocaleString()}${trackingLine}`;
           try { await liff.sendMessages([{ type: 'text', text: summary }]); } catch { /* not available in all LIFF contexts */ }
         }
         setCart([]); setView('payment'); return null;
@@ -1005,9 +1013,14 @@ export default function StorefrontView({ merchantId }: { merchantId: string }) {
             <CheckCircle style={{ color: p.accent }} size={32} />
           </div>
           <h2 className={`text-3xl sm:text-4xl mb-2 leading-tight ${headingFont}`} style={{ color: p.textPrimary }}>Order Confirmed</h2>
-          <p className="text-sm sm:text-base font-medium mb-10 opacity-50" style={{ color: p.textPrimary }}>
+          <p className="text-sm sm:text-base font-medium mb-4 opacity-50" style={{ color: p.textPrimary }}>
             Thank you for your order. We'll contact you when your order is ready for payment.
           </p>
+          {lastOrderLink && (
+            <a href={lastOrderLink} className="inline-block text-sm font-bold mb-6 underline underline-offset-4" style={{ color: p.accent }}>
+              Track your order
+            </a>
+          )}
           {sf.postCheckoutUrl ? (
             <a
               href={sf.postCheckoutUrl}
