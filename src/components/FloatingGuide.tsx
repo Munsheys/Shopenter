@@ -272,12 +272,16 @@ export default function FloatingGuide({
       title: 'Design a Rich Menu',
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
     },
-    {
+    // Broadcast is gated behind NEXT_PUBLIC_BROADCAST_ENABLED (Vercel Hobby's daily-only
+    // cron frequency makes it non-functional there — see BroadcastsView.tsx's own gate).
+    // Walking a new merchant to a step they can't complete is worse than not showing it;
+    // it reappears automatically once the env var flips on with a Pro upgrade.
+    ...(process.env.NEXT_PUBLIC_BROADCAST_ENABLED === 'true' ? [{
       n: 11, done: hasBroadcast,
       icon: <Megaphone size={12} />,
       title: 'Send first broadcast',
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
-    },
+    } as Step] : []),
   ];
 
   const doneCount = steps.filter(s => s.done).length;
