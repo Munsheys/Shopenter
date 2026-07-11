@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Coupon } from '@/models';
+import { checkStorefrontLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ merchantId: string }> }) {
   const { merchantId } = await params;
+
+  // Public endpoint that reports whether a given code is valid — throttle by IP so it
+  // can't be used to brute-force / enumerate a merchant's coupon codes.
+  const limitCheck = await checkStorefrontLimit(getClientIp(req));
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      { error: 'Too many attempts. Please try again in a moment.', retryAfter: limitCheck.retryAfter },
+      { status: 429, headers: { 'Retry-After': String(limitCheck.retryAfter) } }
+    );
+  }
+
   const { code, orderTotal } = await req.json().catch(() => ({}));
 
   if (!code) return NextResponse.json({ error: 'Coupon code is required' }, { status: 400 });

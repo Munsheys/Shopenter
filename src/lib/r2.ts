@@ -13,6 +13,17 @@ export const r2Client = new S3Client({
   },
 });
 
+// True only when all four R2 credentials are present. Lets callers (e.g. the backup cron)
+// skip cleanly instead of throwing an SDK error when R2 hasn't been set up yet.
+export function isR2Configured(): boolean {
+  return !!(
+    process.env.R2_ACCOUNT_ID &&
+    process.env.R2_BUCKET_NAME &&
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY
+  );
+}
+
 export async function uploadToR2(buffer: Buffer, key: string, contentType: string): Promise<void> {
   await r2Client.send(new PutObjectCommand({
     Bucket: bucketName,

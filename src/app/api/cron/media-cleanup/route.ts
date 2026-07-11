@@ -17,10 +17,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * which additionally waits a 30-day grace period before deleting everything, this only
  * ever touches media nothing currently references — nothing "in use" is ever at risk.
  */
-function extractMediaId(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const match = /\/api\/media\/([a-f0-9]{24})/.exec(url);
-  return match ? match[1] : null;
+// A media file can be referenced two ways depending on how it's served:
+//   • proxied  →  /api/media/<mongoId>?t=<token>   (default, no R2_PUBLIC_BASE_URL)
+//   • direct   →  <R2_PUBLIC_BASE_URL>/<r2Key>      (when direct serving is configured)
+// So we can't just pull an id out of the URL — a direct URL has no /api/media/<id> in it.
+// Instead we gather every referenced URL as a raw string and, per media doc, treat it as
+// in-use if any referenced URL contains that doc's mongoId OR its r2Key. This is
+// deletion-critical: missing a match would delete a still-referenced image.
+function collectUrls(...urls: (string | null | undefined)[]): string[] {
+  return urls.filter((u): u is string => typeof u === 'string' && u.length > 0);
 }
 
 export async function GET(req: NextRequest) {
@@ -45,7 +50,7 @@ export async function GET(req: NextRequest) {
     let checked = 0;
 
     for (const { _id: merchantId } of inactiveMerchants) {
-      const inUse = new Set<string>();
+      const referencedUrls: string[] = [];
 
       const [products, settings, autoReplies, campaigns] = await Promise.all([
         Product.find({ merchantId }).select('imageUrl images variants').lean(),
@@ -55,23 +60,25 @@ export async function GET(req: NextRequest) {
       ]);
 
       for (const p of products as any[]) {
-        [p.imageUrl, ...(p.images ?? []), ...(p.variants ?? []).map((v: any) => v.imageUrl)]
-          .forEach(u => { const id = extractMediaId(u); if (id) inUse.add(id); });
+        referencedUrls.push(...collectUrls(p.imageUrl, ...(p.images ?? []), ...(p.variants ?? []).map((v: any) => v.imageUrl)));
       }
       if (settings) {
-        [settings.storefront?.logoUrl, settings.storefront?.bannerUrl, (settings as any).shopLogoUrl]
-          .forEach(u => { const id = extractMediaId(u); if (id) inUse.add(id); });
+        referencedUrls.push(...collectUrls(settings.storefront?.logoUrl, settings.storefront?.bannerUrl, (settings as any).shopLogoUrl));
       }
       for (const doc of [...autoReplies, ...campaigns] as any[]) {
         for (const block of doc.messages ?? []) {
-          [block.originalContentUrl, block.previewImageUrl].forEach(u => { const id = extractMediaId(u); if (id) inUse.add(id); });
+          referencedUrls.push(...collectUrls(block.originalContentUrl, block.previewImageUrl));
         }
       }
 
+      const referencedBlob = referencedUrls.join('\n');
       const merchantMedia = await MediaFile.find({ merchantId }).select('r2Key').lean();
       for (const media of merchantMedia as any[]) {
         checked++;
-        if (inUse.has(media._id.toString())) continue;
+        const id = media._id.toString();
+        // In use if any referenced URL mentions this doc's id (proxied URL) or r2Key (direct URL).
+        const inUse = referencedBlob.includes(id) || (media.r2Key && referencedBlob.includes(media.r2Key));
+        if (inUse) continue;
 
         if (media.r2Key) {
           try { await deleteFromR2(media.r2Key); } catch (e) { console.error(`[media-cleanup] R2 delete failed for ${media.r2Key}`, e); }

@@ -35,6 +35,11 @@ function makeLimiter(keyPrefix: string, points: number, duration: number, blockD
 
 export const authLimiter = makeLimiter('rl_auth', 5, 15 * 60, 15 * 60);
 export const apiLimiter = makeLimiter('rl_api', 100, 60, 60);
+// Public storefront writes (order placement, coupon checks). Deliberately looser than the
+// auth limiter: these are normal customer actions, and Thai mobile users are heavily behind
+// carrier-grade NAT, so many legitimate customers share one IP. 30/min per IP still stops a
+// flood script cold without breaking a busy shop's real checkout traffic.
+export const storefrontLimiter = makeLimiter('rl_storefront', 30, 60, 60);
 // 10/5min, not 10/hour — real product-setup sessions upload in bursts. This still caps abuse
 // (endless rapid-fire uploads), it just doesn't punish a merchant photographing a batch of
 // products in one sitting. blockDuration matches the window so a burst doesn't earn an
@@ -71,6 +76,19 @@ export async function checkApiLimit(merchantId: string): Promise<{ allowed: bool
       allowed: false,
       retryAfter: Math.ceil(err.msBeforeNext / 1000)
     };
+  }
+}
+
+/**
+ * Rate limit public storefront writes (order placement, coupon validation) by IP.
+ * Looser than checkAuthLimit — see storefrontLimiter's note on carrier-grade NAT.
+ */
+export async function checkStorefrontLimit(ip: string): Promise<{ allowed: boolean; retryAfter?: number }> {
+  try {
+    await storefrontLimiter.consume(ip);
+    return { allowed: true };
+  } catch (err: any) {
+    return { allowed: false, retryAfter: Math.ceil(err.msBeforeNext / 1000) };
   }
 }
 

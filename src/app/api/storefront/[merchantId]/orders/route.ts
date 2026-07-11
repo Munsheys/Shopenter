@@ -1,13 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Message, Product } from '@/models';
-import { sendLineMessage, verifyLiffIdToken } from '@/lib/platforms/line';
+import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Product } from '@/models';
+import { verifyLiffIdToken } from '@/lib/platforms/line';
 import { notifyMerchant } from '@/lib/notifyMerchant';
+import { checkStorefrontLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const runtime = 'nodejs';
 
+// Guard against a single request fanning out into an unbounded number of per-item
+// Product lookups (each item does a findOne) — a public endpoint should never let a
+// caller dictate how much work the server does. Real carts are nowhere near this.
+const MAX_ITEMS_PER_ORDER = 100;
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ merchantId: string }> }) {
   const { merchantId } = await params;
+
+  // Public, unauthenticated write endpoint — throttle by IP so it can't be used to
+  // flood the database, drain LINE push quota, spam the merchant with order alerts,
+  // or exhaust stock via the atomic decrement below. Uses the looser storefront limiter
+  // (not the auth one) so shared-IP customers behind carrier-grade NAT aren't false-tripped.
+  const ip = getClientIp(req);
+  const limitCheck = await checkStorefrontLimit(ip);
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again in a moment.', retryAfter: limitCheck.retryAfter },
+      { status: 429, headers: { 'Retry-After': String(limitCheck.retryAfter) } }
+    );
+  }
+
   try {
     await dbConnect();
     const settings = await Settings.findOne({ merchantId });
@@ -17,13 +37,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     const { couponCode, redeemPoints, lineUserId, userId: bodyUserId, isLiffClient, liffIdToken, ...orderData } = body;
     let userId = bodyUserId || lineUserId; // accept both field names during transition
 
+    // Only a LIFF-verified token proves the caller actually owns `userId`. A guest
+    // (external browser) can put any LINE userId in the body, so we treat that identity
+    // as unverified and refuse to act on it in ways that touch that user's account
+    // (loyalty redemption) or their LINE inbox (confirmation push) — see below.
+    let identityVerified = false;
+
     // LIFF token verification for authentic orders
     if (isLiffClient && liffIdToken) {
       const verified = await verifyLiffIdToken(liffIdToken, settings.liffId);
       if (!verified) return NextResponse.json({ error: 'Invalid LIFF token' }, { status: 401 });
       userId = verified.userId;
+      identityVerified = true;
     } else if (isLiffClient) {
       return NextResponse.json({ error: 'LIFF token required' }, { status: 400 });
+    }
+
+    if (Array.isArray(orderData.items) && orderData.items.length > MAX_ITEMS_PER_ORDER) {
+      return NextResponse.json({ error: `An order cannot contain more than ${MAX_ITEMS_PER_ORDER} line items.` }, { status: 400 });
     }
 
     let discountAmount = 0;
@@ -138,8 +169,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     }
 
     // Validate and apply loyalty point redemption — deduct atomically so the same
-    // balance can't be spent twice by concurrent orders.
-    if (redeemPoints && userId) {
+    // balance can't be spent twice by concurrent orders. Requires a verified identity:
+    // otherwise a guest could supply another customer's userId and burn their points.
+    if (redeemPoints && userId && identityVerified) {
       const loyaltySettings = await Settings.findOne({ merchantId }).select('loyalty').lean() as any;
       const loyalty = loyaltySettings?.loyalty;
 
@@ -200,18 +232,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     }
 
     // ── Type B: order confirmation message to customer ────────────────────────
-    // LIFF client sends via liff.sendMessages(); external browser gets a push
-    if (!isLiffClient && userId) {
-      const merchantSettings = await Settings.findOne({ merchantId }).lean() as any;
-      if (merchantSettings?.lineChannelAccessToken) {
-        try {
-          const itemsSummary = order.items?.map((i: any) => `• ${i.qty > 1 ? `${i.qty}x ` : ''}${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ''}`).join('\n') || order.product;
-          const confirmMsg = `📦 สั่งซื้อแล้ว!\n${itemsSummary}\n\nรวม ฿${order.soldTHB.toLocaleString()}\n\nขอบคุณที่ใช้บริการครับ 🙏`;
-          await sendLineMessage(merchantSettings.lineChannelAccessToken, userId, confirmMsg);
-          await Message.create({ merchantId, userId, platform: 'line', type: 'system', text: confirmMsg, sender: 'system' });
-        } catch (err) { console.error('[storefront order push]', err); }
-      }
-    }
+    // Deliberately no server-side push here. A LIFF client already self-sends a
+    // confirmation via liff.sendMessages() client-side. The only other path — an
+    // external-browser caller supplying a userId — is unverified (see identityVerified
+    // above), so pushing to it would let anyone spam an arbitrary LINE user's inbox with
+    // fake "order confirmed" messages. If a trusted server push is ever needed for
+    // external browsers, it must be gated on a verified identity, not a body-supplied one.
 
     // ── Type A: merchant new-order alert ──────────────────────────────────────
     const settingsForNotif = await Settings.findOne({ merchantId }).lean() as any;
