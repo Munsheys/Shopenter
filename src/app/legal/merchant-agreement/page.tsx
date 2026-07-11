@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PUBLIC_CONTACT_TEXT } from '@/lib/contact';
 
 export const metadata = {
   title: 'Merchant Agreement - Shopenter',
@@ -115,7 +116,7 @@ export default function MerchantAgreementPage() {
           <p><strong>You own:</strong> All content you create (product descriptions, images, marketing)</p>
           <p className="mt-4"><strong>You warrant:</strong> You own or have a license to all content you upload</p>
           <p className="mt-4"><strong>We own:</strong> Shopenter platform code (you can't reverse-engineer or copy)</p>
-          <p className="mt-4"><strong>DMCA Claims:</strong> If your copyright is infringed, email legal@shopenter.app. We investigate within 48 hours and remove if confirmed.</p>
+          <p className="mt-4"><strong>DMCA Claims:</strong> If your copyright is infringed, reach us via {PUBLIC_CONTACT_TEXT}. We investigate within 48 hours and remove if confirmed.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">8. Liability Limitations</h2>
           <p><strong>Our maximum liability:</strong> Amount you paid in the prior 12 months</p>
@@ -144,7 +145,7 @@ export default function MerchantAgreementPage() {
 
           <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">By You</h3>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Anytime by emailing support@shopenter.app</li>
+            <li>Anytime via the &quot;Delete my account&quot; option in your dashboard&apos;s Account settings</li>
             <li>Effective immediately</li>
             <li>30 days to export data</li>
             <li>No refund for partial month</li>
@@ -181,7 +182,7 @@ export default function MerchantAgreementPage() {
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mt-12">
             <p className="text-sm text-gray-600">
-              <strong>Questions?</strong> Email <a href="mailto:legal@shopenter.app" className="text-green-600 hover:underline">legal@shopenter.app</a>
+              <strong>Questions?</strong> Reach us via {PUBLIC_CONTACT_TEXT}, or use the Feedback tab in your merchant dashboard.
             </p>
           </div>
         </div>

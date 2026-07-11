@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PUBLIC_CONTACT_TEXT } from '@/lib/contact';
 
 export const metadata = {
   title: 'Privacy Policy - Shopenter',
@@ -102,7 +103,7 @@ export default function PrivacyPage() {
             <li><strong>Portability:</strong> Export your data in standard format</li>
             <li><strong>Object:</strong> Opt out of marketing or processing</li>
           </ul>
-          <p className="mt-4">To exercise these rights, email <a href="mailto:privacy@shopenter.app" className="text-green-600 hover:underline">privacy@shopenter.app</a></p>
+          <p className="mt-4">To exercise these rights, reach us via {PUBLIC_CONTACT_TEXT}.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">8. Cookies</h2>
           <p>We currently use only <strong>necessary cookies</strong> — for login sessions and security — which don't require consent under GDPR/PDPA. We do not currently use analytics or marketing cookies. If we add any in the future, our cookie banner will ask for your opt-in consent before they're set, and this section will be updated to describe them.</p>
@@ -129,7 +130,7 @@ export default function PrivacyPage() {
             <li>Data portability in machine-readable format</li>
             <li>Right to lodge a complaint with your Data Protection Authority</li>
             <li>Right not to be subject to automated profiling</li>
-            <li>Contact: <a href="mailto:dpo@shopenter.app" className="text-green-600 hover:underline">dpo@shopenter.app</a></li>
+            <li>Contact: {PUBLIC_CONTACT_TEXT}</li>
           </ul>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">12. Thai PDPA (Thailand Users)</h2>
@@ -155,8 +156,8 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">15. Contact Us</h2>
           <p>For privacy questions or to exercise your rights:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Email: <a href="mailto:privacy@shopenter.app" className="text-green-600 hover:underline">privacy@shopenter.app</a></li>
-            <li>GDPR/PDPA Data Protection Officer: <a href="mailto:dpo@shopenter.app" className="text-green-600 hover:underline">dpo@shopenter.app</a></li>
+            <li>Contact: {PUBLIC_CONTACT_TEXT}</li>
+            <li>GDPR/PDPA Data Protection Officer: {PUBLIC_CONTACT_TEXT}</li>
           </ul>
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mt-12">

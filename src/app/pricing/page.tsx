@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { MessageCircle } from 'lucide-react';
+import { PUBLIC_CONTACT_TEXT } from '@/lib/contact';
 
 export const metadata = {
   title: 'Pricing - Shopenter',
@@ -72,9 +73,9 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 {tier.name === 'Enterprise' ? (
-                  <a href="mailto:sales@shopenter.app" className="block text-center py-3 rounded-xl font-semibold transition-colors border border-white/20 text-white hover:bg-white/5">
-                    Contact sales
-                  </a>
+                  <span className="block text-center py-3 rounded-xl font-semibold border border-white/10 text-gray-400 text-xs">
+                    Reach us via {PUBLIC_CONTACT_TEXT}
+                  </span>
                 ) : (
                   <Link href="/signup" className={`block text-center py-3 rounded-xl font-semibold transition-colors ${tier.highlighted ? 'bg-green-500 hover:bg-green-400 text-white' : 'border border-white/20 text-white hover:bg-white/5'}`}>
                     Get started

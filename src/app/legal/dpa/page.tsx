@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PUBLIC_CONTACT_TEXT } from '@/lib/contact';
 
 export const metadata = {
   title: 'Data Processing Agreement - Shopenter',
@@ -232,9 +233,9 @@ export default function DpaPage() {
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">16. Contact</h2>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li><strong>Privacy inquiries:</strong> <a href="mailto:privacy@shopenter.app" className="text-green-600 hover:underline">privacy@shopenter.app</a></li>
-            <li><strong>GDPR/PDPA requests:</strong> <a href="mailto:dpo@shopenter.app" className="text-green-600 hover:underline">dpo@shopenter.app</a></li>
-            <li><strong>Breach notification:</strong> <a href="mailto:security@shopenter.app" className="text-green-600 hover:underline">security@shopenter.app</a></li>
+            <li><strong>Privacy inquiries:</strong> {PUBLIC_CONTACT_TEXT}</li>
+            <li><strong>GDPR/PDPA requests:</strong> {PUBLIC_CONTACT_TEXT}</li>
+            <li><strong>Breach notification:</strong> {PUBLIC_CONTACT_TEXT}</li>
           </ul>
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mt-12">

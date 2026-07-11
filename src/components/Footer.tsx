@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { PUBLIC_CONTACT_TEXT } from '@/lib/contact';
 
 export default function Footer() {
   return (
@@ -49,26 +50,8 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold text-sm mb-4">Support</h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <a href="mailto:support@shopenter.app" className="hover:text-white transition">
-                  support@shopenter.app
-                </a>
-              </li>
-              <li>
-                <a href="mailto:legal@shopenter.app" className="hover:text-white transition">
-                  legal@shopenter.app
-                </a>
-              </li>
-              <li>
-                <a href="mailto:abuse@shopenter.app" className="hover:text-white transition">
-                  abuse@shopenter.app
-                </a>
-              </li>
-              <li>
-                <a href="mailto:security@shopenter.app" className="hover:text-white transition">
-                  security@shopenter.app
-                </a>
-              </li>
+              <li>Merchants: use the Feedback tab in your dashboard</li>
+              <li>Everyone else: {PUBLIC_CONTACT_TEXT}</li>
             </ul>
           </div>
 
@@ -81,11 +64,7 @@ export default function Footer() {
                   Security Policy
                 </a>
               </li>
-              <li>
-                <a href="mailto:security@shopenter.app" className="hover:text-white transition">
-                  Report Vulnerability
-                </a>
-              </li>
+              <li>Report a vulnerability: {PUBLIC_CONTACT_TEXT}</li>
             </ul>
           </div>
         </div>

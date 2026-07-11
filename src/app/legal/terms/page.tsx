@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PUBLIC_CONTACT_TEXT } from '@/lib/contact';
 
 export const metadata = {
   title: 'Terms of Service - Shopenter',
@@ -77,7 +78,7 @@ export default function TermsPage() {
           </ul>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">9. Service Level Agreement (SLA)</h2>
-          <p>We target high platform uptime. If you experience a major outage, contact <a href="mailto:support@shopenter.app" className="text-green-600 hover:underline">support@shopenter.app</a> — remediation, including service credits where appropriate, is evaluated case by case. Enterprise customers may negotiate a formal SLA with specific remediation terms.</p>
+          <p>We target high platform uptime. If you experience a major outage, contact us via {PUBLIC_CONTACT_TEXT} or the Feedback tab in your merchant dashboard — remediation, including service credits where appropriate, is evaluated case by case. Enterprise customers may negotiate a formal SLA with specific remediation terms.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">10. Chargeback Fraud</h2>
           <p>If you file a chargeback for items you received:</p>
@@ -88,7 +89,7 @@ export default function TermsPage() {
           </ul>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">11. Termination</h2>
-          <p><strong>By You:</strong> Anytime via support@shopenter.app. 30-day grace period to export data.</p>
+          <p><strong>By You:</strong> Anytime via the &quot;Delete my account&quot; option in your dashboard&apos;s Account settings. 30-day grace period to export data.</p>
           <p><strong>By Us:</strong> For policy violations, payment failure, or illegal activity. 30-day data export window applies (except immediate termination for child exploitation, trafficking, or fraud).</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">12. Data Ownership & Deletion</h2>
@@ -109,7 +110,7 @@ export default function TermsPage() {
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mt-12">
             <p className="text-sm text-gray-600">
-              <strong>Questions?</strong> Email <a href="mailto:legal@shopenter.app" className="text-green-600 hover:underline">legal@shopenter.app</a>
+              <strong>Questions?</strong> Reach us via {PUBLIC_CONTACT_TEXT}, or use the Feedback tab in your merchant dashboard.
             </p>
           </div>
         </div>

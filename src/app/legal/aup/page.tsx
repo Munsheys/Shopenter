@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PUBLIC_CONTACT_TEXT } from '@/lib/contact';
 
 export const metadata = {
   title: 'Acceptable Use Policy - Shopenter',
@@ -168,14 +169,14 @@ export default function AupPage() {
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">9. Appeal Process</h2>
           <p>If your account is suspended or terminated:</p>
           <ol className="list-decimal list-inside space-y-2 ml-4">
-            <li>You have 7 days to appeal to abuse@shopenter.app</li>
+            <li>You have 7 days to appeal via {PUBLIC_CONTACT_TEXT} (a suspended account may not have dashboard access)</li>
             <li>Include new evidence or explanation</li>
             <li>Management reviews within 14 days</li>
             <li>Final decision issued in writing</li>
           </ol>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">10. Reporting Violations</h2>
-          <p><strong>To report a violation:</strong> Email <a href="mailto:abuse@shopenter.app" className="text-green-600 hover:underline">abuse@shopenter.app</a> with:</p>
+          <p><strong>To report a violation:</strong> Reach us via {PUBLIC_CONTACT_TEXT} with:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Violator's account name</li>
             <li>Specific violation description</li>
@@ -196,7 +197,7 @@ export default function AupPage() {
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mt-12">
             <p className="text-sm text-gray-600">
-              <strong>Questions?</strong> Email <a href="mailto:abuse@shopenter.app" className="text-green-600 hover:underline">abuse@shopenter.app</a>
+              <strong>Questions?</strong> Reach us via {PUBLIC_CONTACT_TEXT}.
             </p>
           </div>
         </div>

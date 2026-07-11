@@ -175,7 +175,7 @@ export default function BillingSetupView({
     }
 
     if (selectedTier === 'enterprise') {
-      alert('Please contact sales@shopenter.app for Enterprise pricing');
+      alert('For Enterprise pricing, please reach out via the Feedback tab in your dashboard.');
       return;
     }
 
