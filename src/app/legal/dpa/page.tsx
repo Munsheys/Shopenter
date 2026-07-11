@@ -197,7 +197,7 @@ export default function DpaPage() {
             <li>30-day export window</li>
             <li>After 30 days: Automatic permanent deletion</li>
             <li>Audit logs: 7 years (legal requirement)</li>
-            <li>Backups: 30 days (disaster recovery)</li>
+            <li>Backups: not currently automated on our database infrastructure — this section will be updated once in place</li>
           </ul>
 
           <p className="mt-4"><strong>Legal holds:</strong> We retain if court order, fraud investigation, dispute, payment obligations, or legal obligation applies</p>

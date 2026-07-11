@@ -106,11 +106,9 @@ export default function MerchantAgreementPage() {
           <p>We protect your data with:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>HTTPS encryption in transit</li>
-            <li>AES-256 encryption at rest</li>
-            <li>Regular security audits</li>
-            <li>Redundant backups</li>
-            <li>24/7 monitoring</li>
+            <li>AES-256 encryption at rest for sensitive stored credentials</li>
           </ul>
+          <p className="mt-4">Automated database backups are not yet in place on our current infrastructure — this section will be updated once they are.</p>
           <p className="mt-4">See our <Link href="/legal/privacy" className="text-green-600 hover:underline">Privacy Policy</Link> for details.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">7. Intellectual Property</h2>
