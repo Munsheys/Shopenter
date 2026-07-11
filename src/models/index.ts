@@ -395,6 +395,12 @@ const OrderSchema = new mongoose.Schema({
   couponCode: { type: String, default: '' },
   discountAmount: { type: Number, default: 0 },
   redeemedPoints: { type: Number, default: 0 },
+  // Capability token for the customer-facing order-status page — same pattern as
+  // MediaFile's token (src/app/api/media/[id]/route.ts): a bare ObjectId isn't enough to
+  // read another customer's order, the link must also carry this token. Orders created
+  // before this field existed have an empty token and simply aren't reachable via the
+  // status page (they predate the feature — no migration needed).
+  orderToken: { type: String, default: '', index: true },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -651,6 +657,23 @@ const AuditLogSchema = new mongoose.Schema({
 AuditLogSchema.index({ merchantId: 1, timestamp: -1 });
 AuditLogSchema.index({ action: 1, timestamp: -1 });
 
+// Permanent record of each successful subscription charge (interim receipt system — not a
+// formal Thai tax invoice; numbering/format for that is a separate accountant deliverable).
+// Written once per successful Omise charge (initial checkout + billing-cycle renewals) so
+// there's a queryable payment history independent of Omise's own dashboard.
+const BillingReceiptSchema = new mongoose.Schema({
+  merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },
+  omiseChargeId: { type: String, required: true, unique: true },
+  tier: { type: String, required: true },
+  amountTHB: { type: Number, required: true },
+  periodStart: { type: Date, required: true },
+  periodEnd: { type: Date, required: true },
+  cardBrand: { type: String, default: '' },
+  cardLast4: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now },
+});
+BillingReceiptSchema.index({ merchantId: 1, createdAt: -1 });
+
 // Per-person admin accounts. ADMIN_SECRET (src/lib/adminAuth.ts) remains as an emergency
 // break-glass fallback, but day-to-day admin access should go through here so individual
 // access can be revoked/rotated without resetting one shared secret for everyone.
@@ -746,4 +769,5 @@ export const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', A
 export const AbuseReport = mongoose.models.AbuseReport || mongoose.model('AbuseReport', AbuseReportSchema);
 export const ViolationHistory = mongoose.models.ViolationHistory || mongoose.model('ViolationHistory', ViolationHistorySchema);
 export const AdminUser = mongoose.models.AdminUser || mongoose.model('AdminUser', AdminUserSchema);
+export const BillingReceipt = mongoose.models.BillingReceipt || mongoose.model('BillingReceipt', BillingReceiptSchema);
 export const BroadcastJob = mongoose.models.BroadcastJob || mongoose.model('BroadcastJob', BroadcastJobSchema);

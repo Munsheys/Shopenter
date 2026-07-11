@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import dbConnect from '@/lib/db';
 import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Product } from '@/models';
 import { verifyLiffIdToken } from '@/lib/platforms/line';
@@ -195,6 +196,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     }
 
     const finalTotal = Math.max(0, baseTotal - discountAmount);
+    const orderToken = randomUUID();
 
     let order;
     try {
@@ -207,6 +209,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
         discountAmount,
         couponCode: appliedCouponCode,
         redeemedPoints,
+        orderToken,
       });
     } catch (err) {
       // Order failed to save — undo the stock reservation and refund redeemed points
@@ -258,7 +261,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
       await Order.findByIdAndUpdate(order._id, { attributedCampaignId: recentCampaign._id });
     }
 
-    return NextResponse.json(order, { status: 201 });
+    // Customer-safe response only — the full order doc carries the merchant's cost/profit
+    // fields (costTHB, profit, costKRW, rateUsed), which have no business reaching a
+    // customer's browser. The storefront client only ever reads soldTHB from this response.
+    return NextResponse.json({
+      _id: order._id,
+      orderToken: order.orderToken,
+      status: order.status,
+      soldTHB: order.soldTHB,
+      discountAmount: order.discountAmount,
+      couponCode: order.couponCode,
+      items: order.items,
+      product: order.product,
+      quantity: order.quantity,
+      createdAt: order.createdAt,
+    }, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
   }

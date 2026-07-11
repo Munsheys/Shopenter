@@ -5,6 +5,7 @@ import { logAudit } from '@/lib/auditLog';
 import { TIER_PRICE_THB, BILLING_GRACE_PERIOD_DAYS, type Tier } from '@/lib/tiers';
 import { chargeCustomer, thbToSatang } from '@/lib/omise';
 import { daysFromNow } from '@/lib/affiliate';
+import { recordAndNotifyReceipt } from '@/lib/billingReceipt';
 
 export const runtime = 'nodejs';
 
@@ -48,7 +49,9 @@ export async function GET(req: NextRequest) {
         );
 
         if (charge.status === 'successful') {
-          merchant.nextBillingDate = daysFromNow(30);
+          const periodStart = new Date();
+          const periodEnd = daysFromNow(30);
+          merchant.nextBillingDate = periodEnd;
           merchant.pastDueSince = null;
           merchant.subscriptionStatus = 'active';
           // Covers the card-required trial converting to a real paid subscription at
@@ -57,6 +60,18 @@ export async function GET(req: NextRequest) {
           merchant.trialEndsAt = null;
           await merchant.save();
           await logAudit({ merchantId: merchant._id.toString(), action: 'subscription_renewed', resource: 'merchant', status: 'success' });
+          await recordAndNotifyReceipt({
+            merchantId: merchant._id.toString(),
+            lineUserId: merchant.lineUserId,
+            shopName: merchant.shopName,
+            omiseChargeId: charge.id,
+            tier: merchant.tier,
+            amountTHB: priceThb,
+            periodStart,
+            periodEnd,
+            cardBrand: merchant.paymentMethodBrand,
+            cardLast4: merchant.paymentMethodLast4,
+          });
           renewed++;
         } else {
           merchant.subscriptionStatus = 'past_due';
