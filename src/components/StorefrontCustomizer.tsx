@@ -13,6 +13,7 @@ import {
   type HeaderStyle, type HeroStyle, type CardStyle, type CornerStyle, type Density, type TypographyStyle,
 } from '@/lib/storefrontLayouts';
 import { getAccentText } from '@/lib/accent';
+import { uploadMedia } from '@/lib/uploadMedia';
 
 interface StorefrontConfig {
   shopName: string;
@@ -108,13 +109,10 @@ function LogoUpload({ value, onChange, isDark, accent }: { value: string; onChan
   async function upload(file: File) {
     if (file.size > 2 * 1024 * 1024) { setErr('Max 2 MB allowed.'); return; }
     setUploading(true); setErr('');
-    const fd = new FormData();
-    fd.append('file', file);
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (res.ok) onChange(data.url);
-      else setErr(data.error ?? 'Upload failed');
+      const url = await uploadMedia(file);
+      if (url) onChange(url);
+      else setErr('Upload failed');
     } catch { setErr('Upload failed.'); }
     setUploading(false);
   }

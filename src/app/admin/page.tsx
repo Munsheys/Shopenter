@@ -25,6 +25,13 @@ interface Infra {
   dbDataMB: number;
   dbIndexMB: number;
   dbTotalMB: number;
+  r2StorageMB: number;
+  r2FileCount: number;
+  r2UploadsThisMonth: number;
+  quotas: { key: string; label: string; usedMB: number; limitMB: number; pct: number }[];
+  failedAuditsLast7Days: number;
+  pastDueMerchants: number;
+  broadcastEnabled: boolean;
 }
 
 interface MerchantItem {
@@ -816,6 +823,112 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                             ? `DB at ${usedPct.toFixed(0)}% capacity. Plan upgrade to MongoDB M10 within the next few weeks.`
                             : `Message volume is elevated (${infra.messagesToday}/day). Monitor closely — high sustained volume may require Vercel Pro.`
                           }
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── Free-tier quota watch ── */}
+            {infra && (() => {
+              const r2StorageLimitMB = 10 * 1024;
+              const r2OpsLimit = 1_000_000;
+              const r2StoragePct = Math.min(100, (infra.r2StorageMB / r2StorageLimitMB) * 100);
+              const r2OpsPct = Math.min(100, (infra.r2UploadsThisMonth / r2OpsLimit) * 100);
+              const r2StorageWarn = r2StoragePct >= 90 ? 'red' : r2StoragePct >= 70 ? 'amber' : 'green';
+              const r2OpsWarn = r2OpsPct >= 90 ? 'red' : r2OpsPct >= 70 ? 'amber' : 'green';
+              const hasFlags = infra.failedAuditsLast7Days > 0 || infra.pastDueMerchants > 0;
+              const flagsWarn = infra.failedAuditsLast7Days >= 10 || infra.pastDueMerchants >= 3 ? 'red' : hasFlags ? 'amber' : 'green';
+
+              const alertColor = (c: string) =>
+                c === 'red' ? 'border-red-500/30 bg-red-500/5' :
+                c === 'amber' ? 'border-amber-500/30 bg-amber-500/5' :
+                'border-[#1f2335] bg-[#161925]';
+              const barColor = (c: string) =>
+                c === 'red' ? 'bg-red-500' : c === 'amber' ? 'bg-amber-400' : 'bg-[#00b900]';
+              const textColor = (c: string) =>
+                c === 'red' ? 'text-red-400' : c === 'amber' ? 'text-amber-400' : 'text-[#00b900]';
+
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white">Free-Tier Quota Watch</h3>
+                    <span className="text-[10px] text-[#8b92ad]">R2 free tier · 10 GB storage, 1M writes/mo</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* R2 storage gauge */}
+                    <div className={`rounded-2xl border p-5 space-y-3 ${alertColor(r2StorageWarn)}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">R2 Storage</span>
+                        {r2StorageWarn !== 'green' && <span className={`text-[9px] font-black uppercase ${textColor(r2StorageWarn)}`}>{r2StorageWarn === 'red' ? '⚠ UPGRADE NOW' : '⚠ APPROACHING LIMIT'}</span>}
+                      </div>
+                      <div>
+                        <div className="flex items-end gap-1">
+                          <span className={`text-2xl font-black ${textColor(r2StorageWarn)}`}>{infra.r2StorageMB.toLocaleString()}</span>
+                          <span className="text-[#8b92ad] text-xs mb-1">/ {r2StorageLimitMB.toLocaleString()} MB</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-[#1f2335] mt-2 overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${barColor(r2StorageWarn)}`} style={{ width: `${r2StoragePct}%` }} />
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <span className="text-[11px] text-[#8b92ad]">{infra.r2FileCount.toLocaleString()} files</span>
+                          <span className={`text-[11px] font-bold ${textColor(r2StorageWarn)}`}>{r2StoragePct.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* R2 uploads this month */}
+                    <div className={`rounded-2xl border p-5 space-y-3 ${alertColor(r2OpsWarn)}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">R2 Writes This Month</span>
+                        {r2OpsWarn !== 'green' && <span className={`text-[9px] font-black uppercase ${textColor(r2OpsWarn)}`}>HIGH VOLUME</span>}
+                      </div>
+                      <div>
+                        <div className="flex items-end gap-1">
+                          <span className={`text-2xl font-black ${textColor(r2OpsWarn)}`}>{infra.r2UploadsThisMonth.toLocaleString()}</span>
+                          <span className="text-[#8b92ad] text-xs mb-1">/ 1,000,000</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-[#1f2335] mt-2 overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${barColor(r2OpsWarn)}`} style={{ width: `${r2OpsPct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Something broke? */}
+                    <div className={`rounded-2xl border p-5 space-y-3 ${alertColor(flagsWarn)}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-[#8b92ad] uppercase tracking-wider">Flags</span>
+                        {flagsWarn !== 'green' && <span className={`text-[9px] font-black uppercase ${textColor(flagsWarn)}`}>NEEDS ATTENTION</span>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#8b92ad]">Failed actions (7d)</span>
+                          <span className={`text-sm font-black ${infra.failedAuditsLast7Days > 0 ? textColor(flagsWarn) : 'text-white'}`}>{infra.failedAuditsLast7Days}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#8b92ad]">Merchants past due</span>
+                          <span className={`text-sm font-black ${infra.pastDueMerchants > 0 ? textColor(flagsWarn) : 'text-white'}`}>{infra.pastDueMerchants}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#8b92ad]">Broadcast</span>
+                          <span className={`text-[10px] font-bold ${infra.broadcastEnabled ? 'text-[#00b900]' : 'text-[#8b92ad]'}`}>{infra.broadcastEnabled ? 'ENABLED' : 'off (Hobby)'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(r2StorageWarn !== 'green' || r2OpsWarn !== 'green') && (
+                    <div className={`rounded-2xl border p-4 flex items-start gap-3 ${r2StorageWarn === 'red' || r2OpsWarn === 'red' ? 'border-red-500/30 bg-red-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+                      <AlertCircle size={16} className={r2StorageWarn === 'red' || r2OpsWarn === 'red' ? 'text-red-400 flex-shrink-0 mt-0.5' : 'text-amber-400 flex-shrink-0 mt-0.5'} />
+                      <div className="space-y-1">
+                        <p className={`text-xs font-bold ${r2StorageWarn === 'red' || r2OpsWarn === 'red' ? 'text-red-400' : 'text-amber-400'}`}>
+                          {r2StorageWarn === 'red' ? 'R2 storage critical — upgrade to R2 paid tier' : 'Approaching R2 free-tier limits'}
+                        </p>
+                        <p className="text-[10px] text-[#8b92ad] leading-relaxed">
+                          Cloudflare R2 paid tier is $0.015/GB-month over 10 GB, with no egress fees either way — cheap to raise once you're here.
                         </p>
                       </div>
                     </div>

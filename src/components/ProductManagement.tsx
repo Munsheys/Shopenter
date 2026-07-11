@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
+import { uploadMedia } from '@/lib/uploadMedia';
 import {
   Package,
   Plus,
@@ -373,12 +374,7 @@ function resizeToBlob(file: File): Promise<Blob | null> {
 async function uploadImageFile(file: File): Promise<string | null> {
   const blob = await resizeToBlob(file);
   if (!blob) return null;
-  const formData = new FormData();
-  formData.append('file', blob, file.name);
-  const res = await fetch('/api/upload', { method: 'POST', body: formData });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.url as string;
+  return uploadMedia(blob, file.name);
 }
 
 export function MultiImageUploader({ images, onChange, theme = 'light' }: {

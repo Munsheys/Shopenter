@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { MediaFile } from '@/models';
-import { getFromR2 } from '@/lib/r2';
+import { getFromR2, getPublicR2Url } from '@/lib/r2';
 
 export const runtime = 'nodejs';
 
@@ -32,6 +32,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         'Cache-Control': 'public, max-age=2592000, immutable',
       },
     });
+  }
+
+  // If R2 has a public URL configured, hand traffic off to it directly instead of proxying
+  // the bytes through this function — even for old links still pointing at this route.
+  const publicUrl = getPublicR2Url(media.r2Key);
+  if (publicUrl) {
+    return NextResponse.redirect(publicUrl, { status: 302 });
   }
 
   const object = await getFromR2(media.r2Key);

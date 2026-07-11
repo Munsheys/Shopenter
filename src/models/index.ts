@@ -498,6 +498,7 @@ const MediaFileSchema = new mongoose.Schema({
   // R2 object key. Legacy docs may still have a `data` Buffer (pre-R2-migration) —
   // the serving route falls back to that field if `r2Key` is unset.
   r2Key: { type: String, default: '' },
+  sizeBytes: { type: Number, default: 0 }, // populated on upload; used for the admin R2-usage estimate
   data: { type: Buffer },
   // No TTL: this endpoint serves permanent content (product photos, storefront banners)
   // as well as anything ephemeral, and a blanket 30-day expiry was silently breaking the

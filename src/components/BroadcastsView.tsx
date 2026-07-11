@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useDelayedUnmount } from '@/hooks/useDelayedUnmount';
+import { uploadMedia } from '@/lib/uploadMedia';
 import {
   Megaphone, Zap, Clock, MessageSquare, Hand, LayoutGrid,
   Plus, Trash2, Edit2, Check, X, AlertTriangle,
@@ -89,12 +90,11 @@ interface RichMenu {
   size: { width: number; height: number };
 }
 
-// Mirrors the server-side limit logic in /api/upload/route.ts.
-// Update NEXT_PUBLIC_MAX_UPLOAD_MB in your Vercel env when upgrading hosting plan.
-const INFRA_MAX_MB = parseInt(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? '4', 10);
+// Uploads go straight from the browser to R2 (see uploadMedia()), so the only
+// ceiling left is LINE's own limit on the media type.
 const UPLOAD_LIMITS = {
-  image: Math.min(10, INFRA_MAX_MB),  // LINE originalContentUrl limit 10 MB vs hosting plan
-  video: Math.min(200, INFRA_MAX_MB), // LINE 200 MB vs hosting plan
+  image: 10,
+  video: 200,
 };
 
 const DK = {
@@ -173,15 +173,12 @@ function UploadZone({
   async function upload(file: File) {
     if (file.size > maxMB * 1024 * 1024) { setErr(`Max ${maxMB} MB allowed.`); return; }
     setUploading(true); setErr('');
-    const fd = new FormData();
-    fd.append('file', file);
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (res.ok) {
-        onUploaded(data.url);
+      const url = await uploadMedia(file);
+      if (url) {
+        onUploaded(url);
       } else {
-        setErr(data.error ?? 'Upload failed');
+        setErr('Upload failed');
       }
     } catch { setErr('Upload failed. Check your connection.'); }
     setUploading(false);
@@ -315,11 +312,6 @@ function BlockComposer({ blocks, onChange, isDark, isLite }: { blocks: LineBlock
             ) : (
               <div className="space-y-3">
                 <UploadZone accept="video/mp4,video/quicktime" maxMB={UPLOAD_LIMITS.video} value={block.originalContentUrl} onUploaded={url => update(i, { originalContentUrl: url })} isDark={isDark} isLite={isLite} previewType="video" />
-                {UPLOAD_LIMITS.video < 200 && (
-                  <p className={`text-[11px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-                    Short clips only — up to {UPLOAD_LIMITS.video} MB on current hosting plan. LINE supports up to 200 MB.
-                  </p>
-                )}
                 <div>
                   <p className={`text-[11px] font-semibold uppercase tracking-widest mb-1.5 ${k.muted}`}>Thumbnail (required by LINE)</p>
                   <UploadZone accept="image/jpeg,image/png,image/webp" maxMB={UPLOAD_LIMITS.image} value={block.previewImageUrl} onUploaded={url => update(i, { previewImageUrl: url })} isDark={isDark} isLite={isLite} previewType="image" />

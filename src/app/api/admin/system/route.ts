@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
-import { Merchant, Product, Order, Feedback, Settings, Message, Customer } from '@/models';
+import { Merchant, Product, Order, Feedback, Settings, Message, Customer, MediaFile, AuditLog } from '@/models';
 import { verifyAdmin } from '@/lib/adminAuth';
 
 export const runtime = 'nodejs';
+
+// Free-tier ceilings this stack currently runs on, for the admin "approaching limit" panel.
+// Update these if/when a service is upgraded to a paid plan.
+const FREE_TIER_LIMITS = {
+  mongoStorageMB: 512,           // MongoDB Atlas M0
+  r2StorageMB: 10 * 1024,        // Cloudflare R2 free tier: 10 GB
+  r2ClassAOpsMonthly: 1_000_000, // Cloudflare R2 free tier: writes (uploads) per month
+};
 
 export async function GET(req: NextRequest) {
   if (!verifyAdmin(req)) {
@@ -127,8 +135,12 @@ export async function GET(req: NextRequest) {
     // 6. Infrastructure health metrics
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [totalMessages, totalCustomers, msgPerDay, dbStats] = await Promise.all([
+    const [
+      totalMessages, totalCustomers, msgPerDay, dbStats,
+      mediaAgg, uploadsThisMonth, failedAuditsLast7Days, pastDueMerchants,
+    ] = await Promise.all([
       Message.countDocuments({}),
       Customer.countDocuments({}),
       Message.aggregate([
@@ -140,6 +152,13 @@ export async function GET(req: NextRequest) {
         { $sort: { _id: 1 } },
       ]),
       mongoose.connection.db!.stats(),
+      // Sum of every stored media file's size — an estimate of R2 storage used (files deleted
+      // directly in R2 outside this app, if any, wouldn't be reflected here).
+      MediaFile.aggregate([{ $group: { _id: null, totalBytes: { $sum: '$sizeBytes' }, count: { $sum: 1 } } }]),
+      // Proxy for R2 "Class A" (write) operations this month — each upload is ~1 PutObject.
+      MediaFile.countDocuments({ createdAt: { $gte: startOfMonth } }),
+      AuditLog.countDocuments({ status: 'failed', timestamp: { $gte: sevenDaysAgo } }),
+      Merchant.countDocuments({ subscriptionStatus: 'past_due' }),
     ]);
 
     // Fill in missing days so chart always has 7 points
@@ -151,6 +170,35 @@ export async function GET(req: NextRequest) {
       days.push({ date: key, count: found?.count ?? 0 });
     }
 
+    const dbTotalMB = Math.round(((dbStats.storageSize ?? 0) + (dbStats.indexSize ?? 0)) / 1024 / 1024 * 10) / 10;
+    const r2StorageMB = Math.round((mediaAgg[0]?.totalBytes ?? 0) / 1024 / 1024 * 10) / 10;
+
+    // Quota watch: each entry is a free-tier ceiling worth flagging before it's hit.
+    // `pct` past 75 is a heads-up, past 90 is "upgrade soon."
+    const quotas = [
+      {
+        key: 'mongoStorage',
+        label: 'MongoDB storage (Atlas M0 free tier)',
+        usedMB: dbTotalMB,
+        limitMB: FREE_TIER_LIMITS.mongoStorageMB,
+        pct: Math.round((dbTotalMB / FREE_TIER_LIMITS.mongoStorageMB) * 1000) / 10,
+      },
+      {
+        key: 'r2Storage',
+        label: 'Cloudflare R2 storage (free tier)',
+        usedMB: r2StorageMB,
+        limitMB: FREE_TIER_LIMITS.r2StorageMB,
+        pct: Math.round((r2StorageMB / FREE_TIER_LIMITS.r2StorageMB) * 1000) / 10,
+      },
+      {
+        key: 'r2ClassAOps',
+        label: 'Cloudflare R2 writes this month (free tier)',
+        usedMB: uploadsThisMonth, // reused field: count, not MB, for this one
+        limitMB: FREE_TIER_LIMITS.r2ClassAOpsMonthly,
+        pct: Math.round((uploadsThisMonth / FREE_TIER_LIMITS.r2ClassAOpsMonthly) * 1000) / 10,
+      },
+    ];
+
     const infra = {
       totalMessages,
       totalCustomers,
@@ -159,7 +207,14 @@ export async function GET(req: NextRequest) {
       dbStorageMB: Math.round((dbStats.storageSize ?? 0) / 1024 / 1024 * 10) / 10,
       dbDataMB: Math.round((dbStats.dataSize ?? 0) / 1024 / 1024 * 10) / 10,
       dbIndexMB: Math.round((dbStats.indexSize ?? 0) / 1024 / 1024 * 10) / 10,
-      dbTotalMB: Math.round(((dbStats.storageSize ?? 0) + (dbStats.indexSize ?? 0)) / 1024 / 1024 * 10) / 10,
+      dbTotalMB,
+      r2StorageMB,
+      r2FileCount: mediaAgg[0]?.count ?? 0,
+      r2UploadsThisMonth: uploadsThisMonth,
+      quotas,
+      failedAuditsLast7Days,
+      pastDueMerchants,
+      broadcastEnabled: process.env.BROADCAST_ENABLED === 'true',
     };
 
     // 7. Fetch all feedbacks (including conversation logs and full live store diagnostic context)
