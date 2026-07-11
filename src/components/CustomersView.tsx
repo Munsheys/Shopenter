@@ -8,7 +8,7 @@ import {
   Clock, Printer, History, ChevronDown, AlertTriangle, Pencil, Check, Ban,
   CornerUpLeft, Truck, Coins, PackagePlus,
 } from 'lucide-react';
-import { type ProductForm } from './ProductManagement';
+import { type ProductForm, ALL_CURRENCIES } from './ProductManagement';
 import NumberStepper from '@/components/NumberStepper';
 
 // Escape user-controlled values before injecting them into printed receipt HTML.
@@ -76,8 +76,6 @@ type Product = {
   options?: { name: string; values: string[] }[];
   variants?: { combination?: Record<string, string>; variantName?: string; colors?: string[]; price?: number; cost?: number }[];
 };
-
-const COST_CURRENCIES = ['THB', 'KRW', 'USD', 'EUR', 'JPY', 'CNY', 'GBP', 'HKD', 'SGD', 'TWD'];
 
 const AVATAR_COLORS = [
   'bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-orange-500',
@@ -169,7 +167,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const [qoDiscount, setQoDiscount] = useState(0);
   const [qoShipping, setQoShipping] = useState(0);
   const [qoCostPrice, setQoCostPrice] = useState('');
-  const [qoCostCurrency, setQoCostCurrency] = useState('KRW');
+  const [qoCostCurrency, setQoCostCurrency] = useState('THB');
   const [qoSubmitting, setQoSubmitting] = useState(false);
   const [qoNewProdOpen, setQoNewProdOpen] = useState(false);
   const [qoNewProdName, setQoNewProdName] = useState('');
@@ -349,7 +347,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
     }).catch(() => {});
     fetch('/api/settings').then(r => r.json()).then(s => {
       setMerchantSettings(s);
-      setQoCostCurrency(s.importCurrency || 'KRW');
+      setQoCostCurrency(s.importCurrency || 'THB');
     }).catch(() => {});
   }, []);
 
@@ -898,7 +896,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
         const order = await res.json();
         setAllOrders(prev => [order, ...prev]);
         closeQuickOrder();
-        setQoCostCurrency(merchantSettings?.importCurrency || 'KRW');
+        setQoCostCurrency(merchantSettings?.importCurrency || 'THB');
         showToast('New order created');
       }
     } finally { setQoSubmitting(false); }
@@ -1902,7 +1900,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
                       onChange={e => setQoCostCurrency(e.target.value)}
                       className={`text-[10px] rounded-lg px-2 py-1.5 border outline-none focus:border-accent ${k.input} w-16`}
                     >
-                      {COST_CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                      {ALL_CURRENCIES.map(c => <option key={c}>{c}</option>)}
                     </select>
                     <input
                       type="number"
@@ -3100,7 +3098,7 @@ function HistoryRow({ order, isDark, k, isLast, onPatch, onDelete, isHighlighted
   const [saving, setSaving] = useState(false);
 
   const sc = order.soldCurrency || 'THB';
-  const cc = order.costCurrency || 'KRW';
+  const cc = order.costCurrency || 'THB';
 
   // Derived values — sold and cost come from the order record; only rate is editable
   const currentRate = parseFloat(rate) || 0;

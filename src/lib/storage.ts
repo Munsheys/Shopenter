@@ -14,7 +14,7 @@ export function getLocalSettings() {
   return {
     shopName: "Auto-Market",
     theme: "light",
-    krwRate: 0.026,
+    krwRate: 1,
     shippingCompanies: ['Flash Express', 'ThaiPost', 'Kerry Express', 'J&T Express'],
     senderAddress: "",
     trackingTemplate: "📦 Shipped!\n\nCourier: {courier}\nTracking: {tracking}\nItems: {product}\n\nThank you! 🙏"

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const from = (searchParams.get('from') || 'KRW').toUpperCase();
+  const from = (searchParams.get('from') || 'THB').toUpperCase();
   const to = (searchParams.get('to') || 'THB').toUpperCase();
 
   try {

@@ -62,8 +62,13 @@ const SettingsSchema = new mongoose.Schema({
   dashboardAccentGradient: { type: String, default: '' },
   dashboardCustomSolids: { type: [String], default: [] },
   dashboardCustomGradients: { type: [String], default: [] },
-  krwRate: { type: Number, default: 0.026 },
-  importCurrency: { type: String, default: 'KRW' },
+  // Defaults are domestic-first (THB/THB, rate 1) rather than the original KRW-import bias
+  // this field was first built for — a new merchant sourcing and selling entirely within
+  // Thailand should see a sensible default, not an implicit assumption they import from
+  // Korea. Any merchant who already has a Settings doc keeps whatever they had (this only
+  // affects brand-new documents going forward — nothing migrates retroactively).
+  krwRate: { type: Number, default: 1 },
+  importCurrency: { type: String, default: 'THB' },
   localCurrency: { type: String, default: 'THB' },
   useAutoRate: { type: Boolean, default: false },
   trackingTemplate: { type: String, default: "📦 ส่งสินค้าแล้วครับ!\n\nขนส่ง: {courier}\nเลขพัสดุ: {tracking}\nรายการ: {product}\n\nขอบคุณครับ 🙏" },
@@ -373,11 +378,17 @@ const OrderSchema = new mongoose.Schema({
     itemCourier: { type: String, default: '' },
   }],
   soldTHB: { type: Number, default: 0 },
+  // Field name kept as-is despite the KRW-specific name — it's genuinely a generic "cost in
+  // whatever costCurrency says" amount (see costCurrency below), just named after the one
+  // merchant this was originally built for. Renaming would touch every read/write site
+  // (CustomersView.tsx's Quick Order flow, order detail views, CSV export/import) for a
+  // cosmetic-only change — not worth the churn. costCurrency now defaults to THB, matching
+  // Settings' new default, rather than assuming a KRW import.
   costKRW: { type: Number, default: 0 },
   costTHB: { type: Number, default: 0 },
   profit: { type: Number, default: 0 },
   rateUsed: Number,
-  costCurrency: { type: String, default: 'KRW' },
+  costCurrency: { type: String, default: 'THB' },
   soldCurrency: { type: String, default: 'THB' },
   shipCostTHB: { type: Number, default: 0 },
   tracking: String,

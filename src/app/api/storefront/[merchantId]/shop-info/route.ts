@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mer
       shopLogoUrl: s.shopLogoUrl || '',
       liffId: s.liffId || null,
       promptPayId: s.promptPayId || null,
-      krwRate: s.krwRate ?? 0.026,
+      krwRate: s.krwRate ?? 1,
       paymentMethods: s.paymentMethods ?? {},
       bankAccounts: s.bankAccounts ?? [],
       storefront: s.storefront ?? {},

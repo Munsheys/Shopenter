@@ -437,7 +437,7 @@ export default function SettingsView({
   const handleFetchLiveRate = async () => {
     setFetchingRate(true); setLiveRateError('');
     try {
-      const res  = await fetch(`/api/rate?from=${settings.importCurrency || 'KRW'}&to=${settings.localCurrency || 'THB'}`);
+      const res  = await fetch(`/api/rate?from=${settings.importCurrency || 'THB'}&to=${settings.localCurrency || 'THB'}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
       set('krwRate', data.rate);
@@ -1052,7 +1052,7 @@ export default function SettingsView({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                       <label className={lbl}>Cost Currency</label>
-                      <select value={settings.importCurrency || 'KRW'} onChange={e => set('importCurrency', e.target.value)} className={inputCls}>
+                      <select value={settings.importCurrency || 'THB'} onChange={e => set('importCurrency', e.target.value)} className={inputCls}>
                         {ALL_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                       <p className={hint}>Currency you pay when sourcing</p>
@@ -1078,8 +1078,8 @@ export default function SettingsView({
                   </div>
                   <div className="flex items-end gap-3">
                     <div className="flex-1 md:max-w-xs">
-                      <label className={lbl}>1 {settings.importCurrency || 'KRW'} = ? {settings.localCurrency || 'THB'}</label>
-                      <input type="number" step="0.0001" min="0" value={settings.krwRate ?? 0.026} onChange={e => set('krwRate', parseFloat(e.target.value) || 0)} className={inputCls} disabled={settings.useAutoRate} />
+                      <label className={lbl}>1 {settings.importCurrency || 'THB'} = ? {settings.localCurrency || 'THB'}</label>
+                      <input type="number" step="0.0001" min="0" value={settings.krwRate ?? 1} onChange={e => set('krwRate', parseFloat(e.target.value) || 0)} className={inputCls} disabled={settings.useAutoRate} />
                     </div>
                     <button type="button" onClick={handleFetchLiveRate} disabled={fetchingRate}
                       className={`px-4 py-3 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 flex-shrink-0 disabled:opacity-50 ${isDark ? 'bg-[#1a1d2e] border-[#1f2335] text-white hover:border-accent' : 'bg-slate-50 border-slate-200 text-slate-900 hover:border-accent'}`}>

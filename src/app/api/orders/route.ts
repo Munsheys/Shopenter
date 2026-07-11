@@ -63,12 +63,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const settings = await Settings.findOne({ merchantId: merchant.merchantId });
-    const costCurrency = (body.costCurrency || settings?.importCurrency || 'KRW').toUpperCase();
+    const costCurrency = (body.costCurrency || settings?.importCurrency || 'THB').toUpperCase();
     const soldCurrency = (settings?.localCurrency || 'THB').toUpperCase();
     const useAutoRate = settings?.useAutoRate ?? false;
 
     const costAmount: number = body.costKRW || 0;
-    let rate: number = settings?.krwRate ?? 0.026;
+    let rate: number = settings?.krwRate ?? 1;
 
     if (costAmount > 0 && useAutoRate) {
       try {
