@@ -10,6 +10,7 @@
     "migrate:media-to-r2": "node --env-file=.env.local scripts/migrate-media-to-r2.mjs",
     "migrate:encrypt-secrets": "node --env-file=.env.local scripts/encrypt-existing-secrets.mjs",
     "migrate:drop-media-ttl": "node --env-file=.env.local scripts/drop-media-ttl-index.mjs",
+    "reset-merchant-password": "node --env-file=.env.local scripts/reset-merchant-password.mjs",
     "create-admin": "node --env-file=.env.local scripts/create-admin.mjs",
     "test": "vitest run"
   },
