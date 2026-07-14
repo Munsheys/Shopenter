@@ -4,6 +4,21 @@ import { sendInstagramMessage, sendInstagramProductCards, type InstagramProductC
 
 export type BroadcastPlatform = 'line' | 'telegram' | 'instagram';
 
+const BATCH_SIZE = 20;
+const BATCH_DELAY_MS = 100;
+
+async function sendInBatches(userIds: string[], sendOne: (userId: string) => Promise<boolean>): Promise<{ sent: number; failed: number }> {
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+    const batch = userIds.slice(i, i + BATCH_SIZE);
+    const outcomes = await Promise.all(batch.map(userId => sendOne(userId).catch(() => false)));
+    for (const ok of outcomes) { if (ok) sent++; else failed++; }
+    if (i + BATCH_SIZE < userIds.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+  }
+  return { sent, failed };
+}
+
 export interface UnifiedMessage {
   type: 'text' | 'flex' | 'image';
   text: string; // Fallback text for all platforms
@@ -39,30 +54,18 @@ export async function sendUnifiedBroadcast(
       }
     } else if (platform === 'telegram') {
       // Telegram: send photo with caption if available, otherwise text
-      for (const userId of userIds) {
-        try {
-          const success = message.telegramPhoto
-            ? await sendTelegramPhotoWithKeyboard(token, userId, message.telegramPhoto.url, message.telegramPhoto.caption, [])
-            : await sendTelegramMessage(token, userId, message.text);
-          if (success) sent++;
-          else failed++;
-        } catch {
-          failed++;
-        }
-      }
+      ({ sent, failed } = await sendInBatches(userIds, (userId) =>
+        message.telegramPhoto
+          ? sendTelegramPhotoWithKeyboard(token, userId, message.telegramPhoto.url, message.telegramPhoto.caption, [])
+          : sendTelegramMessage(token, userId, message.text)
+      ));
     } else if (platform === 'instagram') {
       // Instagram: send product cards carousel or text fallback
-      for (const userId of userIds) {
-        try {
-          const success = message.instagramCards && message.instagramCards.length > 0
-            ? await sendInstagramProductCards(token, userId, message.instagramCards)
-            : await sendInstagramMessage(token, userId, message.text);
-          if (success) sent++;
-          else failed++;
-        } catch {
-          failed++;
-        }
-      }
+      ({ sent, failed } = await sendInBatches(userIds, (userId) =>
+        message.instagramCards && message.instagramCards.length > 0
+          ? sendInstagramProductCards(token, userId, message.instagramCards)
+          : sendInstagramMessage(token, userId, message.text)
+      ));
     }
 
     results.push({ platform, sent, failed });

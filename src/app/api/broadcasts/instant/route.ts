@@ -134,14 +134,17 @@ export async function POST(req: NextRequest) {
 
     } else if (platform === 'telegram') {
       const token = settings?.telegram?.botToken?.trim();
-      for (const userId of userIds) {
-        try {
-          const success = imageUrl
-            ? await sendTelegramPhotoWithKeyboard(token, userId, imageUrl, caption, [])
-            : await sendTelegramMessage(token, userId, caption);
-          if (success) sent++;
-          else failed++;
-        } catch { failed++; }
+      const TG_BATCH = 20;
+      for (let i = 0; i < userIds.length; i += TG_BATCH) {
+        const batch = userIds.slice(i, i + TG_BATCH);
+        const outcomes = await Promise.all(batch.map(userId =>
+          (imageUrl
+            ? sendTelegramPhotoWithKeyboard(token, userId, imageUrl, caption, [])
+            : sendTelegramMessage(token, userId, caption)
+          ).catch(() => false)
+        ));
+        for (const ok of outcomes) { if (ok) sent++; else failed++; }
+        if (i + TG_BATCH < userIds.length) await new Promise(r => setTimeout(r, 100));
       }
 
     } else if (platform === 'instagram') {
