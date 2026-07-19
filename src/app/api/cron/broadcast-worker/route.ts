@@ -21,6 +21,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Broadcast is gated off at the source (POST /api/broadcasts/instant refuses to create
+  // jobs while disabled), so there's never anything to drain here — skip the DB round trip
+  // entirely rather than running a query that can only ever come back empty.
+  if (process.env.BROADCAST_ENABLED !== 'true') {
+    return NextResponse.json({ message: 'Broadcast disabled — skipped', processed: 0 });
+  }
+
   try {
     await dbConnect();
 
