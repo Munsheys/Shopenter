@@ -216,16 +216,21 @@ export default function DashboardPage() {
     };
   }, [settings]);
 
-  // Update unread count from SSE stream payload
+  // Poll unread notification count (was SSE; polling avoids holding a
+  // serverless function instance open for the life of the tab)
   useEffect(() => {
-    const es = new EventSource('/api/stream');
-    es.onmessage = (e) => {
+    let cancelled = false;
+    const poll = async () => {
       try {
-        const data = JSON.parse(e.data);
-        if (data.unreadNotifCount !== undefined) setUnreadNotifCount(data.unreadNotifCount);
+        const res = await fetch('/api/stream');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.unreadNotifCount !== undefined) setUnreadNotifCount(data.unreadNotifCount);
       } catch {}
     };
-    return () => es.close();
+    poll();
+    const interval = setInterval(poll, 15000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   // Close notif dropdown on outside click

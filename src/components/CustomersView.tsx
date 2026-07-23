@@ -242,41 +242,39 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
   const resizeRef = useRef<number | null>(null);
   const dragButtonRef = useRef<{ startY: number; startPos: number }| null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const evsRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [evsReconnecting, setEvsReconnecting] = useState(false);
+  const [pollError, setPollError] = useState(false);
   const scrollPanelRef = useRef<HTMLDivElement>(null);
 
+  // Poll customers/orders (was SSE; polling avoids holding a serverless
+  // function instance open for the life of the tab)
   useEffect(() => {
-    function connect() {
-      const evs = new EventSource('/api/stream');
-      evs.onmessage = (e) => {
-        try {
-          const { type, customers: c } = JSON.parse(e.data);
-          if ((type === 'init' || type === 'update') && c) {
-            setCustomers(c);
-            setIsLoading(false);
-            setEvsReconnecting(false);
-            if (selectedRef.current) {
-              const updated = c.find((x: Customer) => x._id === selectedRef.current!._id);
-              if (updated) setSelectedCustomer(updated);
-            }
-          }
-        } catch {}
-      };
-      evs.onerror = () => {
-        evs.close();
-        setEvsReconnecting(true);
-        if (evsRetryRef.current) clearTimeout(evsRetryRef.current);
-        evsRetryRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
-      };
-      return evs;
-    }
-    const evs = connect();
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/stream');
+        if (!res.ok) throw new Error(`stream poll failed (${res.status})`);
+        const { customers: c } = await res.json();
+        if (cancelled || !c) return;
+        setCustomers(c);
+        setIsLoading(false);
+        setPollError(false);
+        if (selectedRef.current) {
+          const updated = c.find((x: Customer) => x._id === selectedRef.current!._id);
+          if (updated) setSelectedCustomer(updated);
+        }
+      } catch {
+        if (!cancelled) setPollError(true);
+      }
+    };
+
+    poll();
+    pollTimer = setInterval(poll, 12000);
+
     return () => {
-      evs.close();
-      if (evsRetryRef.current) clearTimeout(evsRetryRef.current);
+      cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
     };
   }, []);
 
@@ -1215,7 +1213,7 @@ export default function CustomersView({ theme, onLimitHit, jumpToUserId, onJumpC
               </div>
             </div>
 
-            {evsReconnecting && (
+            {pollError && (
               <div className={`px-3 py-1.5 text-[10px] font-bold text-center ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'} border-b ${k.border}`}>
                 Reconnecting…
               </div>
