@@ -26,6 +26,10 @@ const connectionMetrics = {
   poolSize: 0,
 };
 
+// Prevent concurrent connection attempts
+let connectAttempts = 0;
+const MAX_CONNECT_ATTEMPTS = 3;
+
 async function dbConnect() {
   // Return cached connection immediately
   if (cached.conn) {
@@ -35,6 +39,13 @@ async function dbConnect() {
 
   // If a connection attempt is already in flight, wait for it
   if (!cached.promise) {
+    // Safety: Prevent connection storms
+    if (connectAttempts >= MAX_CONNECT_ATTEMPTS) {
+      console.error('[DB] Max connection attempts exceeded - possible connection leak');
+      throw new Error('Database connection pool exhausted');
+    }
+
+    connectAttempts++;
     const raw = process.env.MONGODB_URI!.trim();
     let uri = getEncodedURI(raw);
 
@@ -44,32 +55,49 @@ async function dbConnect() {
 
     cached.promise = mongoose.connect(uri, {
       dbName: 'lineoa',
-      // Serverless-optimized pool settings
-      maxPoolSize: 2, // Reduced from 10: each instance needs only 1-2 connections
-      minPoolSize: 0, // Allow pool to close on idle (serverless-friendly)
-      maxIdleTimeMS: 30000, // Close idle connections after 30s
-      serverSelectionTimeoutMS: 5000, // Fail fast on unavailable servers
-      socketTimeoutMS: 30000, // Shorter socket timeout for serverless
-      waitQueueTimeoutMS: 10000, // Queue timeout to prevent hanging requests
+      // Serverless-optimized pool settings for M0 (3 connection limit)
+      maxPoolSize: 2, // Critical: Max 2 connections per instance
+      minPoolSize: 0, // Allow full cleanup
+      maxIdleTimeMS: 30000, // Close idle connections quickly
+      serverSelectionTimeoutMS: 5000, // Fail fast
+      socketTimeoutMS: 30000, // Prevent hanging sockets
+      waitQueueTimeoutMS: 5000, // Critical: Fail fast on queue (was 10s, reduced for M0)
       connectTimeoutMS: 10000,
-      retryWrites: true, // Handle transient network errors
+      retryWrites: true,
+      // CRITICAL for serverless: Don't create new connections on every request
+      replicaSet: undefined, // M0 doesn't support replica sets
     }).then((m) => {
+      connectAttempts = 0; // Reset on success
       connectionMetrics.establishedAt = Date.now();
       connectionMetrics.lastUsedAt = Date.now();
-      connectionMetrics.poolSize = m.connection.getClient().topology?.s?.pool?.totalConnectionCount || 2;
-      console.log('[DB] Connection established (serverless-optimized pool)');
+
+      // Log actual pool size for monitoring
+      const poolSize = m.connection.getClient().topology?.s?.pool?.totalConnectionCount || 0;
+      connectionMetrics.poolSize = poolSize;
+
+      if (poolSize > 2) {
+        console.warn(`[DB] WARNING: Pool size ${poolSize} exceeds target of 2`);
+      }
+
+      console.log(`[DB] Connected (pool: ${poolSize}/2, M0 limit: 3/3)`);
       return m;
     }).catch((err) => {
-      // Reset on failure so the next request can retry
+      connectAttempts--; // Decrement on failure
       cached.promise = null;
       console.error('[DB] Connection failed:', err.message);
       throw err;
     });
   }
 
-  cached.conn = await cached.promise;
-  connectionMetrics.lastUsedAt = Date.now();
-  return cached.conn;
+  try {
+    cached.conn = await cached.promise;
+    connectionMetrics.lastUsedAt = Date.now();
+    return cached.conn;
+  } catch (err) {
+    // Reset promise on await failure too
+    cached.promise = null;
+    throw err;
+  }
 }
 
 // Export metrics for monitoring (optional Sentry integration)
