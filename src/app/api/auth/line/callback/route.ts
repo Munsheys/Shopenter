@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Merchant, Settings } from '@/models';
-import { signMerchantToken, signLineLinkToken } from '@/lib/auth';
+import { signMerchantToken, signLineLinkToken, getMerchantFromRequest } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLog';
 import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
 import { toSlug, generateUniqueSlug } from '@/lib/slug';
@@ -12,6 +12,52 @@ import { exchangeLineCode } from '@/lib/lineOAuth';
 export const runtime = 'nodejs';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app';
+const SETTINGS_ACCOUNT_URL = `${BASE_URL}/dashboard?tab=settings&section=account`;
+
+/**
+ * Handles the "connect LINE to my already-logged-in account" flow (started from
+ * Settings > Account). Shares this callback URL with sign-in — see the state-cookie
+ * check in GET below for how they're told apart — since LINE Login channels only expose
+ * one editable Callback URL in the console.
+ */
+async function handleConnectCallback(req: NextRequest, code: string, state: string): Promise<NextResponse> {
+  const session = getMerchantFromRequest(req);
+  if (!session) return NextResponse.redirect(`${BASE_URL}/login`);
+
+  const cookieState = req.cookies.get('connect_line_state')?.value;
+  const cookieNonce = req.cookies.get('connect_line_nonce')?.value;
+  if (!cookieState || cookieState !== state || !cookieNonce) {
+    return NextResponse.redirect(`${SETTINGS_ACCOUNT_URL}&linkError=state_mismatch`);
+  }
+
+  const redirectUri = `${BASE_URL}/api/auth/line/callback`;
+  const profile = await exchangeLineCode(code, redirectUri, cookieNonce);
+  if (!profile) {
+    return NextResponse.redirect(`${SETTINGS_ACCOUNT_URL}&linkError=line_auth_failed`);
+  }
+
+  await dbConnect();
+
+  const alreadyLinkedElsewhere = await Merchant.findOne({ lineUserId: profile.lineUserId });
+  if (alreadyLinkedElsewhere && alreadyLinkedElsewhere._id.toString() !== session.merchantId) {
+    return NextResponse.redirect(`${SETTINGS_ACCOUNT_URL}&linkError=line_already_linked`);
+  }
+
+  const merchant = await Merchant.findById(session.merchantId);
+  if (!merchant) return NextResponse.redirect(`${BASE_URL}/login`);
+
+  merchant.lineUserId = profile.lineUserId;
+  merchant.lineAccessToken = profile.accessToken;
+  clearInactivityDeletion(merchant);
+  await merchant.save();
+
+  await logAudit({ merchantId: merchant._id.toString(), action: 'line_account_linked', resource: 'merchant', status: 'success' }, req);
+
+  const res = NextResponse.redirect(`${SETTINGS_ACCOUNT_URL}&linked=line`);
+  res.cookies.set('connect_line_state', '', { maxAge: 0, path: '/' });
+  res.cookies.set('connect_line_nonce', '', { maxAge: 0, path: '/' });
+  return res;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,10 +72,15 @@ export async function GET(req: NextRequest) {
     const error = req.nextUrl.searchParams.get('error');
     const errorDescription = req.nextUrl.searchParams.get('error_description');
 
-    // Handle LINE errors
+    // Which flow is this? The connect flow's own state cookie only exists while one of
+    // its authorize redirects is in flight, so its presence (matching this state) is
+    // enough to tell it apart from an ordinary sign-in.
+    const connectStateCookie = req.cookies.get('connect_line_state')?.value;
+    const isConnectFlow = !!connectStateCookie && connectStateCookie === state;
+
     if (error) {
       console.error(`[line-callback] Error from LINE: ${error} - ${errorDescription}`);
-      return NextResponse.redirect(`${BASE_URL}/login?error=${error}`);
+      return NextResponse.redirect(isConnectFlow ? `${SETTINGS_ACCOUNT_URL}&linkError=${error}` : `${BASE_URL}/login?error=${error}`);
     }
 
     if (!code || !state) {
@@ -37,6 +88,10 @@ export async function GET(req: NextRequest) {
         { error: 'Missing code or state parameter' },
         { status: 400 }
       );
+    }
+
+    if (isConnectFlow) {
+      return handleConnectCallback(req, code, state);
     }
 
     // Verify state CSRF token

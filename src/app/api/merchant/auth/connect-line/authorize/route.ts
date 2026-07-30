@@ -10,8 +10,12 @@ export const runtime = 'nodejs';
 /**
  * Starts the "connect LINE to my already-logged-in account" flow — distinct from
  * /api/auth/line/authorize (sign-in), which never touches an existing session. This one
- * requires one already, and the callback re-reads that same session (the merchant_token
- * cookie survives the LINE redirect round-trip) rather than looking anything up by state.
+ * requires one already. It reuses the SAME registered callback URL as the sign-in flow
+ * (/api/auth/line/callback) rather than a second one — LINE Login channels only expose a
+ * single editable Callback URL field in the console, so a second route would need the
+ * merchant to hand-manage two URLs there. The shared callback route tells the two flows
+ * apart by which state cookie is present (connect_line_state vs line_auth_state) and, for
+ * this one, by the still-live merchant_token session cookie surviving the redirect round-trip.
  */
 export async function GET(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
@@ -30,7 +34,7 @@ export async function GET(req: NextRequest) {
   }
 
   const channelId = process.env.LINE_CHANNEL_ID;
-  const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app'}/api/merchant/auth/connect-line/callback`;
+  const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app'}/api/auth/line/callback`;
   if (!channelId) {
     return NextResponse.json({ error: 'LINE_CHANNEL_ID is not configured' }, { status: 500 });
   }
