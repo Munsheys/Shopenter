@@ -5,6 +5,7 @@ import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
 import { ProductSchema } from '@/lib/validation';
 import { logAudit } from '@/lib/auditLog';
+import { paginate, getPaginationParams } from '@/lib/pagination';
 
 export const runtime = 'nodejs';
 
@@ -14,8 +15,16 @@ export async function GET(req: NextRequest) {
 
   try {
     await dbConnect();
-    const products = await Product.find({ merchantId: merchant.merchantId });
-    return NextResponse.json(products);
+
+    // Extract pagination params from URL
+    const searchParams = Object.fromEntries(req.nextUrl.searchParams);
+    const { page, limit } = getPaginationParams(searchParams);
+
+    // Paginate products
+    const query = Product.find({ merchantId: merchant.merchantId });
+    const { data: products, meta } = await paginate(query, page, limit);
+
+    return NextResponse.json({ data: products, pagination: meta });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }

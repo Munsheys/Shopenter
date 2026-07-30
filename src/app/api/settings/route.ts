@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import { Settings } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLog';
+import { cached, invalidateMerchantCache } from '@/lib/cache';
 
 export const runtime = 'nodejs';
 
@@ -11,17 +12,24 @@ export async function GET(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await dbConnect();
-    let s = await Settings.findOne({ merchantId: merchant.merchantId });
-    if (!s) {
-      s = await Settings.create({ merchantId: merchant.merchantId });
-    }
-    const settings = s.toObject();
+    // Cache settings for 5 minutes per merchant (frequently accessed, rarely changes)
+    const settings = await cached(
+      `merchant:${merchant.merchantId}:settings`,
+      async () => {
+        await dbConnect();
+        let s = await Settings.findOne({ merchantId: merchant.merchantId });
+        if (!s) {
+          s = await Settings.create({ merchantId: merchant.merchantId });
+        }
+        return s.toObject();
+      },
+      { ttl: 300 }
+    );
+
     // Strip platform-level secrets — clients never see raw LINE credentials
     delete settings.lineChannelAccessToken;
     delete settings.lineChannelSecret;
     delete settings.adminSecret;
-    // slipokApiKey and slipokBranchId are the merchant's own credentials — expose them for editing
     return NextResponse.json(settings);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
@@ -121,6 +129,9 @@ export async function POST(req: NextRequest) {
       { $set: update },
       { upsert: true, new: true, runValidators: true }
     );
+
+    // Invalidate cache after settings update
+    await invalidateMerchantCache(merchant.merchantId);
 
     // Field names only — never log secret values (defeats the point of encrypting them at rest).
     await logAudit(

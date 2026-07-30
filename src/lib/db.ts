@@ -19,9 +19,19 @@ function getEncodedURI(raw: string): string {
   return `${scheme}${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${rest}`;
 }
 
+// Track connection state and timing for monitoring
+const connectionMetrics = {
+  establishedAt: 0,
+  lastUsedAt: 0,
+  poolSize: 0,
+};
+
 async function dbConnect() {
   // Return cached connection immediately
-  if (cached.conn) return cached.conn;
+  if (cached.conn) {
+    connectionMetrics.lastUsedAt = Date.now();
+    return cached.conn;
+  }
 
   // If a connection attempt is already in flight, wait for it
   if (!cached.promise) {
@@ -34,22 +44,35 @@ async function dbConnect() {
 
     cached.promise = mongoose.connect(uri, {
       dbName: 'lineoa',
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 10,
-      minPoolSize: 0,
+      // Serverless-optimized pool settings
+      maxPoolSize: 2, // Reduced from 10: each instance needs only 1-2 connections
+      minPoolSize: 0, // Allow pool to close on idle (serverless-friendly)
+      maxIdleTimeMS: 30000, // Close idle connections after 30s
+      serverSelectionTimeoutMS: 5000, // Fail fast on unavailable servers
+      socketTimeoutMS: 30000, // Shorter socket timeout for serverless
+      waitQueueTimeoutMS: 10000, // Queue timeout to prevent hanging requests
+      connectTimeoutMS: 10000,
+      retryWrites: true, // Handle transient network errors
     }).then((m) => {
-      console.log('[DB] New connection established.');
+      connectionMetrics.establishedAt = Date.now();
+      connectionMetrics.lastUsedAt = Date.now();
+      connectionMetrics.poolSize = m.connection.getClient().topology?.s?.pool?.totalConnectionCount || 2;
+      console.log('[DB] Connection established (serverless-optimized pool)');
       return m;
     }).catch((err) => {
       // Reset on failure so the next request can retry
       cached.promise = null;
+      console.error('[DB] Connection failed:', err.message);
       throw err;
     });
   }
 
   cached.conn = await cached.promise;
+  connectionMetrics.lastUsedAt = Date.now();
   return cached.conn;
 }
+
+// Export metrics for monitoring (optional Sentry integration)
+export { connectionMetrics };
 
 export default dbConnect;

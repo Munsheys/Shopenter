@@ -5,6 +5,7 @@ import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
 import { sendLineMessage } from '@/lib/platforms/line';
 import { logAudit } from '@/lib/auditLog';
+import { paginate, getPaginationParams } from '@/lib/pagination';
 
 export const runtime = 'nodejs';
 
@@ -14,9 +15,16 @@ export async function GET(req: NextRequest) {
 
   try {
     await dbConnect();
-    const orders = await Order.find({ merchantId: merchant.merchantId }).sort({ createdAt: -1 }).lean() as any[];
 
-    // Attach fulfilment summary to each order in a single aggregation
+    // Extract pagination params from URL
+    const searchParams = Object.fromEntries(req.nextUrl.searchParams);
+    const { page, limit } = getPaginationParams(searchParams);
+
+    // Paginate orders
+    const query = Order.find({ merchantId: merchant.merchantId }).sort({ createdAt: -1 });
+    const { data: orders, meta } = await paginate(query, page, limit);
+
+    // Attach fulfilment summary in single aggregation (only for current page)
     const fulSummary = await Fulfilment.aggregate([
       { $match: { orderId: { $in: orders.map((o: any) => o._id) } } },
       { $group: {
@@ -33,7 +41,7 @@ export async function GET(req: NextRequest) {
       fulfilmentSummary: summaryMap.get(String(o._id)) ?? null,
     }));
 
-    return NextResponse.json(ordersWithSummary);
+    return NextResponse.json({ data: ordersWithSummary, pagination: meta });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
   }
