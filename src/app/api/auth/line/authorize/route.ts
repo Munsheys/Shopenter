@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     // Store state in cookie (will be verified in callback)
     const res = NextResponse.redirect(
-      `https://web.line.me/web/login?${new URLSearchParams({
+      `https://access.line.me/oauth2/v2.1/authorize?${new URLSearchParams({
         response_type: 'code',
         client_id: channelId,
         redirect_uri: redirectUri,

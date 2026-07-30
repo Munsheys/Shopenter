@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Loader2, Gift } from 'lucide-react';
 import LineLoginButton from '@/components/LineLoginButton';
+import AuthShell from '@/components/AuthShell';
 
 export default function SignupContent() {
   const router = useRouter();
@@ -71,8 +72,11 @@ export default function SignupContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+    <AuthShell
+      eyebrow="Multi-tenant LINE OA Commerce"
+      heading={<>Your own store, <span className="text-green-400">live on LINE</span>.</>}
+      description="Create a store and start selling to your LINE OA customers in minutes."
+    >
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Create your store</h1>
         <p className="text-gray-600 mb-6 text-sm">Start selling on LINE OA in minutes</p>
 
@@ -153,7 +157,7 @@ export default function SignupContent() {
               autoComplete="organization"
               value={form.shopName}
               onChange={e => setForm(f => ({ ...f, shopName: e.target.value }))}
-              className="w-full border border-gray-400 rounded-lg px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[44px]"
+              className="w-full border border-gray-300 rounded-xl px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[44px]"
               placeholder="My Awesome Shop"
             />
           </div>
@@ -166,7 +170,7 @@ export default function SignupContent() {
               autoComplete="email"
               value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              className="w-full border border-gray-400 rounded-lg px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[44px]"
+              className="w-full border border-gray-300 rounded-xl px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[44px]"
               placeholder="you@example.com"
             />
           </div>
@@ -181,7 +185,7 @@ export default function SignupContent() {
                 autoComplete="new-password"
                 value={form.password}
                 onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                className="w-full border border-gray-400 rounded-lg px-3 py-3 pr-11 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[44px]"
+                className="w-full border border-gray-300 rounded-xl px-3 py-3 pr-11 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[44px]"
                 placeholder="At least 8 characters"
               />
               <button
@@ -198,7 +202,7 @@ export default function SignupContent() {
           <button
             type="submit"
             disabled={loading || !agreedToTerms || !agreedToPrivacy}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold rounded-lg px-4 py-3 text-sm transition flex items-center justify-center gap-2 min-h-[44px]"
+            className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold rounded-xl px-4 py-3 text-sm transition flex items-center justify-center gap-2 min-h-[44px]"
           >
             {loading ? (
               <>
@@ -213,7 +217,6 @@ export default function SignupContent() {
           Already have an account?{' '}
           <Link href="/login" className="text-green-600 hover:underline font-medium">Sign in</Link>
         </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
