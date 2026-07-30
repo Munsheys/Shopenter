@@ -18,21 +18,26 @@ export async function GET(req: NextRequest) {
   const headers = { Authorization: `Bearer ${token}` };
 
   try {
-    const [botRes, quotaRes, consumptionRes] = await Promise.all([
+    const [botRes, quotaRes, consumptionRes, webhookRes] = await Promise.all([
       fetch('https://api.line.me/v2/bot/info', { headers }),
       fetch('https://api.line.me/v2/bot/message/quota', { headers }),
       fetch('https://api.line.me/v2/bot/message/quota/consumption', { headers }),
+      fetch('https://api.line.me/v2/bot/channel/webhook/endpoint', { headers }),
     ]);
 
     if (!botRes.ok) {
       return NextResponse.json({ configured: true, valid: false, error: 'Invalid LINE access token' }, { status: 200 });
     }
 
-    const [bot, quota, consumption] = await Promise.all([
+    const [bot, quota, consumption, webhook] = await Promise.all([
       botRes.json(),
       quotaRes.ok ? quotaRes.json() : { type: 'limited', value: 300 },
       consumptionRes.ok ? consumptionRes.json() : { totalUsage: 0 },
+      webhookRes.ok ? webhookRes.json() : { endpoint: null, active: false },
     ]);
+
+    const expectedWebhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app'}/api/webhook`;
+    const webhookOk = !!webhook.active && webhook.endpoint === expectedWebhookUrl;
 
     // Probe follower IDs endpoint to detect verification status
     let isVerified = false;
@@ -65,6 +70,10 @@ export async function GET(req: NextRequest) {
         followerSync: isVerified,
         narrowcastAdvanced: isVerified,
         unlimitedMessages: isUnlimited,
+      },
+      webhook: {
+        active: webhookOk,
+        endpoint: webhook.endpoint ?? null,
       },
     });
   } catch (err) {

@@ -63,6 +63,7 @@ export default function FloatingGuide({
   const dragRef = useRef<{ startX: number, startY: number, initX: number, initY: number, moved: boolean } | null>(null);
   const wasDragRef = useRef(false);
   const [lineOk, setLineOk]           = useState(false);
+  const [webhookOk, setWebhookOk]     = useState(false);
   const [hasProducts, setHasProducts] = useState(false);
   const [hasAutoReply, setHasAutoReply] = useState(false);
   const [hasRichMenu, setHasRichMenu] = useState(false);
@@ -87,7 +88,10 @@ export default function FloatingGuide({
     fetch('/api/settings').then(r => r.json()).then(setSettings).catch(() => {});
     fetch('/api/line-status')
       .then(r => r.json())
-      .then(d => setLineOk(!!(d.configured && d.valid)))
+      .then(d => {
+        setLineOk(!!(d.configured && d.valid));
+        setWebhookOk(!!d.webhook?.active);
+      })
       .catch(() => {});
     fetch('/api/products')
       .then(r => r.json())
@@ -222,7 +226,7 @@ export default function FloatingGuide({
       n: 2, done: !!(settings.shopName && settings.shopName !== 'My Shop'),
       icon: <Store size={12} />,
       title: 'Set your shop name',
-      action: { kind: 'nav', label: 'General', tab: 'settings', section: 'general-shopname' },
+      action: { kind: 'nav', label: 'Storefront', tab: 'storefront' },
     },
     {
       n: 3, done: lineOk,
@@ -231,10 +235,10 @@ export default function FloatingGuide({
       action: { kind: 'nav', label: 'LINE Settings', tab: 'settings', section: 'line-credentials' },
     },
     {
-      n: 4, done: false,
+      n: 4, done: webhookOk,
       icon: <Globe size={12} />,
       title: 'Set webhook URL in LINE Console',
-      action: { kind: 'href', label: 'LINE Console', href: 'https://developers.line.biz/' },
+      action: { kind: 'nav', label: 'LINE Settings', tab: 'settings', section: 'line-credentials' },
     },
     {
       n: 5, done: !!settings.promptPayId,
@@ -249,7 +253,7 @@ export default function FloatingGuide({
       action: { kind: 'nav', label: 'Products', tab: 'products' },
     },
     {
-      n: 7, done: false,
+      n: 7, done: !!(settings.shopLogoUrl || settings.shopDescription),
       icon: <Store size={12} />,
       title: 'Customize your storefront',
       action: { kind: 'nav', label: 'Storefront', tab: 'storefront' },
