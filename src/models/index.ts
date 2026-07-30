@@ -259,17 +259,16 @@ function setAtPath(obj: any, path: string, value: any) {
   target[last] = value;
 }
 
-(SettingsSchema.pre as any)('save', function (this: any, next: (err?: Error) => void) {
+(SettingsSchema.pre as any)('save', function (this: any) {
   for (const field of ENCRYPTED_SETTINGS_FIELDS) {
     if (this.isModified(field)) {
       const value = getAtPath(this, field);
       if (typeof value === 'string' && value) setAtPath(this, field, maybeEncrypt(value));
     }
   }
-  next();
 });
 
-(SettingsSchema.pre as any)('findOneAndUpdate', function (this: any, next: (err?: Error) => void) {
+(SettingsSchema.pre as any)('findOneAndUpdate', function (this: any) {
   const update: any = this.getUpdate();
   const target = update?.$set ?? update;
   if (target) {
@@ -278,7 +277,6 @@ function setAtPath(obj: any, path: string, value: any) {
       if (typeof value === 'string' && value) setAtPath(target, field, maybeEncrypt(value));
     }
   }
-  next();
 });
 
 function decryptSettingsDoc(doc: any) {
