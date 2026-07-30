@@ -24,7 +24,7 @@ export default function AuthShell({
     <div className="min-h-screen flex">
       {/* Brand panel — hidden below lg, shown as the left half on larger screens */}
       <div
-        className="hidden lg:flex lg:w-1/2 xl:w-2/5 text-white flex-col justify-between px-12 py-12 relative overflow-hidden"
+        className="hidden lg:flex lg:w-3/5 xl:w-3/5 text-white flex-col justify-between px-12 py-12 relative overflow-hidden"
         style={{ background: 'linear-gradient(160deg, #0a0d14 0%, #0b1712 55%, #04170d 100%)' }}
       >
         <div
