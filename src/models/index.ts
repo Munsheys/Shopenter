@@ -79,6 +79,11 @@ const SettingsSchema = new mongoose.Schema({
   liffId: { type: String, default: "" },
   adminLineId: { type: String, default: "" },
   adminSecret: { type: String, default: "" },
+  // The rich menu that was set as the channel default before Shopenter first applied its own
+  // (captured only if that prior default wasn't itself Shopenter-created — see rich-menu POST).
+  // Lets a merchant restore what they built directly in LINE's console without Shopenter ever
+  // deleting it. Cleared once restored.
+  previousDefaultRichMenuId: { type: String, default: "" },
   promptPayId: { type: String, default: "" },
   paymentTemplate: { type: String, default: "✅ ยืนยันการชำระเงินแล้วครับ!\n\nรายการ: {product}\nจำนวน: ฿{amount}\n\nขอบคุณที่ใช้บริการครับ 🙏" },
   slipokBranchId: { type: String, default: "" },
@@ -118,6 +123,12 @@ const SettingsSchema = new mongoose.Schema({
   greetingMessages: { type: Array, default: [] },
   // greetingCustom: if true, uses greetingMessages; if false/absent, uses defaultWelcomeMessage
   greetingCustom: { type: Boolean },
+  // LINE's Messaging API has no read endpoint for LINE Official Account Manager's native
+  // Response Settings (Greeting message / Auto-response messages), so Shopenter can't detect
+  // whether a merchant already has one configured there — only ask them to check once, the
+  // first time they turn the equivalent Shopenter feature on, and remember they did.
+  greetingNativeAckAt: { type: Date, default: null },
+  autoReplyNativeAckAt: { type: Date, default: null },
   // Re-engagement message sent when a LINE customer messages after 24h absence
   reEngageEnabled:        { type: Boolean, default: false },
   reEngageMessages:       { type: Array,   default: [] },

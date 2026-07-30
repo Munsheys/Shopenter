@@ -11,13 +11,15 @@ export async function GET(req: NextRequest) {
 
   try {
     await dbConnect();
-    const doc = await Merchant.findById(merchant.merchantId).select('email shopName slug tier paymentStatus trialEndsAt deletionScheduledFor deletionReason subscriptionStatus nextBillingDate paymentMethodBrand paymentMethodLast4 proTrialUsedAt').lean() as any;
+    const doc = await Merchant.findById(merchant.merchantId).select('email shopName slug tier paymentStatus trialEndsAt deletionScheduledFor deletionReason subscriptionStatus nextBillingDate paymentMethodBrand paymentMethodLast4 proTrialUsedAt passwordHash lineUserId').lean() as any;
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({
       merchantId: merchant.merchantId,
       email: doc.email,
       shopName: doc.shopName,
       slug: doc.slug ?? null,
+      hasPassword: !!doc.passwordHash,
+      hasLine: !!doc.lineUserId,
       tier: doc.tier ?? 'free',
       paymentStatus: doc.paymentStatus ?? 'trialing',
       trialEndsAt: doc.trialEndsAt ?? null,

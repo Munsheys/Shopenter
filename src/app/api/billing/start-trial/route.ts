@@ -5,6 +5,7 @@ import { getMerchantFromRequest } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLog';
 import { createCustomerWithCard } from '@/lib/omise';
 import { daysFromNow } from '@/lib/affiliate';
+import { clearInactivityDeletion } from '@/lib/inactivity';
 
 export const runtime = 'nodejs';
 
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest) {
     merchant.paymentMethodBrand = card?.brand ?? null;
     merchant.paymentMethodLast4 = card?.last_digits ?? null;
     merchant.proTrialUsedAt = new Date();
+    // Paying (and trialing-to-pay) tiers are never subject to inactivity deletion.
+    clearInactivityDeletion(merchant);
     await merchant.save();
 
     await logAudit(

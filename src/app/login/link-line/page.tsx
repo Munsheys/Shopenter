@@ -1,0 +1,116 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import AuthShell from '@/components/AuthShell';
+
+export default function LinkLinePage() {
+  const router = useRouter();
+  const [email, setEmail] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/line/link-confirm')
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => setEmail(d.email))
+      .catch(() => setExpired(true));
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/line/link-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Could not link accounts'); return; }
+      router.push('/dashboard');
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <AuthShell
+      heading={<>Link your <span className="text-green-400">LINE account</span>?</>}
+      description="Your LINE profile's email matches an existing Shopenter account. Confirm it's yours to connect them."
+    >
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">Link accounts</h1>
+
+      {expired ? (
+        <>
+          <p className="text-gray-600 mb-6 text-sm">This link request has expired.</p>
+          <Link href="/login" className="block text-center w-full bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl px-4 py-3 text-sm transition">
+            Back to sign in
+          </Link>
+        </>
+      ) : (
+        <>
+          <p className="text-gray-600 mb-8 text-sm">
+            {email ? <>An account already exists for <span className="font-semibold text-gray-800">{email}</span>. Enter its password to connect your LINE login to it.</> : 'Loading…'}
+          </p>
+
+          {error && (
+            <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-4">{error}</div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="link-password" className="block text-sm font-semibold text-gray-800 mb-1">Password</label>
+              <div className="relative">
+                <input
+                  id="link-password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  autoFocus
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-3 pr-11 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[44px]"
+                  placeholder="Your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-1"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={loading || !email}
+              className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold rounded-xl px-4 py-3 text-sm transition flex items-center justify-center gap-2 min-h-[44px]"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Linking…
+                </>
+              ) : 'Link accounts'}
+            </button>
+          </form>
+
+          <p className="text-center text-sm text-gray-600 mt-8">
+            Not you?{' '}
+            <Link href="/login" className="text-green-600 hover:underline font-medium">Sign in a different way</Link>
+          </p>
+        </>
+      )}
+    </AuthShell>
+  );
+}

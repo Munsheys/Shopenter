@@ -99,6 +99,22 @@ export default function DashboardPage() {
   const [topNavStyle, setTopNavStyle] = useState<React.CSSProperties>({});
   const topNavContainerRef = useRef<HTMLElement>(null);
 
+  // Deep-link support for redirects back into the dashboard (e.g. after connecting LINE
+  // from Settings > Account) — read via plain window.location rather than useSearchParams()
+  // so this page doesn't need a Suspense boundary just for this.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    const validTabs: Tab[] = ['customers', 'orders', 'products', 'reports', 'broadcasts', 'storefront', 'coupons', 'feedback', 'settings', 'billing', 'affiliate'];
+    if (tab && (validTabs as string[]).includes(tab)) {
+      setActiveTab(tab as Tab);
+      const section = params.get('section');
+      if (section) setSettingsScroll({ section, id: Date.now() });
+    }
+    // Query string (including linked/linkError, read by SettingsView itself) is left
+    // in place here and cleared later by whichever component actually consumes it.
+  }, []);
+
   useEffect(() => {
     // Show cached data immediately (stale-while-revalidate)
     let hasCached = false;

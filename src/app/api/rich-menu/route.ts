@@ -86,7 +86,11 @@ export async function GET(req: NextRequest) {
     const list = listRes.ok ? await listRes.json() : { richmenus: [] };
     const defaultMenu = defaultRes.ok ? await defaultRes.json() : null;
 
-    return NextResponse.json({ richmenus: list.richmenus ?? [], defaultRichMenuId: defaultMenu?.richMenuId ?? null });
+    return NextResponse.json({
+      richmenus: list.richmenus ?? [],
+      defaultRichMenuId: defaultMenu?.richMenuId ?? null,
+      previousDefaultRichMenuId: settings?.previousDefaultRichMenuId || null,
+    });
   } catch (err) {
     console.error('[rich-menu GET]', err);
     return NextResponse.json({ error: 'Failed to fetch rich menus' }, { status: 500 });
@@ -159,6 +163,32 @@ export async function POST(req: NextRequest) {
     }
 
     if (setAsDefault) {
+      // Capture whatever is currently the default before we replace it, so the merchant can
+      // restore it later — but only the first time, and only if it isn't already a menu
+      // Shopenter itself created (i.e. don't clobber a real original with a Shopenter one on
+      // a second switch).
+      if (!settings?.previousDefaultRichMenuId) {
+        try {
+          const [defaultRes, listRes] = await Promise.all([
+            fetch('https://api.line.me/v2/bot/richmenu/default', { headers: { Authorization: `Bearer ${token}` } }),
+            fetch('https://api.line.me/v2/bot/richmenu/list', { headers: { Authorization: `Bearer ${token}` } }),
+          ]);
+          const currentDefault = defaultRes.ok ? await defaultRes.json() : null;
+          const list = listRes.ok ? await listRes.json() : { richmenus: [] };
+          const currentDefaultMenu = currentDefault?.richMenuId
+            ? (list.richmenus ?? []).find((m: any) => m.richMenuId === currentDefault.richMenuId)
+            : null;
+          if (currentDefaultMenu && !currentDefaultMenu.name?.startsWith('shopenter-')) {
+            await Settings.updateOne(
+              { merchantId: merchant.merchantId },
+              { $set: { previousDefaultRichMenuId: currentDefaultMenu.richMenuId } }
+            );
+          }
+        } catch (err) {
+          console.error('[rich-menu] failed to capture previous default', err);
+        }
+      }
+
       await fetch(`https://api.line.me/v2/bot/user/all/richmenu/${richMenuId}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -186,10 +216,26 @@ export async function DELETE(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'LINE token not configured' }, { status: 400 });
 
   try {
-    await fetch('https://api.line.me/v2/bot/user/all/richmenu', {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    // Refuse to delete a menu Shopenter didn't create (e.g. one built directly in LINE's
+    // own console) — those aren't ours to remove. Enforced server-side, not just hidden in
+    // the UI, since this endpoint is reachable directly.
+    const listRes = await fetch('https://api.line.me/v2/bot/richmenu/list', { headers: { Authorization: `Bearer ${token}` } });
+    const list = listRes.ok ? await listRes.json() : { richmenus: [] };
+    const target = (list.richmenus ?? []).find((m: any) => m.richMenuId === richMenuId);
+    if (target && !target.name?.startsWith('shopenter-')) {
+      return NextResponse.json({ error: 'This rich menu wasn\'t created by Shopenter — delete it from the LINE Official Account Manager instead.' }, { status: 403 });
+    }
+
+    // Only clears the all-users default link if we're actually deleting the current default —
+    // deleting a non-default menu shouldn't blow away every customer's active menu.
+    const defaultRes = await fetch('https://api.line.me/v2/bot/richmenu/default', { headers: { Authorization: `Bearer ${token}` } });
+    const currentDefault = defaultRes.ok ? await defaultRes.json() : null;
+    if (currentDefault?.richMenuId === richMenuId) {
+      await fetch('https://api.line.me/v2/bot/user/all/richmenu', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
 
     const deleteRes = await fetch(`https://api.line.me/v2/bot/richmenu/${richMenuId}`, {
       method: 'DELETE',

@@ -614,6 +614,16 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [greeting, setGreeting] = useState<{ greetingEnabled: boolean; greetingMessages: LineBlock[] }>({ greetingEnabled: false, greetingMessages: [] });
   const [richMenus, setRichMenus] = useState<RichMenu[]>([]);
   const [defaultRichMenuId, setDefaultRichMenuId] = useState<string | null>(null);
+  const [previousDefaultRichMenuId, setPreviousDefaultRichMenuId] = useState<string | null>(null);
+  const [showRmPublishConfirm, setShowRmPublishConfirm] = useState(false);
+  const [rmRestoring, setRmRestoring] = useState(false);
+
+  // LINE's Messaging API can't tell us whether a merchant already has a native Greeting
+  // message / Auto-response message configured in their LINE Official Account Manager, so we
+  // can't detect a conflict — just make sure they've been told once, the first time they turn
+  // on the Shopenter-side equivalent.
+  const [nativeAckPrompt, setNativeAckPrompt] = useState<'greeting' | 'autoreply' | null>(null);
+  const pendingAckActionRef = useRef<(() => void) | null>(null);
 
   // Mirrors the server-side BROADCAST_ENABLED gate in /api/broadcasts/instant — surfaces the
   // restriction proactively instead of only after a failed send. Requires NEXT_PUBLIC_BROADCAST_ENABLED
@@ -696,6 +706,8 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const [showRuleModal, setShowRuleModal] = useState(false);
 
   const { mounted: scMounted, visible: scVisible } = useDelayedUnmount(showSendConfirm);
+  const { mounted: rmpMounted, visible: rmpVisible } = useDelayedUnmount(showRmPublishConfirm);
+  const { mounted: nativeAckMounted, visible: nativeAckVisible } = useDelayedUnmount(nativeAckPrompt !== null);
   const { mounted: rmMounted, visible: rmVisible } = useDelayedUnmount(showRuleModal);
   const [editingRule, setEditingRule] = useState<AutoReplyRule | null>(null);
   const [rKeyword, setRKeyword] = useState('');
@@ -761,6 +773,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
         const data = await res.json();
         setRichMenus(data.richmenus ?? []);
         setDefaultRichMenuId(data.defaultRichMenuId ?? null);
+        setPreviousDefaultRichMenuId(data.previousDefaultRichMenuId ?? null);
       }
     } catch { /* ignore */ }
   }, []);
@@ -936,8 +949,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
     setShowRuleModal(true);
   }
 
-  async function handleSaveRule() {
-    if (!rKeyword.trim() || rMessages.every(b => !b.text && !b.originalContentUrl)) return;
+  async function doSaveRule() {
     setRSaving(true);
     try {
       if (editingRule) {
@@ -963,18 +975,58 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
     finally { setRSaving(false); }
   }
 
+  async function handleSaveRule() {
+    if (!rKeyword.trim() || rMessages.every(b => !b.text && !b.originalContentUrl)) return;
+    const willBeFirstActiveRule = !editingRule && rules.every(r => !r.isActive);
+    if (willBeFirstActiveRule && !settingsData?.autoReplyNativeAckAt) {
+      requireNativeAck('autoreply', () => { doSaveRule(); });
+      return;
+    }
+    await doSaveRule();
+  }
+
   async function handleToggleRule(rule: AutoReplyRule) {
-    await fetch(`/api/auto-reply/${rule._id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isActive: !rule.isActive }),
-    });
-    await loadRules();
+    const activating = !rule.isActive;
+    const willBeFirstActiveRule = activating && rules.every(r => !r.isActive || r._id === rule._id);
+    const proceed = async () => {
+      await fetch(`/api/auto-reply/${rule._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !rule.isActive }),
+      });
+      await loadRules();
+    };
+    if (willBeFirstActiveRule && !settingsData?.autoReplyNativeAckAt) {
+      requireNativeAck('autoreply', proceed);
+      return;
+    }
+    await proceed();
   }
 
   async function handleDeleteRule(id: string) {
     await fetch(`/api/auto-reply/${id}`, { method: 'DELETE' });
     await loadRules();
+  }
+
+  function requireNativeAck(kind: 'greeting' | 'autoreply', action: () => void) {
+    pendingAckActionRef.current = action;
+    setNativeAckPrompt(kind);
+  }
+
+  async function confirmNativeAck() {
+    const kind = nativeAckPrompt;
+    if (!kind) return;
+    const field = kind === 'greeting' ? 'greetingNativeAckAt' : 'autoReplyNativeAckAt';
+    const now = new Date().toISOString();
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: now }),
+    });
+    setSettingsData((d: any) => ({ ...(d ?? {}), [field]: now }));
+    setNativeAckPrompt(null);
+    pendingAckActionRef.current?.();
+    pendingAckActionRef.current = null;
   }
 
   async function handleSaveGreeting() {
@@ -986,6 +1038,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   }
 
   async function handlePublishRichMenu() {
+    setShowRmPublishConfirm(false);
     setRmSaving(true);
     try {
       await fetch('/api/rich-menu', {
@@ -1009,6 +1062,15 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   async function handleDeleteRichMenu(id: string) {
     await fetch(`/api/rich-menu?id=${id}`, { method: 'DELETE' });
     await loadRichMenus();
+  }
+
+  async function handleRestoreRichMenu() {
+    setRmRestoring(true);
+    try {
+      await fetch('/api/rich-menu/restore', { method: 'POST' });
+      await loadRichMenus();
+    } catch { /* ignore */ }
+    finally { setRmRestoring(false); }
   }
 
   async function handleSearchTest() {
@@ -1713,7 +1775,15 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                         <p className={`text-xs font-semibold ${k.text}`}>First visit</p>
                         <p className={`text-[10px] mt-0.5 ${k.muted}`}>Sent when a customer follows your LINE OA.</p>
                       </div>
-                      <button onClick={() => setGreeting(g => ({ ...g, greetingEnabled: !g.greetingEnabled }))} className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${greeting.greetingEnabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
+                      <button
+                        onClick={() => {
+                          if (!greeting.greetingEnabled && !settingsData?.greetingNativeAckAt) {
+                            requireNativeAck('greeting', () => setGreeting(g => ({ ...g, greetingEnabled: true })));
+                          } else {
+                            setGreeting(g => ({ ...g, greetingEnabled: !g.greetingEnabled }));
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${greeting.greetingEnabled ? 'bg-accent' : isDark ? 'bg-[#2d3555]' : 'bg-slate-300'}`}>
                         <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${greeting.greetingEnabled ? 'left-6' : 'left-1'}`} />
                       </button>
                     </div>
@@ -2211,15 +2281,42 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               {richMenus.length > 0 && (
                 <div className={`rounded-2xl p-6 space-y-4 ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white border border-slate-200'}`}>
                   <p className={`text-sm font-semibold ${k.text}`}>Published Menus</p>
-                  {richMenus.map(menu => (
-                    <div key={menu.richMenuId} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
-                      <div>
-                        <p className={`text-sm font-medium ${k.text}`}>{menu.chatBarText || menu.name}</p>
-                        <p className={`text-xs ${k.muted}`}>{menu.richMenuId}{menu.richMenuId === defaultRichMenuId && <span className="text-emerald-400 ml-1"> · Default</span>}</p>
+                  {richMenus.map(menu => {
+                    const madeByShopenter = menu.name?.startsWith('shopenter-');
+                    return (
+                      <div key={menu.richMenuId} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                        <div>
+                          <p className={`text-sm font-medium ${k.text}`}>{menu.chatBarText || menu.name}</p>
+                          <p className={`text-xs ${k.muted}`}>
+                            {menu.richMenuId}
+                            {menu.richMenuId === defaultRichMenuId && <span className="text-emerald-400 ml-1"> · Default</span>}
+                            {!madeByShopenter && <span className="text-amber-400 ml-1"> · Made in LINE Console</span>}
+                          </p>
+                        </div>
+                        {madeByShopenter ? (
+                          <button onClick={() => handleDeleteRichMenu(menu.richMenuId)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"><Trash2 size={14} /></button>
+                        ) : (
+                          <span className={`text-[10px] px-2 py-1 rounded-lg flex-shrink-0 ${isDark ? 'text-[#8b92ad]' : 'text-slate-400'}`} title="Manage this in the LINE Official Account Manager instead">Not Shopenter's</span>
+                        )}
                       </div>
-                      <button onClick={() => handleDeleteRichMenu(menu.richMenuId)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"><Trash2 size={14} /></button>
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+              )}
+
+              {previousDefaultRichMenuId && (
+                <div className={`rounded-2xl p-4 flex items-center justify-between gap-3 ${isDark ? 'bg-blue-500/5 border border-blue-500/15' : 'bg-blue-50 border border-blue-100'}`}>
+                  <div>
+                    <p className={`text-sm font-semibold ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>Your original rich menu is safely stored</p>
+                    <p className={`text-xs mt-0.5 ${k.muted}`}>The menu that was live before Shopenter took over as default wasn't deleted — you can switch back to it anytime.</p>
+                  </div>
+                  <button
+                    onClick={handleRestoreRichMenu}
+                    disabled={rmRestoring}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold flex-shrink-0 border transition-colors disabled:opacity-50 ${isDark ? 'border-blue-500/30 text-blue-300 hover:bg-blue-500/10' : 'border-blue-200 text-blue-700 hover:bg-blue-100'}`}
+                  >
+                    {rmRestoring ? 'Restoring…' : "Disable Shopenter's menu"}
+                  </button>
                 </div>
               )}
 
@@ -2314,7 +2411,7 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                   </div>
 
                   <button
-                    onClick={handlePublishRichMenu}
+                    onClick={() => setShowRmPublishConfirm(true)}
                     disabled={rmSaving || !rmImageUrl}
                     className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ background: 'var(--accent-gradient)' }}>
@@ -2372,6 +2469,76 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
                 <Send size={14} /> Send Now
               </button>
               <button onClick={() => setShowSendConfirm(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Rich menu publish confirmation ── */}
+      {rmpMounted && (
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          data-state={rmpVisible ? 'open' : 'closed'}>
+          <div className={`modal-panel w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}
+            data-state={rmpVisible ? 'open' : 'closed'}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border}`}>
+              <p className={`text-sm font-semibold ${k.text}`}>Publish this rich menu?</p>
+              <button onClick={() => setShowRmPublishConfirm(false)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}><X size={16} /></button>
+            </div>
+            <div className="p-6">
+              <div className={`rounded-2xl p-4 ${isDark ? 'bg-[#0f1117] border border-amber-500/20' : 'bg-amber-50 border border-amber-200'} flex items-start gap-3`}>
+                <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>This replaces your current default menu</p>
+                  <p className={`text-xs ${k.muted}`}>Every customer will immediately see this menu instead — including if your current default was one you built directly in the LINE Official Account Manager. It won&apos;t be deleted; you&apos;ll be able to switch back to it from this page afterward.</p>
+                </div>
+              </div>
+            </div>
+            <div className={`flex gap-2 px-6 py-4 border-t ${k.border}`}>
+              <button
+                onClick={handlePublishRichMenu}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                Publish anyway
+              </button>
+              <button onClick={() => setShowRmPublishConfirm(false)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Native LINE feature conflict acknowledgment ── */}
+      {nativeAckMounted && (
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          data-state={nativeAckVisible ? 'open' : 'closed'}>
+          <div className={`modal-panel w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#161925] border border-[#1f2335]' : 'bg-white'}`}
+            data-state={nativeAckVisible ? 'open' : 'closed'}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${k.border}`}>
+              <p className={`text-sm font-semibold ${k.text}`}>Before you turn this on</p>
+              <button onClick={() => setNativeAckPrompt(null)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}><X size={16} /></button>
+            </div>
+            <div className="p-6">
+              <div className={`rounded-2xl p-4 ${isDark ? 'bg-[#0f1117] border border-amber-500/20' : 'bg-amber-50 border border-amber-200'} flex items-start gap-3`}>
+                <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    {nativeAckPrompt === 'greeting' ? 'Check your LINE OA’s own Greeting message' : 'Check your LINE OA’s own Auto-response messages'}
+                  </p>
+                  <p className={`text-xs ${k.muted}`}>
+                    Shopenter can&apos;t see whether {nativeAckPrompt === 'greeting' ? "LINE's native Greeting message" : "LINE's native Auto-response messages"} are already turned on in your LINE Official Account Manager (Settings → Response settings) — that&apos;s configured entirely on LINE&apos;s side. If it&apos;s on, customers may get two messages: LINE&apos;s and Shopenter&apos;s. Go turn it off there first if you haven&apos;t already.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className={`flex gap-2 px-6 py-4 border-t ${k.border}`}>
+              <button
+                onClick={confirmNativeAck}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                style={{ background: 'var(--accent-gradient)' }}
+              >
+                I&apos;ve checked — turn this on
+              </button>
+              <button onClick={() => setNativeAckPrompt(null)} className={`px-4 py-2 rounded-xl text-sm border transition-colors ${isDark ? 'border-[#1f2335] text-[#8b92ad] hover:text-white' : 'border-slate-200 text-slate-500'}`}>Cancel</button>
             </div>
           </div>
         </div>

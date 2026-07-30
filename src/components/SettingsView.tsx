@@ -289,6 +289,13 @@ export default function SettingsView({
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
   const [accountActionError, setAccountActionError] = useState('');
+  const [hasPassword, setHasPassword] = useState(true);
+  const [hasLine, setHasLine] = useState(false);
+  const [linkError, setLinkError] = useState('');
+  const [showSetPassword, setShowSetPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [setPasswordError, setSetPasswordError] = useState('');
 
   const [showTgToken,       setShowTgToken]       = useState(false);
   const [tgActivating,      setTgActivating]      = useState(false);
@@ -321,7 +328,23 @@ export default function SettingsView({
       setMerchantPlan({ tier: d.tier, paymentStatus: d.paymentStatus });
       setDeletionScheduledFor(d.deletionScheduledFor ?? null);
       setMerchantShopName(d.shopName ?? '');
+      setHasPassword(!!d.hasPassword);
+      setHasLine(!!d.hasLine);
     }).catch(() => {});
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('linked') === 'line') setHasLine(true);
+    const err = params.get('linkError');
+    if (err) {
+      setLinkError(
+        err === 'line_already_linked' ? 'That LINE account is already connected to a different Shopenter account.'
+        : err === 'state_mismatch' ? 'Something went wrong verifying the request — please try again.'
+        : "Couldn't connect your LINE account. Please try again."
+      );
+    }
+    if (params.has('linked') || params.has('linkError')) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
     setWebhookUrl(`${window.location.origin}/api/webhook`);
     checkLine();
   }, [checkLine, refreshTrigger]);
@@ -1624,7 +1647,7 @@ export default function SettingsView({
                       <div>
                         <div className="flex items-center gap-2">
                           <p className={`text-sm font-semibold ${K.text}`}>SlipOK — Automatic Slip Verification</p>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>Work in progress</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>Coming soon</span>
                         </div>
                         <p className={`text-xs mt-0.5 ${K.muted}`}>Temporarily disabled while we improve slip verification accuracy. Please confirm payments manually for now — we'll bring this back soon.</p>
                       </div>
@@ -1967,6 +1990,85 @@ export default function SettingsView({
                     </button>
                   </div>
                 )}
+
+                {/* Login methods */}
+                <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>
+                  <div>
+                    <p className={`text-sm font-semibold ${K.text}`}>Login methods</p>
+                    <p className={`text-xs mt-1 ${K.muted}`}>Connect both email and LINE to the same account so you can sign in either way.</p>
+                  </div>
+
+                  {linkError && (
+                    <div role="alert" className="px-4 py-3 rounded-xl text-xs bg-red-500/10 border border-red-500/20 text-red-500">{linkError}</div>
+                  )}
+
+                  <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                    <div>
+                      <p className={`text-sm font-medium ${K.text}`}>Email &amp; password</p>
+                      <p className={`text-xs ${K.muted}`}>{hasPassword ? 'Set — you can sign in with your password.' : 'Not set — this account only signs in with LINE.'}</p>
+                    </div>
+                    {!hasPassword && (
+                      <button
+                        onClick={() => { setShowSetPassword(v => !v); setSetPasswordError(''); }}
+                        className={`text-xs px-3 py-2 rounded-lg font-semibold border transition-colors flex-shrink-0 ${isDark ? 'border-[#1f2335] text-white hover:border-accent' : 'border-slate-200 text-slate-700 hover:border-accent'}`}
+                      >
+                        Set a password
+                      </button>
+                    )}
+                  </div>
+                  {!hasPassword && showSetPassword && (
+                    <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-50'}`}>
+                      {setPasswordError && <p className="text-xs text-red-500">{setPasswordError}</p>}
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="At least 8 characters"
+                        autoComplete="new-password"
+                        className={inputCls}
+                      />
+                      <button
+                        disabled={settingPassword}
+                        onClick={async () => {
+                          setSetPasswordError('');
+                          if (newPassword.length < 8) { setSetPasswordError('Password must be at least 8 characters.'); return; }
+                          setSettingPassword(true);
+                          try {
+                            const res = await fetch('/api/merchant/auth/set-password', {
+                              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: newPassword }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) { setSetPasswordError(data.error || 'Failed to set password'); return; }
+                            setHasPassword(true);
+                            setShowSetPassword(false);
+                            setNewPassword('');
+                          } catch { setSetPasswordError('Network error. Please try again.'); }
+                          finally { setSettingPassword(false); }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                        style={{ background: 'var(--accent-gradient)' }}
+                      >
+                        {settingPassword ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                        Save password
+                      </button>
+                    </div>
+                  )}
+
+                  <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl ${isDark ? 'bg-[#1a1d2e] border border-[#1f2335]' : 'bg-slate-50 border border-slate-200'}`}>
+                    <div>
+                      <p className={`text-sm font-medium ${K.text}`}>LINE login</p>
+                      <p className={`text-xs ${K.muted}`}>{hasLine ? 'Connected — you can sign in with LINE.' : 'Not connected.'}</p>
+                    </div>
+                    {!hasLine && (
+                      <a
+                        href="/api/merchant/auth/connect-line/authorize"
+                        className={`text-xs px-3 py-2 rounded-lg font-semibold border transition-colors flex-shrink-0 ${isDark ? 'border-[#1f2335] text-white hover:border-accent' : 'border-slate-200 text-slate-700 hover:border-accent'}`}
+                      >
+                        Connect LINE
+                      </a>
+                    )}
+                  </div>
+                </div>
 
                 {/* Export data */}
                 <div className={`rounded-2xl p-6 space-y-4 ${K.surface}`}>

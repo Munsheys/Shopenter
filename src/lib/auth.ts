@@ -45,3 +45,23 @@ export function getMerchantFromRequest(req: NextRequest): MerchantJwtPayload | n
     return null;
   }
 }
+
+export interface LineLinkPayload {
+  lineUserId: string;
+  lineAccessToken: string;
+  email: string;
+}
+
+// Short-lived (10 min) token carrying a verified LINE profile across the redirect from
+// /api/auth/line/callback to the /login/link-line confirmation page, when that profile's
+// email collides with an existing email/password account. Never long-lived — this only
+// exists to survive one page load, not to double as a session.
+export function signLineLinkToken(payload: LineLinkPayload): string {
+  ensureSecret();
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '10m' });
+}
+
+export function verifyLineLinkToken(token: string): LineLinkPayload {
+  ensureSecret();
+  return jwt.verify(token, JWT_SECRET) as LineLinkPayload;
+}

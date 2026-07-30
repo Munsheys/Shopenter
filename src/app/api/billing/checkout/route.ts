@@ -7,6 +7,7 @@ import { TIER_PRICE_THB, type Tier } from '@/lib/tiers';
 import { createCustomerWithCard, chargeCustomer, thbToSatang } from '@/lib/omise';
 import { daysFromNow } from '@/lib/affiliate';
 import { recordAndNotifyReceipt } from '@/lib/billingReceipt';
+import { clearInactivityDeletion } from '@/lib/inactivity';
 
 export const runtime = 'nodejs';
 
@@ -70,6 +71,8 @@ export async function POST(req: NextRequest) {
     merchant.pastDueSince = null;
     merchant.paymentMethodBrand = card?.brand ?? null;
     merchant.paymentMethodLast4 = card?.last_digits ?? null;
+    // Paying tiers are never subject to inactivity deletion — cancel any pending one.
+    clearInactivityDeletion(merchant);
     await merchant.save();
 
     await logAudit(

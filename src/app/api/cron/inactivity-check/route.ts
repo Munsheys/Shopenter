@@ -11,10 +11,10 @@ const GRACE_PERIOD_DAYS = 30; // same window as a merchant-requested deletion
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Daily job: merchants who haven't logged in for 3 months (any tier, including
- * paying Pro merchants) get scheduled for deletion on the same 30-day grace
- * period as a self-requested deletion, with LINE warnings sent via Shopenter's
- * own Official Account (not the merchant's own channel) at schedule time, and
+ * Daily job: Free-tier merchants who haven't logged in for 3 months get scheduled
+ * for deletion on the same 30-day grace period as a self-requested deletion, with
+ * LINE warnings sent via Shopenter's own Official Account (not the merchant's
+ * own channel) at schedule time, and
  * again at ~14 and ~3 days before the actual purge. Logging back in at any
  * point cancels it (see src/lib/inactivity.ts, wired into both login routes).
  *
@@ -36,8 +36,11 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const inactivityCutoff = new Date(now.getTime() - INACTIVITY_THRESHOLD_DAYS * DAY_MS);
 
-    // Stage 1: newly-inactive merchants not yet scheduled for any deletion.
+    // Stage 1: newly-inactive Free-tier merchants not yet scheduled for any deletion.
+    // Paying tiers (Pro/Enterprise) are exempt regardless of subscriptionStatus — a lapsed
+    // payment is billing-cycle's own grace/downgrade concern, not this cron's.
     const newlyInactive = await Merchant.find({
+      tier: 'free',
       deletionScheduledFor: null,
       $or: [
         { lastLoginAt: { $lte: inactivityCutoff } },

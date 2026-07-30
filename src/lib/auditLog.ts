@@ -23,7 +23,10 @@ export type AuditAction =
   | 'subscription_downgraded'
   | 'trial_started'
   | 'inactivity_deletion_scheduled'
-  | 'inactivity_deletion_cancelled';
+  | 'inactivity_deletion_cancelled'
+  | 'line_account_linked'
+  | 'line_link_failed'
+  | 'password_set';
 
 export type AuditResource = 'merchant' | 'product' | 'order' | 'customer' | 'settings' | 'none';
 
