@@ -74,7 +74,6 @@ export default function SignupContent() {
 
   return (
     <AuthShell
-      eyebrow="Multi-tenant LINE OA Commerce"
       heading={<>Your own store, <span className="text-green-400">live on LINE</span>.</>}
       description="Create a store and start selling to your LINE OA customers in minutes."
     >

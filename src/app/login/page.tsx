@@ -55,7 +55,6 @@ function LoginForm() {
 
   return (
     <AuthShell
-      eyebrow="Multi-tenant LINE OA Commerce"
       heading={<>Welcome back to <span className="text-green-400">your store</span>.</>}
       description="Sign in to manage orders, products, and customers for your LINE OA store."
     >

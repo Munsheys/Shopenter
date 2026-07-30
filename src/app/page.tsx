@@ -132,10 +132,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-
-      <footer className="border-t border-white/5 px-6 py-6 text-center text-xs text-gray-600">
-        © {new Date().getFullYear()} Shopenter. Built for LINE OA merchants.
-      </footer>
     </div>
   );
 }

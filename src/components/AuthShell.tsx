@@ -10,12 +10,10 @@ const FEATURES = [
 ];
 
 export default function AuthShell({
-  eyebrow,
   heading,
   description,
   children,
 }: {
-  eyebrow: string;
   heading: ReactNode;
   description: string;
   children: ReactNode;
@@ -44,9 +42,6 @@ export default function AuthShell({
         </Link>
 
         <div className="relative">
-          <div className="inline-flex items-center gap-2 bg-green-500/10 text-green-400 text-xs font-semibold px-3 py-1.5 rounded-full mb-6 border border-green-500/20">
-            {eyebrow}
-          </div>
           <h2 className="text-3xl xl:text-4xl font-bold leading-tight tracking-tight mb-4">
             {heading}
           </h2>
