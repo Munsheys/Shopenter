@@ -31,6 +31,9 @@ export interface MerchantDoc {
   paymentMethodBrand?: string | null;
   paymentMethodLast4?: string | null;
   proTrialUsedAt?: string | null;
+  passwordResetTokenHash?: string | null;
+  passwordResetExpiresAt?: string | null;
+  onboardingCompletedAt?: string | null;
   createdAt: string;
 }
 
@@ -98,6 +101,25 @@ export const MerchantRepo = {
       Limit: 1,
     });
     return items[0] ?? null;
+  },
+
+  /** Also filters expiry — matches the old `{passwordResetTokenHash, passwordResetExpiresAt: {$gt: now}}` query. */
+  async findByValidPasswordResetToken(tokenHash: string): Promise<MerchantDoc | null> {
+    const { items } = await ddbQuery<MerchantDoc>({
+      TableName: T,
+      IndexName: 'passwordResetTokenHash-index',
+      KeyConditionExpression: 'passwordResetTokenHash = :v',
+      FilterExpression: 'passwordResetExpiresAt > :now',
+      ExpressionAttributeValues: { ':v': tokenHash, ':now': new Date().toISOString() },
+      Limit: 1,
+    });
+    return items[0] ?? null;
+  },
+
+  async existsBySlug(slug: string, excludeId?: string): Promise<boolean> {
+    const match = await this.findBySlug(slug);
+    if (!match) return false;
+    return match.id !== excludeId;
   },
 
   async findReferrals(referredByMerchantId: string): Promise<MerchantDoc[]> {

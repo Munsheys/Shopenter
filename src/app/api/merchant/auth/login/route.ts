@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Merchant, FailedLoginAttempt } from '@/models';
+import { MerchantRepo } from '@/lib/repos/merchant';
+import { FailedLoginAttemptRepo } from '@/lib/repos/failedLoginAttempt';
 import { comparePassword, signMerchantToken } from '@/lib/auth';
 import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
 import { clearInactivityDeletion } from '@/lib/inactivity';
@@ -41,39 +41,33 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, password } = validation.data;
+    const normalizedEmail = email.toLowerCase().trim();
 
-    await dbConnect();
-
-    const merchant = await Merchant.findOne({ email: email.toLowerCase().trim() });
+    const merchant = await MerchantRepo.findByEmail(normalizedEmail);
     if (!merchant) {
       // Log failed attempt
-      await FailedLoginAttempt.create({
-        email: email.toLowerCase().trim(),
+      await FailedLoginAttemptRepo.create({
+        email: normalizedEmail,
         ip,
         userAgent: req.headers.get('user-agent'),
-        timestamp: new Date(),
         reason: 'invalid_email'
       });
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    const valid = await comparePassword(password, merchant.passwordHash);
+    const valid = await comparePassword(password, merchant.passwordHash || '');
     if (!valid) {
       // Log failed attempt
-      await FailedLoginAttempt.create({
-        email: email.toLowerCase().trim(),
+      await FailedLoginAttemptRepo.create({
+        email: normalizedEmail,
         ip,
         userAgent: req.headers.get('user-agent'),
-        timestamp: new Date(),
         reason: 'invalid_password',
-        merchantId: merchant._id
+        merchantId: merchant.id
       });
 
       // Get count of recent failed attempts
-      const recentFails = await FailedLoginAttempt.countDocuments({
-        merchantId: merchant._id,
-        timestamp: { $gte: new Date(Date.now() - 15 * 60 * 1000) }
-      });
+      const recentFails = await FailedLoginAttemptRepo.countRecentByMerchant(merchant.id, 15 * 60 * 1000);
 
       // Notify merchant after 3 failed attempts — LINE only, per policy (never email; email-only
       // merchants who haven't linked LINE can't be reached by Shopenter through any channel yet).
@@ -91,23 +85,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Successful login - clear failed attempts
-    await FailedLoginAttempt.deleteMany({
-      merchantId: merchant._id,
-      timestamp: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+    await FailedLoginAttemptRepo.deleteRecentByMerchant(merchant.id, 24 * 60 * 60 * 1000);
+
+    const inactivityPatch = clearInactivityDeletion(merchant);
+    await MerchantRepo.update(merchant.id, {
+      lastLoginAt: new Date().toISOString(),
+      lastLoginMethod: 'email',
+      ...(inactivityPatch ?? {}),
     });
-
-    merchant.lastLoginAt = new Date();
-    merchant.lastLoginMethod = 'email';
-    const cancelledInactivityDeletion = clearInactivityDeletion(merchant);
-    await merchant.save();
-    if (cancelledInactivityDeletion) {
-      await logAudit({ merchantId: merchant._id.toString(), action: 'inactivity_deletion_cancelled', resource: 'merchant', status: 'success' }, req);
+    if (inactivityPatch) {
+      await logAudit({ merchantId: merchant.id, action: 'inactivity_deletion_cancelled', resource: 'merchant', status: 'success' }, req);
     }
-    await logAudit({ merchantId: merchant._id.toString(), action: 'login', resource: 'merchant', status: 'success' }, req);
+    await logAudit({ merchantId: merchant.id, action: 'login', resource: 'merchant', status: 'success' }, req);
 
-    const token = signMerchantToken({ merchantId: merchant._id.toString(), email: merchant.email });
+    const token = signMerchantToken({ merchantId: merchant.id, email: merchant.email });
 
-    const res = NextResponse.json({ merchantId: merchant._id, email: merchant.email, shopName: merchant.shopName });
+    const res = NextResponse.json({ merchantId: merchant.id, email: merchant.email, shopName: merchant.shopName });
     res.cookies.set('merchant_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

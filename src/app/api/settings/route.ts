@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Settings } from '@/models';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { MerchantRepo } from '@/lib/repos/merchant';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLog';
-import { cached, invalidateMerchantCache } from '@/lib/cache';
+import { createLiffApp } from '@/lib/liffProvision';
 
 export const runtime = 'nodejs';
 
@@ -12,24 +12,12 @@ export async function GET(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    // Cache settings for 5 minutes per merchant (frequently accessed, rarely changes)
-    const settings = await cached(
-      `merchant:${merchant.merchantId}:settings`,
-      async () => {
-        await dbConnect();
-        let s = await Settings.findOne({ merchantId: merchant.merchantId });
-        if (!s) {
-          s = await Settings.create({ merchantId: merchant.merchantId });
-        }
-        return s.toObject();
-      },
-      { ttl: 300 }
-    );
-
+    const settings = await SettingsRepo.findOrCreate(merchant.merchantId);
     // Strip platform-level secrets — clients never see raw LINE credentials
     delete settings.lineChannelAccessToken;
     delete settings.lineChannelSecret;
     delete settings.adminSecret;
+    // slipokApiKey and slipokBranchId are the merchant's own credentials — expose them for editing
     return NextResponse.json(settings);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
@@ -46,7 +34,8 @@ const ALLOWED_FIELDS = [
   'greetingEnabled', 'greetingMessages', 'greetingCustom', 'reEngageEnabled', 'reEngageMessages', 'reEngageCustom',
   'richMenuSavedId', 'paymentMethods', 'bankAccounts', 'autoCancelHours', 'useSlipok', 'shippingPayer',
   'defaultShippingCost', 'freeShippingThreshold', 'codSurcharge', 'deliveryEstimates', 'adminAlerts',
-  'broadcastReminder', 'orderPrefix', 'autoDeliver', 'loyalty', 'lineIntentSearch', 'telegram', 'instagram', 'storefront'
+  'broadcastReminder', 'orderPrefix', 'autoDeliver', 'loyalty', 'lineIntentSearch', 'telegram', 'instagram', 'storefront',
+  'greetingNativeAckAt', 'autoReplyNativeAckAt',
 ];
 
 export async function POST(req: NextRequest) {
@@ -54,7 +43,6 @@ export async function POST(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await dbConnect();
     const body = await req.json();
 
     // Sanitize LINE credential strings
@@ -86,29 +74,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build flat $set — convert nested telegram/instagram to dotted keys to avoid
-    // MongoDB "path conflict" errors when mixing nested objects with dotted paths
-    // Also filter to allowed fields only (never allow merchant to assign tier/paymentStatus)
+    // Filter to allowed fields only (never allow merchant to assign tier/paymentStatus).
+    // Nested telegram/instagram objects are passed through as-is — SettingsRepo.upsert
+    // merges them against the existing stored object instead of overwriting it, same
+    // effect as the old Mongoose dotted-path $set without needing DynamoDB path tricks.
     const update: Record<string, any> = {};
     for (const [key, val] of Object.entries(body)) {
-      if (!ALLOWED_FIELDS.includes(key)) continue; // Skip disallowed fields
-      if (['tier', 'paymentStatus', 'merchantId', '_id', '__v', 'createdAt'].includes(key)) continue;
-      if (key === 'telegram' && val && typeof val === 'object' && !Array.isArray(val)) {
-        for (const [subKey, subVal] of Object.entries(val as Record<string, unknown>)) {
-          if (subVal !== undefined) update[`telegram.${subKey}`] = subVal;
-        }
-      } else if (key === 'instagram' && val && typeof val === 'object' && !Array.isArray(val)) {
-        for (const [subKey, subVal] of Object.entries(val as Record<string, unknown>)) {
-          if (subVal !== undefined) update[`instagram.${subKey}`] = subVal;
-        }
-      } else {
-        update[key] = val;
-      }
+      if (!ALLOWED_FIELDS.includes(key)) continue;
+      if (['tier', 'paymentStatus', 'merchantId', 'id', 'createdAt'].includes(key)) continue;
+      update[key] = val;
     }
 
     // Sync shopName and slug to the Merchant model as well, since they govern global identity and storefront routing
     if (body.shopName !== undefined || body.slug !== undefined) {
-      const merchantUpdate: any = {};
+      const merchantUpdate: Record<string, any> = {};
       if (body.shopName !== undefined) merchantUpdate.shopName = body.shopName;
       if (body.slug !== undefined) {
         // Enforce lowercase alphanumeric with hyphens
@@ -117,21 +96,28 @@ export async function POST(req: NextRequest) {
         update.slug = cleanSlug;
       }
       try {
-        const { Merchant } = require('@/models');
-        await Merchant.findByIdAndUpdate(merchant.merchantId, { $set: merchantUpdate });
+        await MerchantRepo.update(merchant.merchantId, merchantUpdate);
       } catch (e) {
         // Ignore duplicate slug errors for now or handle them gracefully
       }
     }
 
-    const s = await Settings.findOneAndUpdate(
-      { merchantId: merchant.merchantId },
-      { $set: update },
-      { upsert: true, new: true, runValidators: true }
-    );
+    let settings = await SettingsRepo.upsert(merchant.merchantId, update);
 
-    // Invalidate cache after settings update
-    await invalidateMerchantCache(merchant.merchantId);
+    // Auto-provision a LIFF app the moment a Channel Access Token is saved without one
+    // already configured — removes the manual "create a LIFF app, copy its ID back"
+    // step, which previously blocked guest checkout on the storefront if skipped.
+    if (update.lineChannelAccessToken && !settings.liffId) {
+      const merchantDoc = await MerchantRepo.findById(merchant.merchantId);
+      if (merchantDoc?.slug) {
+        const endpointUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app'}/shop/${merchantDoc.slug}`;
+        const liffId = await createLiffApp(settings.lineChannelAccessToken, endpointUrl);
+        if (liffId) {
+          settings = await SettingsRepo.upsert(merchant.merchantId, { liffId });
+          await logAudit({ merchantId: merchant.merchantId, action: 'settings_change', resource: 'settings', changes: { after: { fieldsChanged: ['liffId (auto-provisioned)'] } }, status: 'success' }, req);
+        }
+      }
+    }
 
     // Field names only — never log secret values (defeats the point of encrypting them at rest).
     await logAudit(
@@ -139,7 +125,6 @@ export async function POST(req: NextRequest) {
       req
     );
 
-    const settings = s.toObject();
     // Same as GET — never echo platform-level secrets back to the client.
     delete settings.lineChannelAccessToken;
     delete settings.lineChannelSecret;

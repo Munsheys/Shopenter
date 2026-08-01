@@ -109,12 +109,19 @@ export const SettingsRepo = {
   },
 
   async upsert(merchantId: string, updates: Record<string, any>): Promise<SettingsDoc> {
-    const toWrite = structuredClone(updates);
-    encryptFields(toWrite);
+    // Ensure the base doc exists first, and use it to merge (not overwrite) any nested
+    // object values — e.g. `{telegram: {botToken: 'x'}}` should update just that one
+    // sub-field, same as the old Mongoose dotted-path ($set 'telegram.botToken') behavior,
+    // not wipe out the rest of the telegram config.
+    const existing = await this.findOrCreate(merchantId);
 
-    // Ensure the base doc exists first (DynamoDB UpdateItem can create it via SET, but we
-    // want defaults applied on first creation the same way findOrCreate does).
-    await this.findOrCreate(merchantId);
+    const toWrite = structuredClone(updates);
+    for (const [key, val] of Object.entries(toWrite)) {
+      if (val && typeof val === 'object' && !Array.isArray(val) && typeof existing[key] === 'object' && existing[key] !== null) {
+        toWrite[key] = { ...existing[key], ...val };
+      }
+    }
+    encryptFields(toWrite);
 
     const expr = buildUpdateExpression(toWrite);
     const updated = await ddbUpdate<SettingsDoc>({ TableName: T, Key: { merchantId }, ...expr });

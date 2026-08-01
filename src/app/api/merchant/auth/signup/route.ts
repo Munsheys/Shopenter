@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Merchant, Settings, AffiliateCommission } from '@/models';
+import { MerchantRepo } from '@/lib/repos/merchant';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { AffiliateCommissionRepo } from '@/lib/repos/affiliateCommission';
 import { hashPassword, signMerchantToken } from '@/lib/auth';
 import { REFERRED_TRIAL_DAYS, PENDING_GRACE_DAYS, daysFromNow } from '@/lib/affiliate';
 import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
@@ -41,25 +42,24 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, password, shopName, referralCode } = validation.data;
+    const normalizedEmail = email.toLowerCase().trim();
 
-    await dbConnect();
-
-    const existing = await Merchant.findOne({ email: email.toLowerCase().trim() });
+    const existing = await MerchantRepo.findByEmail(normalizedEmail);
     if (existing) {
       return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
     }
 
     // Validate referral code if provided
-    let referrerMerchantId = null;
+    let referrerMerchantId: string | null = null;
     if (referralCode) {
-      const referrer = await Merchant.findOne({ referralCode: String(referralCode).toLowerCase() });
+      const referrer = await MerchantRepo.findByReferralCode(String(referralCode).toLowerCase());
       if (!referrer) {
         return NextResponse.json({ error: 'Invalid referral code' }, { status: 400 });
       }
-      if (referrer.email === email.toLowerCase().trim()) {
+      if (referrer.email === normalizedEmail) {
         return NextResponse.json({ error: "You can't refer yourself" }, { status: 400 });
       }
-      referrerMerchantId = referrer._id;
+      referrerMerchantId = referrer.id;
     }
 
     const passwordHash = await hashPassword(password);
@@ -71,10 +71,10 @@ export async function POST(req: NextRequest) {
     // referral link worth more than a cold signup.
     const isReferred = Boolean(referrerMerchantId);
     const trialDays = REFERRED_TRIAL_DAYS;
-    const trialEndsAt = isReferred ? daysFromNow(trialDays) : null;
+    const trialEndsAt = isReferred ? daysFromNow(trialDays).toISOString() : null;
 
-    const merchant = await Merchant.create({
-      email: email.toLowerCase().trim(),
+    const merchant = await MerchantRepo.create({
+      email: normalizedEmail,
       passwordHash,
       shopName,
       slug,
@@ -83,30 +83,30 @@ export async function POST(req: NextRequest) {
       trialEndsAt,
       trialReason: isReferred ? 'referral' : 'signup',
       referredByMerchantId: referrerMerchantId,
-      acceptedTermsAt: new Date(),
+      acceptedTermsAt: new Date().toISOString(),
       acceptedTermsVersion: CURRENT_TERMS_VERSION,
     });
 
     // Bootstrap default settings for the new merchant
-    await Settings.create({ merchantId: merchant._id, shopName });
+    await SettingsRepo.upsert(merchant.id, { shopName });
 
     // If referral, create affiliate commission record. The pending window covers
     // the referred merchant's full trial plus a grace period to actually upgrade.
     if (referrerMerchantId && referralCode) {
-      const expiresAt = daysFromNow(trialDays + PENDING_GRACE_DAYS);
-      await AffiliateCommission.create({
+      const expiresAt = daysFromNow(trialDays + PENDING_GRACE_DAYS).toISOString();
+      await AffiliateCommissionRepo.create({
         referrerMerchantId,
-        referredMerchantId: merchant._id,
+        referredMerchantId: merchant.id,
         referralCode: String(referralCode).toLowerCase(),
         status: 'pending',
         expiresAt,
       });
     }
 
-    const token = signMerchantToken({ merchantId: merchant._id.toString(), email: merchant.email });
+    const token = signMerchantToken({ merchantId: merchant.id, email: merchant.email });
 
     const res = NextResponse.json({
-      merchantId: merchant._id,
+      merchantId: merchant.id,
       email: merchant.email,
       shopName,
       tier: merchant.tier,

@@ -15,15 +15,49 @@ export const LoginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-// Product schemas
+export const ForgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
+export const ResetPasswordSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+// Product schemas — field names match the actual Mongoose Product schema
+// (src/models/index.ts), which is what every real caller (manual add-product form, CSV
+// import) actually sends. This used to be a different/flatter shape (image, category,
+// sku, stock) that none of those callers used, silently stripping brand, images,
+// categories, options, variants, trackStock, and isActive off every newly-created
+// product before it reached the database.
+const ProductVariantSchema = z.object({
+  combination: z.any().optional(),
+  imageUrl: z.string().optional().nullable(),
+  variantName: z.string().optional(),
+  colors: z.array(z.string()).optional(),
+  price: z.number().optional().nullable(),
+  cost: z.number().optional().nullable(),
+  stock: z.number().optional(),
+});
+
 export const ProductSchema = z.object({
   name: z.string().min(1, 'Product name is required').max(255),
   price: z.number().min(0, 'Price cannot be negative').max(1000000),
   description: z.string().max(5000).optional().nullable(),
-  image: z.string().url().optional().nullable(),
-  category: z.string().optional().nullable(),
-  sku: z.string().optional().nullable(),
-  stock: z.number().int().min(0).optional().nullable(),
+  brand: z.string().optional().nullable(),
+  modelLine: z.string().optional().nullable(),
+  imageUrl: z.string().optional().nullable(),
+  images: z.array(z.string()).optional(),
+  categories: z.array(z.string()).optional(),
+  isActive: z.boolean().optional(),
+  isQuickAdd: z.boolean().optional(),
+  trackStock: z.boolean().optional(),
+  maxPrice: z.number().optional().nullable(),
+  options: z.array(z.object({
+    name: z.string().optional(),
+    values: z.array(z.string()).optional(),
+  })).optional(),
+  variants: z.array(ProductVariantSchema).optional(),
 });
 
 export const ProductUpdateSchema = ProductSchema.partial();

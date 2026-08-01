@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Merchant } from '@/models';
+import { MerchantRepo } from '@/lib/repos/merchant';
 import { getMerchantFromRequest } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -10,14 +9,16 @@ export async function GET(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await dbConnect();
-    const doc = await Merchant.findById(merchant.merchantId).select('email shopName slug tier paymentStatus trialEndsAt deletionScheduledFor deletionReason subscriptionStatus nextBillingDate paymentMethodBrand paymentMethodLast4 proTrialUsedAt').lean() as any;
+    const doc = await MerchantRepo.findById(merchant.merchantId);
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({
       merchantId: merchant.merchantId,
       email: doc.email,
       shopName: doc.shopName,
       slug: doc.slug ?? null,
+      hasPassword: !!doc.passwordHash,
+      hasLine: !!doc.lineUserId,
+      onboardingCompletedAt: doc.onboardingCompletedAt ?? null,
       tier: doc.tier ?? 'free',
       paymentStatus: doc.paymentStatus ?? 'trialing',
       trialEndsAt: doc.trialEndsAt ?? null,
@@ -54,14 +55,12 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    await dbConnect();
-
-    const conflict = await Merchant.exists({ slug: normalized, _id: { $ne: merchant.merchantId } });
+    const conflict = await MerchantRepo.existsBySlug(normalized, merchant.merchantId);
     if (conflict) {
       return NextResponse.json({ error: 'That handle is already taken.' }, { status: 409 });
     }
 
-    await Merchant.findByIdAndUpdate(merchant.merchantId, { slug: normalized });
+    await MerchantRepo.update(merchant.merchantId, { slug: normalized });
     return NextResponse.json({ slug: normalized });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

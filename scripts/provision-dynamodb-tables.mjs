@@ -62,6 +62,7 @@ const tables = [
       gsi('lineUserId-index', 'lineUserId'),
       gsi('referralCode-index', 'referralCode'),
       gsi('referredBy-index', 'referredByMerchantId', 'id'),
+      gsi('passwordResetTokenHash-index', 'passwordResetTokenHash'),
     ],
   },
   { name: 'Settings', ...keySchema('merchantId'), gsis: [] },

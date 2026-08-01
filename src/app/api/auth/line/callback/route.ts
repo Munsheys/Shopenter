@@ -1,26 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
-import dbConnect from '@/lib/db';
-import { Merchant, Settings } from '@/models';
-import { signMerchantToken } from '@/lib/auth';
+import { MerchantRepo } from '@/lib/repos/merchant';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { signMerchantToken, signLineLinkToken, getMerchantFromRequest } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLog';
 import { checkAuthLimit, getClientIp } from '@/lib/rateLimiter';
 import { toSlug, generateUniqueSlug } from '@/lib/slug';
 import { CURRENT_TERMS_VERSION } from '@/lib/legal';
 import { clearInactivityDeletion } from '@/lib/inactivity';
+import { exchangeLineCode } from '@/lib/lineOAuth';
 
 export const runtime = 'nodejs';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app';
+const SETTINGS_ACCOUNT_URL = `${BASE_URL}/dashboard?tab=settings&section=account`;
 
-interface LineIdToken {
-  iss: string;
-  sub: string;
-  aud: string;
-  nonce: string;
-  exp: number;
-  iat: number;
-  auth_time: number;
+/**
+ * Handles the "connect LINE to my already-logged-in account" flow (started from
+ * Settings > Account). Shares this callback URL with sign-in — see the state-cookie
+ * check in GET below for how they're told apart — since LINE Login channels only expose
+ * one editable Callback URL in the console.
+ */
+async function handleConnectCallback(req: NextRequest, code: string, state: string): Promise<NextResponse> {
+  const session = getMerchantFromRequest(req);
+  if (!session) return NextResponse.redirect(`${BASE_URL}/login`);
+
+  const cookieState = req.cookies.get('connect_line_state')?.value;
+  const cookieNonce = req.cookies.get('connect_line_nonce')?.value;
+  if (!cookieState || cookieState !== state || !cookieNonce) {
+    return NextResponse.redirect(`${SETTINGS_ACCOUNT_URL}&linkError=state_mismatch`);
+  }
+
+  const redirectUri = `${BASE_URL}/api/auth/line/callback`;
+  const profile = await exchangeLineCode(code, redirectUri, cookieNonce);
+  if (!profile) {
+    return NextResponse.redirect(`${SETTINGS_ACCOUNT_URL}&linkError=line_auth_failed`);
+  }
+
+  const alreadyLinkedElsewhere = await MerchantRepo.findByLineUserId(profile.lineUserId);
+  if (alreadyLinkedElsewhere && alreadyLinkedElsewhere.id !== session.merchantId) {
+    return NextResponse.redirect(`${SETTINGS_ACCOUNT_URL}&linkError=line_already_linked`);
+  }
+
+  const merchant = await MerchantRepo.findById(session.merchantId);
+  if (!merchant) return NextResponse.redirect(`${BASE_URL}/login`);
+
+  const inactivityPatch = clearInactivityDeletion(merchant);
+  await MerchantRepo.update(merchant.id, {
+    lineUserId: profile.lineUserId,
+    lineAccessToken: profile.accessToken,
+    ...(inactivityPatch ?? {}),
+  });
+
+  await logAudit({ merchantId: merchant.id, action: 'line_account_linked', resource: 'merchant', status: 'success' }, req);
+
+  const res = NextResponse.redirect(`${SETTINGS_ACCOUNT_URL}&linked=line`);
+  res.cookies.set('connect_line_state', '', { maxAge: 0, path: '/' });
+  res.cookies.set('connect_line_nonce', '', { maxAge: 0, path: '/' });
+  return res;
 }
 
 export async function GET(req: NextRequest) {
@@ -36,10 +72,15 @@ export async function GET(req: NextRequest) {
     const error = req.nextUrl.searchParams.get('error');
     const errorDescription = req.nextUrl.searchParams.get('error_description');
 
-    // Handle LINE errors
+    // Which flow is this? The connect flow's own state cookie only exists while one of
+    // its authorize redirects is in flight, so its presence (matching this state) is
+    // enough to tell it apart from an ordinary sign-in.
+    const connectStateCookie = req.cookies.get('connect_line_state')?.value;
+    const isConnectFlow = !!connectStateCookie && connectStateCookie === state;
+
     if (error) {
       console.error(`[line-callback] Error from LINE: ${error} - ${errorDescription}`);
-      return NextResponse.redirect(`${BASE_URL}/login?error=${error}`);
+      return NextResponse.redirect(isConnectFlow ? `${SETTINGS_ACCOUNT_URL}&linkError=${error}` : `${BASE_URL}/login?error=${error}`);
     }
 
     if (!code || !state) {
@@ -47,6 +88,10 @@ export async function GET(req: NextRequest) {
         { error: 'Missing code or state parameter' },
         { status: 400 }
       );
+    }
+
+    if (isConnectFlow) {
+      return handleConnectCallback(req, code, state);
     }
 
     // Verify state CSRF token
@@ -59,89 +104,55 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const channelId = process.env.LINE_CHANNEL_ID;
-    const channelSecret = process.env.LINE_CHANNEL_SECRET;
     const redirectUri = `${BASE_URL}/api/auth/line/callback`;
-
-    if (!channelId || !channelSecret) {
-      return NextResponse.json(
-        { error: 'LINE credentials not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Exchange code for token
-    const tokenRes = await fetch('https://api.line.me/oauth2/v2.1/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: redirectUri,
-        client_id: channelId,
-        client_secret: channelSecret,
-      }).toString(),
-    });
-
-    if (!tokenRes.ok) {
-      const err = await tokenRes.text();
-      console.error('[line-callback] Token exchange failed:', err);
-      return NextResponse.json(
-        { error: 'Failed to exchange code for token' },
-        { status: 500 }
-      );
-    }
-
-    const tokenData = (await tokenRes.json()) as {
-      access_token: string;
-      id_token: string;
-      token_type: string;
-      expires_in: number;
-      scope: string;
-    };
-
-    // Verify ID token signature (LINE Login v2.1 ID tokens are HS256-signed with the channel secret)
-    let userInfo: LineIdToken & { email?: string; name?: string; picture?: string };
-    try {
-      const verified = jwt.verify(tokenData.id_token, channelSecret, {
-        algorithms: ['HS256'],
-        audience: channelId,
-        issuer: 'https://access.line.me',
-      });
-
-      userInfo = verified as LineIdToken & { email?: string; name?: string; picture?: string };
-
-      // Verify nonce (replay protection)
-      const cookieNonce = req.cookies.get('line_auth_nonce')?.value;
-      if (!cookieNonce || cookieNonce !== userInfo.nonce) {
-        throw new Error('Nonce mismatch');
-      }
-    } catch (err) {
-      console.error('[line-callback] Failed to verify ID token:', err);
+    const cookieNonce = req.cookies.get('line_auth_nonce')?.value;
+    if (!cookieNonce) {
       return NextResponse.redirect(`${BASE_URL}/login?error=line_auth_failed`);
     }
 
-    await dbConnect();
+    const profile = await exchangeLineCode(code, redirectUri, cookieNonce);
+    if (!profile) {
+      return NextResponse.redirect(`${BASE_URL}/login?error=line_auth_failed`);
+    }
 
     // Find or create merchant with LINE user ID
-    const lineUserId = userInfo.sub;
-    let merchant = await Merchant.findOne({ lineUserId });
+    const lineUserId = profile.lineUserId;
+    let merchant = await MerchantRepo.findByLineUserId(lineUserId);
+    let isNewMerchant = false;
 
     if (!merchant) {
+      isNewMerchant = true;
       // Check for an existing email-based account before creating a new one —
-      // never silently link a LINE identity onto someone else's account.
-      const normalizedEmail = userInfo.email ? userInfo.email.toLowerCase().trim() : `${lineUserId}@line.local`;
-      const existingByEmail = await Merchant.findOne({ email: normalizedEmail });
+      // never silently link a LINE identity onto someone else's account. Instead, hand off
+      // to a short-lived link-confirmation flow that requires proving ownership of that
+      // account with its password before anything gets attached to it.
+      const normalizedEmail = profile.email ?? `${lineUserId}@line.local`;
+      const existingByEmail = profile.email ? await MerchantRepo.findByEmail(normalizedEmail) : null;
       if (existingByEmail) {
-        console.warn(`[line-callback] Email collision for ${normalizedEmail} — refusing to auto-link`);
-        return NextResponse.redirect(`${BASE_URL}/login?error=email_exists&method=line`);
+        console.warn(`[line-callback] Email collision for ${normalizedEmail} — routing to link confirmation`);
+        const linkToken = signLineLinkToken({
+          lineUserId,
+          lineAccessToken: profile.accessToken,
+          email: normalizedEmail,
+        });
+        const res = NextResponse.redirect(`${BASE_URL}/login/link-line`);
+        res.cookies.set('line_link_pending', linkToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 10,
+          path: '/',
+        });
+        res.cookies.set('line_auth_state', '', { maxAge: 0, path: '/' });
+        res.cookies.set('line_auth_nonce', '', { maxAge: 0, path: '/' });
+        return res;
       }
 
       // New merchant - create account
-      const defaultShopName = userInfo.name || `Shop ${lineUserId.slice(-6)}`;
+      const defaultShopName = profile.name || `Shop ${lineUserId.slice(-6)}`;
       const slug = await generateUniqueSlug(toSlug(defaultShopName));
 
-      merchant = await Merchant.create({
+      merchant = await MerchantRepo.create({
         lineUserId,
         email: normalizedEmail,
         passwordHash: null, // No password for LINE OAuth users
@@ -152,33 +163,32 @@ export async function GET(req: NextRequest) {
         tier: 'free',
         paymentStatus: 'paid',
         authMethod: 'line_oauth',
-        lineAccessToken: tokenData.access_token,
-        acceptedTermsAt: new Date(),
+        lineAccessToken: profile.accessToken,
+        acceptedTermsAt: new Date().toISOString(),
         acceptedTermsVersion: CURRENT_TERMS_VERSION,
       });
 
       // Create default settings
-      await Settings.create({
-        merchantId: merchant._id,
-        shopName: defaultShopName,
-      });
+      await SettingsRepo.upsert(merchant.id, { shopName: defaultShopName });
 
-      console.log(`[line-callback] New merchant created: ${merchant._id}`);
+      console.log(`[line-callback] New merchant created: ${merchant.id}`);
     } else {
       // Existing merchant - update access token and last login
-      merchant.lineAccessToken = tokenData.access_token;
-      merchant.lastLoginAt = new Date();
-      merchant.lastLoginMethod = 'line_oauth';
-      const cancelled = clearInactivityDeletion(merchant);
-      await merchant.save();
-      if (cancelled) {
-        await logAudit({ merchantId: merchant._id.toString(), action: 'inactivity_deletion_cancelled', resource: 'merchant', status: 'success' }, req);
+      const inactivityPatch = clearInactivityDeletion(merchant);
+      await MerchantRepo.update(merchant.id, {
+        lineAccessToken: profile.accessToken,
+        lastLoginAt: new Date().toISOString(),
+        lastLoginMethod: 'line_oauth',
+        ...(inactivityPatch ?? {}),
+      });
+      if (inactivityPatch) {
+        await logAudit({ merchantId: merchant.id, action: 'inactivity_deletion_cancelled', resource: 'merchant', status: 'success' }, req);
       }
     }
 
     // Log successful login
     await logAudit({
-      merchantId: merchant._id.toString(),
+      merchantId: merchant.id,
       action: 'login',
       resource: 'merchant',
       status: 'success',
@@ -186,12 +196,13 @@ export async function GET(req: NextRequest) {
 
     // Create JWT token
     const token = signMerchantToken({
-      merchantId: merchant._id.toString(),
+      merchantId: merchant.id,
       email: merchant.email,
     });
 
-    // Redirect to dashboard
-    const res = NextResponse.redirect(`${BASE_URL}/dashboard`);
+    // New merchants land in the onboarding wizard first; returning merchants go straight
+    // to the dashboard as before.
+    const res = NextResponse.redirect(`${BASE_URL}${isNewMerchant ? '/onboarding' : '/dashboard'}`);
 
     // Set auth cookie
     res.cookies.set('merchant_token', token, {

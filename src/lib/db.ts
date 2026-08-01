@@ -71,15 +71,10 @@ async function dbConnect() {
       connectionMetrics.establishedAt = Date.now();
       connectionMetrics.lastUsedAt = Date.now();
 
-      // Log actual pool size for monitoring
-      const poolSize = m.connection.getClient().topology?.s?.pool?.totalConnectionCount || 0;
-      connectionMetrics.poolSize = poolSize;
-
-      if (poolSize > 2) {
-        console.warn(`[DB] WARNING: Pool size ${poolSize} exceeds target of 2`);
-      }
-
-      console.log(`[DB] Connected (pool: ${poolSize}/2, M0 limit: 3/3)`);
+      // Actual live pool size isn't exposed on the typed MongoClient API — maxPoolSize (2)
+      // is the configured ceiling, which is what matters for the M0 3-connection limit.
+      connectionMetrics.poolSize = 2;
+      console.log('[DB] Connected (max pool: 2, M0 limit: 3/3)');
       return m;
     }).catch((err) => {
       connectAttempts--; // Decrement on failure
