@@ -614,7 +614,7 @@ export default function DashboardPage() {
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {merchant?.paymentStatus === 'trialing' && (
-          <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-[#1f2335]">
+          <div className="flex-shrink-0 px-4 pt-2 pb-1">
             <TrialExpirationBanner
               trialEndsAt={merchant.trialEndsAt ? new Date(merchant.trialEndsAt) : null}
               paymentStatus={merchant.paymentStatus as 'paid' | 'trialing' | 'unpaid'}
