@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
 
     let renewed = 0;
     let failed = 0;
+    let trialsReverted = 0;
 
     const dueMerchants = await Merchant.find({
       subscriptionStatus: 'active',
@@ -40,6 +41,25 @@ export async function GET(req: NextRequest) {
     for (const merchant of dueMerchants) {
       const priceThb = TIER_PRICE_THB[merchant.tier as Tier];
       if (!priceThb || !merchant.omiseCustomerId) continue;
+
+      // Was this charge attempt actually converting a trial (never yet a paying customer),
+      // as opposed to renewing an established subscription? Captured before the attempt
+      // mutates state, since a trial's first charge failing should revert to Free
+      // immediately — no grace period, same as the no-card trial-expiry path — while an
+      // established subscriber's renewal failing gets the full BILLING_GRACE_PERIOD_DAYS.
+      const wasTrialConversion = merchant.paymentStatus === 'trialing';
+
+      const revertTrialToFree = async (reason: string) => {
+        merchant.tier = 'free';
+        merchant.paymentStatus = 'paid'; // 'paid' is the steady-state value even for Free tier — see Merchant schema default
+        merchant.subscriptionStatus = 'canceled';
+        merchant.trialEndsAt = null;
+        merchant.nextBillingDate = null;
+        merchant.pastDueSince = null;
+        await merchant.save();
+        await logAudit({ merchantId: merchant._id.toString(), action: 'subscription_charge_failed', resource: 'merchant', status: 'failed', errorMessage: reason });
+        trialsReverted++;
+      };
 
       try {
         const charge = await chargeCustomer(
@@ -73,6 +93,8 @@ export async function GET(req: NextRequest) {
             cardLast4: merchant.paymentMethodLast4,
           });
           renewed++;
+        } else if (wasTrialConversion) {
+          await revertTrialToFree(charge.failure_message || `Charge status: ${charge.status}`);
         } else {
           merchant.subscriptionStatus = 'past_due';
           merchant.pastDueSince = merchant.pastDueSince ?? now;
@@ -81,11 +103,16 @@ export async function GET(req: NextRequest) {
           failed++;
         }
       } catch (err) {
-        merchant.subscriptionStatus = 'past_due';
-        merchant.pastDueSince = merchant.pastDueSince ?? now;
-        await merchant.save();
-        await logAudit({ merchantId: merchant._id.toString(), action: 'subscription_charge_failed', resource: 'merchant', status: 'failed', errorMessage: err instanceof Error ? err.message : 'Unknown error' });
-        failed++;
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        if (wasTrialConversion) {
+          await revertTrialToFree(message);
+        } else {
+          merchant.subscriptionStatus = 'past_due';
+          merchant.pastDueSince = merchant.pastDueSince ?? now;
+          await merchant.save();
+          await logAudit({ merchantId: merchant._id.toString(), action: 'subscription_charge_failed', resource: 'merchant', status: 'failed', errorMessage: message });
+          failed++;
+        }
       }
     }
 
@@ -122,6 +149,7 @@ export async function GET(req: NextRequest) {
       message: 'Billing cycle cron completed',
       renewed,
       failed,
+      trialsReverted,
       downgraded: toDowngrade.length + lapsedCancellations.length,
       timestamp: new Date().toISOString(),
     });

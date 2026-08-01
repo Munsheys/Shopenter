@@ -34,9 +34,11 @@ export const TIER_PRICE_THB: Partial<Record<Tier, number>> = {
   pro: 299,
 };
 
-// How long a merchant can stay past_due (after a failed recurring charge)
-// before the cron auto-downgrades them to the free tier.
-export const BILLING_GRACE_PERIOD_DAYS = 3;
+// How long an established paying merchant can stay past_due (after a failed recurring
+// renewal charge) before the cron auto-downgrades them to the free tier. Does NOT apply
+// to a card-backed trial's first charge failing at trial end — that reverts to free
+// immediately (see billing-cycle cron), since they were never a paying customer yet.
+export const BILLING_GRACE_PERIOD_DAYS = 14;
 
 export function checkCountLimit(
   tier: Tier,
