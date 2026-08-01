@@ -126,8 +126,8 @@ function SetupGuide({ isDark, isLite, webhookUrl }: { isDark: boolean; isLite: b
       link: null, linkLabel: null,
     },
     {
-      n: 7, title: 'Test the connection',
-      body: 'Fill in Channel Secret, Channel Access Token, and LIFF ID below → Save → click "Test Connection". A green badge confirms it\'s working.',
+      n: 7, title: 'Save',
+      body: 'Fill in Channel Secret, Channel Access Token, and LIFF ID below → Save. Shopenter automatically verifies it and shows a green badge if it\'s working.',
       link: null, linkLabel: null,
     },
   ];
@@ -451,6 +451,11 @@ export default function SettingsView({
         onSave?.();
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
+        // The server never sends the real secret/token back (GET strips them), so a
+        // non-empty value here necessarily means the merchant just typed/pasted it in
+        // this session — auto-verify it instead of requiring a separate "Test Connection"
+        // click.
+        if (settings.lineChannelAccessToken?.trim()) checkLine();
       }
       else setSaveError('Failed to save. Please try again.');
     } catch { setSaveError('Network error. Please try again.'); }

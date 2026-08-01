@@ -202,6 +202,7 @@ function Card({ title, description, icon, children, isDark }: { title: string; d
 export default function StorefrontCustomizer({ shopName, slug: initialSlug, initial, theme = 'light', dashboardAccentColor = '#00b900', onSave, onSaveSlug }: Props) {
   const isDark = theme === 'dark';
   const [config, setConfig] = useState<StorefrontConfig>({ ...DEFAULT_CONFIG, ...initial });
+  const [shopNameTaken, setShopNameTaken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -234,6 +235,18 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
   const previewPillRadius = pillRadiusClass(config.cornerStyle);
   const previewGridGap = gridGapClass(config.density);
   const previewHeadingFont = headingFontClass(config.typography);
+
+  useEffect(() => {
+    const name = config.shopName.trim();
+    if (!name) { setShopNameTaken(false); return; }
+    const timer = setTimeout(() => {
+      fetch(`/api/merchant/check-shop-name?name=${encodeURIComponent(name)}`)
+        .then(r => r.ok ? r.json() : { taken: false })
+        .then(d => setShopNameTaken(!!d.taken))
+        .catch(() => {});
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [config.shopName]);
 
   function set<K extends keyof StorefrontConfig>(key: K, value: StorefrontConfig[K]) {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -335,6 +348,11 @@ export default function StorefrontCustomizer({ shopName, slug: initialSlug, init
                 <div>
                   <label htmlFor="shop-name" className={lbl}>Shop Name</label>
                   <input id="shop-name" type="text" value={config.shopName} onChange={e => set('shopName', e.target.value)} placeholder="My Awesome Shop" className={inputCls} autoComplete="off" />
+                  {shopNameTaken && (
+                    <p className="text-xs text-amber-500 mt-1.5">
+                      Another store already uses this name — you can still use it, your store link just won&apos;t match exactly (a number gets added).
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="shop-description" className={lbl}>Shop Description</label>

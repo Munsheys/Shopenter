@@ -20,6 +20,19 @@ export default function SignupContent() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [shopNameTaken, setShopNameTaken] = useState(false);
+
+  useEffect(() => {
+    const name = form.shopName.trim();
+    if (!name) { setShopNameTaken(false); return; }
+    const timer = setTimeout(() => {
+      fetch(`/api/merchant/check-shop-name?name=${encodeURIComponent(name)}`)
+        .then(r => r.ok ? r.json() : { taken: false })
+        .then(d => setShopNameTaken(!!d.taken))
+        .catch(() => {});
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [form.shopName]);
 
   useEffect(() => {
     if (referralCode) {
@@ -171,6 +184,11 @@ export default function SignupContent() {
                 className="w-full bg-white border border-gray-300 rounded-xl px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[44px]"
                 placeholder="My Awesome Shop"
               />
+              {shopNameTaken && (
+                <p className="text-xs text-amber-600 mt-1.5">
+                  Another store already uses this name — you can still use it, your store link will just get a number added (e.g. my-shop-2).
+                </p>
+              )}
             </div>
             <div>
               <label htmlFor="signup-email" className="block text-sm font-semibold text-gray-800 mb-1">Email</label>
