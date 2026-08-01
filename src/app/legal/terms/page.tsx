@@ -49,7 +49,7 @@ export default function TermsPage() {
           <p>All prices in Thai Baht. We notify you 30 days before price increases. Your current price locks in for 12 months.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">5. Payments & Failed Transactions</h2>
-          <p>If a recurring charge to your card fails, we retry for a short grace period. If it still hasn't succeeded by the end of that window, your account automatically reverts to the Free tier — no service suspension, no debt, no collections. You keep your data and can upgrade again anytime once you update your payment method.</p>
+          <p>If the charge that converts your Pro trial to a paid subscription fails, your account reverts to the Free tier immediately — you were never a paying customer yet, so there's no grace period for this charge specifically. If a <em>renewal</em> charge on an already-active paid subscription fails, we give you a 14-day grace period to update your payment method before reverting to Free. Either way: no service suspension, no debt, no collections. You keep your data and can upgrade again anytime once you update your payment method.</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">6. Refunds</h2>
           <p>Shopenter subscriptions are <strong>non-refundable</strong> once paid. Exceptions (14-day window):</p>

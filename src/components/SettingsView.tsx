@@ -121,13 +121,13 @@ function SetupGuide({ isDark, isLite, webhookUrl }: { isDark: boolean; isLite: b
       link: null, linkLabel: null,
     },
     {
-      n: 6, title: 'Create a LIFF App (for storefront login)',
-      body: 'Same channel → LIFF tab → Add → set Endpoint URL to your storefront URL (e.g. https://yourdomain.com/shop). Copy the LIFF ID (starts with numbers) and paste it in the LIFF ID field below.',
+      n: 6, title: 'Save',
+      body: 'Fill in Channel Secret and Channel Access Token below → Save. Shopenter automatically verifies the connection and creates a LIFF app pointed at your storefront for you — no need to set that up yourself in LINE Developers Console.',
       link: null, linkLabel: null,
     },
     {
-      n: 7, title: 'Test the connection',
-      body: 'Fill in Channel Secret, Channel Access Token, and LIFF ID below → Save → click "Test Connection". A green badge confirms it\'s working.',
+      n: 7, title: 'If LIFF ID stays blank',
+      body: 'Auto-setup didn\'t go through (rare — usually a permissions issue on the channel). Create one yourself: same channel → LIFF tab → Add → set Endpoint URL to your storefront URL (e.g. https://yourdomain.com/shop/your-store) → copy the LIFF ID into the field below.',
       link: null, linkLabel: null,
     },
   ];
@@ -449,10 +449,21 @@ export default function SettingsView({
         body: JSON.stringify(settings),
       });
       if (res.ok) {
-        setOriginalSettings(settings);
+        // The server may have auto-provisioned a LIFF app on this save (see
+        // /api/settings POST) — merge its liffId back in rather than only keeping
+        // what was sent, so the field reflects it without a reload.
+        const returned = await res.json().catch(() => null);
+        const merged = returned?.liffId && !settings.liffId ? { ...settings, liffId: returned.liffId } : settings;
+        if (merged !== settings) setSettings(merged);
+        setOriginalSettings(merged);
         onSave?.();
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
+        // The server never sends the real secret/token back (GET strips them), so a
+        // non-empty value here necessarily means the merchant just typed/pasted it in
+        // this session — auto-verify it instead of requiring a separate "Test Connection"
+        // click.
+        if (settings.lineChannelAccessToken?.trim()) checkLine();
       }
       else setSaveError('Failed to save. Please try again.');
     } catch { setSaveError('Network error. Please try again.'); }

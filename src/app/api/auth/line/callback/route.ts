@@ -120,8 +120,10 @@ export async function GET(req: NextRequest) {
     // Find or create merchant with LINE user ID
     const lineUserId = profile.lineUserId;
     let merchant = await Merchant.findOne({ lineUserId });
+    let isNewMerchant = false;
 
     if (!merchant) {
+      isNewMerchant = true;
       // Check for an existing email-based account before creating a new one —
       // never silently link a LINE identity onto someone else's account. Instead, hand off
       // to a short-lived link-confirmation flow that requires proving ownership of that
@@ -201,8 +203,9 @@ export async function GET(req: NextRequest) {
       email: merchant.email,
     });
 
-    // Redirect to dashboard
-    const res = NextResponse.redirect(`${BASE_URL}/dashboard`);
+    // New merchants land in the onboarding wizard first; returning merchants go straight
+    // to the dashboard as before.
+    const res = NextResponse.redirect(`${BASE_URL}${isNewMerchant ? '/onboarding' : '/dashboard'}`);
 
     // Set auth cookie
     res.cookies.set('merchant_token', token, {

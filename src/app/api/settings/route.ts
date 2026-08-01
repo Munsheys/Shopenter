@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { Settings } from '@/models';
+import { Settings, Merchant } from '@/models';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { logAudit } from '@/lib/auditLog';
+import { createLiffApp } from '@/lib/liffProvision';
 
 export const runtime = 'nodejs';
 
@@ -110,18 +111,36 @@ export async function POST(req: NextRequest) {
         update.slug = cleanSlug;
       }
       try {
-        const { Merchant } = require('@/models');
         await Merchant.findByIdAndUpdate(merchant.merchantId, { $set: merchantUpdate });
       } catch (e) {
         // Ignore duplicate slug errors for now or handle them gracefully
       }
     }
 
-    const s = await Settings.findOneAndUpdate(
+    let s = await Settings.findOneAndUpdate(
       { merchantId: merchant.merchantId },
       { $set: update },
       { upsert: true, new: true, runValidators: true }
     );
+
+    // Auto-provision a LIFF app the moment a Channel Access Token is saved without one
+    // already configured — removes the manual "create a LIFF app, copy its ID back"
+    // step, which previously blocked guest checkout on the storefront if skipped.
+    if (update.lineChannelAccessToken && !s.liffId) {
+      const merchantDoc = await Merchant.findById(merchant.merchantId).select('slug').lean() as any;
+      if (merchantDoc?.slug) {
+        const endpointUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://shopenter.app'}/shop/${merchantDoc.slug}`;
+        const liffId = await createLiffApp(s.lineChannelAccessToken, endpointUrl);
+        if (liffId) {
+          s = await Settings.findOneAndUpdate(
+            { merchantId: merchant.merchantId },
+            { $set: { liffId } },
+            { new: true }
+          );
+          await logAudit({ merchantId: merchant.merchantId, action: 'settings_change', resource: 'settings', changes: { after: { fieldsChanged: ['liffId (auto-provisioned)'] } }, status: 'success' }, req);
+        }
+      }
+    }
 
     // Field names only — never log secret values (defeats the point of encrypting them at rest).
     await logAudit(

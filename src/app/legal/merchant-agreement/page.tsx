@@ -72,7 +72,7 @@ export default function MerchantAgreementPage() {
           </ul>
 
           <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">Payment Failure</h3>
-          <p>If a recurring charge fails, we retry for a short grace period. If it still hasn't succeeded by the end of that window, your account automatically reverts to the Free tier — no service suspension, no debt, no collections action. Your data is retained under Free tier limits and you can upgrade again anytime once you update your payment method.</p>
+          <p>If the charge converting your Pro trial to a paid subscription fails, your account reverts to the Free tier immediately — there's no grace period for this specific charge, since you were never yet a paying customer. If a renewal charge on an already-active paid subscription fails, you get a 14-day grace period to update your payment method before reverting to Free. Either way: no service suspension, no debt, no collections action. Your data is retained under Free tier limits and you can upgrade again anytime once you update your payment method.</p>
 
           <h3 className="text-xl font-semibold text-gray-800 mt-6 mb-3">Price Increases</h3>
           <ul className="list-disc list-inside space-y-2 ml-4">
