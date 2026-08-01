@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { AlertCircle, Clock, Zap } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { AlertCircle, Clock, Zap, X } from 'lucide-react';
 
 interface TrialExpirationBannerProps {
   trialEndsAt: Date | null;
@@ -11,6 +11,11 @@ interface TrialExpirationBannerProps {
   onUpgradeClick?: () => void;
 }
 
+const DISMISS_KEY = 'trial-banner-dismissed-at';
+// Reappears after this long even if dismissed — a revenue-critical notice shouldn't be
+// silence-able forever, just not nagging on every click within the same sitting.
+const DISMISS_HOURS = 4;
+
 export default function TrialExpirationBanner({
   trialEndsAt,
   paymentStatus,
@@ -19,7 +24,15 @@ export default function TrialExpirationBanner({
   onUpgradeClick,
 }: TrialExpirationBannerProps) {
   const isDark = theme === 'dark';
-  const isLite = theme === 'lite';
+
+  const [dismissed, setDismissed] = useState(true); // default hidden until the sessionStorage check below runs, to avoid a flash
+
+  useEffect(() => {
+    const dismissedAt = sessionStorage.getItem(DISMISS_KEY);
+    if (!dismissedAt) { setDismissed(false); return; }
+    const hoursSince = (Date.now() - Number(dismissedAt)) / (1000 * 60 * 60);
+    setDismissed(hoursSince < DISMISS_HOURS);
+  }, []);
 
   const trialInfo = useMemo(() => {
     if (paymentStatus !== 'trialing' || !trialEndsAt) return null;
@@ -34,13 +47,13 @@ export default function TrialExpirationBanner({
     return { daysRemaining, expired: false, urgent: daysRemaining <= 3 };
   }, [paymentStatus, trialEndsAt]);
 
-  if (!trialInfo) return null;
+  if (!trialInfo || dismissed) return null;
 
   const { daysRemaining, expired, urgent } = trialInfo;
 
   const colorCls = expired || urgent
-    ? isDark ? 'bg-red-500/10 border-red-500/20 text-red-300' : 'bg-red-50 border-red-200 text-red-700'
-    : isDark ? 'bg-blue-500/10 border-blue-500/20 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700';
+    ? isDark ? 'bg-[#1a1116] border-red-500/30 text-red-300' : 'bg-white border-red-200 text-red-700'
+    : isDark ? 'bg-[#0f1522] border-blue-500/30 text-blue-300' : 'bg-white border-blue-200 text-blue-700';
   const iconCls = expired || urgent
     ? isDark ? 'text-red-400' : 'text-red-600'
     : isDark ? 'text-blue-400' : 'text-blue-600';
@@ -55,9 +68,11 @@ export default function TrialExpirationBanner({
     : `Your trial ends in ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''}.`;
 
   return (
-    <div className={`rounded-xl border px-3 py-2 flex items-center gap-2.5 ${colorCls} ${isLite ? '' : ''}`}>
+    <div
+      className={`fixed top-16 right-4 z-40 rounded-xl border shadow-lg px-3 py-2 flex items-center gap-2.5 ${colorCls}`}
+    >
       {expired ? <AlertCircle size={15} className={`flex-shrink-0 ${iconCls}`} /> : <Clock size={15} className={`flex-shrink-0 ${iconCls}`} />}
-      <p className="text-xs font-medium flex-1 min-w-0 truncate">{message}</p>
+      <p className="text-xs font-medium whitespace-nowrap">{message}</p>
       {onUpgradeClick && (
         <button
           onClick={onUpgradeClick}
@@ -67,6 +82,13 @@ export default function TrialExpirationBanner({
           Upgrade
         </button>
       )}
+      <button
+        onClick={() => { sessionStorage.setItem(DISMISS_KEY, String(Date.now())); setDismissed(true); }}
+        aria-label="Dismiss"
+        className={`flex-shrink-0 p-0.5 rounded transition-colors ${isDark ? 'text-white/40 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}
+      >
+        <X size={13} />
+      </button>
     </div>
   );
 }

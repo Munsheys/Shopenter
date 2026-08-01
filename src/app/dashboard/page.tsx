@@ -614,15 +614,13 @@ export default function DashboardPage() {
       {/* ── Main content ── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {merchant?.paymentStatus === 'trialing' && (
-          <div className="flex-shrink-0 px-4 pt-2 pb-1">
-            <TrialExpirationBanner
-              trialEndsAt={merchant.trialEndsAt ? new Date(merchant.trialEndsAt) : null}
-              paymentStatus={merchant.paymentStatus as 'paid' | 'trialing' | 'unpaid'}
-              tier={merchant.tier || 'pro'}
-              theme={theme as 'light' | 'lite' | 'dark'}
-              onUpgradeClick={() => setActiveTab('billing')}
-            />
-          </div>
+          <TrialExpirationBanner
+            trialEndsAt={merchant.trialEndsAt ? new Date(merchant.trialEndsAt) : null}
+            paymentStatus={merchant.paymentStatus as 'paid' | 'trialing' | 'unpaid'}
+            tier={merchant.tier || 'pro'}
+            theme={theme as 'light' | 'lite' | 'dark'}
+            onUpgradeClick={() => setActiveTab('billing')}
+          />
         )}
         <div className={activeTab === 'customers' ? 'flex-1 min-h-0 flex flex-col view-enter' : 'hidden'}>
           <ErrorBoundary>
