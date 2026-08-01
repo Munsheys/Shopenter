@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
-import { Merchant, Product, Order, Feedback, Settings, Message, Customer, MediaFile, AuditLog } from '@/models';
+import { Merchant, Product, Order, Feedback, Settings, Message, Customer, MediaFile, AuditLog, AutoReply } from '@/models';
 import { verifyAdmin } from '@/lib/adminAuth';
 
 export const runtime = 'nodejs';
@@ -42,6 +42,13 @@ export async function GET(req: NextRequest) {
     ]);
     const ordersCountMap = new Map();
     orderAgg.forEach(o => ordersCountMap.set(o._id?.toString(), o.count));
+
+    const autoReplyAgg = await AutoReply.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$merchantId', count: { $sum: 1 } } }
+    ]);
+    const autoReplyCountMap = new Map();
+    autoReplyAgg.forEach(a => autoReplyCountMap.set(a._id?.toString(), a.count));
 
     // 4. Map merchants with complete, privacy-shielded real-time LINE OA diagnostics
     const merchantsList = await Promise.all(merchants.map(async (m) => {
@@ -93,6 +100,22 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      const productsCount = productsCountMap.get(m._id.toString()) || 0;
+      const isLineConfigured = !!(s?.lineChannelAccessToken && s?.lineChannelSecret);
+      const isPromptPayConfigured = !!s?.promptPayId;
+      const hasShopNameSet = !!m.shopName && m.shopName !== 'My Shop';
+      const hasGreetingEnabled = !!s?.greetingEnabled;
+      const hasAutoReplyRule = (autoReplyCountMap.get(m._id.toString()) || 0) > 0;
+      const hasProducts = productsCount > 0;
+
+      // Coarse, DB-only onboarding signal for the admin overview — deliberately not the
+      // same live/API-verified checklist a merchant sees in their own dashboard
+      // (FloatingGuide), which additionally confirms things like webhook status via a live
+      // LINE API call. This just needs to be cheap to compute across every merchant at once.
+      const onboardingChecks = [hasShopNameSet, isLineConfigured, isPromptPayConfigured, hasProducts, hasGreetingEnabled, hasAutoReplyRule];
+      const onboardingStepsCompleted = onboardingChecks.filter(Boolean).length;
+      const onboardingTotalSteps = onboardingChecks.length;
+
       return {
         _id: m._id,
         email: m.email,
@@ -101,18 +124,21 @@ export async function GET(req: NextRequest) {
         tier: m.tier || 'free',
         paymentStatus: m.paymentStatus || 'trialing',
         createdAt: m.createdAt,
+        lastLoginAt: m.lastLoginAt || null,
         lineOAPlan,
         lineQuotaValue,
         lineQuotaUsage,
         lineOASyncStatus,
-        isLineConfigured: !!(s?.lineChannelAccessToken && s?.lineChannelSecret),
+        isLineConfigured,
         isLiffConfigured: !!s?.liffId,
-        isPromptPayConfigured: !!s?.promptPayId,
+        isPromptPayConfigured,
         isSlipOkConfigured: !!(s?.slipokApiKey && s?.slipokBranchId),
         isTelegramConfigured: !!(s?.telegram?.botToken && s?.telegram?.webhookActive),
         isInstagramConfigured: !!(s?.instagram?.pageAccessToken && s?.instagram?.igAccountId && s?.instagram?.webhookActive),
-        productsCount: productsCountMap.get(m._id.toString()) || 0,
+        productsCount,
         ordersCount: ordersCountMap.get(m._id.toString()) || 0,
+        onboardingStepsCompleted,
+        onboardingTotalSteps,
       };
     }));
 

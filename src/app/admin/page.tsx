@@ -57,6 +57,9 @@ interface MerchantItem {
   productsCount: number;
   ordersCount: number;
   createdAt: string;
+  lastLoginAt: string | null;
+  onboardingStepsCompleted: number;
+  onboardingTotalSteps: number;
 }
 
 interface Reply {
@@ -1024,13 +1027,14 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Monthly Message Consumption</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Diagnostics Status</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Listed Volume</th>
+                      <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-center">Onboarding</th>
                       <th className="py-4 px-6 font-bold uppercase tracking-wider text-[9px] text-right">Administrative Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#1f2335]">
                     {merchants.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-[#8b92ad] font-bold">No registered merchants found.</td>
+                        <td colSpan={8} className="py-12 text-center text-[#8b92ad] font-bold">No registered merchants found.</td>
                       </tr>
                     ) : (
                       merchants.map(m => (
@@ -1140,6 +1144,28 @@ INSTRUCTIONS FOR THE DIAGNOSTIC SESSION:
                             <div className="flex flex-col gap-0.5 items-center">
                               <span className="text-[10px] font-bold text-white">{m.productsCount} products</span>
                               <span className="text-[11px] text-[#8b92ad] font-medium">{m.ordersCount} orders</span>
+                            </div>
+                          </td>
+
+                          {/* 6b. Onboarding completion */}
+                          <td className="py-4 px-6">
+                            <div className="w-full max-w-[110px] mx-auto space-y-1">
+                              <div className="flex items-center justify-between text-[11px] font-bold">
+                                <span className="text-white">{m.onboardingStepsCompleted}/{m.onboardingTotalSteps}</span>
+                                <span className="text-[#8b92ad] font-mono">{Math.round((m.onboardingStepsCompleted / m.onboardingTotalSteps) * 100)}%</span>
+                              </div>
+                              <div className="w-full h-1 bg-[#1f2335] rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    m.onboardingStepsCompleted === m.onboardingTotalSteps
+                                      ? 'bg-[#00b900]'
+                                      : m.onboardingStepsCompleted >= m.onboardingTotalSteps / 2
+                                        ? 'bg-amber-500'
+                                        : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${(m.onboardingStepsCompleted / m.onboardingTotalSteps) * 100}%` }}
+                                />
+                              </div>
                             </div>
                           </td>
 
