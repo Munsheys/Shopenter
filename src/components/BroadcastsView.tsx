@@ -517,11 +517,20 @@ const ACTION_LABELS: Record<string, string> = {
   cameraRoll: 'Camera Roll',
 };
 
+// Sensible generic starting points instead of "Button 1/2/3" — message actions rather
+// than URLs, since we don't know the merchant's storefront URL here and a message action
+// works immediately (routes back through their own auto-reply rules if they've set one up
+// for that phrase, or just shows as a normal customer message otherwise).
+const RM_STARTER_LABELS = ['🛍️ Shop', '📦 My Orders', '💬 Help', '🎁 Promotions', '📍 Store Info', '📞 Contact'];
+
 function defaultRmButtons(count: number): RmButton[] {
-  return Array.from({ length: count }, (_, i) => ({
-    label: `Button ${i + 1}`,
-    action: { type: 'uri', uri: 'https://' },
-  }));
+  return Array.from({ length: count }, (_, i) => {
+    const label = RM_STARTER_LABELS[i] ?? `Button ${i + 1}`;
+    return {
+      label,
+      action: { type: 'message', text: label.replace(/^\S+\s/, '') },
+    };
+  });
 }
 
 function LayoutPreview({ template, size, active, isDark, accentColor = '#00b900' }: { template: string; size: 'large' | 'compact'; active: boolean; isDark: boolean; accentColor?: string }) {
@@ -1006,6 +1015,35 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   async function handleDeleteRule(id: string) {
     await fetch(`/api/auto-reply/${id}`, { method: 'DELETE' });
     await loadRules();
+  }
+
+  async function handleAddStarterRule() {
+    const proceed = async () => {
+      setRSaving(true);
+      try {
+        const res = await fetch('/api/auto-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            keyword: 'default',
+            matchType: 'default',
+            messages: [{ type: 'text', text: 'Thanks for reaching out! Browse our products or ask us anything 🛍️' }],
+            isActive: true,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          if (err?.error === 'TIER_LIMIT_REACHED') { onLimitHit?.(err.feature, err.limit, err.current); return; }
+        }
+        await loadRules();
+      } catch { /* ignore */ }
+      finally { setRSaving(false); }
+    };
+    if (!settingsData?.autoReplyNativeAckAt) {
+      requireNativeAck('autoreply', () => { proceed(); });
+    } else {
+      await proceed();
+    }
   }
 
   function requireNativeAck(kind: 'greeting' | 'autoreply', action: () => void) {
@@ -2246,7 +2284,14 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               {rules.length === 0 ? (
                 <div className={`text-center py-12 ${k.muted}`}>
                   <MessageSquare size={32} className="mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No rules yet. Add your first keyword rule.</p>
+                  <p className="text-sm mb-4">No rules yet. Add your first keyword rule, or start with a generic catch-all reply.</p>
+                  <button
+                    disabled={rSaving}
+                    onClick={handleAddStarterRule}
+                    className={`text-xs font-semibold px-3 py-2 rounded-lg border transition-colors disabled:opacity-50 ${isDark ? 'border-[#1f2335] text-white hover:border-accent' : 'border-slate-200 text-slate-700 hover:border-accent'}`}
+                  >
+                    {rSaving ? 'Adding…' : 'Use a starter reply'}
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-2">
