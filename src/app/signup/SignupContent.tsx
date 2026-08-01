@@ -77,7 +77,7 @@ export default function SignupContent() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Signup failed'); return; }
-      router.push('/dashboard');
+      router.push('/onboarding');
     } catch {
       setError('Network error. Please try again.');
     } finally {

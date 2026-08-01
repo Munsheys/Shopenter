@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   try {
     await dbConnect();
-    const doc = await Merchant.findById(merchant.merchantId).select('email shopName slug tier paymentStatus trialEndsAt deletionScheduledFor deletionReason subscriptionStatus nextBillingDate paymentMethodBrand paymentMethodLast4 proTrialUsedAt passwordHash lineUserId').lean() as any;
+    const doc = await Merchant.findById(merchant.merchantId).select('email shopName slug tier paymentStatus trialEndsAt deletionScheduledFor deletionReason subscriptionStatus nextBillingDate paymentMethodBrand paymentMethodLast4 proTrialUsedAt passwordHash lineUserId onboardingCompletedAt').lean() as any;
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({
       merchantId: merchant.merchantId,
@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       slug: doc.slug ?? null,
       hasPassword: !!doc.passwordHash,
       hasLine: !!doc.lineUserId,
+      onboardingCompletedAt: doc.onboardingCompletedAt ?? null,
       tier: doc.tier ?? 'free',
       paymentStatus: doc.paymentStatus ?? 'trialing',
       trialEndsAt: doc.trialEndsAt ?? null,

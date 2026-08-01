@@ -37,6 +37,10 @@ const MerchantSchema = new mongoose.Schema({
   // Card-required Pro trial (separate from the automatic no-card referral trial).
   // One per merchant — tracked so the trial can't be repeatedly restarted.
   proTrialUsedAt: { type: Date, default: null },
+  // Set when the post-signup onboarding wizard finishes OR is explicitly skipped — either
+  // way means "don't show it again." Null means a brand-new merchant should be routed
+  // there. Distinct from the FloatingGuide checklist, which stays available regardless.
+  onboardingCompletedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 MerchantSchema.index({ referralCode: 1 });
