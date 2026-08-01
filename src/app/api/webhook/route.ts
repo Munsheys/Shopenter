@@ -130,25 +130,58 @@ function findMatchingRule(text: string, rules: any[]): any | null {
 }
 
 export async function POST(req: Request) {
-  const signature = req.headers.get('x-line-signature');
-  if (!signature) return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
+  const signatureHeader = req.headers.get('x-line-signature');
+  if (!signatureHeader) return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
+  const signature: string = signatureHeader;
 
   const arrayBuffer = await req.arrayBuffer();
   const rawBody = Buffer.from(arrayBuffer);
   if (rawBody.length === 0) return NextResponse.json({ message: 'Empty body' }, { status: 200 });
 
   try {
-    // Match signature to a merchant's LINE secret
-    const allSettings = await SettingsRepo.listAllWithLineSecret();
-    let matchedSettings: (typeof allSettings)[0] | null = null;
-
-    for (const s of allSettings) {
-      const secret = s.lineChannelSecret?.trim();
-      if (!secret) continue;
-      const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('base64');
+    function verifySignature(secret: string | undefined): boolean {
+      const trimmed = secret?.trim();
+      if (!trimmed) return false;
+      const expected = crypto.createHmac('sha256', trimmed).update(rawBody).digest('base64');
       const sigBuf = Buffer.from(signature, 'base64');
       const expBuf = Buffer.from(expected, 'base64');
-      if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) { matchedSettings = s; break; }
+      return sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+    }
+
+    // LINE's `destination` field (the bot's stable user ID) is present in the payload
+    // before signature verification — peek at it now to try an O(1) lookup instead of
+    // trying every merchant's secret against this payload. Parsing twice (here and again
+    // below) is cheap; getting this working right is worth more than saving one JSON.parse.
+    let destinationPeek: string | undefined;
+    try { destinationPeek = JSON.parse(rawBody.toString('utf8'))?.destination; } catch { /* handled below */ }
+
+    let matchedSettings: Awaited<ReturnType<typeof SettingsRepo.findByLineDestination>> = null;
+
+    if (destinationPeek) {
+      const candidate = await SettingsRepo.findByLineDestination(destinationPeek);
+      if (candidate && verifySignature(candidate.lineChannelSecret)) {
+        matchedSettings = candidate;
+      }
+      // Falls through to the slow path below if the fast lookup missed, or the cached
+      // destination's secret no longer matches (e.g. the merchant rotated their channel
+      // secret) — never trusts `destination` alone without a valid signature against it.
+    }
+
+    if (!matchedSettings) {
+      // Slow path: full scan, same as before the fast path existed. Only reached on a
+      // merchant's very first webhook (destination not cached yet) or after a secret
+      // rotation, not on every message once caching has kicked in.
+      const allSettings = await SettingsRepo.listAllWithLineSecret();
+      for (const s of allSettings) {
+        if (verifySignature(s.lineChannelSecret)) { matchedSettings = s; break; }
+      }
+
+      if (matchedSettings && destinationPeek && matchedSettings.lineDestination !== destinationPeek) {
+        // Self-heals the fast path for every subsequent webhook from this merchant.
+        await SettingsRepo.cacheLineDestination(matchedSettings.merchantId, destinationPeek).catch((err) => {
+          console.error('[webhook] Failed to cache lineDestination', err);
+        });
+      }
     }
 
     if (!matchedSettings) {

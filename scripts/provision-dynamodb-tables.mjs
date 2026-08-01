@@ -65,7 +65,11 @@ const tables = [
       gsi('passwordResetTokenHash-index', 'passwordResetTokenHash'),
     ],
   },
-  { name: 'Settings', ...keySchema('merchantId'), gsis: [] },
+  {
+    name: 'Settings',
+    ...keySchema('merchantId'),
+    gsis: [gsi('destination-index', 'lineDestination')],
+  },
   { name: 'Products', ...keySchema('merchantId', 'id'), gsis: [] },
   {
     name: 'Customers',

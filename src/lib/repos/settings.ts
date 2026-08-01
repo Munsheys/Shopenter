@@ -96,6 +96,35 @@ export const SettingsRepo = {
     return decryptFields(doc) as SettingsDoc | null;
   },
 
+  /**
+   * O(1) fast path for the webhook signature-matching step, keyed on LINE's stable
+   * `destination` (bot user ID) field from the webhook payload — present before signature
+   * verification, so this replaces trying every merchant's secret against the payload.
+   * Self-healing: nothing populates this field except `cacheLineDestination` below, called
+   * after a successful *slow-path* match, so the very first webhook from any merchant still
+   * falls back to the full scan once, then never again.
+   */
+  async findByLineDestination(destination: string): Promise<SettingsDoc | null> {
+    const { ddbQuery } = await import('./base');
+    const { items } = await ddbQuery<SettingsDoc>({
+      TableName: T,
+      IndexName: 'destination-index',
+      KeyConditionExpression: 'lineDestination = :d',
+      ExpressionAttributeValues: { ':d': destination },
+      Limit: 1,
+    });
+    return items[0] ? (decryptFields(items[0]) as SettingsDoc) : null;
+  },
+
+  async cacheLineDestination(merchantId: string, destination: string): Promise<void> {
+    await ddbUpdate({
+      TableName: T,
+      Key: { merchantId },
+      UpdateExpression: 'SET lineDestination = :d',
+      ExpressionAttributeValues: { ':d': destination },
+    });
+  },
+
   /** Mirrors the old `findOne(...) ?? create(...)` pattern used across ~20 call sites. */
   async findOrCreate(merchantId: string): Promise<SettingsDoc> {
     const existing = await this.findByMerchantId(merchantId);
