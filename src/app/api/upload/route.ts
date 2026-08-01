@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { getMerchantFromRequest } from '@/lib/auth';
-import dbConnect from '@/lib/db';
-import { MediaFile } from '@/models';
+import { MediaFileRepo } from '@/lib/repos/mediaFile';
 import { getPresignedUploadUrl, getPublicR2Url } from '@/lib/r2';
 import { checkUploadLimit } from '@/lib/rateLimiter';
 
@@ -74,11 +73,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await dbConnect();
   const token = randomUUID();
   const r2Key = `${merchant.merchantId}/${randomUUID()}`;
 
-  const media = await MediaFile.create({
+  const media = await MediaFileRepo.create({
     merchantId: merchant.merchantId,
     contentType,
     filename,
@@ -95,8 +93,8 @@ export async function POST(req: NextRequest) {
   if (!url) {
     const proto  = req.headers.get('x-forwarded-proto') ?? 'https';
     const host   = req.headers.get('x-forwarded-host') ?? new URL(req.url).host;
-    url = `${proto}://${host}/api/media/${media._id}?t=${token}`;
+    url = `${proto}://${host}/api/media/${media.id}?t=${token}`;
   }
 
-  return NextResponse.json({ uploadUrl, url, id: media._id.toString(), token, contentType });
+  return NextResponse.json({ uploadUrl, url, id: media.id, token, contentType });
 }
