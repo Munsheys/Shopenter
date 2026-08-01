@@ -4,10 +4,11 @@ import { pushShopenterLineMessage } from '@/lib/shopenterLine';
 // so the three call sites (trial-expiry, billing-cycle x2) can't drift into inconsistent
 // copy. LINE-only for now, same policy as every other Shopenter->merchant notice — merchants
 // without a linked LINE account aren't reachable yet (see billingReceipt.ts).
-export type DowngradeReason = 'trial_ended' | 'payment_failed' | 'cancelled';
+export type DowngradeReason = 'trial_ended' | 'trial_conversion_failed' | 'payment_failed' | 'cancelled';
 
 const DOWNGRADE_REASON_TEXT: Record<DowngradeReason, string> = {
   trial_ended: "Your Pro trial ended without a payment method on file",
+  trial_conversion_failed: "Your trial ended and we weren't able to charge your card to convert you to Pro",
   payment_failed: "We weren't able to charge your card after repeated attempts",
   cancelled: "Your paid subscription period has ended",
 };
