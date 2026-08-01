@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Order, Settings, Merchant, Fulfilment } from '@/models';
+import { OrderRepo } from '@/lib/repos/order';
+import { FulfilmentRepo } from '@/lib/repos/fulfilment';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { MerchantRepo } from '@/lib/repos/merchant';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
 import { sendLineMessage } from '@/lib/platforms/line';
 import { logAudit } from '@/lib/auditLog';
-import { paginate, getPaginationParams } from '@/lib/pagination';
+import { paginateInMemory, getPaginationParams } from '@/lib/pagination';
 
 export const runtime = 'nodejs';
 
@@ -14,31 +16,21 @@ export async function GET(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await dbConnect();
-
-    // Extract pagination params from URL
     const searchParams = Object.fromEntries(req.nextUrl.searchParams);
     const { page, limit } = getPaginationParams(searchParams);
 
-    // Paginate orders
-    const query = Order.find({ merchantId: merchant.merchantId }).sort({ createdAt: -1 });
-    const { data: orders, meta } = await paginate(query, page, limit);
+    const all = await OrderRepo.listByMerchant(merchant.merchantId);
+    const { data: orders, meta } = paginateInMemory(all, page, limit);
 
-    // Attach fulfilment summary in single aggregation (only for current page)
-    const fulSummary = await Fulfilment.aggregate([
-      { $match: { orderId: { $in: orders.map((o: any) => o._id) } } },
-      { $group: {
-        _id: '$orderId',
-        total: { $sum: 1 },
-        shipped: { $sum: { $cond: [{ $in: ['$status', ['shipped', 'delivered']] }, 1, 0] } },
-        delivered: { $sum: { $cond: [{ $eq: ['$status', 'delivered'] }, 1, 0] } },
-      }},
-    ]);
-
-    const summaryMap = new Map(fulSummary.map((s: any) => [String(s._id), { total: s.total, shipped: s.shipped, delivered: s.delivered }]));
-    const ordersWithSummary = orders.map((o: any) => ({
-      ...o,
-      fulfilmentSummary: summaryMap.get(String(o._id)) ?? null,
+    // Attach fulfilment summary for the current page only
+    const ordersWithSummary = await Promise.all(orders.map(async (o) => {
+      const fulfilments = await FulfilmentRepo.listByOrder(o.id);
+      const summary = fulfilments.length === 0 ? null : {
+        total: fulfilments.length,
+        shipped: fulfilments.filter((f) => f.status === 'shipped' || f.status === 'delivered').length,
+        delivered: fulfilments.filter((f) => f.status === 'delivered').length,
+      };
+      return { ...o, fulfilmentSummary: summary };
     }));
 
     return NextResponse.json({ data: ordersWithSummary, pagination: meta });
@@ -52,14 +44,12 @@ export async function POST(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await dbConnect();
-
-    const merchantDoc = await Merchant.findById(merchant.merchantId).select('tier').lean() as any;
+    const merchantDoc = await MerchantRepo.findById(merchant.merchantId);
     const tier = (merchantDoc?.tier ?? 'free') as Tier;
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
-    const monthCount = await Order.countDocuments({ merchantId: merchant.merchantId, createdAt: { $gte: startOfMonth } });
+    const monthCount = await OrderRepo.countThisMonth(merchant.merchantId, startOfMonth);
     const check = checkCountLimit(tier, 'ordersPerMonth', monthCount);
     if (!check.allowed) {
       return NextResponse.json(
@@ -70,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    const settings = await SettingsRepo.findByMerchantId(merchant.merchantId);
     const costCurrency = (body.costCurrency || settings?.importCurrency || 'THB').toUpperCase();
     const soldCurrency = (settings?.localCurrency || 'THB').toUpperCase();
     const useAutoRate = settings?.useAutoRate ?? false;
@@ -95,9 +85,10 @@ export async function POST(req: NextRequest) {
     const shipCost: number = body.shipCostTHB || 0;
     const profit = costAmount > 0 ? soldLocal - costLocal - shipCost : 0;
 
-    const order = await Order.create({
+    const order = await OrderRepo.create({
       ...body,
       merchantId: merchant.merchantId,
+      status: body.status || 'pending',
       costCurrency,
       soldCurrency,
       costTHB: costAmount > 0 ? costLocal : (body.costTHB ?? 0),
@@ -108,14 +99,14 @@ export async function POST(req: NextRequest) {
     // Push admin LINE alert if enabled
     if (settings?.adminAlerts?.newOrder && settings.adminLineId && settings.lineChannelAccessToken) {
       const prefix = settings.orderPrefix ? `${settings.orderPrefix}` : '';
-      const shortId = order._id.toString().slice(-6).toUpperCase();
+      const shortId = order.id.slice(-6).toUpperCase();
       const productText = body.product || body.items?.map((i: any) => i.name).join(', ') || 'New item';
       const alertMsg = `🛍️ New order: ${prefix}${shortId}\n${productText}\n฿${body.soldTHB || 0}`;
       sendLineMessage(settings.lineChannelAccessToken, settings.adminLineId, alertMsg).catch(() => {});
     }
 
     await logAudit(
-      { merchantId: merchant.merchantId, action: 'order_create', resource: 'order', resourceId: order._id.toString(), status: 'success' },
+      { merchantId: merchant.merchantId, action: 'order_create', resource: 'order', resourceId: order.id, status: 'success' },
       req
     );
 

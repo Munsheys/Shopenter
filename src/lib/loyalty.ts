@@ -1,7 +1,8 @@
-import { Customer, LoyaltyTransaction } from '@/models';
+import { CustomerRepo } from '@/lib/repos/customer';
+import { LoyaltyTransactionRepo } from '@/lib/repos/loyaltyTransaction';
 
 interface OrderLike {
-  _id: any;
+  id: string;
   userId?: string;
   soldTHB?: number;
   platform?: string;
@@ -13,16 +14,16 @@ interface LoyaltyConfig {
 }
 
 /**
- * Award loyalty points for an order, idempotently and atomically.
+ * Award loyalty points for an order, idempotently.
  *
  * Several code paths mark an order paid (manual PATCH, /mark-paid, /batch/mark-paid,
- * and SlipOK verification in the LINE webhook). Previously only the manual PATCH path
- * awarded points, and it used a non-atomic read-modify-write guard that could double
- * credit under concurrency. This centralizes the logic:
+ * and SlipOK verification in the LINE webhook). This centralizes the logic:
  *
- *   - The earn LoyaltyTransaction is created FIRST. A unique partial index on
- *     (orderId, type:'earn') makes a second attempt throw a duplicate-key error, so
- *     points are credited at most once per order regardless of how many paths run.
+ *   - LoyaltyTransactionRepo.createEarnIfNotClaimed() claims a lock keyed on orderId
+ *     FIRST (a conditional PutItem against a dedicated lock table — DynamoDB's
+ *     equivalent of the old Mongoose partial-unique-index guard). A second attempt for
+ *     the same order returns false instead of throwing, so points are credited at most
+ *     once per order regardless of how many paths run concurrently.
  *   - Only after the claim succeeds is the customer balance incremented.
  *
  * Returns the number of points awarded (0 if loyalty is off, order has no user/amount,
@@ -39,24 +40,16 @@ export async function awardLoyaltyForOrder(
   const earned = Math.floor(order.soldTHB * loyalty.pointsPerBaht);
   if (earned <= 0) return 0;
 
-  try {
-    await LoyaltyTransaction.create({
-      merchantId,
-      userId: order.userId,
-      platform: order.platform || 'line',
-      orderId: order._id,
-      type: 'earn',
-      points: earned,
-      note: `Earned from order ฿${order.soldTHB}`,
-    });
-  } catch (err: any) {
-    if (err?.code === 11000) return 0; // already awarded for this order — skip
-    throw err;
-  }
+  const claimed = await LoyaltyTransactionRepo.createEarnIfNotClaimed({
+    merchantId,
+    userId: order.userId,
+    platform: (order.platform as any) || 'line',
+    orderId: order.id,
+    points: earned,
+    note: `Earned from order ฿${order.soldTHB}`,
+  });
+  if (!claimed) return 0; // already awarded for this order — skip
 
-  await Customer.updateOne(
-    { merchantId, userId: order.userId },
-    { $inc: { loyaltyPoints: earned } },
-  );
+  await CustomerRepo.incrementLoyaltyPoints(merchantId, order.userId, earned);
   return earned;
 }

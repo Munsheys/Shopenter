@@ -109,7 +109,7 @@ const tables = [
   {
     name: 'Fulfilments',
     ...keySchema('orderId', 'id'),
-    gsis: [gsi('merchant-index', 'merchantId', 'createdAt')],
+    gsis: [gsi('merchant-index', 'merchantId', 'createdAt'), gsi('id-index', 'id')],
   },
   {
     name: 'AffiliateCommissions',

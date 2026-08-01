@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Order, Settings, Message } from '@/models';
+import { OrderRepo } from '@/lib/repos/order';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { MessageRepo } from '@/lib/repos/message';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { awardLoyaltyForOrder } from '@/lib/loyalty';
 
@@ -12,22 +13,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   try {
-    await dbConnect();
-    const order = await Order.findOne({ _id: id, merchantId: merchant.merchantId });
+    const order = await OrderRepo.findById(merchant.merchantId, id);
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
-    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    const settings = await SettingsRepo.findByMerchantId(merchant.merchantId);
     if (!settings?.lineChannelAccessToken) {
       return NextResponse.json({ error: 'LINE access token not configured' }, { status: 400 });
     }
 
     const wasPaid = order.status === 'paid';
-    order.status = 'paid';
-    await order.save();
+    const updated = await OrderRepo.update(merchant.merchantId, id, { status: 'paid' });
 
     // Award loyalty points on the first transition to paid (idempotent via the helper)
-    if (!wasPaid) {
-      await awardLoyaltyForOrder(merchant.merchantId, order, settings.loyalty);
+    if (!wasPaid && updated) {
+      await awardLoyaltyForOrder(merchant.merchantId, updated, settings.loyalty);
     }
 
     let messageText = settings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
@@ -44,9 +43,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
     if (!lineRes.ok) console.error('[LINE push mark-paid]', await lineRes.text());
 
-    await Message.create({
+    await MessageRepo.create({
       merchantId: merchant.merchantId,
-      userId: order.userId,
+      userId: order.userId!,
       platform: order.platform || 'line',
       type: 'system',
       text: '✅ Payment Confirmed',
@@ -54,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       sender: 'system'
     });
 
-    return NextResponse.json({ success: true, order });
+    return NextResponse.json({ success: true, order: updated });
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

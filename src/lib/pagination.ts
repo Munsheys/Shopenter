@@ -70,3 +70,24 @@ export function getPaginationHeaders(meta: PaginationMeta) {
     'X-Pagination-Pages': meta.pages.toString(),
   };
 }
+
+/**
+ * Same {data, meta} shape as paginate() above, but for a DynamoDB repo call that already
+ * returned the full item list (repos fetch-all via ddbQueryAll for per-merchant collections,
+ * which stay small — hundreds of items, not millions). Keeps the API response contract
+ * identical to the Mongoose-backed version so frontend code doesn't need to change during
+ * the DynamoDB migration. Revisit with real cursor-based pagination if a merchant's
+ * collection size ever makes fetch-all-then-slice expensive.
+ */
+export function paginateInMemory<T>(items: T[], page: number, limit: number): PaginatedResponse<T> {
+  page = Math.max(1, Math.floor(page) || 1);
+  limit = Math.min(Math.max(1, Math.floor(limit) || 20), 100);
+  const total = items.length;
+  const pages = Math.ceil(total / limit) || 1;
+  const start = (page - 1) * limit;
+
+  return {
+    data: items.slice(start, start + limit),
+    meta: { page, limit, total, pages, hasNext: page < pages, hasPrev: page > 1 },
+  };
+}

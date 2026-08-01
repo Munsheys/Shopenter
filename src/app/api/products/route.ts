@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Product, Merchant } from '@/models';
+import { ProductRepo } from '@/lib/repos/product';
+import { MerchantRepo } from '@/lib/repos/merchant';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { checkCountLimit, type Tier } from '@/lib/tiers';
 import { ProductSchema } from '@/lib/validation';
 import { logAudit } from '@/lib/auditLog';
-import { paginate, getPaginationParams } from '@/lib/pagination';
+import { paginateInMemory, getPaginationParams } from '@/lib/pagination';
 
 export const runtime = 'nodejs';
 
@@ -14,17 +14,13 @@ export async function GET(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await dbConnect();
-
-    // Extract pagination params from URL
     const searchParams = Object.fromEntries(req.nextUrl.searchParams);
     const { page, limit } = getPaginationParams(searchParams);
 
-    // Paginate products
-    const query = Product.find({ merchantId: merchant.merchantId });
-    const { data: products, meta } = await paginate(query, page, limit);
+    const all = await ProductRepo.listByMerchant(merchant.merchantId);
+    const { data, meta } = paginateInMemory(all, page, limit);
 
-    return NextResponse.json({ data: products, pagination: meta });
+    return NextResponse.json({ data, pagination: meta });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
@@ -35,11 +31,9 @@ export async function POST(req: NextRequest) {
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await dbConnect();
-
-    const merchantDoc = await Merchant.findById(merchant.merchantId).select('tier').lean() as any;
+    const merchantDoc = await MerchantRepo.findById(merchant.merchantId);
     const tier = (merchantDoc?.tier ?? 'free') as Tier;
-    const currentCount = await Product.countDocuments({ merchantId: merchant.merchantId });
+    const currentCount = await ProductRepo.count(merchant.merchantId);
     const check = checkCountLimit(tier, 'products', currentCount);
 
     if (!check.allowed) {
@@ -63,7 +57,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: errors.join('; ') }, { status: 400 });
     }
 
-    const product = await Product.create({ ...validation.data, merchantId: merchant.merchantId });
+    const product = await ProductRepo.create({ ...validation.data, merchantId: merchant.merchantId });
 
     // Audit log
     await logAudit(
@@ -71,7 +65,7 @@ export async function POST(req: NextRequest) {
         merchantId: merchant.merchantId,
         action: 'product_create',
         resource: 'product',
-        resourceId: product._id.toString(),
+        resourceId: product.id,
         changes: { after: { name: product.name, price: product.price } },
         status: 'success'
       },

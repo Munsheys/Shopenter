@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Product, Settings } from '@/models';
+import { ProductRepo } from '@/lib/repos/product';
+import { SettingsRepo } from '@/lib/repos/settings';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { notifyMerchant } from '@/lib/notifyMerchant';
 import { logAudit } from '@/lib/auditLog';
@@ -12,7 +12,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await dbConnect();
     const { id } = await params;
     const body = await req.json();
     if (body.name !== undefined && (typeof body.name !== 'string' || !body.name.trim())) {
@@ -23,19 +22,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // Snapshot variants before update for stock comparison
-    const oldProduct = await Product.findOne({ _id: id, merchantId: merchant.merchantId }).lean() as any;
+    const oldProduct = await ProductRepo.findById(merchant.merchantId, id);
 
-    const product = await Product.findOneAndUpdate(
-      { _id: id, merchantId: merchant.merchantId },
-      body,
-      { new: true }
-    );
+    const product = await ProductRepo.update(merchant.merchantId, id, body);
     if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
     // Out-of-stock / low-stock notifications — only for products with trackStock enabled
     const trackStock = product.trackStock ?? oldProduct?.trackStock ?? false;
     if (trackStock && body.variants !== undefined) {
-      const settings = await Settings.findOne({ merchantId: merchant.merchantId }).lean() as any;
+      const settings = await SettingsRepo.findByMerchantId(merchant.merchantId);
       const alertCfg = settings?.adminAlerts?.outOfStock;
       if (alertCfg?.line || alertCfg?.dashboard) {
         const threshold = settings?.adminAlerts?.lowStockThreshold ?? 5;
@@ -74,9 +69,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await dbConnect();
     const { id } = await params;
-    const product = await Product.findOneAndDelete({ _id: id, merchantId: merchant.merchantId });
+    const product = await ProductRepo.delete(merchant.merchantId, id);
     if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
     await logAudit(

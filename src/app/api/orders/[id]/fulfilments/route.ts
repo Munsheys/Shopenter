@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Order, Fulfilment } from '@/models';
+import { OrderRepo } from '@/lib/repos/order';
+import { FulfilmentRepo } from '@/lib/repos/fulfilment';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { recomputeOrderStatus } from '@/lib/recomputeOrderStatus';
 
@@ -13,13 +13,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   try {
-    await dbConnect();
-
     // Verify order belongs to merchant
-    const order = await Order.findOne({ _id: id, merchantId: merchant.merchantId }).lean();
+    const order = await OrderRepo.findById(merchant.merchantId, id);
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
-    const fulfilments = await Fulfilment.find({ orderId: id }).sort({ createdAt: -1 });
+    const fulfilments = await FulfilmentRepo.listByOrder(id);
     return NextResponse.json(fulfilments);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch fulfilments' }, { status: 500 });
@@ -33,10 +31,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   try {
-    await dbConnect();
-
     // Verify order belongs to merchant
-    const order = await Order.findOne({ _id: id, merchantId: merchant.merchantId }).lean() as any;
+    const order = await OrderRepo.findById(merchant.merchantId, id);
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
     const body = await req.json();
@@ -46,20 +42,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'items is required' }, { status: 400 });
     }
 
-    const fulfilment = await Fulfilment.create({
+    const fulfilment = await FulfilmentRepo.create({
       orderId: id,
       merchantId: merchant.merchantId,
-      userId: order.userId,
+      userId: order.userId!,
       items,
       tracking: tracking ?? undefined,
       courier: courier ?? undefined,
       address: address ?? undefined,
       shipCostTHB: shipCostTHB ?? 0,
       status: body.status === 'shipped' ? 'shipped' : 'pending',
-      shippedAt: body.status === 'shipped' ? new Date() : undefined,
+      shippedAt: body.status === 'shipped' ? new Date().toISOString() : undefined,
     });
 
-    await recomputeOrderStatus(id);
+    await recomputeOrderStatus(merchant.merchantId, id);
 
     return NextResponse.json(fulfilment, { status: 201 });
   } catch {

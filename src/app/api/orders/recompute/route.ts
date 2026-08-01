@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Order, Fulfilment } from '@/models';
+import { FulfilmentRepo } from '@/lib/repos/fulfilment';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { recomputeOrderStatus } from '@/lib/recomputeOrderStatus';
 
@@ -11,20 +10,10 @@ export async function POST(req: NextRequest) {
   const merchant = getMerchantFromRequest(req);
   if (!merchant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  await dbConnect();
+  const fulfilments = await FulfilmentRepo.listByMerchant(merchant.merchantId);
+  const orderIds = [...new Set(fulfilments.map((f) => f.orderId))];
 
-  // Find all order IDs for this merchant that have at least one fulfilment
-  const orderIds = await Fulfilment.distinct('orderId', { merchantId: merchant.merchantId });
+  await Promise.all(orderIds.map((id) => recomputeOrderStatus(merchant.merchantId, id)));
 
-  // Verify each orderId belongs to this merchant before recomputing
-  const merchantOrders = await Order.find({
-    _id: { $in: orderIds },
-    merchantId: merchant.merchantId,
-  }).select('_id').lean();
-
-  const validIds = merchantOrders.map((o: any) => String(o._id));
-
-  await Promise.all(validIds.map(id => recomputeOrderStatus(id)));
-
-  return NextResponse.json({ recomputed: validIds.length });
+  return NextResponse.json({ recomputed: orderIds.length });
 }

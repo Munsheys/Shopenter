@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Order, Settings, Message } from '@/models';
+import { OrderRepo } from '@/lib/repos/order';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { MessageRepo } from '@/lib/repos/message';
 import { getMerchantFromRequest } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -11,17 +12,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   try {
-    await dbConnect();
-    const order = await Order.findOne({ _id: id, merchantId: merchant.merchantId });
+    const order = await OrderRepo.findById(merchant.merchantId, id);
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
-    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    const settings = await SettingsRepo.findByMerchantId(merchant.merchantId);
     if (!settings?.lineChannelAccessToken) {
       return NextResponse.json({ error: 'LINE access token not configured' }, { status: 400 });
     }
 
     const origin = req.headers.get('origin') || `https://${req.headers.get('host')}`;
-    const qrUrl = `${origin}/api/qr?amount=${order.soldTHB}&ref=${order._id}&merchantId=${merchant.merchantId}`;
+    const qrUrl = `${origin}/api/qr?amount=${order.soldTHB}&ref=${order.id}&merchantId=${merchant.merchantId}`;
 
     const flexMessage = {
       type: 'flex',
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         body: {
           type: 'box', layout: 'vertical',
           contents: [
-            { type: 'text', text: `${order.quantity > 1 ? `${order.quantity}x ` : ''}${order.product?.replace(/^\d+x\s/, '') || 'Order Payment'}`, weight: 'bold', size: 'md', wrap: true },
+            { type: 'text', text: `${(order.quantity ?? 1) > 1 ? `${order.quantity}x ` : ''}${order.product?.replace(/^\d+x\s/, '') || 'Order Payment'}`, weight: 'bold', size: 'md', wrap: true },
             { type: 'text', text: `฿${(order.soldTHB || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`, weight: 'bold', size: 'xl', color: '#FF334B', margin: 'md' }
           ]
         },
@@ -56,12 +56,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Failed to push LINE message' }, { status: 500 });
     }
 
-    order.paymentQrSent = true;
-    await order.save();
+    const updated = await OrderRepo.update(merchant.merchantId, id, { paymentQrSent: true });
 
-    await Message.create({
+    await MessageRepo.create({
       merchantId: merchant.merchantId,
-      userId: order.userId,
+      userId: order.userId!,
       platform: order.platform || 'line',
       type: 'system',
       text: '🏦 QR Code Sent',
@@ -69,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       sender: 'system'
     });
 
-    return NextResponse.json({ success: true, order });
+    return NextResponse.json({ success: true, order: updated });
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

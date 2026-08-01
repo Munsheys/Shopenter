@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Order, Settings, Message } from '@/models';
+import { OrderRepo } from '@/lib/repos/order';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { MessageRepo } from '@/lib/repos/message';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { awardLoyaltyForOrder } from '@/lib/loyalty';
 
@@ -16,18 +17,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await dbConnect();
-    const orders = await Order.find({ _id: { $in: orderIds }, merchantId: merchant.merchantId });
+    const orders = await OrderRepo.findManyByIds(merchant.merchantId, orderIds);
     if (orders.length === 0) return NextResponse.json({ error: 'Orders not found' }, { status: 404 });
 
-    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    const settings = await SettingsRepo.findByMerchantId(merchant.merchantId);
     if (!settings?.lineChannelAccessToken) {
       return NextResponse.json({ error: 'LINE access token not configured' }, { status: 400 });
     }
 
     // Award loyalty + flip status per order (idempotent helper guards double-credit)
     const unpaid = orders.filter(o => o.status !== 'paid');
-    await Order.updateMany({ _id: { $in: orderIds }, merchantId: merchant.merchantId }, { $set: { status: 'paid' } });
+    await Promise.all(orders.map((o) => OrderRepo.update(merchant.merchantId, o.id, { status: 'paid' })));
     for (const o of unpaid) {
       await awardLoyaltyForOrder(merchant.merchantId, o, settings.loyalty);
     }
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       });
       if (!lineRes.ok) console.error('[LINE push batch-mark-paid]', await lineRes.text());
 
-      await Message.create({
+      await MessageRepo.create({
         merchantId: merchant.merchantId,
         userId,
         platform: userOrders[0].platform || 'line',

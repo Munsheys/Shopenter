@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Order, Settings, Message } from '@/models';
+import { OrderRepo } from '@/lib/repos/order';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { MessageRepo } from '@/lib/repos/message';
 import { getMerchantFromRequest } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -15,11 +16,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await dbConnect();
-    const orders = await Order.find({ _id: { $in: orderIds }, merchantId: merchant.merchantId });
+    const orders = await OrderRepo.findManyByIds(merchant.merchantId, orderIds);
     if (orders.length === 0) return NextResponse.json({ error: 'Orders not found' }, { status: 404 });
 
-    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    const settings = await SettingsRepo.findByMerchantId(merchant.merchantId);
     if (!settings?.lineChannelAccessToken) {
       return NextResponse.json({ error: 'LINE access token not configured' }, { status: 400 });
     }
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     if (totalTHB !== originalTotal && originalTotal > 0) {
       const ratio = totalTHB / originalTotal;
       await Promise.all(orders.map(o =>
-        Order.updateOne({ _id: o._id }, { $set: { soldTHB: Math.round((o.soldTHB || 0) * ratio) } })
+        OrderRepo.update(merchant.merchantId, o.id, { soldTHB: Math.round((o.soldTHB || 0) * ratio) })
       ));
     }
     const combinedProducts = orders.map(o => `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${o.product?.replace(/^\d+x\s/, '')}`).join(' + ');
@@ -68,11 +68,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to push LINE message' }, { status: 500 });
     }
 
-    await Order.updateMany({ _id: { $in: orderIds }, merchantId: merchant.merchantId }, { $set: { paymentQrSent: true } });
+    await Promise.all(orders.map((o) => OrderRepo.update(merchant.merchantId, o.id, { paymentQrSent: true })));
 
-    await Message.create({
+    await MessageRepo.create({
       merchantId: merchant.merchantId,
-      userId,
+      userId: userId!,
       platform: orders[0].platform || 'line',
       type: 'system',
       text: '🏦 QR Code Sent (Batch)',
