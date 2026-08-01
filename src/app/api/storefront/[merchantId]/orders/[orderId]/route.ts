@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Order } from '@/models';
+import { OrderRepo } from '@/lib/repos/order';
 import { checkStorefrontLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const runtime = 'nodejs';
@@ -9,7 +8,7 @@ export const runtime = 'nodejs';
  * GET /api/storefront/[merchantId]/orders/[orderId]?t=<orderToken>
  * Public, unauthenticated — a customer's only way to check an order without messaging the
  * merchant. Gated by a capability token in `?t=`, same pattern as /api/media/[id]: a bare
- * ObjectId alone isn't enough to read someone else's order. Orders created before the token
+ * id alone isn't enough to read someone else's order. Orders created before the token
  * field existed have an empty token and are simply unreachable here (they predate the
  * feature — no data to leak, nothing to migrate).
  *
@@ -36,8 +35,7 @@ export async function GET(
   }
 
   try {
-    await dbConnect();
-    const order = await Order.findOne({ _id: orderId, merchantId }).lean() as any;
+    const order = await OrderRepo.findById(merchantId, orderId);
 
     if (!order || !order.orderToken || order.orderToken !== token) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });

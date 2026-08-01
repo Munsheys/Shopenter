@@ -106,26 +106,35 @@ export const ProductRepo = {
   },
 
   /**
-   * Decrements stock for one variant (by _id) — used by storefront checkout.
-   * Conditional on current stock still being >= qty, so concurrent checkouts on the last
-   * unit can't both succeed (same guarantee the old `Product.updateOne` with a positional
-   * array filter + $inc had). Throws if the variant is missing or stock is insufficient.
+   * Atomically shifts stock for the variant matching `variantLabel` (variantName) by
+   * `delta` (negative to decrement at checkout, positive to roll back). Conditional on
+   * the post-shift stock staying >= 0 when decrementing, so concurrent checkouts on the
+   * last unit can't both succeed — same guarantee the old Mongoose positional-array
+   * `$inc` with a `stock: {$gte: qty}` filter had. Returns false (no throw) if the
+   * condition fails or the variant/product isn't found, so callers can branch on it the
+   * same way they checked `modifiedCount === 1` before.
    */
-  async decrementVariantStock(merchantId: string, productId: string, variantId: string, qty: number): Promise<void> {
+  async shiftVariantStockByLabel(merchantId: string, productId: string, variantLabel: string, delta: number): Promise<boolean> {
     const product = await this.findById(merchantId, productId);
-    if (!product) throw new Error('Product not found');
+    if (!product) return false;
     const variants = product.variants ?? [];
-    const idx = variants.findIndex((v) => String(v._id) === String(variantId));
-    if (idx === -1) throw new Error('Variant not found');
+    const idx = variants.findIndex((v) => v.variantName === variantLabel);
+    if (idx === -1) return false;
 
     const client = getDdbClient();
     const { UpdateCommand } = await import('@aws-sdk/lib-dynamodb');
-    await client.send(new UpdateCommand({
-      TableName: T,
-      Key: { merchantId, id: productId },
-      UpdateExpression: `SET variants[${idx}].stock = variants[${idx}].stock - :qty`,
-      ConditionExpression: `variants[${idx}].stock >= :qty`,
-      ExpressionAttributeValues: { ':qty': qty },
-    }));
+    try {
+      await client.send(new UpdateCommand({
+        TableName: T,
+        Key: { merchantId, id: productId },
+        UpdateExpression: `SET variants[${idx}].stock = variants[${idx}].stock + :delta`,
+        ConditionExpression: delta < 0 ? `variants[${idx}].stock >= :minReq` : undefined,
+        ExpressionAttributeValues: delta < 0 ? { ':delta': delta, ':minReq': -delta } : { ':delta': delta },
+      }));
+      return true;
+    } catch (err: any) {
+      if (err.name === 'ConditionalCheckFailedException') return false;
+      throw err;
+    }
   },
 };

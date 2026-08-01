@@ -65,6 +65,28 @@ export const CustomerRepo = {
     });
   },
 
+  /**
+   * Atomically deducts loyalty points, conditional on the balance still being sufficient
+   * — same guarantee as the old `findOneAndUpdate({loyaltyPoints: {$gte: points}})`.
+   * Returns false (no throw) if the balance was insufficient (lost the race to another
+   * concurrent redemption).
+   */
+  async deductLoyaltyPointsIfSufficient(merchantId: string, userId: string, points: number): Promise<boolean> {
+    try {
+      await ddbUpdate({
+        TableName: T,
+        Key: { merchantId, userId },
+        UpdateExpression: 'ADD loyaltyPoints :neg',
+        ConditionExpression: 'loyaltyPoints >= :points',
+        ExpressionAttributeValues: { ':neg': -points, ':points': points },
+      });
+      return true;
+    } catch (err: any) {
+      if (err.name === 'ConditionalCheckFailedException') return false;
+      throw err;
+    }
+  },
+
   async incrementShopCredits(merchantId: string, userId: string, delta: number): Promise<void> {
     await ddbUpdate({
       TableName: T,

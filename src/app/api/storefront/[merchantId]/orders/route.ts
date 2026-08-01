@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import dbConnect from '@/lib/db';
-import { Order, Campaign, Coupon, Customer, LoyaltyTransaction, Settings, Product } from '@/models';
+import { OrderRepo } from '@/lib/repos/order';
+import { CampaignRepo } from '@/lib/repos/campaign';
+import { CouponRepo } from '@/lib/repos/coupon';
+import { CustomerRepo } from '@/lib/repos/customer';
+import { LoyaltyTransactionRepo } from '@/lib/repos/loyaltyTransaction';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { ProductRepo } from '@/lib/repos/product';
 import { verifyLiffIdToken } from '@/lib/platforms/line';
 import { notifyMerchant } from '@/lib/notifyMerchant';
 import { checkStorefrontLimit, getClientIp } from '@/lib/rateLimiter';
@@ -30,8 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
   }
 
   try {
-    await dbConnect();
-    const settings = await Settings.findOne({ merchantId });
+    const settings = await SettingsRepo.findByMerchantId(merchantId);
     if (!settings) return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
 
     const body = await req.json();
@@ -70,28 +74,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     if (Array.isArray(orderData.items) && orderData.items.length > 0) {
       const recomputedItems = await Promise.all(
         orderData.items.map(async (item: any) => {
-          const product = await Product.findOne({
-            _id: item.productId,
-            merchantId,
-            isActive: true,
-          })
-            .select('price variants trackStock')
-            .lean() as any;
+          const product = await ProductRepo.findById(merchantId, item.productId);
+          const activeProduct = product?.isActive !== false ? product : null;
 
           let serverPrice: number;
-          if (!product) {
+          if (!activeProduct) {
             // Product was deleted — fall back to client-supplied price so the order is not rejected
             serverPrice = item.price ?? 0;
-          } else if (product.variants?.length && item.variantLabel) {
-            const matched = product.variants.find(
+          } else if (activeProduct.variants?.length && item.variantLabel) {
+            const matched = activeProduct.variants.find(
               (v: any) => v.variantName === item.variantLabel
             );
-            serverPrice = matched?.price ?? product.price;
-            if (product.trackStock && matched) {
-              stockDecrements.push({ productId: String(product._id), variantLabel: item.variantLabel, qty: item.qty ?? 1 });
+            serverPrice = matched?.price ?? activeProduct.price;
+            if (activeProduct.trackStock && matched) {
+              stockDecrements.push({ productId: activeProduct.id, variantLabel: item.variantLabel, qty: item.qty ?? 1 });
             }
           } else {
-            serverPrice = product.price;
+            serverPrice = activeProduct.price;
           }
 
           baseTotal += serverPrice * (item.qty ?? 1);
@@ -109,18 +108,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     // is short, roll back the ones already decremented and reject the whole order.
     const decremented: typeof stockDecrements = [];
     for (const op of stockDecrements) {
-      const res = await Product.updateOne(
-        { _id: op.productId, merchantId, variants: { $elemMatch: { variantName: op.variantLabel, stock: { $gte: op.qty } } } },
-        { $inc: { 'variants.$.stock': -op.qty } }
-      );
-      if (res.modifiedCount === 1) {
+      const ok = await ProductRepo.shiftVariantStockByLabel(merchantId, op.productId, op.variantLabel, -op.qty);
+      if (ok) {
         decremented.push(op);
       } else {
         for (const d of decremented) {
-          await Product.updateOne(
-            { _id: d.productId, 'variants.variantName': d.variantLabel },
-            { $inc: { 'variants.$.stock': d.qty } }
-          );
+          await ProductRepo.shiftVariantStockByLabel(merchantId, d.productId, d.variantLabel, d.qty);
         }
         return NextResponse.json({ error: 'Sorry, one or more items just went out of stock.', outOfStock: true }, { status: 409 });
       }
@@ -129,37 +122,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     // Helper to undo all stock reservations if a later step fails before the order is saved
     const rollbackStock = async () => {
       for (const d of decremented) {
-        await Product.updateOne(
-          { _id: d.productId, 'variants.variantName': d.variantLabel },
-          { $inc: { 'variants.$.stock': d.qty } }
-        );
+        await ProductRepo.shiftVariantStockByLabel(merchantId, d.productId, d.variantLabel, d.qty);
       }
     };
 
     // Validate and apply coupon — claim a use atomically so concurrent checkouts
     // can't push usedCount past maxUses.
     if (couponCode) {
-      const coupon = await Coupon.findOne({
-        merchantId,
-        code: String(couponCode).toUpperCase().trim(),
-        isActive: true,
-      });
+      const coupon = await CouponRepo.findByCode(merchantId, String(couponCode));
 
       const valid = coupon &&
+        coupon.isActive &&
         !(coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) &&
-        !(coupon.minOrderAmount > 0 && baseTotal < coupon.minOrderAmount);
+        !((coupon.minOrderAmount ?? 0) > 0 && baseTotal < coupon.minOrderAmount!);
 
       if (valid) {
-        let claimed = true;
-        if (coupon.maxUses > 0) {
-          const res = await Coupon.findOneAndUpdate(
-            { _id: coupon._id, $expr: { $lt: ['$usedCount', '$maxUses'] } },
-            { $inc: { usedCount: 1 } },
-          );
-          claimed = !!res;
-        } else {
-          await Coupon.updateOne({ _id: coupon._id }, { $inc: { usedCount: 1 } });
-        }
+        const claimed = await CouponRepo.claimUse(merchantId, coupon.code, coupon.maxUses ?? 0);
         if (claimed) {
           discountAmount = coupon.type === 'percent'
             ? Math.floor((baseTotal * coupon.value) / 100)
@@ -173,20 +151,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     // balance can't be spent twice by concurrent orders. Requires a verified identity:
     // otherwise a guest could supply another customer's userId and burn their points.
     if (redeemPoints && userId && identityVerified) {
-      const loyaltySettings = await Settings.findOne({ merchantId }).select('loyalty').lean() as any;
-      const loyalty = loyaltySettings?.loyalty;
+      const loyalty = settings.loyalty;
 
       if (loyalty?.enabled && loyalty.redeemRate > 0) {
         loyaltyRedeemRate = loyalty.redeemRate;
-        const customer = await Customer.findOne({ merchantId, userId }).select('loyaltyPoints').lean() as any;
+        const customer = await CustomerRepo.findByUserId(merchantId, userId);
         const availablePoints = customer?.loyaltyPoints ?? 0;
         const pointsToRedeem = Math.min(Number(redeemPoints), availablePoints);
 
         if (pointsToRedeem >= (loyalty.minRedeemPoints ?? 100)) {
-          const deducted = await Customer.findOneAndUpdate(
-            { merchantId, userId, loyaltyPoints: { $gte: pointsToRedeem } },
-            { $inc: { loyaltyPoints: -pointsToRedeem } },
-          );
+          const deducted = await CustomerRepo.deductLoyaltyPointsIfSufficient(merchantId, userId, pointsToRedeem);
           if (deducted) {
             discountAmount += Math.floor(pointsToRedeem / loyalty.redeemRate);
             redeemedPoints = pointsToRedeem;
@@ -200,11 +174,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
 
     let order;
     try {
-      order = await Order.create({
+      order = await OrderRepo.create({
         ...orderData,
         userId,
         platform: 'line',
         merchantId,
+        status: 'pending',
         soldTHB: finalTotal,
         discountAmount,
         couponCode: appliedCouponCode,
@@ -212,23 +187,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
         orderToken,
       });
     } catch (err) {
-      // Order failed to save — undo the stock reservation and refund redeemed points
-      // so the customer isn't charged points for an order that never existed.
+      // Order failed to save — undo the stock reservation, coupon claim, and refund
+      // redeemed points so the customer isn't charged for an order that never existed.
       await rollbackStock();
+      if (appliedCouponCode) await CouponRepo.releaseUse(merchantId, appliedCouponCode);
       if (redeemedPoints > 0 && userId) {
-        await Customer.updateOne({ merchantId, userId }, { $inc: { loyaltyPoints: redeemedPoints } });
+        await CustomerRepo.incrementLoyaltyPoints(merchantId, userId, redeemedPoints);
       }
       throw err;
     }
 
     // Record the redemption ledger entry (points were already deducted above)
     if (redeemedPoints > 0 && userId) {
-      await LoyaltyTransaction.create({
+      await LoyaltyTransactionRepo.createRedeem({
         merchantId,
         userId,
         platform: 'line',
-        orderId: order._id,
-        type: 'redeem',
+        orderId: order.id,
         points: redeemedPoints,
         note: `Redeemed for ฿${Math.floor(redeemedPoints / loyaltyRedeemRate)} discount`,
       });
@@ -243,29 +218,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
     // external browsers, it must be gated on a verified identity, not a body-supplied one.
 
     // ── Type A: merchant new-order alert ──────────────────────────────────────
-    const settingsForNotif = await Settings.findOne({ merchantId }).lean() as any;
     const customerName = orderData.displayName || 'Customer';
     const itemsSummary = order.items?.map((i: any) => `${i.qty}x ${i.name}`).join(', ') || order.product;
-    await notifyMerchant({ merchantId, type: 'new_order', message: `🛒 New order from ${customerName}!\n${itemsSummary}\nTotal: ฿${order.soldTHB.toLocaleString()}`, metadata: { orderId: order._id.toString(), userId }, settings: settingsForNotif });
+    await notifyMerchant({ merchantId, type: 'new_order', message: `🛒 New order from ${customerName}!\n${itemsSummary}\nTotal: ฿${order.soldTHB!.toLocaleString()}`, metadata: { orderId: order.id, userId }, settings });
 
     // Attribute to most recent broadcast in last 48 hours
     const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
-    const recentCampaign = await Campaign.findOne({
-      merchantId,
-      deliveryMode: 'instant',
-      status: 'completed',
-      sentAt: { $gte: since },
-    }).sort({ sentAt: -1 });
+    const recentCampaign = await CampaignRepo.findMostRecentCompletedInstant(merchantId, since);
 
     if (recentCampaign) {
-      await Order.findByIdAndUpdate(order._id, { attributedCampaignId: recentCampaign._id });
+      await OrderRepo.update(merchantId, order.id, { attributedCampaignId: recentCampaign.id });
     }
 
     // Customer-safe response only — the full order doc carries the merchant's cost/profit
     // fields (costTHB, profit, costKRW, rateUsed), which have no business reaching a
     // customer's browser. The storefront client only ever reads soldTHB from this response.
     return NextResponse.json({
-      _id: order._id,
+      _id: order.id,
       orderToken: order.orderToken,
       status: order.status,
       soldTHB: order.soldTHB,

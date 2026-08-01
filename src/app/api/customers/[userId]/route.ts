@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Customer, Order } from '@/models';
+import { CustomerRepo } from '@/lib/repos/customer';
+import { OrderRepo } from '@/lib/repos/order';
 import { getMerchantFromRequest } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -11,11 +11,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
 
   const { userId } = await params;
   try {
-    await dbConnect();
-    const customer = await Customer.findOne({ merchantId: merchant.merchantId, userId });
+    const customer = await CustomerRepo.findByUserId(merchant.merchantId, userId);
     if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const orders = await Order.find({ merchantId: merchant.merchantId, userId }).sort({ createdAt: -1 });
+    const orders = (await OrderRepo.listByMerchant(merchant.merchantId)).filter((o) => o.userId === userId);
     return NextResponse.json({ customer, orders });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch customer' }, { status: 500 });
@@ -30,29 +29,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
   const body = await req.json().catch(() => ({}));
 
   try {
-    await dbConnect();
+    const existing = await CustomerRepo.findByUserId(merchant.merchantId, userId);
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     // Atomic credit increment — handled separately to avoid overwrite race
     if (body.addCredits !== undefined) {
-      const customer = await Customer.findOneAndUpdate(
-        { merchantId: merchant.merchantId, userId },
-        { $inc: { shopCredits: Number(body.addCredits) } },
-        { new: true }
-      );
-      if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      return NextResponse.json(customer);
+      await CustomerRepo.incrementShopCredits(merchant.merchantId, userId, Number(body.addCredits));
+      const updated = await CustomerRepo.findByUserId(merchant.merchantId, userId);
+      return NextResponse.json(updated);
     }
 
     const update: Record<string, unknown> = {};
     if (body.addresses !== undefined) update.addresses = body.addresses;
     if (body.status !== undefined) update.status = body.status;
 
-    const customer = await Customer.findOneAndUpdate(
-      { merchantId: merchant.merchantId, userId },
-      update,
-      { new: true }
-    );
-    if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const customer = await CustomerRepo.upsert(merchant.merchantId, userId, update);
     return NextResponse.json(customer);
   } catch {
     return NextResponse.json({ error: 'Failed to update customer' }, { status: 500 });

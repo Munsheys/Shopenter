@@ -44,6 +44,18 @@ export const CampaignRepo = {
     return items.reverse();
   },
 
+  /** Most recent completed instant broadcast within a window — checkout order attribution. */
+  async findMostRecentCompletedInstant(merchantId: string, since: Date): Promise<CampaignDoc | null> {
+    const all = await this.listByMerchant(merchantId);
+    const candidates = all.filter((c) =>
+      c.deliveryMode === 'instant' &&
+      c.status === 'completed' &&
+      c.sentAt && new Date(c.sentAt) >= since
+    );
+    candidates.sort((a, b) => new Date(b.sentAt!).getTime() - new Date(a.sentAt!).getTime());
+    return candidates[0] ?? null;
+  },
+
   /** Active queued campaign not yet delivered to this user — webhook piggyback lookup. */
   async findActiveQueuedForUser(merchantId: string, userId: string): Promise<CampaignDoc | null> {
     const all = await this.listByMerchant(merchantId);

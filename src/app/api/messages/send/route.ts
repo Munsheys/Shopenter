@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Message, Settings } from '@/models';
+import { MessageRepo } from '@/lib/repos/message';
+import { SettingsRepo } from '@/lib/repos/settings';
 import { getMerchantFromRequest } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -15,16 +15,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await dbConnect();
-    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    const settings = await SettingsRepo.findByMerchantId(merchant.merchantId);
 
-    const newMessage = await Message.create({
+    const newMessage = await MessageRepo.create({
       merchantId: merchant.merchantId,
       userId,
       platform: 'line',
       text,
       sender: 'admin',
-      createdAt: new Date()
     });
 
     const token = settings?.lineChannelAccessToken;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Customer, Settings } from '@/models';
+import { CustomerRepo } from '@/lib/repos/customer';
+import { SettingsRepo } from '@/lib/repos/settings';
 import { getMerchantFromRequest } from '@/lib/auth';
 import { markLineMessagesAsRead } from '@/lib/platforms/line';
 
@@ -13,13 +13,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { userId } = await params;
 
   try {
-    await dbConnect();
-
     // Reset unread count
-    await Customer.updateOne({ merchantId: merchant.merchantId, userId }, { $set: { unreadCount: 0 } });
+    await CustomerRepo.upsert(merchant.merchantId, userId, { unreadCount: 0 });
 
     // Send markAsRead to LINE API
-    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    const settings = await SettingsRepo.findByMerchantId(merchant.merchantId);
     const channelAccessToken = (settings?.lineChannelAccessToken || '').trim();
 
     if (channelAccessToken && userId && !userId.startsWith('mock-')) {

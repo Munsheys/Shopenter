@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Settings } from '@/models';
+import { SettingsRepo } from '@/lib/repos/settings';
 import { getMerchantFromRequest } from '@/lib/auth';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ messageId: string }> }) {
@@ -10,8 +9,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ mess
 
     const { messageId } = await params;
 
-    await dbConnect();
-    const settings = await Settings.findOne({ merchantId: merchant.merchantId });
+    const settings = await SettingsRepo.findByMerchantId(merchant.merchantId);
     if (!settings?.lineChannelAccessToken) {
       return new NextResponse('LINE access token not configured', { status: 400 });
     }

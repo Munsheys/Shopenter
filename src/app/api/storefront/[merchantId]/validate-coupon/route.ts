@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Coupon } from '@/models';
+import { CouponRepo } from '@/lib/repos/coupon';
 import { checkStorefrontLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const runtime = 'nodejs';
@@ -22,28 +21,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mer
 
   if (!code) return NextResponse.json({ error: 'Coupon code is required' }, { status: 400 });
 
-  await dbConnect();
+  const coupon = await CouponRepo.findByCode(merchantId, String(code));
 
-  const coupon = await Coupon.findOne({
-    merchantId,
-    code: String(code).toUpperCase().trim(),
-    isActive: true,
-  });
-
-  if (!coupon) return NextResponse.json({ error: 'Invalid or expired coupon code' }, { status: 404 });
+  if (!coupon || !coupon.isActive) return NextResponse.json({ error: 'Invalid or expired coupon code' }, { status: 404 });
 
   if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
     return NextResponse.json({ error: 'This coupon has expired' }, { status: 400 });
   }
 
-  if (coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) {
+  if ((coupon.maxUses ?? 0) > 0 && (coupon.usedCount ?? 0) >= coupon.maxUses!) {
     return NextResponse.json({ error: 'This coupon has reached its usage limit' }, { status: 400 });
   }
 
   const total = Number(orderTotal) || 0;
-  if (coupon.minOrderAmount > 0 && total < coupon.minOrderAmount) {
+  if ((coupon.minOrderAmount ?? 0) > 0 && total < coupon.minOrderAmount!) {
     return NextResponse.json(
-      { error: `Minimum order amount ฿${coupon.minOrderAmount.toLocaleString()} required` },
+      { error: `Minimum order amount ฿${coupon.minOrderAmount!.toLocaleString()} required` },
       { status: 400 }
     );
   }

@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
-import { Settings, Merchant } from '@/models';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { MerchantRepo } from '@/lib/repos/merchant';
 
 export const runtime = 'nodejs';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ merchantId: string }> }) {
   const { merchantId } = await params;
   try {
-    await dbConnect();
     const [s, merchant] = await Promise.all([
-      Settings.findOne({ merchantId }),
-      Merchant.findById(merchantId).select('slug').lean() as Promise<any>,
+      SettingsRepo.findByMerchantId(merchantId),
+      MerchantRepo.findById(merchantId),
     ]);
     if (!s) return NextResponse.json({ error: 'Store not found' }, { status: 404 });
 
