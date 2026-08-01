@@ -74,6 +74,19 @@ export const CustomerRepo = {
     });
   },
 
+  /** No-ops if the customer doc doesn't exist yet — matches the old Mongoose `updateOne` (no upsert) behavior. */
+  async incrementUnreadCount(merchantId: string, userId: string, delta: number): Promise<void> {
+    await ddbUpdate({
+      TableName: T,
+      Key: { merchantId, userId },
+      UpdateExpression: 'ADD unreadCount :d',
+      ConditionExpression: 'attribute_exists(userId)',
+      ExpressionAttributeValues: { ':d': delta },
+    }).catch((err: any) => {
+      if (err.name !== 'ConditionalCheckFailedException') throw err;
+    });
+  },
+
   async delete(merchantId: string, userId: string): Promise<void> {
     await ddbDelete({ TableName: T, Key: { merchantId, userId } });
   },

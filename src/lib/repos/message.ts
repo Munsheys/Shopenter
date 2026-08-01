@@ -29,6 +29,10 @@ export const MessageRepo = {
     return doc;
   },
 
+  async createMany(items: Omit<MessageDoc, 'id' | 'createdAt'>[]): Promise<void> {
+    await Promise.all(items.map((data) => this.create(data)));
+  },
+
   async listByConversation(merchantId: string, userId: string): Promise<MessageDoc[]> {
     const items = await ddbQueryAll<MessageDoc>({
       TableName: T,

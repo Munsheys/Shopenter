@@ -1,6 +1,7 @@
-import { Tables } from '@/lib/dynamodb';
+import { Tables, getDdbClient } from '@/lib/dynamodb';
 import { ddbGet, ddbPut, ddbUpdate, buildUpdateExpression } from './base';
 import { maybeEncrypt, maybeDecrypt } from '@/lib/encryption';
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 // Kept as `any` deliberately — Settings has ~50 loosely-typed fields (theme, storefront
 // customization, per-platform config) that mirror the Mongoose schema defaults 1:1.
@@ -126,5 +127,28 @@ export const SettingsRepo = {
     const expr = buildUpdateExpression(toWrite);
     const updated = await ddbUpdate<SettingsDoc>({ TableName: T, Key: { merchantId }, ...expr });
     return decryptFields(updated) as SettingsDoc;
+  },
+
+  /**
+   * Full table scan — used only by the LINE webhook's signature-matching step, which has
+   * no merchantId yet (that's what it's trying to determine) and so has no key to query
+   * by. This was already a full-collection scan in the Mongoose version
+   * (`Settings.find({lineChannelSecret: {$exists, $ne:''}})`); DynamoDB has no cheaper
+   * equivalent without restructuring how LINE channel secrets are looked up. Fine at
+   * current merchant counts — revisit (e.g. a secret-hash GSI) if this becomes hot.
+   */
+  async listAllWithLineSecret(): Promise<SettingsDoc[]> {
+    const client = getDdbClient();
+    const results: SettingsDoc[] = [];
+    let ExclusiveStartKey: Record<string, any> | undefined;
+    do {
+      const res = await client.send(new ScanCommand({ TableName: T, ExclusiveStartKey }));
+      for (const item of (res.Items ?? []) as SettingsDoc[]) {
+        const decrypted = decryptFields(item) as SettingsDoc;
+        if (decrypted.lineChannelSecret) results.push(decrypted);
+      }
+      ExclusiveStartKey = res.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    return results;
   },
 };

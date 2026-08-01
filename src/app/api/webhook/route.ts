@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import dbConnect from '@/lib/db';
-import { Customer, Message, Settings, ProcessedEvent, ProcessedSlip, Order, Campaign, AutoReply, Merchant } from '@/models';
+import { CustomerRepo } from '@/lib/repos/customer';
+import { MessageRepo } from '@/lib/repos/message';
+import { SettingsRepo } from '@/lib/repos/settings';
+import { ProcessedEventRepo } from '@/lib/repos/processedEvent';
+import { ProcessedSlipRepo } from '@/lib/repos/processedSlip';
+import { OrderRepo } from '@/lib/repos/order';
+import { CampaignRepo } from '@/lib/repos/campaign';
+import { AutoReplyRepo } from '@/lib/repos/autoReply';
+import { MerchantRepo } from '@/lib/repos/merchant';
 import { messagingApi } from '@line/bot-sdk';
 import { enqueueCustomerUpdate } from '@/lib/customerQueue';
 import { notifyMerchant } from '@/lib/notifyMerchant';
@@ -19,7 +26,7 @@ export async function GET() {
 
 function buildLineProductCarousel(products: any[], baseUrl: string, storePath: string): any {
   const bubbles = products.map((product: any) => {
-    const productUrl = `${baseUrl}${storePath}?product=${product._id}`;
+    const productUrl = `${baseUrl}${storePath}?product=${product.id}`;
     const bubble: any = {
       type: 'bubble',
       size: 'kilo',
@@ -131,10 +138,8 @@ export async function POST(req: Request) {
   if (rawBody.length === 0) return NextResponse.json({ message: 'Empty body' }, { status: 200 });
 
   try {
-    await dbConnect();
-
     // Match signature to a merchant's LINE secret
-    const allSettings = await Settings.find({ lineChannelSecret: { $exists: true, $ne: '' } });
+    const allSettings = await SettingsRepo.listAllWithLineSecret();
     let matchedSettings: (typeof allSettings)[0] | null = null;
 
     for (const s of allSettings) {
@@ -150,7 +155,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    const merchantId = matchedSettings?.merchantId?.toString();
+    const merchantId = matchedSettings.merchantId;
     const channelAccessToken = (matchedSettings?.lineChannelAccessToken || process.env.LINE_CHANNEL_ACCESS_TOKEN || '').trim();
 
     let parsedBody: any;
@@ -164,11 +169,11 @@ export async function POST(req: Request) {
     const client = new messagingApi.MessagingApiClient({ channelAccessToken });
 
     // Pre-load auto-reply rules once per webhook payload (shared across events)
-    const autoReplyRules = await AutoReply.find({ merchantId, isActive: true }).sort({ priority: 1 }).lean();
+    const autoReplyRules = await AutoReplyRepo.listActiveSorted(merchantId);
 
     // Resolve the storefront URL once per payload (shared across events) for greeting/re-engage links
-    const merchantForLink = await Merchant.findById(merchantId).select('slug').lean() as any;
-    const storefrontUrl = buildStorefrontUrl(merchantForLink?.slug, merchantId);
+    const merchantForLink = await MerchantRepo.findById(merchantId);
+    const storefrontUrl = buildStorefrontUrl(merchantForLink?.slug ?? undefined, merchantId);
 
     for (const event of events) {
       const userId = event.source?.userId;
@@ -179,31 +184,23 @@ export async function POST(req: Request) {
 
       // Idempotency
       if (event.webhookEventId) {
-        try {
-          await ProcessedEvent.create({ merchantId, webhookEventId: event.webhookEventId });
-        } catch (e: any) {
-          if (e.code === 11000) continue;
-          console.error('[ProcessedEvent]', e);
-        }
+        const claimed = await ProcessedEventRepo.claim(merchantId, event.webhookEventId);
+        if (!claimed) continue;
       }
 
       // ── Follow event ─────────────────────────────────────────────────────────
       if (event.type === 'follow') {
         try {
           const profile = await client.getProfile(userId);
-          await Customer.findOneAndUpdate(
-            { merchantId, userId },
-            {
-              platform: 'line',
-              displayName: profile.displayName,
-              pictureUrl: profile.pictureUrl,
-              lastSeen: new Date(),
-              profileCachedAt: new Date(),
-              status: 'active',
-              followedAt: new Date(),
-            },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-          );
+          await CustomerRepo.upsert(merchantId, userId, {
+            platform: 'line',
+            displayName: profile.displayName,
+            pictureUrl: profile.pictureUrl,
+            lastSeen: new Date().toISOString(),
+            profileCachedAt: new Date().toISOString(),
+            status: 'active',
+            followedAt: new Date().toISOString(),
+          });
         } catch (err) {
           console.error('[follow profile]', userId, err);
         }
@@ -225,7 +222,7 @@ export async function POST(req: Request) {
           if (greetingSent) {
             const logTexts = greetingMsgs.map((m: any) => m.text || blockToLogText(m)).filter(Boolean);
             if (logTexts.length > 0) {
-              await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
+              await MessageRepo.createMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
             }
           }
         }
@@ -234,31 +231,27 @@ export async function POST(req: Request) {
 
       // ── Unfollow / block event ────────────────────────────────────────────────
       if (event.type === 'unfollow') {
-        await Customer.updateOne({ merchantId, userId }, { $set: { status: 'blocked' } });
+        await CustomerRepo.upsert(merchantId, userId, { status: 'blocked' });
         continue;
       }
 
       // ── Profile sync for all remaining event types ────────────────────────────
       let prevLastSeen: Date | null = null;
       try {
-        const existing = await Customer.findOne({ merchantId, userId }).lean() as any;
+        const existing = await CustomerRepo.findByUserId(merchantId, userId);
         prevLastSeen = existing?.lastSeen ? new Date(existing.lastSeen) : null;
         const isStale = !existing?.profileCachedAt ||
           (Date.now() - new Date(existing.profileCachedAt).getTime()) > PROFILE_CACHE_TTL_MS;
 
         if (isStale) {
           const profile = await client.getProfile(userId);
-          await Customer.findOneAndUpdate(
-            { merchantId, userId },
-            { platform: 'line', displayName: profile.displayName, pictureUrl: profile.pictureUrl, lastSeen: new Date(), profileCachedAt: new Date() },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-          );
+          await CustomerRepo.upsert(merchantId, userId, { platform: 'line', displayName: profile.displayName, pictureUrl: profile.pictureUrl, lastSeen: new Date().toISOString(), profileCachedAt: new Date().toISOString() });
         } else {
-          enqueueCustomerUpdate({ userId, data: { lastSeen: new Date() } });
+          enqueueCustomerUpdate({ merchantId, userId, data: { lastSeen: new Date().toISOString() } });
         }
       } catch (profileErr) {
         console.error('[Profile sync]', userId, profileErr);
-        enqueueCustomerUpdate({ userId, data: { lastSeen: new Date() } });
+        enqueueCustomerUpdate({ merchantId, userId, data: { lastSeen: new Date().toISOString() } });
       }
 
       // ── Postback event (rich menu button taps) ────────────────────────────────
@@ -268,11 +261,11 @@ export async function POST(req: Request) {
           const rule = findMatchingRule(postbackData, autoReplyRules);
           if (rule) {
             try {
-              await AutoReply.updateOne({ _id: rule._id }, { $set: { lastTriggeredAt: new Date() } });
+              await AutoReplyRepo.markTriggered(merchantId, rule.id);
               await client.replyMessage({ replyToken: event.replyToken, messages: rule.messages.slice(0, 5).map(toLineMessage) });
               const logTexts = rule.messages.slice(0, 5).map(blockToLogText).filter(Boolean);
               if (logTexts.length > 0) {
-                await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
+                await MessageRepo.createMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
               }
             } catch (err) { console.error('[postback reply]', err); }
           }
@@ -284,8 +277,8 @@ export async function POST(req: Request) {
       if (event.type === 'message') {
         // ── Text message ─────────────────────────────────────────────────────
         if (event.message?.type === 'text') {
-          await Message.create({ merchantId, userId, platform: 'line', text: event.message.text, sender: 'user' });
-          await Customer.updateOne({ merchantId, userId }, { $inc: { unreadCount: 1 } });
+          await MessageRepo.create({ merchantId, userId, platform: 'line', text: event.message.text, sender: 'user' });
+          await CustomerRepo.incrementUnreadCount(merchantId, userId, 1);
 
           // Suppress auto-reply for order confirmations sent via LIFF checkout
           if (event.message.text.startsWith('📦') && event.message.text.includes('สั่งซื้อแล้ว')) {
@@ -300,7 +293,7 @@ export async function POST(req: Request) {
               await client.replyMessage({ replyToken: event.replyToken, messages: reEngageMsgs });
               const logTexts = reEngageMsgs.map((m: any) => m.text || blockToLogText(m)).filter(Boolean);
               if (logTexts.length > 0) {
-                await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
+                await MessageRepo.createMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
               }
             } catch (err) { console.error('[reEngage reply]', err); }
             continue;
@@ -313,7 +306,7 @@ export async function POST(req: Request) {
             if (closedMsg && event.replyToken) {
               try {
                 await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: closedMsg }] });
-                await Message.create({ merchantId, userId, platform: 'line', type: 'system', text: closedMsg, sender: 'system' });
+                await MessageRepo.create({ merchantId, userId, platform: 'line', type: 'system', text: closedMsg, sender: 'system' });
               } catch (err) { console.error('[closed reply]', err); }
             }
             continue;
@@ -324,16 +317,15 @@ export async function POST(req: Request) {
 
           const rule = findMatchingRule(event.message.text, autoReplyRules);
           if (rule) {
-            await AutoReply.updateOne({ _id: rule._id }, { $set: { lastTriggeredAt: new Date() } });
+            await AutoReplyRepo.markTriggered(merchantId, rule.id);
             replyMessages.push(...rule.messages.slice(0, 5).map(toLineMessage));
           } else if (matchedSettings?.lineIntentSearch !== false) {
             const proto   = req.headers.get('x-forwarded-proto') || 'https';
             const host    = req.headers.get('host') || '';
             const baseUrl = `${proto}://${host}`;
-            const mid     = matchedSettings!.merchantId.toString();
-            const merchant = await Merchant.findById(mid).select('slug').lean() as any;
-            const storePath = merchant?.slug ? `/shop/${merchant.slug}` : `/merchant/${mid}`;
-            const matches = await searchProducts(mid, event.message.text);
+            const merchantDoc = await MerchantRepo.findById(merchantId);
+            const storePath = merchantDoc?.slug ? `/shop/${merchantDoc.slug}` : `/merchant/${merchantId}`;
+            const matches = await searchProducts(merchantId, event.message.text);
             if (matches.length > 0) {
               replyMessages.push(buildLineProductCarousel(matches, baseUrl, storePath));
             }
@@ -341,28 +333,15 @@ export async function POST(req: Request) {
 
           // Piggyback queued campaign if user hasn't received it yet and there's reply space
           if (replyMessages.length < 5 && event.replyToken) {
-            const campaign = await Campaign.findOne({
-              merchantId,
-              deliveryMode: 'queued',
-              status: 'active',
-              validUntil: { $gt: new Date() },
-              deliveredTo: { $ne: userId },
-            }).lean() as any;
+            const campaign = await CampaignRepo.findActiveQueuedForUser(merchantId, userId);
 
             if (campaign) {
               const slots = 5 - replyMessages.length;
               const campaignMsgs = (campaign.messages as any[]).slice(0, slots).map(toLineMessage);
               replyMessages.push(...campaignMsgs);
 
-              // Mark delivered
-              const updated = await Campaign.findByIdAndUpdate(
-                campaign._id,
-                { $addToSet: { deliveredTo: userId } },
-                { new: true }
-              );
-              if (updated && updated.deliveredTo.length >= updated.totalTargeted) {
-                await Campaign.findByIdAndUpdate(campaign._id, { $set: { status: 'completed' } });
-              }
+              // Mark delivered (also flips status to completed once fully delivered)
+              await CampaignRepo.markDelivered(merchantId, campaign.id, userId);
             }
           }
 
@@ -372,7 +351,7 @@ export async function POST(req: Request) {
               if (rule) {
                 const logTexts = rule.messages.slice(0, 5).map(blockToLogText).filter(Boolean);
                 if (logTexts.length > 0) {
-                  await Message.insertMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
+                  await MessageRepo.createMany(logTexts.map((text: string) => ({ merchantId, userId, platform: 'line', type: 'system', text, sender: 'system' })));
                 }
               }
             } catch (err) { console.error('[text reply]', err); }
@@ -380,31 +359,18 @@ export async function POST(req: Request) {
 
         // ── Image message ─────────────────────────────────────────────────────
         } else if (event.message?.type === 'image') {
-          await Message.create({ merchantId, userId, platform: 'line', type: 'image', messageId: event.message.id, text: '📸 Image Uploaded', sender: 'user' });
-          await Customer.updateOne({ merchantId, userId }, { $inc: { unreadCount: 1 } });
+          await MessageRepo.create({ merchantId, userId, platform: 'line', type: 'image', messageId: event.message.id, text: '📸 Image Uploaded', sender: 'user' });
+          await CustomerRepo.incrementUnreadCount(merchantId, userId, 1);
 
           // Piggyback campaign on image messages too (via reply)
           if (event.replyToken) {
-            const campaign = await Campaign.findOne({
-              merchantId,
-              deliveryMode: 'queued',
-              status: 'active',
-              validUntil: { $gt: new Date() },
-              deliveredTo: { $ne: userId },
-            }).lean() as any;
+            const campaign = await CampaignRepo.findActiveQueuedForUser(merchantId, userId);
 
             if (campaign) {
               try {
                 const campaignMsgs = (campaign.messages as any[]).slice(0, 5).map(toLineMessage);
                 await client.replyMessage({ replyToken: event.replyToken, messages: campaignMsgs });
-                const updated = await Campaign.findByIdAndUpdate(
-                  campaign._id,
-                  { $addToSet: { deliveredTo: userId } },
-                  { new: true }
-                );
-                if (updated && updated.deliveredTo.length >= updated.totalTargeted) {
-                  await Campaign.findByIdAndUpdate(campaign._id, { $set: { status: 'completed' } });
-                }
+                await CampaignRepo.markDelivered(merchantId, campaign.id, userId);
               } catch (err) { console.error('[image campaign reply]', err); }
             }
           }
@@ -439,50 +405,46 @@ export async function POST(req: Request) {
                     // an amount+time key only if the provider omits it.
                     const slipKey: string = slipData.data.transRef
                       || `${userId}:${amountPaid}:${new Date().toISOString().slice(0, 10)}`;
-                    let alreadyProcessed = false;
-                    try {
-                      await ProcessedSlip.create({ merchantId, transRef: slipKey, amount: amountPaid, userId });
-                    } catch (e: any) {
-                      if (e?.code === 11000) alreadyProcessed = true; else throw e;
-                    }
+                    const claimed = await ProcessedSlipRepo.claim(merchantId, slipKey, amountPaid, userId);
+                    const alreadyProcessed = !claimed;
 
                     const pendingOrders = alreadyProcessed
                       ? []
-                      : await Order.find({ merchantId, userId, status: 'pending' }).sort({ createdAt: 1 });
+                      : (await OrderRepo.listByMerchant(merchantId)).filter((o) => o.userId === userId && o.status === 'pending').reverse(); // oldest first
                     let remaining = amountPaid;
                     const toMark: any[] = [];
 
                     for (const order of pendingOrders) {
-                      if (remaining >= order.soldTHB && order.soldTHB > 0) {
-                        remaining -= order.soldTHB;
+                      if (remaining >= (order.soldTHB ?? 0) && (order.soldTHB ?? 0) > 0) {
+                        remaining -= order.soldTHB!;
                         toMark.push(order);
                       }
                     }
 
                     if (toMark.length > 0) {
-                      await Order.updateMany({ _id: { $in: toMark.map((o: any) => o._id) } }, { $set: { status: 'paid' } });
+                      await Promise.all(toMark.map((o) => OrderRepo.update(merchantId, o.id, { status: 'paid' })));
                       // Award loyalty points for each newly-paid order (idempotent helper)
                       for (const o of toMark) {
                         await awardLoyaltyForOrder(merchantId, o, matchedSettings?.loyalty);
                       }
                       const combinedProducts = toMark.map((o: any) => `${(o.quantity || 1) > 1 ? `${o.quantity}x ` : ''}${o.product?.replace(/^\d+x\s/, '')}`).join(', ');
-                      const customer = await Customer.findOne({ merchantId, userId }).lean() as any;
+                      const customer = await CustomerRepo.findByUserId(merchantId, userId);
                       // Type B: customer confirmation message
                       let msg = matchedSettings.paymentTemplate || "✅ Payment received!\n\nItem: {product}\nAmount: ฿{amount}\n\nThank you! 🙏";
                       msg = msg.replace(/{product}/g, combinedProducts).replace(/{amount}/g, amountPaid.toLocaleString()).replace(/{name}/g, customer?.displayName || 'Customer');
                       await client.pushMessage({ to: userId, messages: [{ type: 'text', text: msg }] });
-                      await Message.create({ merchantId, userId, platform: 'line', type: 'system', text: msg, metadata: { amount: amountPaid, products: combinedProducts }, sender: 'system' });
+                      await MessageRepo.create({ merchantId, userId, platform: 'line', type: 'system', text: msg, metadata: { amount: amountPaid, products: combinedProducts }, sender: 'system' });
                       // Type A: merchant alert
                       await notifyMerchant({ merchantId, type: 'slip_verified', message: `💰 Slip verified!\n\nCustomer: ${customer?.displayName || userId}\nAmount: ฿${amountPaid.toLocaleString()}\nItems: ${combinedProducts}`, metadata: { amount: amountPaid, userId }, settings: matchedSettings });
                     }
                   } else {
                     // Slip scan failed (invalid or unreadable slip) — Type A: merchant only, customer stays silent
-                    const customer = await Customer.findOne({ merchantId, userId }).lean() as any;
+                    const customer = await CustomerRepo.findByUserId(merchantId, userId);
                     await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip scan failed\n\nCustomer: ${customer?.displayName || userId}\nThe image could not be verified. Please check manually.`, metadata: { userId }, settings: matchedSettings });
                   }
                 } else {
                   // SlipOK API error — Type A: merchant only
-                  const customer = await Customer.findOne({ merchantId, userId }).lean() as any;
+                  const customer = await CustomerRepo.findByUserId(merchantId, userId);
                   await notifyMerchant({ merchantId, type: 'slip_failed', message: `⚠️ Slip verification error\n\nCustomer: ${customer?.displayName || userId}\nSlipOK API returned an error. Please verify payment manually.`, metadata: { userId }, settings: matchedSettings });
                 }
               }
@@ -495,8 +457,8 @@ export async function POST(req: Request) {
 
         // ── Sticker message ───────────────────────────────────────────────────
         } else if (event.message?.type === 'sticker') {
-          await Message.create({ merchantId, userId, platform: 'line', type: 'sticker', text: '🎭 Sticker', sender: 'user' });
-          await Customer.updateOne({ merchantId, userId }, { $inc: { unreadCount: 1 } });
+          await MessageRepo.create({ merchantId, userId, platform: 'line', type: 'sticker', text: '🎭 Sticker', sender: 'user' });
+          await CustomerRepo.incrementUnreadCount(merchantId, userId, 1);
         }
       }
     }

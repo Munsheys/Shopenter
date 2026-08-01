@@ -1,24 +1,36 @@
-import { Customer } from '@/models';
+import { CustomerRepo } from '@/lib/repos/customer';
 
-// --- Customer Write Queue (BulkWrite debounce pattern) ---
-// Collapses concurrent webhook hits into single DB round trips
+// --- Customer Write Queue (debounce pattern) ---
+// Collapses concurrent webhook hits into fewer DB round trips.
+//
+// The original Mongo bulkWrite filtered by `{userId}` alone, omitting merchantId — a latent
+// cross-tenant bug where two merchants both having a customer record for the same LINE
+// userId (a real person who messaged two different shop OAs) could clobber each other's
+// data, since the filter didn't scope to one merchant's Customer doc. DynamoDB's composite
+// key (merchantId, userId) makes that impossible by construction — merchantId is now
+// required to address a write at all.
 
 interface CustomerUpdate {
+  merchantId: string;
   userId: string;
   data: {
     displayName?: string;
     pictureUrl?: string;
-    lastSeen?: Date;
-    profileCachedAt?: Date;
+    lastSeen?: string;
+    profileCachedAt?: string;
   };
 }
 
 let queue: CustomerUpdate[] = [];
 let flushTimer: NodeJS.Timeout | null = null;
 
+function queueKey(u: Pick<CustomerUpdate, 'merchantId' | 'userId'>) {
+  return `${u.merchantId}#${u.userId}`;
+}
+
 export function enqueueCustomerUpdate(update: CustomerUpdate) {
-  // Merge any existing queued update for the same userId
-  const existing = queue.find(q => q.userId === update.userId);
+  // Merge any existing queued update for the same merchant+user
+  const existing = queue.find(q => queueKey(q) === queueKey(update));
   if (existing) {
     existing.data = { ...existing.data, ...update.data };
   } else {
@@ -38,17 +50,10 @@ async function flushQueue() {
   const batch = queue.splice(0, 100);
 
   try {
-    await Customer.bulkWrite(
-      batch.map(u => ({
-        updateOne: {
-          filter: { userId: u.userId },
-          update: { $set: u.data },
-          upsert: true
-        }
-      })),
-      { ordered: false } // Allow parallel writes; don't stop on first error
+    await Promise.all(
+      batch.map((u) => CustomerRepo.upsert(u.merchantId, u.userId, u.data))
     );
   } catch (err) {
-    console.error('[CustomerQueue] BulkWrite failed:', err);
+    console.error('[CustomerQueue] Flush failed:', err);
   }
 }

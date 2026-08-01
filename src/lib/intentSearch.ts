@@ -1,4 +1,4 @@
-import { Product } from '@/models';
+import { ProductRepo } from '@/lib/repos/product';
 
 const STOP_WORDS = new Set([
   // English
@@ -21,23 +21,16 @@ export async function searchProducts(merchantId: string, query: string): Promise
 
   if (!tokens.length) return [];
 
-  const orClauses = tokens.flatMap(token => [
-    { name:        { $regex: token, $options: 'i' } },
-    { brand:       { $regex: token, $options: 'i' } },
-    { description: { $regex: token, $options: 'i' } },
-    { categories:  { $elemMatch: { $regex: token, $options: 'i' } } },
-  ]);
-
-  const products = await (Product as any).find({ merchantId, isActive: true, $or: orClauses })
-    .select('_id name brand description categories price imageUrl')
-    .limit(20)
-    .lean() as any[];
+  // No server-side text search in DynamoDB — fetch active products (per-merchant catalogs
+  // stay small at current scale) and score/filter in memory instead of a regex $or query.
+  const products = await ProductRepo.listActiveByMerchant(merchantId);
 
   const haystack = (p: any) =>
     [p.name, p.brand, p.description, ...(p.categories || [])].join(' ').toLowerCase();
 
   return products
     .map((p: any) => ({ p, score: tokens.filter((t: string) => haystack(p).includes(t)).length }))
+    .filter((s) => s.score > 0)
     .sort((a: any, b: any) => b.score - a.score)
     .slice(0, 5)
     .map((s: any) => s.p);
