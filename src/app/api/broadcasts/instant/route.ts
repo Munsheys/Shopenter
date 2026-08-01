@@ -14,6 +14,10 @@ export const runtime = 'nodejs';
 // explicit env var you flip once you've upgraded, rather than automatic detection.
 const BROADCAST_ENABLED = process.env.BROADCAST_ENABLED === 'true';
 
+// Telegram and Instagram are being rebuilt and aren't available for merchant use yet —
+// LINE only for now. Enforced here (not just in the UI) since this is the actual send path.
+const ENABLED_PLATFORMS = new Set(['line']);
+
 const LINE_CHUNK = 500;     // LINE multicast API's own per-call recipient cap
 const TELEGRAM_CHUNK = 30;  // Telegram has no batch endpoint — kept small so one job stays fast
 
@@ -98,7 +102,7 @@ export async function POST(req: NextRequest) {
   if (settings?.telegram?.botToken?.trim() && settings?.telegram?.webhookActive) configuredPlatforms.push('telegram');
   if (settings?.instagram?.pageAccessToken?.trim() && settings?.instagram?.igAccountId?.trim()) configuredPlatforms.push('instagram');
 
-  const requestedPlatforms = (platforms as string[]).filter(p => configuredPlatforms.includes(p));
+  const requestedPlatforms = (platforms as string[]).filter(p => ENABLED_PLATFORMS.has(p) && configuredPlatforms.includes(p));
   if (requestedPlatforms.length === 0) {
     return NextResponse.json({ error: 'No selected platforms are configured' }, { status: 400 });
   }

@@ -1,11 +1,12 @@
-// Acquisition-first affiliate program: the referred user gets the big incentive
-// (longer trial) since that's what actually drives signups. The referrer's reward
-// is deliberately small and capped so referrals can't be farmed into a free year.
-export const ORGANIC_TRIAL_DAYS = 14;
-export const REFERRED_TRIAL_DAYS = 30;
+// Referral program: the referred user gets a shorter no-card trial as the hook to sign
+// up, while the referrer's reward — once the referred merchant actually subscribes and
+// pays — is a full billing cycle (30 days), since that maps cleanly onto Shopenter's
+// monthly billing and reads as "a month of Pro" rather than an odd day count. Capped per
+// rolling year so referrals can't be farmed into indefinite free service.
+export const REFERRED_TRIAL_DAYS = 14;
 
-export const REWARD_DAYS = 7;
-export const MAX_REWARDS_PER_ROLLING_YEAR = 6; // 6 * 7 = 42 days/year max, not a free year
+export const REWARD_DAYS = 30;
+export const MAX_REWARDS_PER_ROLLING_YEAR = 3; // 3 * 30 = 90 days/year max, not a free year
 
 // A referred merchant must stay paid for this long before the referrer's reward locks in,
 // so canceling right after "converting" doesn't farm rewards.

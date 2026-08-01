@@ -7,6 +7,7 @@ import {
 } from '@/models';
 import { deleteFromR2 } from '@/lib/r2';
 import { logAudit } from '@/lib/auditLog';
+import { pushShopenterLineMessage } from '@/lib/shopenterLine';
 
 export const runtime = 'nodejs';
 
@@ -67,6 +68,20 @@ export async function GET(req: NextRequest) {
         // Log before deleting the merchant doc — AuditLog.merchantId is not a foreign-key
         // constraint, so the entry remains valid (and required, for the 7-year record) after this.
         await logAudit({ merchantId, action: 'account_deleted', resource: 'merchant', status: 'success' });
+
+        // Final confirmation, sent before the doc (and merchant.lineUserId with it) is gone.
+        // inactivity-check already sent the staged advance warnings — this is the closing
+        // message once the deletion has actually happened, not a duplicate of those.
+        if (m.lineUserId) {
+          try {
+            await pushShopenterLineMessage(
+              m.lineUserId,
+              `Your Shopenter account (${m.shopName}) and all its data have been permanently deleted, as warned. If this was a mistake, you're welcome to sign up again — this doesn't carry over.`
+            );
+          } catch (err) {
+            console.error(`[purge] Termination push failed for ${merchantId}`, err);
+          }
+        }
 
         await Merchant.deleteOne({ _id: merchantId });
         purgedCount++;

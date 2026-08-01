@@ -26,7 +26,9 @@ export type AuditAction =
   | 'inactivity_deletion_cancelled'
   | 'line_account_linked'
   | 'line_link_failed'
-  | 'password_set';
+  | 'password_set'
+  | 'password_reset_requested'
+  | 'password_reset_completed';
 
 export type AuditResource = 'merchant' | 'product' | 'order' | 'customer' | 'settings' | 'none';
 

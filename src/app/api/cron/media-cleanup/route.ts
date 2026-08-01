@@ -10,12 +10,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Only deletes media that's both (a) not referenced by anything currently in use, and
- * (b) belongs to a merchant who's been inactive 3+ months (same threshold as the full
- * account-inactivity policy, src/lib/inactivity.ts) — an actively-used account never has
- * its media touched here, even if a given upload isn't attached to a product yet (they
- * might be mid-edit). Unlike the full account purge (src/app/api/cron/inactivity-check),
- * which additionally waits a 30-day grace period before deleting everything, this only
- * ever touches media nothing currently references — nothing "in use" is ever at risk.
+ * (b) belongs to a Free-tier merchant who's been inactive 3+ months — the exact same
+ * population and threshold as the full account-inactivity policy (src/app/api/cron/
+ * inactivity-check, src/lib/inactivity.ts). Paying tiers are never touched here, same
+ * exemption inactivity-check gives them. This deliberately does NOT send its own warning
+ * message: these merchants already get inactivity-check's staged LINE warnings ("your
+ * account and data will be cleaned up in X days"), which already covers media as part of
+ * "data" — a second, separate warning here would be redundant. An actively-used account
+ * never has its media touched, even if a given upload isn't attached to a product yet
+ * (they might be mid-edit) — only unreferenced files are ever at risk.
  */
 // A media file can be referenced two ways depending on how it's served:
 //   • proxied  →  /api/media/<mongoId>?t=<token>   (default, no R2_PUBLIC_BASE_URL)
@@ -40,6 +43,7 @@ export async function GET(req: NextRequest) {
     const inactivityCutoff = new Date(now.getTime() - INACTIVITY_THRESHOLD_DAYS * DAY_MS);
 
     const inactiveMerchants = await Merchant.find({
+      tier: 'free',
       $or: [
         { lastLoginAt: { $lte: inactivityCutoff } },
         { lastLoginAt: null, createdAt: { $lte: inactivityCutoff } },

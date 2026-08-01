@@ -37,12 +37,19 @@ const MerchantSchema = new mongoose.Schema({
   // Card-required Pro trial (separate from the automatic no-card referral trial).
   // One per merchant — tracked so the trial can't be repeatedly restarted.
   proTrialUsedAt: { type: Date, default: null },
+  // Password reset (dashboard login only — shoppers have no password account of any kind).
+  // Only the SHA-256 hash of the token is stored, same principle as passwordHash, so a DB
+  // read alone can't be used to reset the account; the raw token only ever exists in the
+  // one-time email/LINE message.
+  passwordResetTokenHash: { type: String, default: null },
+  passwordResetExpiresAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 MerchantSchema.index({ referralCode: 1 });
 MerchantSchema.index({ referredByMerchantId: 1 });
 MerchantSchema.index({ lineUserId: 1 });
 MerchantSchema.index({ lastLoginAt: 1 });
+MerchantSchema.index({ passwordResetTokenHash: 1 }, { sparse: true });
 
 const NotificationSchema = new mongoose.Schema({
   merchantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Merchant', required: true, index: true },

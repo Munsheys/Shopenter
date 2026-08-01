@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { Merchant, AffiliateCommission } from '@/models';
 import { REWARD_DAYS, MAX_REWARDS_PER_ROLLING_YEAR, CONVERSION_GRACE_DAYS, daysFromNow } from '@/lib/affiliate';
+import { notifyDowngradeToFree, notifyReferralRewardEarned } from '@/lib/subscriptionNotify';
 
 export const runtime = 'nodejs';
 
@@ -14,16 +15,16 @@ async function rewardsEarnedInRollingYear(referrerMerchantId: any): Promise<numb
   });
 }
 
-// Returns whether the reward was actually applied. Rewards are granted as
-// "free Pro time" via the trial mechanism rather than a real refund/credit,
+// Returns the referrer doc if the reward was actually applied, else null. Rewards are
+// granted as "free Pro time" via the trial mechanism rather than a real refund/credit,
 // which only makes sense for a referrer who isn't already a genuine paying
 // customer (otherwise the next expiry sweep would wrongly downgrade them to
 // free once the bonus period lapses).
-async function applyReferrerReward(referrerMerchantId: any): Promise<boolean> {
+async function applyReferrerReward(referrerMerchantId: any) {
   const referrer = await Merchant.findById(referrerMerchantId);
-  if (!referrer) return false;
-  if (referrer.tier === 'enterprise') return false;
-  if (referrer.paymentStatus === 'paid') return false;
+  if (!referrer) return null;
+  if (referrer.tier === 'enterprise') return null;
+  if (referrer.paymentStatus === 'paid') return null;
 
   const base = referrer.trialEndsAt && referrer.trialEndsAt > new Date() ? referrer.trialEndsAt : new Date();
   const newTrialEnd = new Date(base.getTime() + REWARD_DAYS * 24 * 60 * 60 * 1000);
@@ -33,7 +34,7 @@ async function applyReferrerReward(referrerMerchantId: any): Promise<boolean> {
   referrer.trialEndsAt = newTrialEnd;
   referrer.trialReason = 'affiliate_reward';
   await referrer.save();
-  return true;
+  return referrer;
 }
 
 export async function GET(req: NextRequest) {
@@ -49,10 +50,21 @@ export async function GET(req: NextRequest) {
     // Trials that ran out without converting roll down to the free tier. Only for
     // no-card trials (referral) — card-backed trials (omiseCustomerId set) are handled
     // by the billing-cycle cron instead, which attempts the real charge at trial end.
+    // Fetched first (rather than a bare updateMany) so each downgraded merchant can be
+    // notified — the update itself isn't gated on delivery since this isn't destructive
+    // the way an account deletion is; a missed notification just means the merchant finds
+    // out from the dashboard instead of a LINE push.
+    const lapsedTrialMerchants = await Merchant.find(
+      { paymentStatus: 'trialing', trialEndsAt: { $lt: now }, omiseCustomerId: null },
+      'lineUserId shopName'
+    );
     const expiredTrials = await Merchant.updateMany(
       { paymentStatus: 'trialing', trialEndsAt: { $lt: now }, omiseCustomerId: null },
       { $set: { paymentStatus: 'paid', tier: 'free', trialEndsAt: null } }
     );
+    for (const m of lapsedTrialMerchants) {
+      await notifyDowngradeToFree(m.lineUserId, m.shopName, 'trial_ended');
+    }
 
     // Promote conversions that survived the anti-abuse grace window into earned rewards.
     const graceCutoff = daysFromNow(-CONVERSION_GRACE_DAYS);
@@ -89,10 +101,11 @@ export async function GET(req: NextRequest) {
 
       const earnedThisYear = await rewardsEarnedInRollingYear(commission.referrerMerchantId);
       if (earnedThisYear < MAX_REWARDS_PER_ROLLING_YEAR) {
-        const applied = await applyReferrerReward(commission.referrerMerchantId);
-        if (applied) {
+        const referrer = await applyReferrerReward(commission.referrerMerchantId);
+        if (referrer) {
           await AffiliateCommission.updateOne({ _id: commission._id }, { $set: { rewardAppliedAt: now } });
           rewardedCount++;
+          await notifyReferralRewardEarned(referrer.lineUserId, referrer.shopName, REWARD_DAYS);
         }
       }
     }

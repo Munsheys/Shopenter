@@ -6,7 +6,7 @@ import { ALL_CURRENCIES } from '@/components/ProductManagement';
 import {
   Settings as SettingsIcon, Plus, X, Save, Eye, EyeOff, Copy, Check,
   ExternalLink, RefreshCw, MessageSquare, Package, Zap, Loader2, AlertTriangle, Bell,
-  Building2, ChevronRight, Send, Camera, Download, Trash2, ShieldAlert,
+  Building2, ChevronRight, Send, Camera, Download, Trash2, ShieldAlert, Wand2,
 } from 'lucide-react';
 import NumberStepper from '@/components/NumberStepper';
 import { getAccentText } from '@/lib/accent';
@@ -255,6 +255,8 @@ export default function SettingsView({
   const [highlighted, setHighlighted]     = useState<string | null>(null);
 
   const [settings, setSettings]       = useState<any>(null);
+  const [applyingDefaults, setApplyingDefaults] = useState(false);
+  const [defaultsApplied, setDefaultsApplied]   = useState(false);
   const [newCompany, setNewCompany]   = useState('');
   const [newBankRow, setNewBankRow]   = useState({ bankName: '', accountNumber: '', accountName: '', branch: '' });
   const [showGuide, setShowGuide]     = useState(true);
@@ -474,6 +476,46 @@ export default function SettingsView({
   const setPm = (field: string, value: any) => setSettings((s: any) => ({ ...s, paymentMethods: { ...(s?.paymentMethods || {}), [field]: value } }));
   const setFst = (field: string, value: any) => setSettings((s: any) => ({ ...s, freeShippingThreshold: { ...(s?.freeShippingThreshold || {}), [field]: value } }));
 
+  // One-click "Shopenter recommended" preset — every messaging toggle starts off by
+  // default (so a new merchant's existing workflow is never interrupted); this is an
+  // opt-in convenience for merchants who don't want to click through every toggle
+  // individually. Merges into existing per-stage templates / admin-alert config rather
+  // than replacing those objects wholesale, so a merchant's custom template text is never
+  // clobbered by applying this.
+  const applyRecommendedDefaults = async () => {
+    setApplyingDefaults(true);
+    const updated = {
+      ...settings,
+      greetingEnabled: true,
+      reEngageEnabled: false,
+      orderNotifications: {
+        ...(settings?.orderNotifications || {}),
+        paid:      { ...(settings?.orderNotifications?.paid      || {}), enabled: true },
+        preparing: { ...(settings?.orderNotifications?.preparing || {}), enabled: true },
+        shipped:   { ...(settings?.orderNotifications?.shipped   || {}), enabled: true },
+        delivered: { ...(settings?.orderNotifications?.delivered || {}), enabled: true },
+      },
+      adminAlerts: {
+        ...(settings?.adminAlerts || {}),
+        newOrder:     { ...(settings?.adminAlerts?.newOrder     || {}), line: true, dashboard: true },
+        slipReceived: { ...(settings?.adminAlerts?.slipReceived || {}), dashboard: true },
+        slipFailed:   { ...(settings?.adminAlerts?.slipFailed   || {}), dashboard: true },
+        outOfStock:   { ...(settings?.adminAlerts?.outOfStock   || {}), dashboard: true },
+      },
+    };
+    setSettings(updated);
+    try {
+      const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
+      if (res.ok) {
+        setOriginalSettings(updated);
+        onSave?.();
+        setDefaultsApplied(true);
+        setTimeout(() => setDefaultsApplied(false), 2500);
+      }
+    } catch { /* leave the local toggle state applied; normal Save can retry */ }
+    finally { setApplyingDefaults(false); }
+  };
+
   const handleThemeChange = async (newTheme: 'light' | 'lite' | 'dark') => {
     const updated = { ...settings, theme: newTheme };
     set('theme', newTheme);
@@ -622,11 +664,11 @@ export default function SettingsView({
   const hlCls = (id: string) => `rounded-xl px-3 py-2 -mx-3 transition-colors duration-1000 ${highlighted === id ? isDark ? 'bg-accent/20 ring-1 ring-accent/30' : 'bg-accent/5 ring-1 ring-accent/30' : ''}`;
   const ringCls = (id: string) => `rounded-2xl p-6 space-y-5 ${K.surface} transition-colors duration-700 ${highlighted === id ? 'ring-2 ring-accent/50' : ''}`;
 
-  const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode; desc: string }[] = [
+  const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode; desc: string; comingSoon?: boolean }[] = [
     { id: 'general',       label: 'General',       icon: <SettingsIcon  size={14} />, desc: 'Theme, language & hours'    },
     { id: 'line',          label: 'LINE',          icon: <MessageSquare size={14} />, desc: 'Webhook & credentials'      },
-    { id: 'telegram',      label: 'Telegram',      icon: <Send          size={14} />, desc: 'Bot token & webhook'        },
-    { id: 'instagram',     label: 'Instagram',     icon: <Camera        size={14} />, desc: 'DM bot & credentials'       },
+    { id: 'telegram',      label: 'Telegram',      icon: <Send          size={14} />, desc: 'Coming soon',                 comingSoon: true },
+    { id: 'instagram',     label: 'Instagram',     icon: <Camera        size={14} />, desc: 'Coming soon',                 comingSoon: true },
     { id: 'payment',       label: 'Payment',       icon: <Zap           size={14} />, desc: 'Methods, SlipOK & loyalty'  },
     { id: 'shipping',      label: 'Shipping',      icon: <Package       size={14} />, desc: 'Rates & companies'          },
     { id: 'notifications', label: 'Notifications', icon: <Bell          size={14} />, desc: 'Alerts & templates'         },
@@ -644,17 +686,22 @@ export default function SettingsView({
           {SECTIONS.map(s => (
             <button
               key={s.id}
-              onClick={() => scrollTo(s.id)}
+              onClick={() => { if (!s.comingSoon) scrollTo(s.id); }}
+              disabled={s.comingSoon}
               aria-current={activeSection === s.id ? 'true' : undefined}
+              title={s.comingSoon ? `${s.label} is coming soon` : undefined}
               className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors border ${
-                activeSection === s.id
+                s.comingSoon
+                  ? 'opacity-40 cursor-not-allowed border-transparent ' + (isDark ? 'text-[#4a5068]' : 'text-slate-400')
+                  : activeSection === s.id
                   ? 'text-white border-transparent'
                   : isDark ? 'border-[#1f2335] text-[#8b92ad]' : 'border-slate-200 text-slate-500'
               }`}
-              style={activeSection === s.id ? { background: localAccentBg, color: accentTextColor, borderColor: 'transparent' } : undefined}
+              style={!s.comingSoon && activeSection === s.id ? { background: localAccentBg, color: accentTextColor, borderColor: 'transparent' } : undefined}
             >
               {s.icon}
               {s.label}
+              {s.comingSoon && <span className="text-[9px] font-black uppercase">Soon</span>}
             </button>
           ))}
         </div>
@@ -679,25 +726,29 @@ export default function SettingsView({
             return (
               <button
                 key={s.id}
-                onClick={() => scrollTo(s.id)}
+                onClick={() => { if (!s.comingSoon) scrollTo(s.id); }}
+                disabled={s.comingSoon}
                 aria-current={active ? 'true' : undefined}
+                title={s.comingSoon ? `${s.label} is coming soon` : undefined}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all border ${
-                  active
+                  s.comingSoon
+                    ? 'opacity-40 cursor-not-allowed border-transparent'
+                    : active
                     ? isDark ? 'bg-white/[0.08] border-white/10' : 'bg-slate-100 border-slate-200'
                     : 'border-transparent ' + (isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50')
                 }`}
               >
                 <div
                   className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
-                    active ? 'text-white' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'
+                    active && !s.comingSoon ? 'text-white' : isDark ? 'text-[#8b92ad]' : 'text-slate-500'
                   }`}
-                  style={active ? { background: localAccentBg, color: accentTextColor } : undefined}
+                  style={active && !s.comingSoon ? { background: localAccentBg, color: accentTextColor } : undefined}
                 >
                   {s.icon}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-semibold leading-tight truncate transition-colors ${
-                    active ? isDark ? 'text-white' : 'text-slate-900' : isDark ? 'text-[#8b92ad]' : 'text-slate-600'
+                    active && !s.comingSoon ? isDark ? 'text-white' : 'text-slate-900' : isDark ? 'text-[#8b92ad]' : 'text-slate-600'
                   }`}>
                     {s.label}
                   </p>
@@ -705,7 +756,8 @@ export default function SettingsView({
                     {s.desc}
                   </p>
                 </div>
-                {active && <ChevronRight size={12} className="ml-auto flex-shrink-0 text-accent" />}
+                {s.comingSoon && <span className={`text-[9px] font-black uppercase ml-auto flex-shrink-0 ${isDark ? 'text-[#4a5068]' : 'text-slate-400'}`}>Soon</span>}
+                {active && !s.comingSoon && <ChevronRight size={12} className="ml-auto flex-shrink-0 text-accent" />}
               </button>
             );
           })}
@@ -1305,8 +1357,11 @@ export default function SettingsView({
                 <div className={`flex items-center gap-2 ${hlCls('telegram')}`}>
                   <Send size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>Telegram Bot</h2>
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 border border-amber-500/25">Coming soon</span>
                 </div>
+                <p className={`text-xs ${K.muted}`}>Telegram support is being built and isn&apos;t available yet — configuration is disabled for now.</p>
 
+                <div className="opacity-40 pointer-events-none select-none" aria-disabled="true">
                 {/* Telegram Setup Guide */}
                 <div className={`rounded-2xl border overflow-hidden ${guideSurface}`}>
                   <button
@@ -1434,6 +1489,7 @@ export default function SettingsView({
                     </div>
                   )}
                 </div>
+                </div>
 
               </div>
 
@@ -1442,8 +1498,11 @@ export default function SettingsView({
                 <div className={`flex items-center gap-2 ${hlCls('instagram')}`}>
                   <Camera size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>Instagram DM Bot</h2>
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 border border-amber-500/25">Coming soon</span>
                 </div>
+                <p className={`text-xs ${K.muted}`}>Instagram support is being built and isn&apos;t available yet — configuration is disabled for now.</p>
 
+                <div className="opacity-40 pointer-events-none select-none" aria-disabled="true">
                 {/* Instagram Setup Guide */}
                 <div className={`rounded-2xl border overflow-hidden ${guideSurface}`}>
                   <button
@@ -1545,6 +1604,7 @@ export default function SettingsView({
                     <code className={`text-xs font-mono px-3 py-1 rounded-lg ${isDark ? 'bg-[#1a1d2e]' : 'bg-slate-100'} text-accent`}>shopenter</code>
                     <CopyButton value="shopenter" aria-label="Copy verify token" />
                   </div>
+                </div>
                 </div>
 
               </div>
@@ -1871,6 +1931,25 @@ export default function SettingsView({
                 <div className={`flex items-center gap-2 ${hlCls('notifications')}`}>
                   <Bell size={15} className="text-accent" />
                   <h2 className={`text-base font-bold ${K.text}`}>Notifications</h2>
+                </div>
+
+                {/* Recommended defaults — every toggle below starts off; this is a one-click
+                    way to turn on what Shopenter suggests instead of clicking through each one. */}
+                <div className={`flex items-center justify-between gap-3 rounded-2xl px-5 py-4 ${K.surface}`}>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold ${K.text}`}>Use Shopenter&apos;s recommended defaults</p>
+                    <p className={`text-xs mt-0.5 ${K.muted}`}>Turns on order status updates and new-order/low-stock alerts. Everything else stays as you&apos;ve set it — this never overwrites your custom templates.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={applyRecommendedDefaults}
+                    disabled={applyingDefaults || isSettingsLoading}
+                    className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 hover:opacity-90 active:scale-[0.98]"
+                    style={{ background: defaultsApplied ? '#10b981' : 'var(--accent-gradient)', color: 'var(--accent-text, white)' }}
+                  >
+                    {applyingDefaults ? <Loader2 size={13} className="animate-spin" /> : defaultsApplied ? <Check size={13} /> : <Wand2 size={13} />}
+                    {applyingDefaults ? 'Applying…' : defaultsApplied ? 'Applied!' : 'Use recommended'}
+                  </button>
                 </div>
 
                 {/* Order Status Notifications */}

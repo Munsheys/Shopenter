@@ -6,6 +6,7 @@ import { TIER_PRICE_THB, BILLING_GRACE_PERIOD_DAYS, type Tier } from '@/lib/tier
 import { chargeCustomer, thbToSatang } from '@/lib/omise';
 import { daysFromNow } from '@/lib/affiliate';
 import { recordAndNotifyReceipt } from '@/lib/billingReceipt';
+import { notifyDowngradeToFree, notifyPaymentFailed } from '@/lib/subscriptionNotify';
 
 export const runtime = 'nodejs';
 
@@ -74,17 +75,21 @@ export async function GET(req: NextRequest) {
           });
           renewed++;
         } else {
+          const wasAlreadyPastDue = Boolean(merchant.pastDueSince);
           merchant.subscriptionStatus = 'past_due';
           merchant.pastDueSince = merchant.pastDueSince ?? now;
           await merchant.save();
           await logAudit({ merchantId: merchant._id.toString(), action: 'subscription_charge_failed', resource: 'merchant', status: 'failed', errorMessage: charge.failure_message || `Charge status: ${charge.status}` });
+          if (!wasAlreadyPastDue) await notifyPaymentFailed(merchant.lineUserId, merchant.shopName, BILLING_GRACE_PERIOD_DAYS);
           failed++;
         }
       } catch (err) {
+        const wasAlreadyPastDue = Boolean(merchant.pastDueSince);
         merchant.subscriptionStatus = 'past_due';
         merchant.pastDueSince = merchant.pastDueSince ?? now;
         await merchant.save();
         await logAudit({ merchantId: merchant._id.toString(), action: 'subscription_charge_failed', resource: 'merchant', status: 'failed', errorMessage: err instanceof Error ? err.message : 'Unknown error' });
+        if (!wasAlreadyPastDue) await notifyPaymentFailed(merchant.lineUserId, merchant.shopName, BILLING_GRACE_PERIOD_DAYS);
         failed++;
       }
     }
@@ -102,6 +107,7 @@ export async function GET(req: NextRequest) {
       merchant.nextBillingDate = null;
       await merchant.save();
       await logAudit({ merchantId: merchant._id.toString(), action: 'subscription_downgraded', resource: 'merchant', status: 'success' });
+      await notifyDowngradeToFree(merchant.lineUserId, merchant.shopName, 'payment_failed');
     }
 
     // Voluntary cancellations keep access until the already-paid period ends, then drop to Free.
@@ -116,6 +122,7 @@ export async function GET(req: NextRequest) {
       merchant.nextBillingDate = null;
       await merchant.save();
       await logAudit({ merchantId: merchant._id.toString(), action: 'subscription_downgraded', resource: 'merchant', status: 'success' });
+      await notifyDowngradeToFree(merchant.lineUserId, merchant.shopName, 'cancelled');
     }
 
     return NextResponse.json({

@@ -1091,11 +1091,11 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
   const remaining = lineStatus?.quota?.type === 'none' ? Infinity : (lineStatus?.quota?.value ?? 0) - (lineStatus?.consumption?.totalUsage ?? 0);
 
   const SECTIONS = [
-    { id: 'broadcast',   label: 'Broadcast',   icon: <Zap size={14} /> },
-    { id: 'automation',  label: 'Automation',  icon: <Wand2 size={14} /> },
-    { id: 'line',        label: 'LINE',        icon: <LayoutGrid size={14} /> },
-    { id: 'instagram',   label: 'Instagram',   icon: <Camera size={14} /> },
-    { id: 'telegram',    label: 'Telegram',    icon: <Send size={14} /> },
+    { id: 'broadcast',   label: 'Broadcast',   icon: <Zap size={14} />,        comingSoon: false },
+    { id: 'automation',  label: 'Automation',  icon: <Wand2 size={14} />,      comingSoon: false },
+    { id: 'line',        label: 'LINE',        icon: <LayoutGrid size={14} />, comingSoon: false },
+    { id: 'instagram',   label: 'Instagram',   icon: <Camera size={14} />,     comingSoon: true },
+    { id: 'telegram',    label: 'Telegram',    icon: <Send size={14} />,       comingSoon: true },
   ] as const;
 
   return (
@@ -1144,15 +1144,20 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
         {SECTIONS.map(s => (
           <button
             key={s.id}
-            onClick={() => setSection(s.id)}
+            onClick={() => { if (!s.comingSoon) setSection(s.id); }}
+            disabled={s.comingSoon}
+            title={s.comingSoon ? `${s.label} is coming soon` : undefined}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 active:scale-95 flex-1 justify-center ${
-              section === s.id
+              s.comingSoon
+                ? 'opacity-40 cursor-not-allowed ' + (isDark ? 'text-[#4a5068]' : 'text-slate-300')
+                : section === s.id
                 ? 'text-white shadow-sm'
                 : isDark ? 'text-[#8b92ad] hover:text-white' : 'text-slate-500 hover:text-slate-800'
             }`}
-            style={section === s.id ? { background: 'var(--accent-gradient)' } : undefined}
+            style={!s.comingSoon && section === s.id ? { background: 'var(--accent-gradient)' } : undefined}
           >
             {s.icon}{s.label}
+            {s.comingSoon && <span className="text-[9px] font-black uppercase">Soon</span>}
           </button>
         ))}
       </div>
@@ -1185,22 +1190,22 @@ export default function BroadcastsView({ theme, accentColor = '#00b900', onLimit
               <label className={`block text-[11px] font-semibold uppercase tracking-widest mb-2 ${k.muted}`}>Platforms</label>
               <div className="flex flex-wrap gap-2">
                 {([
-                  { id: 'line', label: 'LINE', configured: platformStatus.line, dot: 'bg-emerald-400', ring: 'ring-emerald-500/30', activeBg: isDark ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-300 text-emerald-700' },
-                  { id: 'telegram', label: 'Telegram', configured: platformStatus.telegram, dot: 'bg-blue-400', ring: 'ring-blue-500/30', activeBg: isDark ? 'bg-blue-500/15 border-blue-500/30 text-blue-300' : 'bg-blue-50 border-blue-300 text-blue-700' },
-                  { id: 'instagram', label: 'Instagram', configured: platformStatus.instagram, dot: 'bg-pink-400', ring: 'ring-pink-500/30', activeBg: isDark ? 'bg-pink-500/15 border-pink-500/30 text-pink-300' : 'bg-pink-50 border-pink-300 text-pink-700' },
+                  { id: 'line', label: 'LINE', configured: platformStatus.line, comingSoon: false, dot: 'bg-emerald-400', ring: 'ring-emerald-500/30', activeBg: isDark ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-300 text-emerald-700' },
+                  { id: 'telegram', label: 'Telegram', configured: platformStatus.telegram, comingSoon: true, dot: 'bg-blue-400', ring: 'ring-blue-500/30', activeBg: isDark ? 'bg-blue-500/15 border-blue-500/30 text-blue-300' : 'bg-blue-50 border-blue-300 text-blue-700' },
+                  { id: 'instagram', label: 'Instagram', configured: platformStatus.instagram, comingSoon: true, dot: 'bg-pink-400', ring: 'ring-pink-500/30', activeBg: isDark ? 'bg-pink-500/15 border-pink-500/30 text-pink-300' : 'bg-pink-50 border-pink-300 text-pink-700' },
                 ] as const).map(p => {
                   const selected = bPlatforms.includes(p.id);
                   return (
                     <button
                       key={p.id}
                       type="button"
-                      disabled={!p.configured}
-                      title={!p.configured ? `${p.label} not configured — go to Settings` : undefined}
+                      disabled={!p.configured || p.comingSoon}
+                      title={p.comingSoon ? `${p.label} is coming soon` : !p.configured ? `${p.label} not configured — go to Settings` : undefined}
                       onClick={() => setBPlatforms(prev =>
                         selected ? prev.filter(x => x !== p.id) : [...prev, p.id]
                       )}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
-                        !p.configured
+                        !p.configured || p.comingSoon
                           ? isDark ? 'border-[#1f2335] text-[#4a5068] cursor-not-allowed' : 'border-slate-200 text-slate-300 cursor-not-allowed'
                           : selected
                           ? `${p.activeBg} ring-1 ${p.ring}`

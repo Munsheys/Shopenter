@@ -265,13 +265,28 @@ export default function FloatingGuide({
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
     },
     {
-      n: 9, done: hasAutoReply,
+      // Every automatic customer message starts off by default so a new merchant's
+      // workflow is never interrupted (see AGENTS-adjacent messaging-preferences work) —
+      // this step is what actually walks them through turning any of it on, rather than
+      // leaving order-status updates silently disabled forever.
+      n: 9, done: !!(
+        settings.orderNotifications?.paid?.enabled ||
+        settings.orderNotifications?.preparing?.enabled ||
+        settings.orderNotifications?.shipped?.enabled ||
+        settings.orderNotifications?.delivered?.enabled
+      ),
+      icon: <AlertCircle size={12} />,
+      title: 'Turn on order status notifications',
+      action: { kind: 'nav', label: 'Notification Settings', tab: 'settings', section: 'notifications' },
+    },
+    {
+      n: 10, done: hasAutoReply,
       icon: <MessageSquare size={12} />,
       title: 'Create auto-reply rules',
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
     },
     {
-      n: 10, done: hasRichMenu,
+      n: 11, done: hasRichMenu,
       icon: <LayoutGrid size={12} />,
       title: 'Design a Rich Menu',
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
@@ -281,7 +296,7 @@ export default function FloatingGuide({
     // Walking a new merchant to a step they can't complete is worse than not showing it;
     // it reappears automatically once the env var flips on with a Pro upgrade.
     ...(process.env.NEXT_PUBLIC_BROADCAST_ENABLED === 'true' ? [{
-      n: 11, done: hasBroadcast,
+      n: 12, done: hasBroadcast,
       icon: <Megaphone size={12} />,
       title: 'Send first broadcast',
       action: { kind: 'nav', label: 'Broadcasts', tab: 'broadcasts' },
